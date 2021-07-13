@@ -81,7 +81,13 @@ endif()
 # -----------------------------------------------------------------------------
 
 if (RL_COMPILER_ID MATCHES "AppleClang|Clang|GNU|Intel")
-  list(APPEND rl_cflags -Wall -Wextra -Wpedantic -Wimplicit-int-conversion -Wsign-conversion -Wno-unknown-pragmas -Wno-unused-function -Wno-padded)
+  list(APPEND rl_cflags -Wall -Wextra -Wpedantic -Wno-unknown-pragmas -Wno-unused-function -Wno-padded)
+  if (RL_COMPILER_ID MATCHES "AppleClang|Clang")
+    list(APPEND rl_cflags -Wimplicit-int-conversion -Wsign-conversion)
+  endif()
+  if (RL_COMPILER_ID MATCHES "GNU")
+    list(APPEND rl_cflags -Wint-conversion -Wsign-conversion)
+  endif()
 endif()
 
 # treat C extension as C++

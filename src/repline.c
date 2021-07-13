@@ -135,7 +135,7 @@ exported void rl_done( rl_env_t* env ) {
 exported rl_env_t* rl_init_ex( malloc_fun_t* _malloc, realloc_fun_t* _realloc, free_fun_t* _free )  
 {
   // allocate
-  rl_env_t* env = (rl_env_t*)_malloc(sizeof(rl_env_t));
+  rl_env_t* env = (rl_env_t*)malloc(sizeof(rl_env_t));
   if (env==NULL) return NULL;
   memset(env,0,sizeof(*env));
   env->alloc.malloc  = _malloc;

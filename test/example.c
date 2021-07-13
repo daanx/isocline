@@ -38,7 +38,10 @@ int main()
   rl_set_prompt_color(env, RL_GREEN);
   char *line;
   while((line = rl_readline(env,"prompt")) != NULL) {   // ctrl-D returns NULL (as well as errors)
-    if (line[0] == 0) break;
+    if (line[0] == 0) {
+      free(line);
+      break;
+    }
     printf("-----\n%s\n-----\n", line);
     free(line);
   }

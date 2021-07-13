@@ -94,7 +94,7 @@ internal int utf8_width( const char* s, ssize_t n );
 #define env_free(env,p)       mem_free(&(env)->alloc,p)
 #define env_strdup(env,s)     mem_strdup(&(env)->alloc,s)
 #define env_zalloc_tp(env,tp)     mem_zalloc_tp(&(env)->alloc,tp)
-#define env_malloc_tp_n(env,tp,n) mem_zalloc_tp_n(&(env)->alloc,tp,n)
+#define env_malloc_tp_n(env,tp,n) mem_malloc_tp_n(&(env)->alloc,tp,n)
 
 
 #endif // RL_ENV_H

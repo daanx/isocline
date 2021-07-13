@@ -82,6 +82,8 @@ static bool skip_csi_esc( const char* s, ssize_t len, ssize_t* esclen ) {
   ssize_t n = 2;
   bool intermediate = false;
   while( len > n ) {
+    //char buf[32]; strncpy(buf,s,(31 > len ? len : 31));
+    //debug_msg("skip esc: len %zd, n %zd, %s\n", len, n, buf );
     char c = s[n];
     if (c >= 0x30 && c <= 0x3F) {       // parameter bytes: 0–9:;<=>?
       if (intermediate) break;          // cannot follow intermediate bytes
@@ -142,12 +144,17 @@ static bool editbuf_ensure_space(rl_env_t* env, editbuf_t* eb, ssize_t extra)
 {
   if (eb->buflen < eb->len + extra) {
     // reallocate
-    ssize_t newlen = 2*eb->buflen;
+    ssize_t newlen = (eb->buflen == 0 ? 1024 : 2*eb->buflen);
     if (newlen <= eb->len + extra) newlen = eb->len + extra + 1;
-    char* newbuf = (char*)env_realloc(env, eb->buf, newlen);
-    if (newbuf == NULL) return false;
+    debug_msg("reallocate edit buffer: old %zd, new %zd\n", eb->buflen, newlen);
+    char* newbuf = (char*)env_realloc(env, eb->buf, newlen+1);
+    if (newbuf == NULL) {
+      assert(false);
+      return false;
+    }
     eb->buf = newbuf;
     eb->buflen = newlen;
+    eb->buf[eb->buflen] = 0;
   }
   assert(eb->buflen >= eb->len + extra);
   return true;
@@ -172,8 +179,12 @@ static bool editbuf_append_extra( rl_env_t* env, editbuf_t* eb, const char* s ) 
   if (s == NULL) return true;
   ssize_t len = rl_strlen(s);
   if (!editbuf_ensure_space(env,eb,len)) return false;
-  rl_strncpy( eb->buf + eb->len, eb->buflen - eb->len, s, len );
-  eb->len += len;  
+  assert(eb->buflen - eb->len >= len);
+  if (!rl_memnmove( eb->buf + eb->len, eb->buflen - eb->len, s, len )) {
+    assert(false);
+    return false;
+  }
+  eb->len += len;
   return true;
 }
 
@@ -269,10 +280,15 @@ static ssize_t edit_for_each_row( rl_env_t* env, editbuf_t* eb, edit_line_fun_t*
   ssize_t rcol = 0;
   ssize_t rstart = 0;  
   bool    in_extra = false;
-  bool    after_user = false;
-  for(i = 0; i < eb->len; ) {    
+  bool    after_user = false;  
+  for(i = 0; i < eb->len; ) {
     ssize_t w;
     ssize_t next = editbuf_next_ofs(eb, eb->buf, eb->len, i, &w);    
+    if (next <= 0) {
+      debug_msg("edit: foreach row: next<=0: len %zd, i %zd, w %zd, buf %s\n", eb->len, i, w, eb->buf );
+      assert(false);
+      break;
+    }
     ssize_t pwidth = (in_extra ? 0 : eb->prompt_width);
     if (termw != 0 && i != 0 && (rcol + w + pwidth + 1 /* for the cursor */) > termw) {  
       // wrap
@@ -336,13 +352,16 @@ static bool edit_get_current_pos_iter(
     ssize_t adjust = (is_wrap  /* wrap has no newline at end */ || 
                       (row_len > 0 && eb->buf[row_start + row_len - 1] == 0) /* end of user input */ ? 1 : 0);
     rc->last_on_row  = (eb->pos == row_start + row_len - adjust);
-    debug_msg("edit: pos iter: %s %s, pos: %zd, row_start: %zd, rowlen: %zd\n", in_extra ? "inextra" : "", is_wrap ? "wrap" : "", eb->pos, row_start, row_len);
+    debug_msg("edit: pos iter%s%s, row %zd, pos: %zd, row_start: %zd, rowlen: %zd\n", in_extra ? " inextra" : "", is_wrap ? " wrap" : "", row, eb->pos, row_start, row_len);
     for(ssize_t i = row_start; i < eb->pos; ) {
       ssize_t w;
-      i += editbuf_next_ofs(eb, eb->buf, eb->len, i, &w);
+      ssize_t next = editbuf_next_ofs(eb, eb->buf, eb->len, i, &w);
+      if (next <= 0) break;
+      i += next;
       rc->col += w;
     }
   }
+  debug_msg("edit: pos iter return row %zd\n", row);
   return false; // always continue to count all rows
 }
 
@@ -369,7 +388,7 @@ static bool edit_set_pos_iter(
   ssize_t end = row_start + row_len;
   while (col < rc->col && i < end) {
     ssize_t w;
-    ssize_t next = editbuf_next_ofs(eb, eb->buf, eb->buflen, i, &w);
+    ssize_t next = editbuf_next_ofs(eb, eb->buf, eb->len, i, &w);
     i += next;
     col += w;
   }
@@ -529,10 +548,11 @@ static void edit_history_at(rl_env_t* env, editbuf_t* eb, int ofs )
   ssize_t len = rl_strlen(entry);
   editbuf_ensure_space(env,eb,len + 1);
   assert(eb->buflen >= len + 1);
-  rl_strncpy(eb->buf, eb->buflen, entry, len);
-  eb->len = len + 1;
-  eb->pos = len;
-  eb->modified = false;
+  if (rl_strcpy(eb->buf, eb->buflen, entry)) {
+    eb->len = len + 1;
+    eb->pos = len;
+  }
+  eb->modified = false;  
   edit_refresh(env,eb);
 }
 
@@ -737,8 +757,8 @@ static void editbuf_append_completion(rl_env_t* env, editbuf_t* eb, ssize_t idx,
   completion_t* cm = completions_get(env,idx);
   if (cm == NULL) return;
   if (numbered) {
-    char buf[16];
-    snprintf(buf, 16, "\x1B[90m%zd. \x1B[0m", 1 + idx);
+    char buf[32];
+    snprintf(buf, 32, "\x1B[90m%zd. \x1B[0m", 1 + idx);
     editbuf_append_extra(env, eb, buf);
     width -= 3;
   }

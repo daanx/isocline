@@ -61,23 +61,32 @@ static inline void rl_memmove( void* dest, const void* src, ssize_t n ) {
   memmove(dest,src,to_size_t(n));
 }
 
+
 static inline void rl_memcpy( void* dest, const void* src, ssize_t n ) {
   assert(dest!=NULL && src != NULL);
   if (n <= 0) return;
   memcpy(dest,src,to_size_t(n));
 }
 
-static inline ssize_t rl_strncpy( char* dest, ssize_t dest_size /* including 0 */, const char* src, ssize_t n /* excluding 0 */) {
+
+static inline bool rl_memnmove( void* dest, ssize_t dest_size, const void* src, ssize_t n ) {
   assert(dest!=NULL && src != NULL);
-  if (dest == NULL || dest_size <= 0) return 0;
-  if (n >= dest_size) n = dest_size - 1;
-  ssize_t slen = rl_strlen(src);
-  if (slen <= 0) n = 0;
-  if (slen < n)  n = slen;
-  strncpy(dest,src,to_size_t(n));
-  dest[n] = 0;
-  return n;
+  if (n <= 0) return true;
+  if (dest_size < n) { assert(false); return false; }
+  memmove(dest,src,to_size_t(n));
+  return true;
 }
+
+static inline bool rl_strcpy( char* dest, ssize_t dest_size /* including 0 */, const char* src) {
+  assert(dest!=NULL && src != NULL);
+  if (dest == NULL || dest_size <= 0) return false;
+  ssize_t slen = rl_strlen(src);
+  if (slen >= dest_size) return false;
+  strcpy(dest,src);
+  assert(dest[slen] == 0);
+  return true;
+}
+
 
 //-------------------------------------------------------------
 // Debug

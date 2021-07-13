@@ -177,7 +177,11 @@ internal bool term_write(term_t* term, const char* s) {
   else {
     // write to buffer to reduce flicker
     if (!term_buffered_ensure(term, n)) return false;
-    term->bufcount += rl_strncpy( term->buf + term->bufcount, term->buflen - term->bufcount, s, n);
+    if (!rl_strcpy( term->buf + term->bufcount, term->buflen - term->bufcount, s)) {
+      assert(false);
+      return false;
+    };
+    term->bufcount += n;
     assert(term->buf[term->bufcount] == 0);
     return true;
   }
