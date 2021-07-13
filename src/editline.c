@@ -758,7 +758,7 @@ static void editbuf_append_completion(rl_env_t* env, editbuf_t* eb, ssize_t idx,
   if (cm == NULL) return;
   if (numbered) {
     char buf[32];
-    snprintf(buf, 32, "\x1B[90m%zd. \x1B[0m", 1 + idx);
+    snprintf(buf, 32, "\x1B[90m%zd. \x1B[0", 1 + idx);
     editbuf_append_extra(env, eb, buf);
     width -= 3;
   }

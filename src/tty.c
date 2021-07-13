@@ -13,6 +13,8 @@
 #include "tty.h"
 
 #if defined(_WIN32)
+#define isatty(fd)     _isatty(fd)
+#define read(fd,s,n)   _read(fd,s,n)
 #define STDIN_FILENO 0
 #else
 #include <unistd.h>
@@ -73,7 +75,7 @@ internal bool code_is_key( tty_t* tty, code_t c ) {
 
 #ifdef _WIN32
 internal bool tty_readc(tty_t* tty, char* c) {
-  return (_read(tty->fin, c, 1) == 1);
+  return (read(tty->fin, c, 1) == 1);
 }
 
 static bool tty_has_available(tty_t* tty) {
@@ -226,7 +228,7 @@ static bool tty_init_utf8(tty_t* tty) {
 internal bool tty_init(tty_t* tty, int fin) 
 {
   tty->fin = (fin < 0 ? STDIN_FILENO : fin);
-  return (_isatty(fin) && tty_init_raw(tty) && tty_init_utf8(tty));
+  return (isatty(fin) && tty_init_raw(tty) && tty_init_utf8(tty));
 }
 
 internal void tty_done(tty_t* tty) {

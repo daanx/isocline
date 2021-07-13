@@ -14,6 +14,7 @@
 #include "term.h"
 
 #if defined(_WIN32)
+#define write(fd,s,n)   _write(fd,s,n)
 #define STDOUT_FILENO 1
 #else
 #include <unistd.h>
@@ -173,7 +174,7 @@ internal bool term_write(term_t* term, const char* s) {
   // todo: strip colors on monochrome
   ssize_t n = rl_strlen(s);
   if (!term->buffered) {
-    return (_write(term->fout, s, to_size_t(n)) == n);
+    return (write(term->fout, s, to_size_t(n)) == n);
   }
   else {
     // write to buffer to reduce flicker
@@ -199,7 +200,7 @@ internal void term_end_buffered(term_t* term) {
   if (term->buf != NULL && term->bufcount > 0) {
     assert(term->buf[term->bufcount] == 0);
     //term_write(term,term->buf);
-    _write(term->fout, term->buf, to_size_t(term->bufcount));
+    write(term->fout, term->buf, to_size_t(term->bufcount));
     term->bufcount = 0;
     term->buf[0] = 0;
   }
