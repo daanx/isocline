@@ -13,6 +13,7 @@
 #include "tty.h"
 
 #if defined(_WIN32)
+#define STDIN_FILENO 0
 #else
 #include <unistd.h>
 #include <sys/ioctl.h>
@@ -70,7 +71,26 @@ internal bool code_is_key( tty_t* tty, code_t c ) {
 //-------------------------------------------------------------
 #define KEY_OFS    (((code_t)1) << 21)
 
+#ifdef _WIN32
+internal bool tty_readc(tty_t* tty, char* c) {
+  return (_read(tty->fin, c, 1) == 1);
+}
 
+static bool tty_has_available(tty_t* tty) {
+  return true;
+}
+
+// read escape sequence
+static code_t tty_read_esc(tty_t* tty) {
+  return KEY_ESC;
+}
+
+internal bool tty_readc_peek(tty_t* tty, char* c) {
+  *c = ' ';
+  return true;
+}
+
+#else
 internal bool tty_readc(tty_t* tty, char* c) {
   return (read(tty->fin, c, 1) == 1);
 }
@@ -80,17 +100,6 @@ static bool tty_has_available(tty_t* tty) {
   int n = 0;
   return (ioctl(0, FIONREAD, &n) == 0 && n > 0);
 }
-
-internal bool tty_readc_peek(tty_t* tty, char* c) {
-  if (!tty_has_available(tty)) {
-    if (c!=NULL) *c = 0;
-    return false;
-  }
-  else {
-    return tty_readc(tty,c);
-  }
-}
-
 
 // read escape sequence
 static code_t tty_read_esc(tty_t* tty) {
@@ -125,6 +134,17 @@ fail:
   return KEY_ESC;
 }
 
+internal bool tty_readc_peek(tty_t* tty, char* c) {
+  if (!tty_has_available(tty)) {
+    if (c!=NULL) *c = 0;
+    return false;
+  }
+  else {
+    return tty_readc(tty,c);
+  }
+}
+#endif
+
 // read a single char/key
 internal code_t tty_read(tty_t* tty) {
   // pushed back?
@@ -157,6 +177,19 @@ internal void tty_pushback( tty_t* tty, code_t c ) {
 //-------------------------------------------------------------
 // Init 
 //-------------------------------------------------------------
+#ifdef _WIN32
+internal void tty_start_raw(tty_t* tty) {
+  unused(tty);
+}
+
+internal void tty_end_raw(tty_t* tty) {
+  unused(tty);
+}
+
+static bool tty_init_raw(tty_t* tty) {
+  return true;
+}
+#else
 internal void tty_start_raw(tty_t* tty) {
   if (tty->raw_enabled) return;
   if (tcsetattr(tty->fin,TCSAFLUSH,&tty->raw_ios) < 0) return;
@@ -181,6 +214,7 @@ static bool tty_init_raw(tty_t* tty)
   tty->raw_ios.c_cc[VMIN] = 1;   
   return true;
 }
+#endif
 
 static bool tty_init_utf8(tty_t* tty) {
   char* loc = setlocale(LC_ALL,"");
@@ -192,7 +226,7 @@ static bool tty_init_utf8(tty_t* tty) {
 internal bool tty_init(tty_t* tty, int fin) 
 {
   tty->fin = (fin < 0 ? STDIN_FILENO : fin);
-  return (isatty(fin) && tty_init_raw(tty) && tty_init_utf8(tty));
+  return (_isatty(fin) && tty_init_raw(tty) && tty_init_utf8(tty));
 }
 
 internal void tty_done(tty_t* tty) {

@@ -14,6 +14,7 @@
 #include "term.h"
 
 #if defined(_WIN32)
+#define STDOUT_FILENO 1
 #else
 #include <unistd.h>
 #include <sys/ioctl.h>
@@ -172,7 +173,7 @@ internal bool term_write(term_t* term, const char* s) {
   // todo: strip colors on monochrome
   ssize_t n = rl_strlen(s);
   if (!term->buffered) {
-    return (write(term->fout, s, to_size_t(n)) == n);
+    return (_write(term->fout, s, to_size_t(n)) == n);
   }
   else {
     // write to buffer to reduce flicker
@@ -198,7 +199,7 @@ internal void term_end_buffered(term_t* term) {
   if (term->buf != NULL && term->bufcount > 0) {
     assert(term->buf[term->bufcount] == 0);
     //term_write(term,term->buf);
-    write(term->fout, term->buf, to_size_t(term->bufcount));
+    _write(term->fout, term->buf, to_size_t(term->bufcount));
     term->bufcount = 0;
     term->buf[0] = 0;
   }
@@ -229,6 +230,11 @@ static void term_set_cursor_pos( term_t* term, int row, int col ) {
   term_writef( term, RL_CSI "%d;%dH", row, col );
 }
 
+#ifdef _WIN32
+internal bool term_update_dim(term_t* term, tty_t* tty) {
+  return true;
+}
+#else
 internal bool term_update_dim(term_t* term, tty_t* tty) {
   int cols = 0;
   int rows = 0;
@@ -266,6 +272,7 @@ internal bool term_update_dim(term_t* term, tty_t* tty) {
   term->height = rows;
   return true;  
 }
+#endif
 
 internal bool term_init(term_t* term, tty_t* tty, alloc_t* mem, bool monochrome, bool silent, int fout ) 
 {

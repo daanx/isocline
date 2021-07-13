@@ -43,7 +43,7 @@ typedef struct history_s {
   ssize_t count;
   ssize_t len;
   const char** elems;
-  const char* fname;
+  const char*  fname;
 } history_t;
 
 //-------------------------------------------------------------

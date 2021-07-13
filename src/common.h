@@ -42,8 +42,8 @@
 // ssize_t
 //-------------------------------------------------------------
 
-#if defined(_MSC_VER) 
-typedef intptr_t ssize_t
+#if defined(_MSC_VER)
+typedef intptr_t ssize_t;
 #endif
 
 #define ssizeof(tp)   (ssize_t)(sizeof(tp))

@@ -4,6 +4,7 @@
   under the terms of the MIT License. A copy of the license can be
   found in the "LICENSE" file at the root of this distribution.
 -----------------------------------------------------------------------------*/
+#define _CRT_SECURE_NO_WARNINGS  // for msvc
 
 //-------------------------------------------------------------
 // Usually we include all sources one file so no internal 

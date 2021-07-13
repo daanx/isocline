@@ -11,6 +11,7 @@
 #include "common.h"
 
 #if defined(_WIN32)
+#include <io.h>
 #else
 #include <termios.h>
 #endif
@@ -37,13 +38,16 @@ typedef int code_t;
 #define TTY_PUSH_MAX (32)
 
 typedef struct tty_s {
-  int   fin;
-  struct termios default_ios;
-  struct termios raw_ios;
+  int   fin;  
   bool  raw_enabled;
   bool  is_utf8;
   code_t pushbuf[TTY_PUSH_MAX];
   int    pushed;
+  #if defined(_WIN32)
+  #else
+  struct termios default_ios;
+  struct termios raw_ios;
+  #endif
 } tty_t;
 
 // Primitives

@@ -7,14 +7,11 @@
 #include <stdio.h>
 #include <ctype.h>
 #include <string.h>  
+#include <sys/stat.h>
 #include "../include/repline.h"
 #include "common.h"
 #include "env.h"
 
-#ifdef _WIN32
-#else
-#include <sys/stat.h>
-#endif
 
 //-------------------------------------------------------------
 // push/clear
@@ -34,7 +31,9 @@ internal bool history_push( rl_env_t* env, const char* entry ) {
   if (h->count == h->len) {
     // delete oldest entry
     env_free(env, h->elems[0]);
-    rl_memmove( h->elems, h->elems + 1, (h->count-1)*ssizeof(h->elems[0]) );
+    for(ssize_t i = 1; i < h->count; i++) {
+      h->elems[i-1] = h->elems[i];
+    }
     h->count--;
   }
   assert(h->count < h->len);
@@ -194,7 +193,9 @@ internal void history_save( rl_env_t* env ) {
   if (h->fname == NULL) return;
   FILE* f = fopen(h->fname, "w");
   if (f == NULL) return;
+  #ifndef _WIN32
   chmod(h->fname,S_IRUSR|S_IWUSR);
+  #endif
   for( int i = 0; i < h->count; i++ )  {
     if (!history_write_entry(h->elems[i],f)) break;  // error
   }
