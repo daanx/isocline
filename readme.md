@@ -22,9 +22,10 @@ portable (across Linux, macOS, and Windows), unicode support,
 a BSD-style license, and good functionality for completion and multi-line editing. 
 
 Some other libraries that we considered:
+[GNU readline](https://tiswww.case.edu/php/chet/readline/rltop.html),
+[editline](https://github.com/troglobit/editline),
+[linenoise](https://github.com/antirez/linenoise),
+[replxx](https://github.com/AmokHuginnsson/replxx).
 
-- [GNU readline](https://tiswww.case.edu/php/chet/readline/rltop.html), the classic.
-- [editline](https://github.com/troglobit/editline).
-- [linenoise](https://github.com/antirez/linenoise).
-- [replxx](https://github.com/AmokHuginnsson/replxx).
+[koka]: https://www.koka-lang.org
 
