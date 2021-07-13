@@ -78,6 +78,7 @@ static ssize_t editbuf_previous_ofs( editbuf_t* eb, const char* s, ssize_t pos, 
 }
 
 static bool skip_csi_esc( const char* s, ssize_t len, ssize_t* esclen ) {
+  if (esclen != NULL) *esclen = 0;
   if (s == NULL || len < 2|| s[0] != '\x1B' || s[1] != '[') return false;
   ssize_t n = 2;
   bool intermediate = false;
@@ -97,6 +98,9 @@ static bool skip_csi_esc( const char* s, ssize_t len, ssize_t* esclen ) {
       n++;
       if (esclen != NULL) *esclen = n;
       return true;
+    }
+    else {
+      break; // illegal character for an escape sequence.
     }
   }
   return false;
@@ -758,7 +762,7 @@ static void editbuf_append_completion(rl_env_t* env, editbuf_t* eb, ssize_t idx,
   if (cm == NULL) return;
   if (numbered) {
     char buf[32];
-    snprintf(buf, 32, "\x1B[90m%zd. \x1B[0", 1 + idx);
+    snprintf(buf, 32, "\x1B[90m%zd. \x1B[0m", 1 + idx);
     editbuf_append_extra(env, eb, buf);
     width -= 3;
   }
