@@ -13,15 +13,7 @@
 #include "term.h"
 #include "tty.h"
 
-//-------------------------------------------------------------
-// Environment
-//-------------------------------------------------------------
 
-typedef struct alloc_s {
-  malloc_fun_t*  malloc;
-  realloc_fun_t* realloc;
-  free_fun_t*    free;
-} alloc_t;
 
 //-------------------------------------------------------------
 // Completions
@@ -72,12 +64,6 @@ struct rl_env_s {
   bool      noedit;
 };
 
-internal void* env_zalloc( rl_env_t* env, ssize_t sz );
-internal void* env_realloc( rl_env_t* env, void* p, ssize_t newsz );
-internal void  env_free( rl_env_t* env, const void* p );
-internal char* env_strdup( rl_env_t* env, const char* s);
-
-#define env_zalloc_tp(env,tp)  (tp*)env_zalloc(env->alloc,ssizeof(tp))
 
 internal char* rl_editline(rl_env_t* env, const char* prompt);
 
@@ -101,5 +87,14 @@ internal ssize_t completion_extra_needed( completion_t* cm );
 internal ssize_t completion_apply( completion_t* cm, char* buf, ssize_t len, ssize_t pos, ssize_t* endpos );
 
 internal int utf8_width( const char* s, ssize_t n );
+
+#define env_malloc(env,sz)    mem_malloc(&(env)->alloc,sz)
+#define env_zalloc(env,sz)    mem_zalloc(&(env)->alloc,sz)
+#define env_realloc(env,p,sz) mem_realloc(&(env)->alloc,p,sz)
+#define env_free(env,p)       mem_free(&(env)->alloc,p)
+#define env_strdup(env,s)     mem_strdup(&(env)->alloc,s)
+#define env_zalloc_tp(env,tp)     mem_zalloc_tp(&(env)->alloc,tp)
+#define env_malloc_tp_n(env,tp,n) mem_zalloc_tp_n(&(env)->alloc,tp,n)
+
 
 #endif // RL_ENV_H

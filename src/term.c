@@ -22,90 +22,91 @@
 #define RL_CSI      "\x1B["
 
 
-static bool term_vwritef(const term_t* term, const char* fmt, va_list args );
-
+static bool term_vwritef(term_t* term, const char* fmt, va_list args );
+static bool term_buffered_ensure( term_t* term, ssize_t extra );
 
 
 //-------------------------------------------------------------
 // Helpers
 //-------------------------------------------------------------
 
-internal void term_left(const term_t* term, ssize_t n) {
+internal void term_left(term_t* term, ssize_t n) {
   if (n <= 0) return;
   term_writef( term, RL_CSI "%zdD", n );
 }
 
-internal void term_right(const term_t* term, ssize_t n) {
+internal void term_right(term_t* term, ssize_t n) {
   if (n <= 0) return;
   term_writef( term, RL_CSI "%zdC", n );
 }
 
-internal void term_up(const term_t* term, ssize_t n) {
+internal void term_up(term_t* term, ssize_t n) {
   if (n <= 0) return;
   term_writef( term, RL_CSI "%zdA", n );
 }
 
-internal void term_down(const term_t* term, ssize_t n) {
+internal void term_down(term_t* term, ssize_t n) {
   if (n <= 0) return;
   term_writef( term, RL_CSI "%zdB", n );
 }
 
-internal void term_clear_line(const term_t* term) {
+internal void term_clear_line(term_t* term) {
   term_write( term, "\r" RL_CSI "2K");
 }
 
-internal void term_start_of_line(const term_t* term) {
+internal void term_start_of_line(term_t* term) {
   term_write( term, "\r" );
 }
 
-internal ssize_t term_get_width(const term_t* term) {
+internal ssize_t term_get_width(term_t* term) {
   return term->width;
 }
 
-internal ssize_t term_get_height(const term_t* term) {
+internal ssize_t term_get_height(term_t* term) {
   return term->height;
 }
 
-internal void term_reset(const term_t* term) {
+internal void term_reset(term_t* term) {
   term_write(term, RL_CSI "0m" );
 }
 
-internal void term_underline(const term_t* term) {
+internal void term_underline(term_t* term) {
   term_write(term, RL_CSI "4m" );
 }
 
-internal void term_color(const term_t* term, rl_color_t color) {
+internal void term_color(term_t* term, rl_color_t color) {
   term_writef(term, RL_CSI "%dm", color );
 }
 
 
+
 // Unused for now
 /*
-internal void term_bold(const term_t* term) {
+internal void term_bold(term_t* term) {
   term_write(term, RL_CSI "1m" );
 }
 
-internal void term_italic(const term_t* term) {
+internal void term_italic(term_t* term) {
   term_write(term, RL_CSI "2m" );
 }
 
-internal void term_bgcolor(const term_t* term, rl_color_t color) {
+internal void term_bgcolor(term_t* term, rl_color_t color) {
   term_writef(term, RL_CSI "%dm", color + 10 );
 }
 
-internal void term_end_of_line(const term_t* term) {
+internal void term_end_of_line(term_t* term) {
   term_right( term, 999 );
 }
 
-internal void term_clear_screen(const term_t* term) {
+internal void term_clear_screen(term_t* term) {
   term_write( term, RL_CSI "2J" RL_CSI "H" );
 }
 
-internal void term_clear_line_from_cursor(const term_t* term) {
+internal void term_clear_line_from_cursor(term_t* term) {
   term_write( term, RL_CSI "0K");
 }
 
-internal void term_clear(const term_t* term, ssize_t n) {
+internal void term_clear(term_t* term, ssize_t n) {
   if (n <= 0) return;
   char buf[RL_MAX_LINE];
   memset(buf,' ',(n >= RL_MAX_LINE ? RL_MAX_LINE-1 : n));
@@ -120,7 +121,7 @@ internal void term_clear(const term_t* term, ssize_t n) {
 // Formatted output
 //-------------------------------------------------------------
 
-internal bool term_writef(const term_t* term, const char* fmt, ...) {
+internal bool term_writef(term_t* term, const char* fmt, ...) {
   va_list ap;
   va_start(ap, fmt);
   int err = term_vwritef(term,fmt,ap);
@@ -128,11 +129,16 @@ internal bool term_writef(const term_t* term, const char* fmt, ...) {
   return err;
 }
 
-internal bool term_vwritef(const term_t* term, const char* fmt, va_list args ) {
-  char buf[RL_MAX_LINE];
-  vsnprintf( buf, RL_MAX_LINE-1, fmt, args );
-  buf[RL_MAX_LINE-1] = 0;
-  return term_write(term,buf);
+internal bool term_vwritef(term_t* term, const char* fmt, va_list args ) {
+  if (!term_buffered_ensure(term, RL_MAX_LINE)) return false;
+  bool buffering = term->buffered;
+  term_start_buffered(term);
+  vsnprintf( term->buf + term->bufcount, to_size_t(term->buflen - term->bufcount), fmt, args );
+  ssize_t written = rl_strlen(term->buf + term->bufcount);
+  term->bufcount += written;
+  assert(term->bufcount <= term->buflen);
+  if (!buffering) term_end_buffered(term);
+  return true;
 }
 
 
@@ -140,19 +146,61 @@ internal bool term_vwritef(const term_t* term, const char* fmt, va_list args ) {
 // Primitive
 //-------------------------------------------------------------
 
-internal void term_beep(const term_t* term) {
+internal void term_beep(term_t* term) {
   if (term->silent) return;
   fprintf(stderr,"\x7");
   fflush(stderr);
 }
 
-internal bool term_write(const term_t* term, const char* s) {
-  // todo: strip colors on monochrome
-  ssize_t n = rl_strlen(s);
-  return (write(term->fout, s, to_size_t(n)) == n);
+static bool term_buffered_ensure( term_t* term, ssize_t extra ) {
+  // note: should work whether buffering or not.  
+  ssize_t avail = term->buflen - term->bufcount;
+  if (avail < extra) {
+    ssize_t newlen = (term->buflen > 0 ? 2*term->buflen : 1024);
+    if (newlen < term->bufcount + extra) newlen = term->bufcount + extra;
+    term->buf = (char*)mem_realloc( term->mem, term->buf, newlen + 1 /* termination 0 */);
+    if (term->buf == NULL) return false;
+    term->buf[newlen] = 0;
+    term->buf[term->bufcount] = 0;
+    term->buflen = newlen;
+  }
+  assert(term->buflen - term->bufcount >= extra);
+  return true;
 }
 
-static bool term_get_cursor_pos( const term_t* term, tty_t* tty, int* row, int* col) 
+internal bool term_write(term_t* term, const char* s) {
+  // todo: strip colors on monochrome
+  ssize_t n = rl_strlen(s);
+  if (!term->buffered) {
+    return (write(term->fout, s, to_size_t(n)) == n);
+  }
+  else {
+    // write to buffer to reduce flicker
+    if (!term_buffered_ensure(term, n)) return false;
+    term->bufcount += rl_strncpy( term->buf + term->bufcount, term->buflen - term->bufcount, s, n);
+    assert(term->buf[term->bufcount] == 0);
+    return true;
+  }
+}
+
+
+internal void term_start_buffered(term_t* term) {
+  term->buffered = true;
+}
+
+internal void term_end_buffered(term_t* term) {
+  if (!term->buffered) return;
+  term->buffered = false;
+  if (term->buf != NULL && term->bufcount > 0) {
+    assert(term->buf[term->bufcount] == 0);
+    //term_write(term,term->buf);
+    write(term->fout, term->buf, to_size_t(term->bufcount));
+    term->bufcount = 0;
+    term->buf[0] = 0;
+  }
+}
+
+static bool term_get_cursor_pos( term_t* term, tty_t* tty, int* row, int* col) 
 {
   // send request
   if (!term_write(term, RL_CSI "6n")) return false;
@@ -173,7 +221,7 @@ static bool term_get_cursor_pos( const term_t* term, tty_t* tty, int* row, int* 
   return (sscanf(buf,"%d;%d",row,col) == 2);
 }
 
-static void term_set_cursor_pos( const term_t* term, int row, int col ) {
+static void term_set_cursor_pos( term_t* term, int row, int col ) {
   term_writef( term, RL_CSI "%d;%dH", row, col );
 }
 
@@ -209,20 +257,20 @@ internal bool term_update_dim(term_t* term, tty_t* tty) {
 
   // update width and return if it changed.
   if (cols <= 0 || rows <= 0) return false;  // debuggers return 0 columns
-  debug_msg("terminal dim: %d,%d\n", rows, cols);
-  bool changed = (term->width != cols || term->height != rows);
+  debug_msg("terminal dim: %d,%d\n", rows, cols);  
   term->width = cols;
   term->height = rows;
-  return changed;  
+  return true;  
 }
 
-internal bool term_init(term_t* term, tty_t* tty, bool monochrome, bool silent, int fout) 
+internal bool term_init(term_t* term, tty_t* tty, alloc_t* mem, bool monochrome, bool silent, int fout ) 
 {
   term->fout = (fout < 0 ? STDOUT_FILENO : fout);
   term->monochrome = monochrome;
   term->silent = silent;
   term->width = 80;
   term->height = 25;
+  term->mem = mem;
   // check dimensions
   if (!term_update_dim(term,tty)) {
     return false; 
@@ -239,6 +287,7 @@ internal bool term_init(term_t* term, tty_t* tty, bool monochrome, bool silent, 
 }
 
 internal void term_done(term_t* term) {
-  (void)(term);
+  term_end_buffered(term);
+  mem_free(term->mem, term->buf);
   // nothing to do
 }

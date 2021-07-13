@@ -15,6 +15,7 @@
 #include <stdint.h>
 #include <stdbool.h>
 #include <assert.h>
+#include "../include/repline.h"  // rl_malloc_fun_t, rl_color_t etc.
 
 # ifdef __cplusplus
 #  define rl_extern_c   extern "C"
@@ -66,15 +67,16 @@ static inline void rl_memcpy( void* dest, const void* src, ssize_t n ) {
   memcpy(dest,src,to_size_t(n));
 }
 
-static inline void rl_strncpy( char* dest, ssize_t dest_size /* including 0 */, const char* src, ssize_t n /* excluding 0 */) {
+static inline ssize_t rl_strncpy( char* dest, ssize_t dest_size /* including 0 */, const char* src, ssize_t n /* excluding 0 */) {
   assert(dest!=NULL && src != NULL);
-  if (dest == NULL || dest_size <= 0) return;
+  if (dest == NULL || dest_size <= 0) return 0;
   if (n >= dest_size) n = dest_size - 1;
   ssize_t slen = rl_strlen(src);
   if (slen <= 0) n = 0;
   if (slen < n)  n = slen;
   strncpy(dest,src,to_size_t(n));
   dest[n] = 0;
+  return n;
 }
 
 //-------------------------------------------------------------
@@ -86,5 +88,25 @@ internal void debug_msg( const char* fmt, ... );
 #else
 #define debug_msg(...)
 #endif
+
+//-------------------------------------------------------------
+// Allocation
+//-------------------------------------------------------------
+
+typedef struct alloc_s {
+  malloc_fun_t*  malloc;
+  realloc_fun_t* realloc;
+  free_fun_t*    free;
+} alloc_t;
+
+
+internal void* mem_malloc( alloc_t* mem, ssize_t sz );
+internal void* mem_zalloc( alloc_t* mem, ssize_t sz );
+internal void* mem_realloc( alloc_t* mem, void* p, ssize_t newsz );
+internal void  mem_free( alloc_t* mem, const void* p );
+internal char* mem_strdup( alloc_t* mem, const char* s);
+
+#define mem_zalloc_tp(mem,tp)     (tp*)mem_zalloc(mem,ssizeof(tp))
+#define mem_malloc_tp_n(mem,tp,n) (tp*)mem_malloc(mem,(n)*ssizeof(tp))
 
 #endif // RL_COMMON_H

@@ -62,28 +62,33 @@ exported char* rl_readline(rl_env_t* env, const char* prompt_text) {
 // Allocation
 //-------------------------------------------------------------
 
-internal void* env_zalloc( rl_env_t* env, ssize_t sz ) {
-  void* p = env->alloc.malloc((size_t)sz);
-  if (p != NULL) memset(p,0, to_size_t(sz));
+internal void* mem_malloc( alloc_t* mem, ssize_t sz ) {
+  return mem->malloc(to_size_t(sz));
+}
+
+internal void* mem_zalloc( alloc_t* mem, ssize_t sz ) {
+  void* p = mem_malloc(mem, sz);
+  if (p != NULL) memset(p, 0, to_size_t(sz));
   return p;
 }
 
-internal void* env_realloc( rl_env_t* env, void* p, ssize_t newsz ) {
-  return env->alloc.realloc(p, to_size_t(newsz) );
+internal void* mem_realloc( alloc_t* mem, void* p, ssize_t newsz ) {
+  return mem->realloc(p, to_size_t(newsz) );
 }
 
-internal void env_free( rl_env_t* env, const void* p ) {
-  env->alloc.free( (void*)p);
+internal void mem_free( alloc_t* mem, const void* p ) {
+  mem->free( (void*)p);
 }
 
-internal char* env_strdup( rl_env_t* env, const char* s) {
+internal char* mem_strdup( alloc_t* mem, const char* s) {
   if (s==NULL) return NULL;
   ssize_t n = rl_strlen(s);
-  char* p = (char*)env_zalloc( env, (n+1)*ssizeof(char));
+  char* p = mem_malloc_tp_n(mem,char,n+1);
   if (p == NULL) return NULL;
   rl_memcpy(p, s, n+1);
   return p;
 }
+
 
 //-------------------------------------------------------------
 // Initialize
@@ -138,7 +143,7 @@ exported rl_env_t* rl_init_ex( malloc_fun_t* _malloc, realloc_fun_t* _realloc, f
   env->alloc.free    = _free;
   int fin = STDIN_FILENO;
   // initialize term & tty
-  if (!tty_init(&env->tty, fin) || !term_init(&env->term,&env->tty,false,false,-1))
+  if (!tty_init(&env->tty, fin) || !term_init(&env->term,&env->tty,&env->alloc,false,false,-1))
   {
     env->noedit = true;
   }

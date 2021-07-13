@@ -468,9 +468,10 @@ static void edit_refresh(rl_env_t* env, editbuf_t* eb) {
     if (first_row < 0) first_row = 0;
     last_row = first_row + ht - 1;
   }
+ 
+  term_start_buffered(&env->term);        // reduce flicker
   term_up(&env->term, eb->prev_row);
-  term_reset(&env->term);
-
+  
   // render rows
   edit_refresh_rows( env, eb, first_row, last_row );
 
@@ -485,12 +486,13 @@ static void edit_refresh(rl_env_t* env, editbuf_t* eb) {
       term_clear_line(&env->term);
     }
   }
-
+  
   // move cursor back to edit position
   term_start_of_line(&env->term);
   term_up(&env->term, first_row + rrows - 1 - rc.row );
   term_right(&env->term, rc.col);
-  term_reset(&env->term);
+  term_end_buffered(&env->term);
+
 
   // update previous
   eb->prev_rows = rows;
