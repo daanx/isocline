@@ -873,12 +873,12 @@ again:
     if (selected < 0) selected = count9 - 1;
     goto again;
   }
-  if (c == KEY_RIGHT && columns > 1) {
-    if (selected + percolumn < count9) selected += percolumn;
+  if (c == KEY_RIGHT) {
+    if (columns > 1 && selected + percolumn < count9) selected += percolumn;
     goto again;
   }
-  if (c == KEY_LEFT && columns > 1) {
-    if (selected - percolumn >= 0) selected -= percolumn;
+  if (c == KEY_LEFT) {
+    if (columns > 1 && selected - percolumn >= 0) selected -= percolumn;
     goto again;
   }
   else if (c == KEY_END) {
@@ -904,7 +904,7 @@ again:
     eb->len = completion_apply(cm, eb->buf, eb->len, eb->pos, &eb->pos);        
     edit_refresh(env,eb);    
   }
-  else if ((c == KEY_PAGEDOWN || c == KEY_CTRL_DOWN || c == KEY_CTRL_TAB) && count > 9) {
+  else if ((c == KEY_PAGEDOWN || c == KEY_CTRL_DOWN || c == KEY_CTRL_END) && count > 9) {
     // show all completions
     c = 0;
     rowcol_t rc;
@@ -915,7 +915,9 @@ again:
     for(ssize_t i = 0; i < count; i++) {
       completion_t* cm = completions_get(env,i);
       if (cm != NULL) {
-        term_writef(&env->term, "\x1B[90m%3d. \x1B[0m%s\r\n", i+1, (cm->display != NULL ? cm->display : cm->replacement ));          
+        // term_writef(&env->term, "\x1B[90m%3d \x1B[0m%s\r\n", i+1, (cm->display != NULL ? cm->display : cm->replacement ));          
+        term_write(&env->term, (cm->display != NULL ? cm->display : cm->replacement ));         
+        term_write(&env->term, "\r\n"); 
       }
     }
     for(ssize_t i = 0; i < rc.row+1; i++) {
