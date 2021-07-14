@@ -436,10 +436,10 @@ static void edit_write_prompt( rl_env_t* env, editbuf_t* eb, ssize_t row, bool i
     else {
       term_writef(&env->term, "%*c", editbuf_width(eb,eb->prompt), ' ' );
     }
-    term_reset( &env->term );
+    term_attr_reset( &env->term );
     if (env->prompt_color != RL_DEFAULT) term_color( &env->term, env->prompt_color );
     term_write( &env->term, (env->prompt_marker == NULL ? "> " : env->prompt_marker )); 
-    term_reset( &env->term );
+    term_attr_reset( &env->term );
   }
 }
 
@@ -473,7 +473,7 @@ static bool edit_refresh_rows_iter(
       #else
       term_write( &env->term, "\xE2\x86\xB5" ); // return symbol
       #endif
-      term_reset( &env->term );
+      term_attr_reset( &env->term );
     }
     term_write(&env->term, "\r\n");
   }
@@ -534,18 +534,26 @@ static void edit_refresh(rl_env_t* env, editbuf_t* eb) {
 
 
 static void edit_clear(rl_env_t* env, editbuf_t* eb ) {
+  term_attr_reset(&env->term);  
   term_up(&env->term, eb->prev_row);
-  term_reset(&env->term);
+  
   // overwrite all rows
   for( ssize_t i = 0; i < eb->prev_rows; i++) {
     term_clear_line(&env->term);
     term_write(&env->term, "\r\n");    
   }
+  
   // move cursor back 
-  term_up(&env->term, eb->prev_rows );
-  term_reset(&env->term);
+  term_up(&env->term, eb->prev_rows );  
 }
 
+static void edit_clear_screen(rl_env_t* env, editbuf_t* eb ) {
+  ssize_t prev_rows = eb->prev_rows;
+  eb->prev_rows = term_get_height(&env->term) - 1;
+  edit_clear(env,eb);
+  eb->prev_rows = prev_rows;
+  edit_refresh(env,eb);
+}
 
 //-------------------------------------------------------------
 // Edit operations
@@ -851,7 +859,11 @@ again:
   //snprintf(buf,128,"\n\x1B[90m(enter or 1-%zd to complete, tab/cursor to change selection)\x1B[0m", count9);
   //editbuf_append_extra( env, eb, buf);       
   if (count > 9) {
+    #if __APPLE__    
+    snprintf(buf,128,"\n\x1B[90m(press shift-tab to see all %zd completions)\x1B[0m", count);
+    #else
     snprintf(buf,128,"\n\x1B[90m(press page-down to see all %zd completions)\x1B[0m", count);
+    #endif
     editbuf_append_extra( env, eb, buf);      
   }   
   edit_refresh(env,eb);
@@ -904,7 +916,7 @@ again:
     eb->len = completion_apply(cm, eb->buf, eb->len, eb->pos, &eb->pos);        
     edit_refresh(env,eb);    
   }
-  else if ((c == KEY_PAGEDOWN || c == KEY_CTRL_DOWN || c == KEY_CTRL_END) && count > 9) {
+  else if ((c == KEY_PAGEDOWN || c == KEY_CTRL_TAB || c == KEY_CTRL_END) && count > 9) {
     // show all completions
     c = 0;
     rowcol_t rc;
@@ -1027,7 +1039,8 @@ static char* edit_line( rl_env_t* env, const char* prompt )
       break; // ctrl+C quits with NULL
     }  
     else switch(c) {
-      case KEY_LINEFEED: // '\n'
+      case KEY_LINEFEED: // '\n' (ctrl+J, shift+enter, ctrl+tab)
+      case KEY_CTRL_TAB:
         edit_insert_char(env,&eb,'\n',true);
         break;
       case KEY_TAB:
@@ -1077,9 +1090,8 @@ static char* edit_line( rl_env_t* env, const char* prompt )
       case KEY_CTRL('N'):
         edit_history_next(env,&eb);
         break;
-      case KEY_CTRL('L'):
-        eb.prev_rows = eb.prev_row = term_get_height(&env->term);
-        edit_refresh(env,&eb);
+      case KEY_CTRL('L'): 
+        edit_clear_screen(env,&eb);
         break; 
       case KEY_CTRL('T'):
         edit_swap(env,&eb);

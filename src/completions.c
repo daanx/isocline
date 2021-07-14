@@ -67,7 +67,7 @@ internal ssize_t completions_generate(rl_env_t* env, const char* input, ssize_t 
 exported bool rl_add_completion( rl_env_t* env, const char* display, const char* replacement, long delete_before, long delete_after ) {
   if (env->completions.completer_max <= 0) return false;
   env->completions.completer_max--;
-  debug_msg("completion: add: %d,%d, %s\n", delete_before, delete_after, replacement);
+  //debug_msg("completion: add: %d,%d, %s\n", delete_before, delete_after, replacement);
   completions_push( env, display, replacement, delete_before, delete_after );
   return true;
 }

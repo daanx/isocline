@@ -72,8 +72,8 @@ internal void term_italic(term_t* term);
 internal void term_bgcolor(term_t* term, rl_color_t color);
 */
 
-internal void term_reset(term_t* term);
-internal void term_underline(term_t* term);
+internal void term_attr_reset(term_t* term);
+internal void term_underline(term_t* term, bool on);
 internal void term_color(term_t* term, rl_color_t color);
 
 #endif // RL_TERM_H

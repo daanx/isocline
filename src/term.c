@@ -69,12 +69,12 @@ internal ssize_t term_get_height(term_t* term) {
   return term->height;
 }
 
-internal void term_reset(term_t* term) {
+internal void term_attr_reset(term_t* term) {
   term_write(term, RL_CSI "0m" );
 }
 
-internal void term_underline(term_t* term) {
-  term_write(term, RL_CSI "4m" );
+internal void term_underline(term_t* term, bool on) {
+  term_write(term, on ? RL_CSI "4m" : RL_CSI "24m" );
 }
 
 internal void term_color(term_t* term, rl_color_t color) {

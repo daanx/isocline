@@ -146,8 +146,12 @@ static code_t tty_read_esc(tty_t* tty) {
         debug_msg("tty: read more escape: %c%c%c%c\n", c1, c2, c3, c4 ); 
         if (!tty_readc_peek(tty, &c5)) goto fail;
         debug_msg("tty: read more escape: %c%c%c%c%c\n", c1, c2, c3, c4, c5 ); 
-        if (c2 == '1' && c4 == '5') {
+        if (c2 == '1' && c4 == '5') {  // ctrl+
           // ESC [ 1 ; 5 ? 
+          if (esc_ctrl(c5,&code)) return code;          
+        }
+        if (c2 == '1' && c4 == '2') {  // shift+ 
+          // ESC [ 1 ; 2 ? 
           if (esc_ctrl(c5,&code)) return code;          
         }
         else if (c2 == '3' && c4 == '3' && c5 == '~') {
