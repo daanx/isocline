@@ -22,7 +22,18 @@
 #include <sys/ioctl.h>
 #endif
 
+//-------------------------------------------------------------
+// Forward declarations
+//-------------------------------------------------------------
 
+static bool tty_has_available(tty_t* tty);
+static bool tty_readc(tty_t* tty, char* c);
+static void tty_cpush_char(tty_t* tty, char c);
+
+
+//-------------------------------------------------------------
+// Key code helpers
+//-------------------------------------------------------------
 
 internal bool code_is_char(tty_t* tty, code_t c, char* chr ) {
   if (c >= 0x20 && c <= (tty->is_utf8 ? 0x7F : 0xFF)) {
@@ -70,60 +81,195 @@ internal bool code_is_key( tty_t* tty, code_t c ) {
 }
 
 //-------------------------------------------------------------
-// Read a code point
+// Translate escape sequence to key code
 //-------------------------------------------------------------
 
-static bool tty_has_available(tty_t* tty);
-static bool tty_readc(tty_t* tty, char* c);
-static void tty_cpush_char(tty_t* tty, char c);
+static bool esc_ctrl( char c, code_t* code ) {
+  switch(c) {
+    case 'A': *code = KEY_CTRL_UP; return true;
+    case 'B': *code = KEY_CTRL_DOWN; return true;
+    case 'C': *code = KEY_CTRL_RIGHT; return true;
+    case 'D': *code = KEY_CTRL_LEFT; return true;
+    case 'F': *code = KEY_CTRL_END; return true;
+    case 'H': *code = KEY_CTRL_HOME; return true;
+    case 'M': *code = KEY_LINEFEED; return true;
+    case 'Z': *code = KEY_CTRL_TAB; return true;
+    default : *code = 0; return false;
+  }  
+}
 
-// read ANSI key escape sequences
+// Read ANSI key escape sequences
+// Read non-blocking an push back characters if the escape code was not valid.
 static code_t tty_read_esc(tty_t* tty) {
   // <https://en.wikipedia.org/wiki/ANSI_escape_code#Control_characters>
   char c1 = 0;
   char c2 = 0;
   char c3 = 0;
+  char c4 = 0;
+  char c5 = 0;
+  code_t code;
   if (!tty_readc_peek(tty, &c1)) goto fail;
-  if (c1 != '[' && c1 != 'O')    goto fail;
+  if (c1 != '[' && c1 != 'O' && c1 != 'o')    goto fail;
   if (!tty_readc_peek(tty, &c2)) goto fail;
   debug_msg("tty: read escape: %c%c\n", c1, c2 );  
   if (c1 == '[') {
-    if (c2 >= '0' && c2 <= '9') {
-      if (!tty_readc_peek(tty, &c3)) goto fail;
-      debug_msg("    third char: %c\n", c3 );  
-      if (c3 != '~') goto fail;
-      switch(c2) {  
-        case '3': return KEY_DEL;
-        case '1': 
-        case '7': return KEY_HOME;
-        case '4': 
-        case '8': return KEY_END;
-        case '5': return KEY_PAGEUP;
-        case '6': return KEY_PAGEDOWN;
+    if (c2 >= '0' && c2 <= '9') {      
+      if (!tty_readc_peek(tty, &c3)) {
+        if (c2 == '9') return KEY_DEL;  // ESC [ 9
+        goto fail;
+      }
+      debug_msg("tty: read more escape: %c%c%c\n", c1, c2, c3 ); 
+      if (c3 == '~') {
+        // ESC [ ? ~
+        switch(c2) {  
+          case '3': return KEY_DEL;
+          case '1': 
+          case '7': return KEY_HOME;
+          case '4': 
+          case '8': return KEY_END;
+          case '5': return KEY_PAGEUP;
+          case '6': return KEY_PAGEDOWN;
+        }
+      }
+      else if (c3 == '^') {
+        // ESC [ ? ^
+        switch(c2) {
+          case '3': return KEY_CTRL_DEL;  // urxvt
+          case '5': return KEY_CTRL_PAGEUP;    // Eterm/rxvt
+          case '6': return KEY_CTRL_PAGEDOWN;  // Eterm/rxvt
+          case '7': return KEY_CTRL_HOME; // Eterm/rxvt
+          case '8': return KEY_CTRL_END;  // Eterm/rxvt
+        }
+      }
+      else if (c3 == ';') {
+        if (!tty_readc_peek(tty, &c4)) goto fail;
+        debug_msg("tty: read more escape: %c%c%c%c\n", c1, c2, c3, c4 ); 
+        if (!tty_readc_peek(tty, &c5)) goto fail;
+        debug_msg("tty: read more escape: %c%c%c%c%c\n", c1, c2, c3, c4, c5 ); 
+        if (c2 == '1' && c4 == '5') {
+          // ESC [ 1 ; 5 ? 
+          if (esc_ctrl(c5,&code)) return code;          
+        }
+        else if (c2 == '3' && c4 == '3' && c5 == '~') {
+          // ESC [ 3 ; 3 ~
+          return KEY_CTRL_DEL;
+        }
       }
     }
+    // ESC [ ?
     else switch(c2) {
       case 'A': return KEY_UP;
       case 'B': return KEY_DOWN;
       case 'C': return KEY_RIGHT;
       case 'D': return KEY_LEFT;
-      case 'H': return KEY_HOME; 
-      case 'F': return KEY_END; 
+      case 'E': return '5';       // numpad 5
+      case 'F': return KEY_END;
+      case 'H': return KEY_HOME;
+      case 'M': return KEY_LINEFEED;  // ctrl+enter 
+      case 'Z': return KEY_CTRL_TAB;  // shift+tab
+      // Freebsd:
+      case 'I': return KEY_PAGEUP;  
+      case 'L': return KEY_INS;     
+      // case 'M': F1      
+      // ...
+      // case 'T': F8
+      // Mach:
+      case 'U': return KEY_PAGEDOWN;   
+      case 'V': return KEY_PAGEUP;     
+      case 'Y': return KEY_END;       
+      case '9': return KEY_DEL;   // unreachable due to previous if
+      case '@': return KEY_INS;   
     }
   }
   else if (c1 == 'O') {
+    // ESC O ?   
     switch(c2) {
-      case 'H': return KEY_HOME;
+      case 'A': return KEY_UP;
+      case 'B': return KEY_DOWN;
+      case 'C': return KEY_RIGHT;
+      case 'D': return KEY_LEFT;
       case 'F': return KEY_END;
+      case 'H': return KEY_HOME;     
+      case 'a': return KEY_CTRL_UP;
+      case 'b': return KEY_CTRL_DOWN;
+      case 'c': return KEY_CTRL_RIGHT;
+      case 'd': return KEY_CTRL_LEFT;
+      case 'z': return KEY_CTRL_TAB;
+      // numpad 
+      case 'E': return '5';       
+      case 'M': return KEY_ENTER; 
+      case 'j': return '*';
+      case 'k': return '+';
+      case 'l': return ',';
+      case 'm': return '-'; 
+      case 'n': return KEY_DEL;
+      case 'o': return '/'; 
+      case 'p': return KEY_INS;
+      case 'q': return KEY_END;  
+      case 'r': return KEY_DOWN; 
+      case 's': return KEY_PAGEDOWN; 
+      case 't': return KEY_LEFT; 
+      case 'u': return '5';
+      case 'v': return KEY_RIGHT;
+      case 'w': return KEY_HOME;  
+      case 'x': return KEY_UP; 
+      case 'y': return KEY_PAGEUP;   
+      case '1': {
+        if (!tty_readc_peek(tty, &c3)) goto fail;
+        if (c3 != ';') goto fail;
+        if (!tty_readc_peek(tty, &c4)) goto fail;
+        if (c4 != '5') goto fail;
+        if (!tty_readc_peek(tty, &c5)) goto fail;
+        // ESC O 1 ; 5 ?  ()
+        if (esc_ctrl(c5,&code)) return code;
+        break;
+      }
+      case '5': {
+        if (!tty_readc_peek(tty, &c3)) goto fail;
+        // ESC O 5 ?   (on haiku)
+        if (esc_ctrl(c3,&code)) return code;
+      }                       
     }
   }
+  else if (c1 == 'o') {
+    // ESC o ?  (on Eterm)
+    if (c2 >= 'a' && c2 <= 'z') {
+      c2 = c2 - 'a' + 'A'; // to uppercase
+    }
+    if (esc_ctrl(c2,&code)) return code;    
+  }
 fail:
+  debug_msg("tty: unknown escape sequence: ESC %c %c %c %c %c\n", (c1==0 ? ' ' : c1), (c2==0 ? ' ' : c2), (c3==0 ? ' ' : c3), (c4==0 ? ' ' : c4), (c5==0 ? '-' : c5) );
+  if (c5 != 0) tty_cpush_char(tty,c5);    
+  if (c4 != 0) tty_cpush_char(tty,c4);    
   if (c3 != 0) tty_cpush_char(tty,c3);    
   if (c2 != 0) tty_cpush_char(tty,c2);    
   if (c1 != 0) tty_cpush_char(tty,c1);    
   return KEY_ESC;
 }
 
+
+//-------------------------------------------------------------
+// Code point buffer
+//-------------------------------------------------------------
+
+static bool tty_code_pop( tty_t* tty, code_t* code ) {
+  if (tty->pushed <= 0) return false;
+  tty->pushed--;
+  *code = tty->pushbuf[tty->pushed];
+  return true;
+}
+
+internal void tty_code_pushback( tty_t* tty, code_t c ) {
+  if (tty->pushed >= TTY_PUSH_MAX) return;
+  tty->pushbuf[tty->pushed] = c;
+  tty->pushed++;
+}
+
+
+//-------------------------------------------------------------
+// Read a key code
+//-------------------------------------------------------------
 
 internal bool tty_readc_peek(tty_t* tty, char* c) {
   if (!tty_has_available(tty)) {
@@ -138,32 +284,24 @@ internal bool tty_readc_peek(tty_t* tty, char* c) {
 // read a single char/key
 internal code_t tty_read(tty_t* tty) {
   // is there a pushed back code?
-  if (tty->pushed > 0) {
-    code_t code = tty->pushbuf[0];
-    tty->pushed--;
-    rl_memmove(tty->pushbuf, tty->pushbuf + 1, tty->pushed * ssizeof(code_t));
+  code_t code;
+  if (tty_code_pop(tty,&code)) {
     return code;
   }
 
   // read from a character stream
   char c;
   if (!tty_readc(tty, &c)) return -1;  
-  debug_msg( "tty: key: 0x%04x ('%c',%d)\n", c, (c >= ' ' && c <= '~' ? c : '-'), c );
+  
   if (c == KEY_ESC) {
-    return tty_read_esc(tty);
+    code = tty_read_esc(tty);
   }
   else {
-    return (code_t)((uint8_t)c);
+    code = (code_t)((uint8_t)c);
   }
+  debug_msg( "tty: key: code: 0x%04x ('%c')\n", code, (code >= ' ' && code <= '~' ? code : ' '));
+  return code;
 }
-
-internal void tty_pushback( tty_t* tty, code_t c ) {
-  if (tty->pushed >= TTY_PUSH_MAX) return;
-  tty->pushbuf[tty->pushed] = c;
-  tty->pushed++;
-}
-
-
 
 
 //-------------------------------------------------------------
@@ -176,9 +314,8 @@ static bool tty_cpop(tty_t* tty, char* c) {
     return false;
   }
   else {
-    *c = tty->cpushbuf[0];
     tty->cpushed--;
-    rl_memmove(tty->cpushbuf, tty->cpushbuf + 1, tty->cpushed );
+    *c = tty->cpushbuf[tty->cpushed];
     return true;
   }
 }
@@ -190,7 +327,9 @@ static void tty_cpush(tty_t* tty, const char* s) {
     debug_msg("tty: cpush buffer full! (pushing %s)\n", s);
     return;
   }
-  rl_memcpy( tty->cpushbuf, s, len );
+  for (ssize_t i = 0; i < len; i++) {
+    tty->cpushbuf[tty->cpushed + i] = s[len - i - 1];
+  }
   tty->cpushed += len;
   return;
 }
@@ -264,7 +403,8 @@ internal void tty_done(tty_t* tty) {
 
 static bool tty_readc(tty_t* tty, char* c) {
   if (tty_cpop(tty,c)) return true;
-  return (read(tty->fin, c, 1) == 1);
+  if (read(tty->fin, c, 1) != 1) return false;  
+  return true;
 }
 
 static bool tty_has_available(tty_t* tty) {
@@ -334,43 +474,84 @@ static void tty_waitc_console(tty_t* tty)
   //  wait for a key down event
   INPUT_RECORD inp;
 	DWORD count;
+  DWORD modstate = 0;
   uint32_t surrogate_hi;
   while (true) {
 		if (!ReadConsoleInputW( tty->hcon, &inp, 1, &count)) return;
     if (count != 1) return;
-    // wait for key down events (except for Alt-key-up which is used for unicode pasting...)
+    // wait for key down events 
     if (inp.EventType != KEY_EVENT) continue;
+
+    // maintain modifier state
+    DWORD state = inp.Event.KeyEvent.dwControlKeyState;
+    if (inp.Event.KeyEvent.uChar.UnicodeChar == 0) {
+      if (inp.Event.KeyEvent.bKeyDown) {
+        modstate |= state;      
+      }
+      else {
+        modstate &= ~state;
+      }
+    }
+
+    // ignore AltGr
+    DWORD altgr = LEFT_CTRL_PRESSED | RIGHT_ALT_PRESSED;
+    if ((modstate & altgr) == altgr) { modstate &= ~altgr; }
+
+    // only process keydown events (except for Alt-up which is used for unicode pasting...)
     if (!inp.Event.KeyEvent.bKeyDown && inp.Event.KeyEvent.wVirtualKeyCode != VK_MENU) {
 			continue;
 		}
-
-    // ignore AltGr
-    DWORD state = inp.Event.KeyEvent.dwControlKeyState;
-    DWORD altgr = LEFT_CTRL_PRESSED | RIGHT_ALT_PRESSED;
-    if ((state & altgr) == altgr) { state &= ~altgr; }
     
     // get modifiers
-    bool ctrl = (state & ( RIGHT_CTRL_PRESSED | LEFT_CTRL_PRESSED )) != 0;
-    bool alt  = (state & ( RIGHT_ALT_PRESSED | LEFT_ALT_PRESSED )) != 0;
+    bool ctrl = (modstate & ( RIGHT_CTRL_PRESSED | LEFT_CTRL_PRESSED )) != 0;
+    bool alt  = (modstate & ( RIGHT_ALT_PRESSED | LEFT_ALT_PRESSED )) != 0;
+    bool shift= (modstate & SHIFT_PRESSED) != 0;
 
     // virtual keys
     uint32_t chr = (uint32_t)inp.Event.KeyEvent.uChar.UnicodeChar;
-    debug_msg("tty: console read: %s%s 0x%04x ('%c')\n", ctrl ? "ctrl-" : "", alt ? "alt-" : "", chr);
+    //debug_msg("tty: console %s: %s%s virt 0x%04x, chr 0x%04x ('%c')\n", inp.Event.KeyEvent.bKeyDown ? "down" : "up", ctrl ? "ctrl-" : "", alt ? "alt-" : "", inp.Event.KeyEvent.wVirtualKeyCode, chr, chr);
+
     if (chr == 0) { 
       if (!ctrl && !alt) {
         switch (inp.Event.KeyEvent.wVirtualKeyCode) {
-          case VK_LEFT:   tty_cpush(tty, "^[[D"); return; 
-          case VK_RIGHT:  tty_cpush(tty, "^[[C"); return;
-          case VK_UP:     tty_cpush(tty, "^[[A"); return;
-          case VK_DOWN:   tty_cpush(tty, "^[[B"); return;
-          case VK_HOME:   tty_cpush(tty, "^[[H"); return;
-          case VK_END:    tty_cpush(tty, "^[[F"); return;
-          case VK_DELETE: tty_cpush(tty, "^[[3~"); return;
-          case VK_PRIOR:  tty_cpush(tty, "^[[5~"); return;  //page up
-          case VK_NEXT:   tty_cpush(tty, "^[[6~"); return;  //page down          
+          case VK_LEFT:   tty_cpush(tty, "\x1B[D"); return; 
+          case VK_RIGHT:  tty_cpush(tty, "\x1B[C"); return;
+          case VK_UP:     tty_cpush(tty, "\x1B[A"); return;
+          case VK_DOWN:   tty_cpush(tty, "\x1B[B"); return;
+          case VK_HOME:   tty_cpush(tty, "\x1B[H"); return;
+          case VK_END:    tty_cpush(tty, "\x1B[F"); return;
+          case VK_DELETE: tty_cpush(tty, "\x1B[3~"); return;
+          case VK_PRIOR:  tty_cpush(tty, "\x1B[5~"); return;  //page up
+          case VK_NEXT:   tty_cpush(tty, "\x1B[6~"); return;  //page down          
         }
       }
+      else if (ctrl && !alt) {
+        // ctrl+?
+        switch (inp.Event.KeyEvent.wVirtualKeyCode) {
+          case VK_LEFT:   tty_cpush(tty, "\x1B[1;5D"); return; 
+          case VK_RIGHT:  tty_cpush(tty, "\x1B[1;5C"); return;
+          case VK_UP:     tty_cpush(tty, "\x1B[1;5A"); return;
+          case VK_DOWN:   tty_cpush(tty, "\x1B[1;5B"); return;
+          case VK_HOME:   tty_cpush(tty, "\x1B[1;5H"); return;
+          case VK_END:    tty_cpush(tty, "\x1B[1;5F"); return;
+          case VK_TAB:    tty_cpush(tty, "\x1B[1;5Z"); return;
+          case VK_RETURN: tty_cpush(tty, "\n");      return;
+          case VK_DELETE: tty_cpush(tty, "\x1B[3^"); return;
+          case VK_PRIOR:  tty_cpush(tty, "\x1B[5^"); return;  //page up
+          case VK_NEXT:   tty_cpush(tty, "\x1B[6^"); return;  //page down          
+        }        
+      }
       continue;  // ignore other control keys (shift etc).
+    }
+    // non-virtual keys
+    // ctrl/shift+ENTER
+    if (chr == KEY_ENTER && (ctrl || shift)) {  
+      chr = '\n';   // shift/ctrl+enter becomes linefeed
+    }
+    // ctrl+TAB
+    if (chr == KEY_TAB && ctrl) {  
+      tty_cpush(tty, "\x1B[1;5Z");
+      return;
     }
     // surrogate pairs
     else if (chr >= 0xD800 && chr <= 0xDBFF) {

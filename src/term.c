@@ -461,7 +461,7 @@ internal void term_start_raw(term_t* term) {
   }
 	GetConsoleMode( term->hcon, &term->hcon_orig_mode );
   //term->hcon_orig_cp = GetConsoleOutputCP(); 
-  SetConsoleMode( term->hcon, ENABLE_PROCESSED_OUTPUT /* | ENABLE_VIRTUAL_TERMINAL_PROCESSING */ );
+  SetConsoleMode( term->hcon, ENABLE_PROCESSED_OUTPUT | ENABLE_LVB_GRID_WORLDWIDE /* | ENABLE_VIRTUAL_TERMINAL_PROCESSING */ );
   //SetConsoleOutputCP(65001);
   term->raw_enabled = true;  
 }

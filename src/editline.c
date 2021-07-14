@@ -147,7 +147,7 @@ static ssize_t editbuf_width( editbuf_t* eb, const char* s ) {
     width += w;
     pos += n;
   }
-  debug_msg("edit: width of '%s' = %zd\n", s, width);
+  // debug_msg("edit: width of '%s' = %zd\n", s, width);
   return width;
 }
 
@@ -157,7 +157,7 @@ static bool editbuf_ensure_space(rl_env_t* env, editbuf_t* eb, ssize_t extra)
     // reallocate
     ssize_t newlen = (eb->buflen == 0 ? 1024 : 2*eb->buflen);
     if (newlen <= eb->len + extra) newlen = eb->len + extra + 1;
-    debug_msg("reallocate edit buffer: old %zd, new %zd\n", eb->buflen, newlen);
+    debug_msg("edit: reallocate edit buffer: old %zd, new %zd\n", eb->buflen, newlen);
     char* newbuf = (char*)env_realloc(env, eb->buf, newlen+1);
     if (newbuf == NULL) {
       assert(false);
@@ -363,7 +363,7 @@ static bool edit_get_current_pos_iter(
     ssize_t adjust = (is_wrap  /* wrap has no newline at end */ || 
                       (row_len > 0 && eb->buf[row_start + row_len - 1] == 0) /* end of user input */ ? 1 : 0);
     rc->last_on_row  = (eb->pos == row_start + row_len - adjust);
-    debug_msg("edit: pos iter%s%s, row %zd, pos: %zd, row_start: %zd, rowlen: %zd\n", in_extra ? " inextra" : "", is_wrap ? " wrap" : "", row, eb->pos, row_start, row_len);
+    // debug_msg("edit: pos iter%s%s, row %zd, pos: %zd, row_start: %zd, rowlen: %zd\n", in_extra ? " inextra" : "", is_wrap ? " wrap" : "", row, eb->pos, row_start, row_len);
     for(ssize_t i = row_start; i < eb->pos; ) {
       ssize_t w;
       ssize_t next = editbuf_next_ofs(eb, eb->buf, eb->len, i, &w);
@@ -371,8 +371,7 @@ static bool edit_get_current_pos_iter(
       i += next;
       rc->col += w;
     }
-  }
-  debug_msg("edit: pos iter return row %zd\n", row);
+  }  
   return false; // always continue to count all rows
 }
 
@@ -455,7 +454,7 @@ static bool edit_refresh_rows_iter(
     bool in_extra, bool is_wrap, void* arg)
 {
   refresh_info_t* info = (refresh_info_t*)(arg);
-  debug_msg("edit: line refresh: row %zd, len: %zd\n", row, row_len);
+  // debug_msg("edit: line refresh: row %zd, len: %zd\n", row, row_len);
   if (row < info->first_row) return false;
   if (row > info->last_row)  return true; // should not occur
   
@@ -684,7 +683,7 @@ static void edit_delete_from_to(rl_env_t* env, editbuf_t* eb, ssize_t start, ssi
   ssize_t n = end - start;
   if (n <= 0) return;
   rl_memmove( eb->buf + start, eb->buf + end, eb->len - end );
-  debug_msg("edit: del from to: %zd -> %zd (len %zd, pos %zd)", start, end, eb->len, eb->pos);
+  //debug_msg("edit: del from to: %zd -> %zd (len %zd, pos %zd)", start, end, eb->len, eb->pos);
   eb->len -= n;
   if (eb->pos > start && eb->pos < end) {
     eb->pos = start;
@@ -769,12 +768,12 @@ static void edit_complete(rl_env_t* env, editbuf_t* eb, int idx) {
   edit_refresh(env,eb);
 }
 
-static void editbuf_append_completion(rl_env_t* env, editbuf_t* eb, ssize_t idx, ssize_t width, bool numbered ) {
+static void editbuf_append_completion(rl_env_t* env, editbuf_t* eb, ssize_t idx, ssize_t width, bool numbered, bool selected ) {
   completion_t* cm = completions_get(env,idx);
   if (cm == NULL) return;
   if (numbered) {
     char buf[32];
-    snprintf(buf, 32, "\x1B[90m%zd. \x1B[0m", 1 + idx);
+    snprintf(buf, 32, "\x1B[90m%s%zd \x1B[0m", (selected ? (eb->is_utf8 ? "\xE2\x86\x92" : "*") : " "), 1 + idx);
     editbuf_append_extra(env, eb, buf);
     width -= 3;
   }
@@ -800,12 +799,12 @@ static void editbuf_append_completion(rl_env_t* env, editbuf_t* eb, ssize_t idx,
 #define RL_DISPLAY_COL    (3+RL_DISPLAY_MAX)
 #define RL_DISPLAY3_WIDTH (3*RL_DISPLAY_COL + 2*2)  // 79
 
-static void editbuf_append_completion3(rl_env_t* env, editbuf_t* eb, ssize_t idx1, ssize_t idx2, ssize_t idx3 ) {  
-  editbuf_append_completion(env, eb, idx1, RL_DISPLAY_COL, true );
+static void editbuf_append_completion3(rl_env_t* env, editbuf_t* eb, ssize_t idx1, ssize_t idx2, ssize_t idx3, ssize_t selected ) {  
+  editbuf_append_completion(env, eb, idx1, RL_DISPLAY_COL, true, (idx1 == selected) );
   editbuf_append_extra(env, eb, "  ");
-  editbuf_append_completion(env, eb, idx2, RL_DISPLAY_COL, true );
+  editbuf_append_completion(env, eb, idx2, RL_DISPLAY_COL, true, (idx2 == selected) );
   editbuf_append_extra(env, eb, "  ");
-  editbuf_append_completion(env, eb, idx3, RL_DISPLAY_COL, true );
+  editbuf_append_completion(env, eb, idx3, RL_DISPLAY_COL, true, (idx3 == selected) );
 }
 
 static bool edit_completions_all_fit( rl_env_t* env, editbuf_t* eb, ssize_t count, ssize_t width ) {
@@ -816,6 +815,118 @@ static bool edit_completions_all_fit( rl_env_t* env, editbuf_t* eb, ssize_t coun
     }
   }
   return true;
+}
+
+static void edit_completion_menu(rl_env_t* env, editbuf_t* eb) {
+  ssize_t count  = completions_count( env );
+  ssize_t count9 = (count > 9 ? 9 : count);
+  assert(count > 1);
+  ssize_t selected = 0;
+  ssize_t columns  = 1;
+  ssize_t percolumn= count;
+  
+again: 
+  // show first 9 completions
+  editbuf_clear_extra(eb);
+  ssize_t width = term_get_width(&env->term);      
+  if (count > 3 && width > RL_DISPLAY3_WIDTH && edit_completions_all_fit(env,eb,9,RL_DISPLAY_MAX)) {
+    // display as a block
+    columns = 3;
+    percolumn = 3;
+    for( ssize_t rw = 0; rw < (count > 3 ? 3 : count); rw++ ) {
+      editbuf_append_extra( env, eb, "\n");
+      editbuf_append_completion3( env, eb, rw, 3+rw, 6+rw, selected );
+    }
+  }
+  else {
+    // display as a list
+    columns = 1;
+    percolumn = count;
+    for(ssize_t i = 0; i < count9; i++) {
+      editbuf_append_extra( env, eb, "\n");
+      editbuf_append_completion(env, eb, i, -1, true /* numbered */, selected == i );        
+    }
+  }
+  char buf[128];
+  //snprintf(buf,128,"\n\x1B[90m(enter or 1-%zd to complete, tab/cursor to change selection)\x1B[0m", count9);
+  //editbuf_append_extra( env, eb, buf);       
+  if (count > 9) {
+    snprintf(buf,128,"\n\x1B[90m(press page-down to see all %zd completions)\x1B[0m", count);
+    editbuf_append_extra( env, eb, buf);      
+  }   
+  edit_refresh(env,eb);
+  
+  // read here; if not a valid key, push it back and return to main event loop
+  code_t c = tty_read(&env->tty);
+  editbuf_clear_extra(eb);      
+  if (c >= '1' && c <= '9' && c - '1' < count) {
+    selected = (c - '1');
+    c = KEY_SPACE;
+  }   
+  else if (c == KEY_TAB || c == KEY_DOWN) {
+    selected++;
+    if (selected >= count9) selected = 0;
+    goto again;
+  }
+  else if (c == KEY_UP) {
+    selected--;
+    if (selected < 0) selected = count9 - 1;
+    goto again;
+  }
+  if (c == KEY_RIGHT && columns > 1) {
+    if (selected + percolumn < count9) selected += percolumn;
+    goto again;
+  }
+  if (c == KEY_LEFT && columns > 1) {
+    if (selected - percolumn >= 0) selected -= percolumn;
+    goto again;
+  }
+  else if (c == KEY_END) {
+    selected = count9 - 1;
+    goto again;
+  }
+  else if (c == KEY_HOME) {
+    selected = 0;
+    goto again;
+  }
+  else if (c == KEY_ESC) {
+    completions_clear(env);
+    edit_refresh(env,eb);
+    c = 0; // ignore and return
+  }
+  else if (c == KEY_ENTER || c == KEY_SPACE) {  
+    // select the current entry
+    assert(selected < count);
+    eb->modified = true;
+    c = 0;      
+    completion_t* cm = completions_get(env,selected);
+    editbuf_ensure_space(env,eb,completion_extra_needed(cm));
+    eb->len = completion_apply(cm, eb->buf, eb->len, eb->pos, &eb->pos);        
+    edit_refresh(env,eb);    
+  }
+  else if ((c == KEY_PAGEDOWN || c == KEY_CTRL_DOWN || c == KEY_CTRL_TAB) && count > 9) {
+    // show all completions
+    c = 0;
+    rowcol_t rc;
+    edit_get_current_pos(env,eb,&rc);
+    edit_clear(env,eb);
+    edit_write_prompt(env,eb,0,false);
+    term_write(&env->term, "\r\n");
+    for(ssize_t i = 0; i < count; i++) {
+      completion_t* cm = completions_get(env,i);
+      if (cm != NULL) {
+        term_writef(&env->term, "\x1B[90m%3d. \x1B[0m%s\r\n", i+1, (cm->display != NULL ? cm->display : cm->replacement ));          
+      }
+    }
+    for(ssize_t i = 0; i < rc.row+1; i++) {
+      term_write(&env->term, " \r\n");
+    }
+    eb->prev_rows = 0;
+    edit_refresh(env,eb);      
+  }
+  // done
+  completions_clear(env);      
+  if (c != 0) tty_code_pushback(&env->tty,c);
 }
 
 static void edit_generate_completions(rl_env_t* env, editbuf_t* eb) {
@@ -832,67 +943,7 @@ static void edit_generate_completions(rl_env_t* env, editbuf_t* eb) {
     edit_complete(env,eb,0);
   }
   else {
-    // otherwise show first 9 completions
-    editbuf_clear_extra(eb);
-    ssize_t width = term_get_width(&env->term);      
-    if (count > 3 && width > RL_DISPLAY3_WIDTH && edit_completions_all_fit(env,eb,9,RL_DISPLAY_MAX)) {
-      // display as a block
-      for( ssize_t rw = 0; rw < (count > 3 ? 3 : count); rw++ ) {
-        editbuf_append_extra( env, eb, "\n");
-        editbuf_append_completion3( env, eb, rw, 3+rw, 6+rw );
-      }
-    }
-    else {
-      // display as a list
-      for(ssize_t i = 0; i < (count > 9 ? 9 : count); i++) {
-        editbuf_append_extra( env, eb, "\n");
-        editbuf_append_completion(env, eb, i, -1, true /* numbered */ );        
-      }
-    } 
-    if (count > 9) {
-      char buf[128];
-      snprintf(buf,128,"\n\x1B[90m(press TAB again to see all %zd completions)\x1B[0m", count);
-      editbuf_append_extra( env, eb, buf);      
-    }   
-    edit_refresh(env,eb);
-    
-    // read here; if not tab or 1-9 push back and return to main event loop
-    code_t c = tty_read(&env->tty);
-    editbuf_clear_extra(eb);      
-    if (c >= '1' && c <= '9') {
-      int idx = (c - '1');
-      if (idx < count) { 
-        eb->modified = true;
-        c = 0;      
-        completion_t* cm = completions_get(env,idx);
-        editbuf_ensure_space(env,eb,completion_extra_needed(cm));
-        eb->len = completion_apply(cm, eb->buf, eb->len, eb->pos, &eb->pos);        
-        edit_refresh(env,eb);
-        return;
-      }      
-    }
-    else if (c == KEY_TAB && count > 9) {
-      // show all completions
-      c = 0;
-      rowcol_t rc;
-      edit_get_current_pos(env,eb,&rc);
-      edit_clear(env,eb);
-      edit_write_prompt(env,eb,0,false);
-      term_write(&env->term, "\r\n");
-      for(ssize_t i = 0; i < count; i++) {
-        completion_t* cm = completions_get(env,i);
-        if (cm != NULL) {
-          term_writef(&env->term, "\x1B[90m%3d. \x1B[0m%s\r\n", i+1, (cm->display != NULL ? cm->display : cm->replacement ));          
-        }
-      }
-      for(ssize_t i = 0; i < rc.row+1; i++) {
-        term_write(&env->term, " \r\n");
-      }
-      eb->prev_rows = 0;
-      edit_refresh(env,eb);      
-    }
-    completions_clear(env);      
-    if (c != 0) tty_pushback(&env->tty,c);
+    edit_completion_menu( env, eb );    
   }
 }
 
@@ -974,7 +1025,7 @@ static char* edit_line( rl_env_t* env, const char* prompt )
       break; // ctrl+C quits with NULL
     }  
     else switch(c) {
-      case KEY_CTRL('J'): // '\n'
+      case KEY_LINEFEED: // '\n'
         edit_insert_char(env,&eb,'\n',true);
         break;
       case KEY_TAB:
