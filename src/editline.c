@@ -77,7 +77,7 @@ static ssize_t editbuf_previous_ofs( editbuf_t* eb, const char* s, ssize_t pos, 
   return n;
 }
 
-static bool skip_csi_esc( const char* s, ssize_t len, ssize_t* esclen ) {
+internal bool skip_csi_esc( const char* s, ssize_t len, ssize_t* esclen ) {
   if (esclen != NULL) *esclen = 0;
   if (s == NULL || len < 2|| s[0] != '\x1B' || s[1] != '[') return false;
   ssize_t n = 2;
@@ -106,7 +106,7 @@ static bool skip_csi_esc( const char* s, ssize_t len, ssize_t* esclen ) {
   return false;
 }
 
-static ssize_t editbuf_next_ofs( editbuf_t* eb, const char* s, ssize_t len, ssize_t pos, ssize_t* width ) {
+internal ssize_t skip_next_code( const char* s, ssize_t len, ssize_t pos, bool utf8 ) {
   ssize_t n = 0;
   if (len > pos) {
     if (skip_csi_esc(s+pos,len-pos,&n)) {
@@ -114,7 +114,7 @@ static ssize_t editbuf_next_ofs( editbuf_t* eb, const char* s, ssize_t len, ssiz
     }
     else {
       n = 1;
-      if (eb->is_utf8) {
+      if (utf8) {
         // utf8 extended character
         while(len > pos + n) {
           uint8_t u = (uint8_t)s[pos + n];
@@ -124,7 +124,12 @@ static ssize_t editbuf_next_ofs( editbuf_t* eb, const char* s, ssize_t len, ssiz
       }
     } 
   }
-  if (width != NULL) *width = editbuf_cwidth( eb, s+pos, n );
+  return n;
+}
+
+static ssize_t editbuf_next_ofs( editbuf_t* eb, const char* s, ssize_t len, ssize_t pos, ssize_t* width ) {
+  ssize_t n = skip_next_code( s, len, pos, eb->is_utf8 );  
+  if (n > 0 && width != NULL) *width = editbuf_cwidth( eb, s+pos, n );
   //debug_msg("edit: next ofs '%s' %d %d %d\n", s, pos, n, (width != NULL ? *width : -1));
   return n;
 }
@@ -462,7 +467,11 @@ static bool edit_refresh_rows_iter(
   if (row < info->last_row) {
     if (is_wrap && eb->is_utf8) { 
       term_color( &env->term, RL_DARKGRAY );
-      term_write( &env->term, "\xE2\x86\xB5" ); 
+      #ifdef _WIN32
+      term_write( &env->term, "\xE2\x86\x90");  // left arrow 
+      #else
+      term_write( &env->term, "\xE2\x86\xB5" ); // return symbol
+      #endif
       term_reset( &env->term );
     }
     term_write(&env->term, "\r\n");
@@ -920,7 +929,8 @@ static char* edit_line( rl_env_t* env, const char* prompt )
     if (c < 0) break;
 
     // update width as late as possible so a user can resize even if the prompt is already visible
-    if (eb.len == 1) {
+    //if (eb.len == 1) 
+    {
       term_update_dim(&env->term,&env->tty);   
     }
 

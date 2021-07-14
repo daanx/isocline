@@ -11,6 +11,7 @@
 #include "common.h"
 
 #if defined(_WIN32)
+#include <windows.h>
 #include <io.h>
 #else
 #include <termios.h>
@@ -44,6 +45,9 @@ typedef struct tty_s {
   code_t pushbuf[TTY_PUSH_MAX];
   int    pushed;
   #if defined(_WIN32)
+  HANDLE hcon;
+  DWORD  hcon_orig_mode;
+  UINT   hcon_orig_cp;
   #else
   struct termios default_ios;
   struct termios raw_ios;

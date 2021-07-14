@@ -13,6 +13,7 @@
 #include "tty.h"
 
 #if defined(_WIN32)
+#include <windows.h>
 #define isatty(fd)     _isatty(fd)
 #define read(fd,s,n)   _read(fd,s,n)
 #define STDIN_FILENO 0
@@ -74,21 +75,18 @@ internal bool code_is_key( tty_t* tty, code_t c ) {
 #define KEY_OFS    (((code_t)1) << 21)
 
 #ifdef _WIN32
-internal bool tty_readc(tty_t* tty, char* c) {
-  return (read(tty->fin, c, 1) == 1);
-}
 
 static bool tty_has_available(tty_t* tty) {
-  return true;
+  DWORD  count = 0;
+  GetNumberOfConsoleInputEvents(tty->hcon, &count);  
+  return (count > 0);
 }
 
-// read escape sequence
-static code_t tty_read_esc(tty_t* tty) {
-  return KEY_ESC;
-}
-
-internal bool tty_readc_peek(tty_t* tty, char* c) {
-  *c = ' ';
+internal bool tty_readc(tty_t* tty, char* c) {
+  DWORD nread;
+  ReadConsoleA(tty->hcon, c, 1, &nread, NULL);
+  if (nread != 1) return false;
+  debug_msg("tty: readc: \\x%02x\n", *c);
   return true;
 }
 
@@ -102,6 +100,8 @@ static bool tty_has_available(tty_t* tty) {
   int n = 0;
   return (ioctl(0, FIONREAD, &n) == 0 && n > 0);
 }
+
+#endif
 
 // read escape sequence
 static code_t tty_read_esc(tty_t* tty) {
@@ -136,6 +136,7 @@ fail:
   return KEY_ESC;
 }
 
+
 internal bool tty_readc_peek(tty_t* tty, char* c) {
   if (!tty_has_available(tty)) {
     if (c!=NULL) *c = 0;
@@ -145,7 +146,6 @@ internal bool tty_readc_peek(tty_t* tty, char* c) {
     return tty_readc(tty,c);
   }
 }
-#endif
 
 // read a single char/key
 internal code_t tty_read(tty_t* tty) {
@@ -181,14 +181,24 @@ internal void tty_pushback( tty_t* tty, code_t c ) {
 //-------------------------------------------------------------
 #ifdef _WIN32
 internal void tty_start_raw(tty_t* tty) {
-  unused(tty);
+  if (tty->raw_enabled) return;
+  GetConsoleCP(&tty->hcon_orig_cp);
+  GetConsoleMode(tty->hcon,&tty->hcon_orig_mode);
+  SetConsoleCP(65001);  
+  DWORD mode =  ENABLE_VIRTUAL_TERMINAL_INPUT | ENABLE_QUICK_EDIT_MODE;
+  SetConsoleMode(tty->hcon, mode );
+  tty->raw_enabled = true;
 }
 
 internal void tty_end_raw(tty_t* tty) {
-  unused(tty);
+  if (!tty->raw_enabled) return;
+  SetConsoleMode(tty->hcon, tty->hcon_orig_mode );
+  SetConsoleCP(tty->hcon_orig_cp);
+  tty->raw_enabled = false;
 }
 
 static bool tty_init_raw(tty_t* tty) {
+  tty->hcon = GetStdHandle( STD_INPUT_HANDLE );  
   return true;
 }
 #else
@@ -219,9 +229,13 @@ static bool tty_init_raw(tty_t* tty)
 #endif
 
 static bool tty_init_utf8(tty_t* tty) {
+  #ifdef _WIN32
+  tty->is_utf8 = true;
+  #else
   char* loc = setlocale(LC_ALL,"");
-  tty->is_utf8 = (loc != NULL && (strstr(loc,"UTF-8")));
-  debug_msg("tty: utf8: %s\n", tty->is_utf8 ? "true" : "false");
+  tty->is_utf8 = (loc != NULL && (strstr(loc,"UTF-8") != NULL || strstr(loc,"utf8") != NULL));
+  debug_msg("tty: utf8: %s (loc=%s)\n", tty->is_utf8 ? "true" : "false", loc);
+  #endif
   return true;
 }
 

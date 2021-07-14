@@ -14,6 +14,9 @@
 
 #define RL_MAX_LINE 4096
 
+#ifdef _WIN32
+#include <windows.h>
+#endif
 
 typedef struct term_s {
   int     fout;
@@ -26,6 +29,11 @@ typedef struct term_s {
   ssize_t bufcount;
   ssize_t buflen;
   alloc_t* mem;
+  #ifdef _WIN32
+  HANDLE  hcon;
+  DWORD   hcon_orig_mode;
+  UINT    hcon_orig_cp;
+  #endif
 } term_t;
 
 // Primitives

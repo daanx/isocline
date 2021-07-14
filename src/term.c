@@ -14,7 +14,7 @@
 #include "term.h"
 
 #if defined(_WIN32)
-#define write(fd,s,n)   _write(fd,s,n)
+#include <windows.h>
 #define STDOUT_FILENO 1
 #else
 #include <unistd.h>
@@ -24,6 +24,7 @@
 #define RL_CSI      "\x1B["
 
 
+static bool term_write_direct(term_t* term, const char* s, ssize_t n );
 static bool term_vwritef(term_t* term, const char* fmt, va_list args );
 static bool term_buffered_ensure( term_t* term, ssize_t extra );
 
@@ -174,7 +175,7 @@ internal bool term_write(term_t* term, const char* s) {
   // todo: strip colors on monochrome
   ssize_t n = rl_strlen(s);
   if (!term->buffered) {
-    return (write(term->fout, s, to_size_t(n)) == n);
+    return term_write_direct(term,s,n);
   }
   else {
     // write to buffer to reduce flicker
@@ -194,17 +195,19 @@ internal void term_start_buffered(term_t* term) {
   term->buffered = true;
 }
 
-internal void term_end_buffered(term_t* term) {
-  if (!term->buffered) return;
+internal bool term_end_buffered(term_t* term) {
+  if (!term->buffered) return true;
   term->buffered = false;
   if (term->buf != NULL && term->bufcount > 0) {
     assert(term->buf[term->bufcount] == 0);
-    //term_write(term,term->buf);
-    write(term->fout, term->buf, to_size_t(term->bufcount));
+    bool ok = term_write_direct(term, term->buf, term->bufcount);
     term->bufcount = 0;
     term->buf[0] = 0;
+    if (!ok) return false;
   }
+  return true;
 }
+
 
 static bool term_get_cursor_pos( term_t* term, tty_t* tty, int* row, int* col) 
 {
@@ -233,6 +236,15 @@ static void term_set_cursor_pos( term_t* term, int row, int col ) {
 
 #ifdef _WIN32
 internal bool term_update_dim(term_t* term, tty_t* tty) {
+  if (term->hcon == 0) {
+    term->hcon = GetConsoleWindow();
+  }
+  CONSOLE_SCREEN_BUFFER_INFO sbinfo;
+  if (GetConsoleScreenBufferInfo(term->hcon, &sbinfo) == 0) return false;
+  if (sbinfo.srWindow.Right == 0) return false;
+  term->width  = sbinfo.srWindow.Right - sbinfo.srWindow.Left + 1;
+  term->height = sbinfo.srWindow.Bottom - sbinfo.srWindow.Top + 1;
+  debug_msg("term: update dim: %zd, %zd\n", term->height, term->width );
   return true;
 }
 #else
@@ -283,6 +295,15 @@ internal bool term_init(term_t* term, tty_t* tty, alloc_t* mem, bool monochrome,
   term->width = 80;
   term->height = 25;
   term->mem = mem;
+
+  #ifdef _WIN32
+  term->hcon = GetStdHandle( STD_OUTPUT_HANDLE );
+  GetConsoleMode( term->hcon, &term->hcon_orig_mode );
+  term->hcon_orig_cp = GetConsoleOutputCP(); 
+	if (SetConsoleMode( term->hcon, ENABLE_PROCESSED_OUTPUT | ENABLE_WRAP_AT_EOL_OUTPUT | ENABLE_VIRTUAL_TERMINAL_PROCESSING ) == 0) return false;
+  SetConsoleOutputCP(65001);
+  #endif
+  
   // check dimensions
   if (!term_update_dim(term,tty)) {
     return false; 
@@ -300,6 +321,83 @@ internal bool term_init(term_t* term, tty_t* tty, alloc_t* mem, bool monochrome,
 
 internal void term_done(term_t* term) {
   term_end_buffered(term);
+  #ifdef _WIN32
+  SetConsoleMode( term->hcon, term->hcon_orig_mode );
+  SetConsoleOutputCP(term->hcon_orig_cp);
+  #endif
+
   mem_free(term->mem, term->buf);
   // nothing to do
 }
+
+//-------------------------------------------------------------
+// Write to terminal
+//-------------------------------------------------------------
+
+#if !defined(_WIN32)
+
+static bool term_write_direct(term_t* term, const char* s, ssize_t n ) {
+  return (write(term->fout, s, to_size_t(n)) == n);
+}
+
+#elif 0
+
+//-------------------------------------------------------------
+// On windows we emulate escape sequences
+//-------------------------------------------------------------
+
+static void term_write_csi_esc(term_t* term, const char* s, ssize_t len );
+
+static bool term_write_direct(term_t* term, const char* s, ssize_t len ) {
+  ssize_t pos = 0;
+  while( pos < len ) {
+    // bulk process single ascii characters
+    ssize_t singles = 0;
+    ssize_t next;
+    while ((next = skip_next_code( s + pos + singles, len - pos - singles, true /*utf8*/)) == 1) {
+      if (s[pos + singles] < ' ') break;
+      singles++;
+    };
+    if (singles > 0) {
+      _write(term->fout, s + pos, singles); 
+      pos += singles;
+    }
+
+    // the next character is not a single ascii character
+    if (next == 0) {
+      break;
+    }
+    else if (next > 1 && s[pos] == '^[') {
+      term_write_csi_esc( term, s + pos, next );
+    }
+    else {
+      _write(term->fout, s, next); 
+    }
+  }
+  return true;
+}
+
+static void term_write_csi_esc(term_t* term, const char* s, ssize_t len ) {
+  assert(len >= 3 && s[0] == '^[' && s[1] == '[');
+  // determine command
+  char cmd = s[len-1];
+  switch(cmd) {
+    case 'm': {  
+      // attribute
+      // todo: set color etc.
+    }
+    
+  }
+
+}
+
+#else
+
+static bool term_write_direct(term_t* term, const char* s, ssize_t n ) {
+  DWORD written;
+  WriteConsoleA(term->hcon, s, (DWORD)(to_size_t(n)), &written, NULL);
+  return (written == (DWORD)(to_size_t(n)));
+  //return (_write(term->fout, s, to_size_t(n)) == n);
+}
+
+#endif

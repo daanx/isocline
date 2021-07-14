@@ -86,7 +86,9 @@ internal completion_t* completions_get( rl_env_t* env, ssize_t index );
 internal ssize_t completion_extra_needed( completion_t* cm );
 internal ssize_t completion_apply( completion_t* cm, char* buf, ssize_t len, ssize_t pos, ssize_t* endpos );
 
-internal int utf8_width( const char* s, ssize_t n );
+internal int     utf8_width( const char* s, ssize_t n );
+internal bool    skip_csi_esc( const char* s, ssize_t len, ssize_t* esclen );
+internal ssize_t skip_next_code( const char* s, ssize_t len, ssize_t pos, bool utf8 );
 
 #define env_malloc(env,sz)    mem_malloc(&(env)->alloc,sz)
 #define env_zalloc(env,sz)    mem_zalloc(&(env)->alloc,sz)
