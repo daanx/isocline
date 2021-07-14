@@ -20,15 +20,16 @@
 
 typedef struct term_s {
   int     fout;
-  int     width;
-  int     height;
+  ssize_t width;
+  ssize_t height;
   bool    monochrome;
   bool    silent;
+  bool    raw_enabled;
   bool    buffered;
   char*   buf;
   ssize_t bufcount;
   ssize_t buflen;
-  alloc_t* mem;
+  alloc_t* mem;  
   #ifdef _WIN32
   HANDLE  hcon;
   DWORD   hcon_orig_mode;
@@ -39,6 +40,8 @@ typedef struct term_s {
 // Primitives
 internal bool term_init(term_t* term, tty_t* tty, alloc_t* mem, bool monochrome, bool silent, int fout);
 internal void term_done(term_t* term);
+internal void term_start_raw(term_t* term);
+internal void term_end_raw(term_t* term);
 internal bool term_write(term_t* term, const char* s);
 internal void term_beep(term_t* term);
 internal bool term_update_dim(term_t* term, tty_t* tty);
@@ -55,7 +58,7 @@ internal void term_start_of_line(term_t* term );
 internal void term_clear_line(term_t* term);
 
 internal void term_start_buffered(term_t* term);
-internal void term_end_buffered(term_t* term);
+internal bool term_end_buffered(term_t* term);
 
 /*
 internal void term_end_of_line(term_t* term );

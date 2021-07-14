@@ -82,7 +82,6 @@ internal void term_color(term_t* term, rl_color_t color) {
 }
 
 
-
 // Unused for now
 /*
 internal void term_bold(term_t* term) {
@@ -208,6 +207,131 @@ internal bool term_end_buffered(term_t* term) {
   return true;
 }
 
+static void term_init_raw(term_t* term);
+
+internal bool term_init(term_t* term, tty_t* tty, alloc_t* mem, bool monochrome, bool silent, int fout ) 
+{
+  term->fout = (fout < 0 ? STDOUT_FILENO : fout);
+  term->monochrome = monochrome;
+  term->silent = silent;
+  term->width = 80;
+  term->height = 25;
+  term->mem = mem;
+  term_init_raw(term);
+  term_update_dim(term,tty);
+
+  // check dimensions
+  if (term->width <= 0) return false; 
+  
+  // check editing support
+  const char* eterm = getenv("TERM");
+  debug_msg("term: TERM=%s\n", eterm);
+  if (eterm != NULL &&
+      (strstr(eterm,"dumb|DUMB|cons25|CONS25|emacs|EMACS") != NULL)) {
+    return false;
+  }
+
+  return true;
+}
+
+internal void term_done(term_t* term) {
+  term_end_buffered(term);
+  term_end_raw(term);
+
+  mem_free(term->mem, term->buf);
+  // nothing to do
+}
+
+
+//-------------------------------------------------------------
+// Write to terminal
+//-------------------------------------------------------------
+
+#if defined(_WIN32)
+
+static bool term_write_direct(term_t* term, const char* s, ssize_t n ) {
+  DWORD written;
+  WriteConsoleA(term->hcon, s, (DWORD)(to_size_t(n)), &written, NULL);
+  return (written == (DWORD)(to_size_t(n)));
+}
+
+#else 
+
+static bool term_write_direct(term_t* term, const char* s, ssize_t n ) {
+  return (write(term->fout, s, to_size_t(n)) == n);
+}
+
+#endif
+
+
+//-------------------------------------------------------------
+// Enable/disable terminal raw mode
+//-------------------------------------------------------------
+
+#if defined(_WIN32)
+internal void term_start_raw(term_t* term) {
+  if (term->raw_enabled) return;
+  GetConsoleMode( term->hcon, &term->hcon_orig_mode );
+  term->hcon_orig_cp = GetConsoleOutputCP(); 
+	SetConsoleMode( term->hcon, ENABLE_PROCESSED_OUTPUT | ENABLE_WRAP_AT_EOL_OUTPUT | ENABLE_VIRTUAL_TERMINAL_PROCESSING );
+  SetConsoleOutputCP(65001);
+  term->raw_enabled = true;  
+}
+
+internal void term_end_raw(term_t* term) {
+  if (!term->raw_enabled) return;
+  SetConsoleMode( term->hcon, term->hcon_orig_mode );
+  SetConsoleOutputCP(term->hcon_orig_cp);
+  term->raw_enabled = false;
+}
+
+static void term_init_raw(term_t* term) {
+  term->hcon = GetStdHandle( STD_OUTPUT_HANDLE );
+}
+
+#else
+
+internal void term_start_raw(term_t* term) {
+  if (term->raw_enabled) return; 
+  term->raw_enabled = true;  
+}
+
+internal void term_end_raw(term_t* term) {
+  if (!term->raw_enabled) return;
+  term->raw_enabled = false;
+}
+
+static void term_init_raw(term_t* term) {
+  unused(term);
+}
+
+#endif
+
+//-------------------------------------------------------------
+// Update terminal dimensions
+//-------------------------------------------------------------
+
+#ifdef _WIN32
+
+internal bool term_update_dim(term_t* term, tty_t* tty) {
+  if (term->hcon == 0) {
+    term->hcon = GetConsoleWindow();
+  }
+  ssize_t rows = 0;
+  ssize_t cols = 0;  
+  CONSOLE_SCREEN_BUFFER_INFO sbinfo;  
+  if (GetConsoleScreenBufferInfo(term->hcon, &sbinfo)) {
+     cols = sbinfo.srWindow.Right - sbinfo.srWindow.Left + 1;
+     rows = sbinfo.srWindow.Bottom - sbinfo.srWindow.Top + 1;
+  }
+  bool changed = (term->width != cols || term->height != rows);
+  term->width = cols;
+  term->height = rows;
+  debug_msg("term: update dim: %zd, %zd\n", term->height, term->width );
+  return changed;
+}
+
+#else
 
 static bool term_get_cursor_pos( term_t* term, tty_t* tty, int* row, int* col) 
 {
@@ -222,9 +346,9 @@ static bool term_get_cursor_pos( term_t* term, tty_t* tty, int* row, int* col)
   if (!tty_readc_peek(tty,&c) || c != '[')    return false;
   while( len < 63 ) {
     if (!tty_readc_peek(tty,&c)) return false;
-    if (c == 'R') break;
+    if (!((c >= '0' && c <= '9') || (c == ';'))) break;
     buf[len] = c;
-    len++;
+    len++;    
   }
   buf[len] = 0;
   return (sscanf(buf,"%d;%d",row,col) == 2);
@@ -234,27 +358,13 @@ static void term_set_cursor_pos( term_t* term, int row, int col ) {
   term_writef( term, RL_CSI "%d;%dH", row, col );
 }
 
-#ifdef _WIN32
-internal bool term_update_dim(term_t* term, tty_t* tty) {
-  if (term->hcon == 0) {
-    term->hcon = GetConsoleWindow();
-  }
-  CONSOLE_SCREEN_BUFFER_INFO sbinfo;
-  if (GetConsoleScreenBufferInfo(term->hcon, &sbinfo) == 0) return false;
-  if (sbinfo.srWindow.Right == 0) return false;
-  term->width  = sbinfo.srWindow.Right - sbinfo.srWindow.Left + 1;
-  term->height = sbinfo.srWindow.Bottom - sbinfo.srWindow.Top + 1;
-  debug_msg("term: update dim: %zd, %zd\n", term->height, term->width );
-  return true;
-}
-#else
 internal bool term_update_dim(term_t* term, tty_t* tty) {
   int cols = 0;
   int rows = 0;
   struct winsize ws;
   if (ioctl(1, TIOCGWINSZ, &ws) >= 0) {
     // ioctl succeeded
-    cols = ws.ws_col;
+    cols = ws.ws_col;  // debuggers return 0 for the column
     rows = ws.ws_row;
   }
   else {
@@ -274,130 +384,15 @@ internal bool term_update_dim(term_t* term, tty_t* tty) {
     }
     else {
       // cannot query position
-      return false;
+      // return 0 column
     }
   }
 
   // update width and return if it changed.
-  if (cols <= 0 || rows <= 0) return false;  // debuggers return 0 columns
   debug_msg("terminal dim: %d,%d\n", rows, cols);  
+  bool changed = (term->width != cols || term->height != rows);
   term->width = cols;
   term->height = rows;
-  return true;  
+  return changed;  
 }
-#endif
-
-internal bool term_init(term_t* term, tty_t* tty, alloc_t* mem, bool monochrome, bool silent, int fout ) 
-{
-  term->fout = (fout < 0 ? STDOUT_FILENO : fout);
-  term->monochrome = monochrome;
-  term->silent = silent;
-  term->width = 80;
-  term->height = 25;
-  term->mem = mem;
-
-  #ifdef _WIN32
-  term->hcon = GetStdHandle( STD_OUTPUT_HANDLE );
-  GetConsoleMode( term->hcon, &term->hcon_orig_mode );
-  term->hcon_orig_cp = GetConsoleOutputCP(); 
-	if (SetConsoleMode( term->hcon, ENABLE_PROCESSED_OUTPUT | ENABLE_WRAP_AT_EOL_OUTPUT | ENABLE_VIRTUAL_TERMINAL_PROCESSING ) == 0) return false;
-  SetConsoleOutputCP(65001);
-  #endif
-  
-  // check dimensions
-  if (!term_update_dim(term,tty)) {
-    return false; 
-  }  
-  // check editing support
-  const char* eterm = getenv("TERM");
-  debug_msg("term: TERM=%s\n", eterm);
-  if (eterm != NULL &&
-      (strstr(eterm,"dumb|DUMB|cons25|CONS25|emacs|EMACS") != NULL)) {
-    return false;
-  }
-
-  return true;
-}
-
-internal void term_done(term_t* term) {
-  term_end_buffered(term);
-  #ifdef _WIN32
-  SetConsoleMode( term->hcon, term->hcon_orig_mode );
-  SetConsoleOutputCP(term->hcon_orig_cp);
-  #endif
-
-  mem_free(term->mem, term->buf);
-  // nothing to do
-}
-
-//-------------------------------------------------------------
-// Write to terminal
-//-------------------------------------------------------------
-
-#if !defined(_WIN32)
-
-static bool term_write_direct(term_t* term, const char* s, ssize_t n ) {
-  return (write(term->fout, s, to_size_t(n)) == n);
-}
-
-#elif 0
-
-//-------------------------------------------------------------
-// On windows we emulate escape sequences
-//-------------------------------------------------------------
-
-static void term_write_csi_esc(term_t* term, const char* s, ssize_t len );
-
-static bool term_write_direct(term_t* term, const char* s, ssize_t len ) {
-  ssize_t pos = 0;
-  while( pos < len ) {
-    // bulk process single ascii characters
-    ssize_t singles = 0;
-    ssize_t next;
-    while ((next = skip_next_code( s + pos + singles, len - pos - singles, true /*utf8*/)) == 1) {
-      if (s[pos + singles] < ' ') break;
-      singles++;
-    };
-    if (singles > 0) {
-      _write(term->fout, s + pos, singles); 
-      pos += singles;
-    }
-
-    // the next character is not a single ascii character
-    if (next == 0) {
-      break;
-    }
-    else if (next > 1 && s[pos] == '^[') {
-      term_write_csi_esc( term, s + pos, next );
-    }
-    else {
-      _write(term->fout, s, next); 
-    }
-  }
-  return true;
-}
-
-static void term_write_csi_esc(term_t* term, const char* s, ssize_t len ) {
-  assert(len >= 3 && s[0] == '^[' && s[1] == '[');
-  // determine command
-  char cmd = s[len-1];
-  switch(cmd) {
-    case 'm': {  
-      // attribute
-      // todo: set color etc.
-    }
-    
-  }
-
-}
-
-#else
-
-static bool term_write_direct(term_t* term, const char* s, ssize_t n ) {
-  DWORD written;
-  WriteConsoleA(term->hcon, s, (DWORD)(to_size_t(n)), &written, NULL);
-  return (written == (DWORD)(to_size_t(n)));
-  //return (_write(term->fout, s, to_size_t(n)) == n);
-}
-
 #endif

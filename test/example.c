@@ -17,6 +17,13 @@ static void completer(rl_env_t* env, const char* input, long cur, void* arg )
       rl_add_completion(env, NULL, buf, 1, 0);
     }
   }
+  else if (input[cur-1] == 'f') {
+    rl_add_completion(env,NULL,"apples", 1, 0);
+    rl_add_completion(env,NULL,"banana etc.", 1, 0);
+    rl_add_completion(env,NULL,"苹果  wide", 1, 0);
+    rl_add_completion(env,NULL,"猕猴桃  and wide", 1, 0);
+    rl_add_completion(env,NULL,"〈pear〉with wide", 1, 0); 
+  }
   else if (input[cur-1] == 'e' || input[cur-1] == 'E') {
     rl_add_completion(env, "excëllent", "excëllent", 1, 0);
   }

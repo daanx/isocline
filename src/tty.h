@@ -33,21 +33,24 @@ typedef int code_t;
 #define KEY_NEXT   (KEY_UP+6)
 #define KEY_PREV   (KEY_UP+7)
 #define KEY_DEL    (KEY_UP+8)
+#define KEY_PAGEUP (KEY_UP+9)
+#define KEY_PAGEDOWN (KEY_UP+10)
 
 #define KEY_CTRL(x)  (x - 'A' + 1)
 
 #define TTY_PUSH_MAX (32)
 
 typedef struct tty_s {
-  int   fin;  
-  bool  raw_enabled;
-  bool  is_utf8;
-  code_t pushbuf[TTY_PUSH_MAX];
-  int    pushed;
+  int     fin;  
+  bool    raw_enabled;
+  bool    is_utf8;
+  code_t  pushbuf[TTY_PUSH_MAX];
+  ssize_t pushed;
+  char    cpushbuf[TTY_PUSH_MAX];
+  ssize_t cpushed;
   #if defined(_WIN32)
-  HANDLE hcon;
-  DWORD  hcon_orig_mode;
-  UINT   hcon_orig_cp;
+  HANDLE  hcon;
+  DWORD   hcon_orig_mode;
   #else
   struct termios default_ios;
   struct termios raw_ios;
@@ -60,8 +63,7 @@ internal void tty_done(tty_t* tty);
 internal void tty_start_raw(tty_t* tty);
 internal void tty_end_raw(tty_t* tty);
 internal code_t tty_read(tty_t* tty);
-internal bool tty_readc(tty_t* tty, char* c);
-internal bool tty_readc_peek(tty_t* tty, char* c);
+internal bool tty_readc_peek(tty_t* tty, char* c);   // used in term.c
 internal void tty_pushback( tty_t* tty, code_t c );
 
 internal bool code_is_char(tty_t*, code_t c, char* chr );

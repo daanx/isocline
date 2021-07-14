@@ -43,7 +43,9 @@ static void edit_refresh(rl_env_t* env, editbuf_t* eb);
 
 internal char* rl_editline(rl_env_t* env, const char* prompt) {
   tty_start_raw(&env->tty);
+  term_start_raw(&env->term);
   char* line = edit_line(env,prompt);
+  term_end_raw(&env->term);
   tty_end_raw(&env->tty);
   term_write(&env->term,"\r\n");
   return line;
@@ -545,6 +547,7 @@ static void edit_clear(rl_env_t* env, editbuf_t* eb ) {
   term_reset(&env->term);
 }
 
+
 //-------------------------------------------------------------
 // Edit operations
 //-------------------------------------------------------------
@@ -930,8 +933,9 @@ static char* edit_line( rl_env_t* env, const char* prompt )
 
     // update width as late as possible so a user can resize even if the prompt is already visible
     //if (eb.len == 1) 
-    {
-      term_update_dim(&env->term,&env->tty);   
+    if (term_update_dim(&env->term,&env->tty)) {
+      // eb.prev_rows = env->term.height;
+      edit_refresh(env,&eb);   
     }
 
     // followers (for utf8)
