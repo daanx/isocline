@@ -327,7 +327,7 @@ static ssize_t edit_for_each_row( rl_env_t* env, editbuf_t* eb, edit_line_fun_t*
     rcol += w;
   }
   if (fun != NULL) {
-    if (fun(env,eb,rcount,rstart,i - rstart - 1 /* don't count final zero */,in_extra,false,arg)) return rcount;
+    if (fun(env,eb,rcount,rstart,i - rstart,in_extra,false,arg)) return rcount;
   }
   return rcount+1;
 }
@@ -852,7 +852,9 @@ static void edit_generate_completions(rl_env_t* env, editbuf_t* eb) {
     if (count > 9) {
       char buf[128];
       snprintf(buf,128,"\n\x1B[90m(press TAB again to see all %zd completions)\x1B[0m", count);
+      debug_msg("append: '%s'\n", buf);
       editbuf_append_extra( env, eb, buf);
+      debug_msg("new buffer: '%s'\n", eb->buf + editbuf_input_len(eb) + 1);
     }   
     edit_refresh(env,eb);
     

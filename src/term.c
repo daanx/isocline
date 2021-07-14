@@ -247,18 +247,202 @@ internal void term_done(term_t* term) {
 // Write to terminal
 //-------------------------------------------------------------
 
-#if defined(_WIN32)
+#if !defined(_WIN32)
 
 static bool term_write_direct(term_t* term, const char* s, ssize_t n ) {
+  return (write(term->fout, s, to_size_t(n)) == n);
+}
+
+#else
+
+//-------------------------------------------------------------
+// On windows we do ansi escape emulation ourselves.
+// (for older systems and sometimes win10 emulation is not correct)
+//-------------------------------------------------------------
+
+static bool term_write_console(term_t* term, const char* s, ssize_t n ) {
   DWORD written;
   WriteConsoleA(term->hcon, s, (DWORD)(to_size_t(n)), &written, NULL);
   return (written == (DWORD)(to_size_t(n)));
 }
 
-#else 
+static void term_move_cursor_to( term_t* term, ssize_t row, ssize_t col ) {
+  CONSOLE_SCREEN_BUFFER_INFO info;
+  if (!GetConsoleScreenBufferInfo( term->hcon, &info )) return;
+  if (col >= info.dwSize.X) col = info.dwSize.X - 1;
+  if (row >= info.dwSize.Y) row = info.dwSize.Y - 1;
+  COORD coord;
+  coord.X = (SHORT)col;
+  coord.Y = (SHORT)row;
+  SetConsoleCursorPosition( term->hcon, coord);
+}
 
-static bool term_write_direct(term_t* term, const char* s, ssize_t n ) {
-  return (write(term->fout, s, to_size_t(n)) == n);
+static void term_move_cursor( term_t* term, ssize_t drow, ssize_t dcol, ssize_t n ) {
+  CONSOLE_SCREEN_BUFFER_INFO info;
+  if (!GetConsoleScreenBufferInfo( term->hcon, &info )) return;
+  COORD cur = info.dwCursorPosition;
+  ssize_t col = cur.X + n*dcol;
+  ssize_t row = cur.Y + n*drow;
+  term_move_cursor_to( term, row, col );
+}
+
+static void term_cursor_visible( term_t* term, bool visible ) {
+  CONSOLE_CURSOR_INFO info;
+  if (!GetConsoleCursorInfo(term->hcon,&info)) return;
+  info.bVisible = visible;
+  SetConsoleCursorInfo(term->hcon,&info);
+}
+
+static void term_erase_line( term_t* term, ssize_t mode ) {  
+  CONSOLE_SCREEN_BUFFER_INFO info;
+  if (!GetConsoleScreenBufferInfo( term->hcon, &info )) return;
+  DWORD written;
+  if (mode == 2) {
+    // to end of line    
+    FillConsoleOutputCharacter(term->hcon, ' ', info.srWindow.Right - info.dwCursorPosition.X + 1, info.dwCursorPosition, &written );
+  }
+  else if (mode == 1) {
+    // to start of line
+    COORD start;
+    start.X = 0;
+    start.Y = info.dwCursorPosition.Y;
+    FillConsoleOutputCharacter(term->hcon, ' ', info.dwCursorPosition.X, start, &written );
+  }
+  else {
+    // entire line
+    COORD start;
+    start.X = 0;
+    start.Y = info.dwCursorPosition.Y;
+    FillConsoleOutputCharacter(term->hcon, ' ', info.srWindow.Right + 1, start, &written );
+  }
+}
+
+static WORD attr_color[8] = {
+  0,                                  // black
+  FOREGROUND_RED,                     // maroon
+  FOREGROUND_GREEN,                   // green
+  FOREGROUND_RED | FOREGROUND_GREEN,  // orange
+  FOREGROUND_BLUE,                    // navy
+  FOREGROUND_RED | FOREGROUND_BLUE,   // purple
+  FOREGROUND_GREEN | FOREGROUND_BLUE, // teal
+  FOREGROUND_RED | FOREGROUND_GREEN | FOREGROUND_BLUE, // light gray
+};
+
+static void term_attr( term_t* term, ssize_t cmd ) {
+  WORD def_attr = term->hcon_default_attr;
+  CONSOLE_SCREEN_BUFFER_INFO info;
+  if (!GetConsoleScreenBufferInfo( term->hcon, &info )) return;
+  WORD cur_attr = info.wAttributes;
+  WORD attr = cur_attr; 
+  if (cmd==0) {
+    attr = def_attr;
+  }
+  else if (cmd >= 30 && cmd <= 37) {  // fore ground
+    attr = (attr & ~0x0F) | attr_color[cmd - 30];
+  }
+  else if (cmd >= 90 && cmd <= 97) {  // fore ground bright
+    attr = (attr & ~0x0F) | attr_color[cmd - 90] | FOREGROUND_INTENSITY;
+  }
+  else if (cmd >= 40 && cmd <= 47) {  // back ground
+    attr = (attr & ~0xF0) | (attr_color[cmd - 40] << 4);
+  }
+  else if (cmd >= 90 && cmd <= 97) {  // back ground bright
+    attr = (attr & ~0xF0) | (attr_color[cmd - 90] << 4) | BACKGROUND_INTENSITY;
+  }
+  else if (cmd == 39) {  // default fore ground
+    attr = (attr & ~0x0F) | (def_attr & 0x0F);
+  }
+  else if (cmd == 39) {  // default back ground
+    attr = (attr & ~0xF0) | (def_attr & 0xF0);
+  }
+  else if (cmd == 4) {  // underline
+    attr |= COMMON_LVB_UNDERSCORE;
+  }
+  else if (cmd == 24) {  // not underline
+    attr &= ~COMMON_LVB_UNDERSCORE;
+  }
+  else if (cmd == 7) {  // reverse
+    attr |= COMMON_LVB_REVERSE_VIDEO;
+  }
+  else if (cmd == 24) {  // not reverse
+    attr &= ~COMMON_LVB_REVERSE_VIDEO;
+  }
+  else {
+    return; // ignore
+  }
+  if (attr != cur_attr) SetConsoleTextAttribute( term->hcon, attr );
+}
+
+static ssize_t esc_param( const char* s, ssize_t len, ssize_t def ) {
+  ssize_t n = def;
+  sscanf(s, "%zd", &n);
+  return n;
+}
+
+static void esc_param2( const char* s, ssize_t len, ssize_t* p1, ssize_t* p2, ssize_t def ) {
+  *p1 = def;
+  *p2 = def;
+  sscanf(s, "%zd;%zd", p1, p2);  
+}
+
+static void term_write_esc( term_t* term, const char* s, ssize_t len ) {
+  switch( s[len-1] ) {
+    case 'A': 
+      term_move_cursor( term, -1, 0, esc_param( s+2, len, 1 ) ); 
+      break;
+    case 'B': 
+      term_move_cursor( term, 1, 0, esc_param( s+2, len, 1 ) ); 
+      break;
+    case 'C': 
+      term_move_cursor( term, 0, 1, esc_param( s+2, len, 1 ) ); 
+      break;
+    case 'D': 
+      term_move_cursor( term, 0, -1, esc_param( s+2, len, 1 ) ); 
+      break;
+    case 'H': 
+      ssize_t row;
+      ssize_t col;
+      esc_param2( s+2, len, &row, &col, 1 );
+      term_move_cursor_to( term, row, col ); 
+      break;
+    case 'K':
+      term_erase_line( term, esc_param( s+2, len, 0 ) );
+      break;
+    case 'm':
+      term_attr( term, esc_param( s+2, len, 0 ) );
+      break;
+  }
+  // otherwise ignore
+}
+
+static bool term_write_direct(term_t* term, const char* s, ssize_t len ) {
+  term_cursor_visible(term,false); // reduce flicker
+  ssize_t pos = 0;
+  while( pos < len ) {
+    // handle non-control in bulk
+    ssize_t nonctrl = 0;
+    ssize_t next;
+    while( (next = skip_next_code( s, len, pos+nonctrl, true )) > 0 && (uint8_t)s[pos + nonctrl] >= ' ') {
+      nonctrl += next;
+    }
+    if (nonctrl > 0) {
+      term_write_console(term, s+pos, nonctrl);
+      pos += nonctrl;
+    }    
+    if (next <= 0) break;
+
+    // handle control
+    if (next > 1 && s[pos] == '\x1B') {
+      term_write_esc(term, s+pos, next);
+    }
+    else {
+      term_write_console( term, s+pos, next);
+    }
+    pos += next;
+  }
+  term_cursor_visible(term,true);
+  assert(pos == len);
+  return (pos == len); 
 }
 
 #endif
@@ -271,22 +455,31 @@ static bool term_write_direct(term_t* term, const char* s, ssize_t n ) {
 #if defined(_WIN32)
 internal void term_start_raw(term_t* term) {
   if (term->raw_enabled) return;
-  GetConsoleMode( term->hcon, &term->hcon_orig_mode );
-  term->hcon_orig_cp = GetConsoleOutputCP(); 
-	SetConsoleMode( term->hcon, ENABLE_PROCESSED_OUTPUT | ENABLE_WRAP_AT_EOL_OUTPUT | ENABLE_VIRTUAL_TERMINAL_PROCESSING );
-  SetConsoleOutputCP(65001);
+  CONSOLE_SCREEN_BUFFER_INFO info;
+  if (GetConsoleScreenBufferInfo( term->hcon, &info )) {
+    term->hcon_orig_attr = info.wAttributes;
+  }
+	GetConsoleMode( term->hcon, &term->hcon_orig_mode );
+  //term->hcon_orig_cp = GetConsoleOutputCP(); 
+  SetConsoleMode( term->hcon, ENABLE_PROCESSED_OUTPUT /* | ENABLE_VIRTUAL_TERMINAL_PROCESSING */ );
+  //SetConsoleOutputCP(65001);
   term->raw_enabled = true;  
 }
 
 internal void term_end_raw(term_t* term) {
   if (!term->raw_enabled) return;
+  //SetConsoleOutputCP(term->hcon_orig_cp);
   SetConsoleMode( term->hcon, term->hcon_orig_mode );
-  SetConsoleOutputCP(term->hcon_orig_cp);
+  SetConsoleTextAttribute(term->hcon, term->hcon_orig_attr);
   term->raw_enabled = false;
 }
 
 static void term_init_raw(term_t* term) {
   term->hcon = GetStdHandle( STD_OUTPUT_HANDLE );
+  CONSOLE_SCREEN_BUFFER_INFO info;
+  if (GetConsoleScreenBufferInfo( term->hcon, &info )) {
+    term->hcon_default_attr = info.wAttributes;
+  }
 }
 
 #else
