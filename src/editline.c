@@ -851,7 +851,7 @@ again:
   //snprintf(buf,128,"\n\x1B[90m(enter or 1-%zd to complete, tab/cursor to change selection)\x1B[0m", count9);
   //editbuf_append_extra( env, eb, buf);       
   if (count > 9) {
-    snprintf(buf,128,"\n\x1B[90m(press page-down to see all %zd completions)\x1B[0m", count);
+    snprintf(buf,128,"\n\x1B[90m\x1B[4m(press page-down to see all %zd completions)\x1B[0m", count);
     editbuf_append_extra( env, eb, buf);      
   }   
   edit_refresh(env,eb);

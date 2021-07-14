@@ -574,7 +574,7 @@ static void tty_waitc_console(tty_t* tty)
 internal void tty_start_raw(tty_t* tty) {
   if (tty->raw_enabled) return;
   GetConsoleMode(tty->hcon,&tty->hcon_orig_mode);
-  DWORD mode =  ENABLE_VIRTUAL_TERMINAL_INPUT | ENABLE_QUICK_EDIT_MODE | ENABLE_PROCESSED_INPUT ;
+  DWORD mode =  ENABLE_QUICK_EDIT_MODE; // | ENABLE_VIRTUAL_TERMINAL_INPUT ; // | ENABLE_PROCESSED_INPUT ;
   SetConsoleMode(tty->hcon, mode );
   tty->raw_enabled = true;
 }

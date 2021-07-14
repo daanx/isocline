@@ -257,7 +257,7 @@ static bool term_write_direct(term_t* term, const char* s, ssize_t n ) {
 
 //-------------------------------------------------------------
 // On windows we do ansi escape emulation ourselves.
-// (for older systems and sometimes win10 emulation is not correct)
+// (for compat pre-win10 systems)
 //-------------------------------------------------------------
 
 static bool term_write_console(term_t* term, const char* s, ssize_t n ) {
@@ -297,24 +297,27 @@ static void term_erase_line( term_t* term, ssize_t mode ) {
   CONSOLE_SCREEN_BUFFER_INFO info;
   if (!GetConsoleScreenBufferInfo( term->hcon, &info )) return;
   DWORD written;
+  COORD start;
+  DWORD length;
   if (mode == 2) {
     // to end of line    
-    FillConsoleOutputCharacter(term->hcon, ' ', info.srWindow.Right - info.dwCursorPosition.X + 1, info.dwCursorPosition, &written );
+    length = info.srWindow.Right - info.dwCursorPosition.X;
+    start  = info.dwCursorPosition;
   }
   else if (mode == 1) {
     // to start of line
-    COORD start;
     start.X = 0;
     start.Y = info.dwCursorPosition.Y;
-    FillConsoleOutputCharacter(term->hcon, ' ', info.dwCursorPosition.X, start, &written );
+    length  = info.dwCursorPosition.X;
   }
   else {
     // entire line
-    COORD start;
     start.X = 0;
     start.Y = info.dwCursorPosition.Y;
-    FillConsoleOutputCharacter(term->hcon, ' ', info.srWindow.Right + 1, start, &written );
+    length = info.srWindow.Right + 1;
   }
+  FillConsoleOutputAttribute( term->hcon, 0, length, start, &written );
+  FillConsoleOutputCharacter( term->hcon, ' ', length, start, &written );
 }
 
 static WORD attr_color[8] = {
@@ -328,10 +331,10 @@ static WORD attr_color[8] = {
   FOREGROUND_RED | FOREGROUND_GREEN | FOREGROUND_BLUE, // light gray
 };
 
-static void term_attr( term_t* term, ssize_t cmd ) {
+static void term_esc_attr( term_t* term, ssize_t cmd ) {
   WORD def_attr = term->hcon_default_attr;
   CONSOLE_SCREEN_BUFFER_INFO info;
-  if (!GetConsoleScreenBufferInfo( term->hcon, &info )) return;
+  if (!GetConsoleScreenBufferInfo( term->hcon, &info )) return;  
   WORD cur_attr = info.wAttributes;
   WORD attr = cur_attr; 
   if (cmd==0) {
@@ -409,7 +412,7 @@ static void term_write_esc( term_t* term, const char* s, ssize_t len ) {
       term_erase_line( term, esc_param( s+2, len, 0 ) );
       break;
     case 'm':
-      term_attr( term, esc_param( s+2, len, 0 ) );
+      term_esc_attr( term, esc_param( s+2, len, 0 ) );
       break;
   }
   // otherwise ignore
@@ -460,16 +463,19 @@ internal void term_start_raw(term_t* term) {
     term->hcon_orig_attr = info.wAttributes;
   }
 	GetConsoleMode( term->hcon, &term->hcon_orig_mode );
-  //term->hcon_orig_cp = GetConsoleOutputCP(); 
-  SetConsoleMode( term->hcon, ENABLE_PROCESSED_OUTPUT | ENABLE_LVB_GRID_WORLDWIDE /* | ENABLE_VIRTUAL_TERMINAL_PROCESSING */ );
-  //SetConsoleOutputCP(65001);
+  term->hcon_orig_cp = GetConsoleOutputCP(); 
+  SetConsoleOutputCP(65001);  
+  SetConsoleMode( term->hcon,  ENABLE_PROCESSED_OUTPUT   // for \r \n and \b
+                             | ENABLE_LVB_GRID_WORLDWIDE // for underline
+                             // | ENABLE_VIRTUAL_TERMINAL_PROCESSING // we already emulate ourselves 
+                             );
   term->raw_enabled = true;  
 }
 
 internal void term_end_raw(term_t* term) {
   if (!term->raw_enabled) return;
-  //SetConsoleOutputCP(term->hcon_orig_cp);
   SetConsoleMode( term->hcon, term->hcon_orig_mode );
+  SetConsoleOutputCP(term->hcon_orig_cp);
   SetConsoleTextAttribute(term->hcon, term->hcon_orig_attr);
   term->raw_enabled = false;
 }

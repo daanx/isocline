@@ -35,7 +35,7 @@ typedef struct term_s {
   WORD    hcon_default_attr;  
   WORD    hcon_orig_attr;
   DWORD   hcon_orig_mode;
-  //UINT    hcon_orig_cp;  
+  UINT    hcon_orig_cp;  
   #endif
 } term_t;
 
