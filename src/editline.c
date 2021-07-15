@@ -1067,7 +1067,8 @@ again:
     // show all completions
     c = 0;
     if (more_available) {
-      count = completions_generate(env,eb->buf,eb->pos,RP_MAX_COMPLETIONS_TO_SHOW);  // generate up to max entries
+      // generate all entries (up to the max (= 1000))
+      count = completions_generate(env,eb->buf,eb->pos,RP_MAX_COMPLETIONS_TO_SHOW);
     }
     rowcol_t rc;
     edit_get_current_pos(env,eb,&rc);
@@ -1110,7 +1111,7 @@ static void edit_generate_completions(rp_env_t* env, editbuf_t* eb) {
     edit_complete(env,eb,0);
   }
   else {
-    edit_completion_menu( env, eb, count>=10 );    
+    edit_completion_menu( env, eb, count>=10 /* possibly more available? */);    
   }
 }
 
