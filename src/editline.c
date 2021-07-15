@@ -805,6 +805,85 @@ static void edit_insert_char(rl_env_t* env, editbuf_t* eb, char c, bool refresh)
 }
 
 //-------------------------------------------------------------
+// Help
+//-------------------------------------------------------------
+
+static const char* help[] = {
+  "","",
+  "","Repline v1.0, Copyright (c) 2021 Daan Leijen", 
+  "","This is free software; you can redistribute it and/or",
+  "","modify it under the terms of the MIT License.",
+  "","See <https://github.com/daanx/repline> for further information.",
+  "","",
+  "","Navigation:",
+  "left, "
+  "^B",         "go one character to the left",
+  "right, "
+  "^F",         "go one character to the right",
+  "up",         "go one row up, or back in the history",
+  "down",       "go one row down, or forward in the history",  
+  "^left,",     "go to the start of the previous word",
+  "^right,",    "go to the end the current word",
+  "home, "
+  "^A",         "go to the start of the current line",  
+  "end, "
+  "^E",         "go to the end of the current line",
+  "^home, "
+  "PgUp",       "go to the start of the current input",
+  "^end, "
+  "PgDn",       "go to the end of the current input",
+  "^P",         "go back in the history",
+  "^N",         "go forward in the history",
+  "","",
+  "", "Editing:",
+  "enter",      "accept current input",
+  #ifndef __APPLE__
+  "^enter, ^J", "",
+  #else
+  "^J,", "",
+  #endif
+  "shift+tab",  "create a new line for multi-line input",
+  //" ",          "(or type '\\' followed by enter)",
+  "^L",         "clear screen",
+  "del",        "delete the current character",
+  "backspace",  "delete the previour character",
+  "^K",         "delete to the end of a line",
+  "^W",         "delete to start of a word",
+  "esc, "
+  "^U",         "delete the current line",
+  "^T",         "swap with previous character (move character backward)",
+  "^D",         "done with empty input, or delete current character",
+  //"^C",         "done with empty input",
+  //"F1",         "show this help",
+  "tab",        "try to complete the current input",
+  "","",
+  "","Inside the completion menu:",
+  "enter, "
+  "space",      "use the currently selected completion",
+  "1 - 9",      "use completion N from the menu",
+  "tab",        "select the next completion",
+  "cursor keys","select completion N in the menu",
+  "PgDn, ", "",
+  "shift-tab",  "show all further possible completions",
+  "esc",        "exit menu without completing",
+  "","\x1B[0m",
+  NULL, NULL
+};
+
+static void edit_show_help( rl_env_t* env, editbuf_t* eb ) {
+  for (ssize_t i = 0; help[i] != NULL && help[i+1] != NULL; i+=2) {
+    if (help[i][0] == 0) {
+      term_writef(&env->term, "\x1B[90m%s\x1B[0m\r\n", help[i+1]);
+    }
+    else {
+      term_writef(&env->term, "  \x1B[97m%-12s\x1B[0m%s%s\r\n", help[i], (help[i+1][0] == 0 ? "" : ": "), help[i+1]);
+    }
+  }
+  eb->prev_rows = 0;
+  edit_refresh(env,eb);   
+}
+
+//-------------------------------------------------------------
 // Completion
 //-------------------------------------------------------------
 
@@ -1144,6 +1223,9 @@ static char* edit_line( rl_env_t* env, const char* prompt )
         break; 
       case KEY_CTRL('T'):
         edit_swap(env,&eb);
+        break;
+      case KEY_F1:
+        edit_show_help(env,&eb);
         break;
       default: {
         char chr;

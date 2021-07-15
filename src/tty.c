@@ -108,10 +108,10 @@ static code_t tty_read_esc(tty_t* tty) {
   char c4 = 0;
   char c5 = 0;
   code_t code;
-  if (!tty_readc_peek(tty, &c1)) goto fail;
-  if (c1 != '[' && c1 != 'O' && c1 != 'o')    goto fail;
+  if (!tty_readc_peek(tty, &c1)) return KEY_ESC;
+  if (c1 != '[' && c1 != 'O' && c1 != 'o')  goto fail;
   if (!tty_readc_peek(tty, &c2)) goto fail;
-  debug_msg("tty: read escape: %c%c\n", c1, c2 );  
+  debug_msg("tty: read escape: %c%c\n", c1, c2 );
   if (c1 == '[') {
     if (c2 >= '0' && c2 <= '9') {      
       if (!tty_readc_peek(tty, &c3)) {
@@ -130,6 +130,7 @@ static code_t tty_read_esc(tty_t* tty) {
           case '5': return KEY_PAGEUP;
           case '6': return KEY_PAGEDOWN;
         }
+        return KEY_NONE;
       }
       else if (c3 == '^') {
         // ESC [ ? ^
@@ -140,6 +141,22 @@ static code_t tty_read_esc(tty_t* tty) {
           case '7': return KEY_CTRL_HOME; // Eterm/rxvt
           case '8': return KEY_CTRL_END;  // Eterm/rxvt
         }
+        return KEY_NONE;
+      }      
+      else if (c2 == '1' && c3 >= '1' && c3 <= '9') {
+        if (!tty_readc_peek(tty, &c4)) goto fail;
+        if (c4 != '~') goto fail;
+        // ESC [ 1 ? ~
+        if (c3 >= '1' && c3 <= '5') return (KEY_F1 + (c3 - '1'));  // F1 - F5
+        if (c3 >= '7' && c3 <= '9') return (KEY_F6 + (c3 - '7'));  // F6 - F8 !
+        return KEY_NONE;
+      }
+      else if (c2 == '2' && c3 >= '1' && c3 <= '9') {
+        if (!tty_readc_peek(tty, &c4)) goto fail;
+        if (c4 != '~') goto fail;
+        // ESC [ 2 ? ~
+        if (c3 >= '1' && c3 <= '4') return (KEY_F9 + (c3 - '1'));  // F9 - F12
+        return KEY_NONE;
       }
       else if (c3 == ';') {
         if (!tty_readc_peek(tty, &c4)) goto fail;
@@ -150,7 +167,7 @@ static code_t tty_read_esc(tty_t* tty) {
           // ESC [ 1 ; 5 ? 
           if (esc_ctrl(c5,&code)) return code;          
         }
-        if (c2 == '1' && c4 == '2') {  // shift+ 
+        else if (c2 == '1' && c4 == '2') {  // shift+ 
           // ESC [ 1 ; 2 ? 
           if (esc_ctrl(c5,&code)) return code;          
         }
@@ -158,6 +175,7 @@ static code_t tty_read_esc(tty_t* tty) {
           // ESC [ 3 ; 3 ~
           return KEY_CTRL_DEL;
         }
+        return KEY_NONE;
       }
     }
     // ESC [ ?
@@ -166,10 +184,9 @@ static code_t tty_read_esc(tty_t* tty) {
       case 'B': return KEY_DOWN;
       case 'C': return KEY_RIGHT;
       case 'D': return KEY_LEFT;
-      case 'E': return '5';       // numpad 5
+      case 'E': return '5';           // numpad 5
       case 'F': return KEY_END;
       case 'H': return KEY_HOME;
-      case 'M': return KEY_LINEFEED;  // ctrl+enter 
       case 'Z': return KEY_LINEFEED;  // shift+tab
       // Freebsd:
       case 'I': return KEY_PAGEUP;  
@@ -181,9 +198,30 @@ static code_t tty_read_esc(tty_t* tty) {
       case 'U': return KEY_PAGEDOWN;   
       case 'V': return KEY_PAGEUP;     
       case 'Y': return KEY_END;       
-      case '9': return KEY_DEL;   // unreachable due to previous if
-      case '@': return KEY_INS;   
+      case '9': return KEY_DEL;       // unreachable due to previous if
+      case '@': return KEY_INS;  
+      #ifdef __freebsd__
+      case 'M': return KEY_F1;        // freebsd
+      #else
+      case 'M': return KEY_LINEFEED;  // ctrl+enter 
+      #endif
+      case 'N': return KEY_F2;
+      case 'O': {
+        // ESC [ O ?
+        if (!tty_readc_peek(tty, &c3)) return KEY_F3; // ESC [ O  on freebsd
+        if (c3 >= 'P' && c3 <= 'S')    return (KEY_F1 + (c3 - 'P'));
+      }
+      case '[': {
+        if (!tty_readc_peek(tty, &c3)) goto fail;
+        // ESC [ [ ?
+        if (c3 >= 'A' && c3 <= 'E') return (KEY_F1 + (c3 - 'A'));
+      }
+      default: {
+        // ESC [ ?
+        if (c2 >= 'P' && c2 <= 'T') return (KEY_F4 + (c2 - 'P')); 
+      } 
     }
+    return KEY_NONE;
   }
   else if (c1 == 'O') {
     // ESC O ?   
@@ -193,7 +231,7 @@ static code_t tty_read_esc(tty_t* tty) {
       case 'C': return KEY_RIGHT;
       case 'D': return KEY_LEFT;
       case 'F': return KEY_END;
-      case 'H': return KEY_HOME;     
+      case 'H': return KEY_HOME;  
       case 'a': return KEY_CTRL_UP;
       case 'b': return KEY_CTRL_DOWN;
       case 'c': return KEY_CTRL_RIGHT;
@@ -232,15 +270,20 @@ static code_t tty_read_esc(tty_t* tty) {
         if (!tty_readc_peek(tty, &c3)) goto fail;
         // ESC O 5 ?   (on haiku)
         if (esc_ctrl(c3,&code)) return code;
-      }                       
+      }
+      default: {
+        if (c2 >= 'P' && c2 <= 'Y') return (KEY_F1 + (c2 - 'P'));
+      }
     }
+    return KEY_NONE;
   }
   else if (c1 == 'o') {
     // ESC o ?  (on Eterm)
     if (c2 >= 'a' && c2 <= 'z') {
       c2 = c2 - 'a' + 'A'; // to uppercase
     }
-    if (esc_ctrl(c2,&code)) return code;    
+    if (esc_ctrl(c2,&code)) return code;
+    return KEY_NONE;
   }
 fail:
   debug_msg("tty: unknown escape sequence: ESC %c %c %c %c %c\n", (c1==0 ? ' ' : c1), (c2==0 ? ' ' : c2), (c3==0 ? ' ' : c3), (c4==0 ? ' ' : c4), (c5==0 ? '-' : c5) );
