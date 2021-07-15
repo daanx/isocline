@@ -422,7 +422,8 @@ static bool edit_set_pos_iter(
 }
 
 static void edit_set_pos_at(rp_env_t* env, editbuf_t* eb, ssize_t row, ssize_t col /* without prompt */) {
-  rowcol_t rc = { 0 };
+  rowcol_t rc;
+  memset(&rc,0,ssizeof(rc));
   rc.row = row;
   rc.col = col;
   edit_for_each_row(env,eb,&edit_set_pos_iter,&rc);  
