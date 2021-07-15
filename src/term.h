@@ -5,14 +5,14 @@
   found in the "LICENSE" file at the root of this distribution.
 -----------------------------------------------------------------------------*/
 #pragma once
-#ifndef RL_TERM_H
-#define RL_TERM_H
+#ifndef RP_TERM_H
+#define RP_TERM_H
 
-#include "../include/repline.h"  // rl_color_t
+#include "../include/repline.h"  // rp_color_t
 #include "common.h"
 #include "tty.h"
 
-#define RL_MAX_LINE 4096
+#define RP_MAX_LINE 4096
 
 #ifdef _WIN32
 #include <windows.h>
@@ -69,11 +69,11 @@ internal void term_clear_screen(term_t* term);
 internal void term_clear(term_t* term, ssize_t n);
 internal void term_bold(term_t* term);
 internal void term_italic(term_t* term);
-internal void term_bgcolor(term_t* term, rl_color_t color);
+internal void term_bgcolor(term_t* term, rp_color_t color);
 */
 
 internal void term_attr_reset(term_t* term);
 internal void term_underline(term_t* term, bool on);
-internal void term_color(term_t* term, rl_color_t color);
+internal void term_color(term_t* term, rp_color_t color);
 
-#endif // RL_TERM_H
+#endif // RP_TERM_H

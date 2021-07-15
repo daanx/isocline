@@ -5,8 +5,8 @@
   found in the "LICENSE" file at the root of this distribution.
 -----------------------------------------------------------------------------*/
 #pragma once
-#ifndef RL_TTY_H
-#define RL_TTY_H
+#ifndef RP_TTY_H
+#define RP_TTY_H
 
 #include "common.h"
 
@@ -54,16 +54,16 @@ typedef int code_t;
 #define KEY_F11           (KEY_VIRT+21)
 #define KEY_F12           (KEY_VIRT+22)
 
-#define KEY_CTRL_UP       (KEY_VIRT+100)
-#define KEY_CTRL_DOWN     (KEY_VIRT+101)
-#define KEY_CTRL_LEFT     (KEY_VIRT+102)
-#define KEY_CTRL_RIGHT    (KEY_VIRT+103)
-#define KEY_CTRL_HOME     (KEY_VIRT+104)
-#define KEY_CTRL_END      (KEY_VIRT+105)
-#define KEY_CTRL_DEL      (KEY_VIRT+106)
-#define KEY_CTRL_PAGEUP   (KEY_VIRT+107)
-#define KEY_CTRL_PAGEDOWN (KEY_VIRT+108)
-#define KEY_CTRL_INS      (KEY_VIRT+109)
+#define KEY_CTRP_UP       (KEY_VIRT+100)
+#define KEY_CTRP_DOWN     (KEY_VIRT+101)
+#define KEY_CTRP_LEFT     (KEY_VIRT+102)
+#define KEY_CTRP_RIGHT    (KEY_VIRT+103)
+#define KEY_CTRP_HOME     (KEY_VIRT+104)
+#define KEY_CTRP_END      (KEY_VIRT+105)
+#define KEY_CTRP_DEL      (KEY_VIRT+106)
+#define KEY_CTRP_PAGEUP   (KEY_VIRT+107)
+#define KEY_CTRP_PAGEDOWN (KEY_VIRT+108)
+#define KEY_CTRP_INS      (KEY_VIRT+109)
 
 // We treat ctrl+<tab/enter> and shift+<tab/enter> as '\n' for portability. 
 // - shift+tab  works across linux/macos/windows.
@@ -108,4 +108,4 @@ internal bool code_is_follower( tty_t*, code_t c, char* chr);
 internal bool code_is_extended( tty_t*, code_t c, char* chr, int* tofollow);
 internal bool code_is_key( tty_t*, code_t c );
 
-#endif // RL_TTY_H
+#endif // RP_TTY_H

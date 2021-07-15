@@ -38,10 +38,10 @@ typedef struct editbuf_s {
 //-------------------------------------------------------------
 // Main edit line 
 //-------------------------------------------------------------
-static char* edit_line( rl_env_t* env, const char* prompt );
-static void edit_refresh(rl_env_t* env, editbuf_t* eb);
+static char* edit_line( rp_env_t* env, const char* prompt );
+static void edit_refresh(rp_env_t* env, editbuf_t* eb);
 
-internal char* rl_editline(rl_env_t* env, const char* prompt) {
+internal char* rp_editline(rp_env_t* env, const char* prompt) {
   tty_start_raw(&env->tty);
   term_start_raw(&env->term);
   char* line = edit_line(env,prompt);
@@ -138,7 +138,7 @@ static ssize_t editbuf_next_ofs( editbuf_t* eb, const char* s, ssize_t len, ssiz
 
 static ssize_t editbuf_width( editbuf_t* eb, const char* s ) {
   if (s == NULL) return 0;
-  ssize_t len = rl_strlen(s);
+  ssize_t len = rp_strlen(s);
   ssize_t pos = 0;
   ssize_t width = 0;
   ssize_t w;
@@ -151,7 +151,7 @@ static ssize_t editbuf_width( editbuf_t* eb, const char* s ) {
   return width;
 }
 
-static bool editbuf_ensure_space(rl_env_t* env, editbuf_t* eb, ssize_t extra) 
+static bool editbuf_ensure_space(rp_env_t* env, editbuf_t* eb, ssize_t extra) 
 {
   if (eb->buflen < eb->len + extra) {
     // reallocate
@@ -172,7 +172,7 @@ static bool editbuf_ensure_space(rl_env_t* env, editbuf_t* eb, ssize_t extra)
 }
 
 static ssize_t editbuf_input_len(editbuf_t* eb) {
-  return rl_strlen(eb->buf);
+  return rp_strlen(eb->buf);
 }
 
 static bool editbuf_pos_is_at_end(editbuf_t* eb) {
@@ -186,12 +186,12 @@ static void editbuf_clear_extra( editbuf_t* eb ) {
   eb->len = ilen + 1;
 }
 
-static bool editbuf_append_extra( rl_env_t* env, editbuf_t* eb, const char* s ) {
+static bool editbuf_append_extra( rp_env_t* env, editbuf_t* eb, const char* s ) {
   if (s == NULL) return true;
-  ssize_t len = rl_strlen(s);
+  ssize_t len = rp_strlen(s);
   if (!editbuf_ensure_space(env,eb,len)) return false;
   assert(eb->buflen - eb->len >= len);
-  if (!rl_memnmove( eb->buf + eb->len, eb->buflen - eb->len, s, len )) {
+  if (!rp_memnmove( eb->buf + eb->len, eb->buflen - eb->len, s, len )) {
     assert(false);
     return false;
   }
@@ -202,7 +202,7 @@ static bool editbuf_append_extra( rl_env_t* env, editbuf_t* eb, const char* s ) 
 static const char* editbuf_drop_until_fit( editbuf_t* eb, const char* s, ssize_t max_width) {
   if (s == NULL) return s;
   ssize_t width = editbuf_width(eb,s);
-  ssize_t len   = rl_strlen(s);
+  ssize_t len   = rp_strlen(s);
   ssize_t pos = 0;
   ssize_t next;
   ssize_t w;
@@ -294,12 +294,12 @@ static ssize_t editbuf_get_word_end( editbuf_t* eb, ssize_t pos) {
 // Row iterator
 //-------------------------------------------------------------
 
-typedef bool (edit_line_fun_t)(rl_env_t* env, editbuf_t* eb, 
+typedef bool (edit_line_fun_t)(rp_env_t* env, editbuf_t* eb, 
                                ssize_t row, ssize_t row_start, ssize_t row_len, 
                                bool in_extra, bool is_wrap,
                                void* arg);
 
-static ssize_t edit_for_each_row( rl_env_t* env, editbuf_t* eb, edit_line_fun_t* fun, void* arg ) {
+static ssize_t edit_for_each_row( rp_env_t* env, editbuf_t* eb, edit_line_fun_t* fun, void* arg ) {
   ssize_t i;
   ssize_t termw = term_get_width(&env->term);
   ssize_t rcount = 0;
@@ -362,7 +362,7 @@ typedef struct rowcol_s {
 } rowcol_t;
 
 static bool edit_get_current_pos_iter(
-    rl_env_t* env, editbuf_t* eb,
+    rp_env_t* env, editbuf_t* eb,
     ssize_t row, ssize_t row_start, ssize_t row_len, 
     bool in_extra, bool is_wrap, void* arg)
 {
@@ -390,7 +390,7 @@ static bool edit_get_current_pos_iter(
   return false; // always continue to count all rows
 }
 
-static ssize_t edit_get_current_pos(rl_env_t* env, editbuf_t* eb, rowcol_t* rc) {
+static ssize_t edit_get_current_pos(rp_env_t* env, editbuf_t* eb, rowcol_t* rc) {
   ssize_t rows = edit_for_each_row(env,eb,&edit_get_current_pos_iter,rc);
   debug_msg("edit: current pos: (%d, %d) %s %s\n", rc->row, rc->col, rc->first_on_row ? "first" : "", rc->last_on_row ? "last" : "");
   return rows;
@@ -401,7 +401,7 @@ static ssize_t edit_get_current_pos(rl_env_t* env, editbuf_t* eb, rowcol_t* rc) 
 //-------------------------------------------------------------
 
 static bool edit_set_pos_iter(
-    rl_env_t* env, editbuf_t* eb,
+    rp_env_t* env, editbuf_t* eb,
     ssize_t row, ssize_t row_start, ssize_t row_len, 
     bool in_extra, bool is_wrap, void* arg)
 {
@@ -421,7 +421,7 @@ static bool edit_set_pos_iter(
   return true;
 }
 
-static void edit_set_pos_at(rl_env_t* env, editbuf_t* eb, ssize_t row, ssize_t col /* without prompt */) {
+static void edit_set_pos_at(rp_env_t* env, editbuf_t* eb, ssize_t row, ssize_t col /* without prompt */) {
   rowcol_t rc = { 0 };
   rc.row = row;
   rc.col = col;
@@ -429,7 +429,7 @@ static void edit_set_pos_at(rl_env_t* env, editbuf_t* eb, ssize_t row, ssize_t c
   edit_refresh(env,eb);
 }
 
-static bool edit_pos_is_at_row_end(rl_env_t* env, editbuf_t* eb) {
+static bool edit_pos_is_at_row_end(rp_env_t* env, editbuf_t* eb) {
   rowcol_t rc;
   edit_get_current_pos(env,eb,&rc);
   return rc.last_on_row;
@@ -442,9 +442,9 @@ static bool edit_pos_is_at_row_end(rl_env_t* env, editbuf_t* eb) {
 // Refresh
 //-------------------------------------------------------------
 
-static void edit_write_prompt( rl_env_t* env, editbuf_t* eb, ssize_t row, bool in_extra ) {
+static void edit_write_prompt( rp_env_t* env, editbuf_t* eb, ssize_t row, bool in_extra ) {
   if (!in_extra) { 
-    if (env->prompt_color != RL_DEFAULT) term_color( &env->term, env->prompt_color );
+    if (env->prompt_color != RP_DEFAULT) term_color( &env->term, env->prompt_color );
     if (row==0) {
       term_write(&env->term, eb->prompt);
     }
@@ -452,7 +452,7 @@ static void edit_write_prompt( rl_env_t* env, editbuf_t* eb, ssize_t row, bool i
       term_writef(&env->term, "%*c", editbuf_width(eb,eb->prompt), ' ' );
     }
     term_attr_reset( &env->term );
-    if (env->prompt_color != RL_DEFAULT) term_color( &env->term, env->prompt_color );
+    if (env->prompt_color != RP_DEFAULT) term_color( &env->term, env->prompt_color );
     term_write( &env->term, (env->prompt_marker == NULL ? "> " : env->prompt_marker )); 
     term_attr_reset( &env->term );
   }
@@ -464,7 +464,7 @@ typedef struct refresh_info_s {
 } refresh_info_t;
 
 static bool edit_refresh_rows_iter(
-    rl_env_t* env, editbuf_t* eb,
+    rp_env_t* env, editbuf_t* eb,
     ssize_t row, ssize_t row_start, ssize_t row_len, 
     bool in_extra, bool is_wrap, void* arg)
 {
@@ -482,7 +482,7 @@ static bool edit_refresh_rows_iter(
   *p = c;
   if (row < info->last_row) {
     if (is_wrap && eb->is_utf8) { 
-      term_color( &env->term, RL_DARKGRAY );
+      term_color( &env->term, RP_DARKGRAY );
       #ifdef _WIN32
       term_write( &env->term, "\xE2\x86\x90");  // left arrow 
       #else
@@ -495,14 +495,14 @@ static bool edit_refresh_rows_iter(
   return (row >= info->last_row);
 }
 
-static ssize_t edit_refresh_rows(rl_env_t* env, editbuf_t* eb, ssize_t first_row, ssize_t last_row) {
+static ssize_t edit_refresh_rows(rp_env_t* env, editbuf_t* eb, ssize_t first_row, ssize_t last_row) {
   refresh_info_t info;
   info.first_row  = first_row;
   info.last_row   = last_row;
   return edit_for_each_row(env,eb,&edit_refresh_rows_iter, &info );
 }
 
-static void edit_refresh(rl_env_t* env, editbuf_t* eb) {
+static void edit_refresh(rp_env_t* env, editbuf_t* eb) {
   rowcol_t rc;
   ssize_t rows = edit_get_current_pos( env, eb, &rc );
   debug_msg("edit: start refresh: rows %zd, pos: %zd,%zd (previous rows %zd, row %zd)\n", rows, rc.row, rc.col, eb->prev_rows, eb->prev_row);
@@ -548,7 +548,7 @@ static void edit_refresh(rl_env_t* env, editbuf_t* eb) {
 }
 
 
-static void edit_clear(rl_env_t* env, editbuf_t* eb ) {
+static void edit_clear(rp_env_t* env, editbuf_t* eb ) {
   term_attr_reset(&env->term);  
   term_up(&env->term, eb->prev_row);
   
@@ -562,7 +562,7 @@ static void edit_clear(rl_env_t* env, editbuf_t* eb ) {
   term_up(&env->term, eb->prev_rows );  
 }
 
-static void edit_clear_screen(rl_env_t* env, editbuf_t* eb ) {
+static void edit_clear_screen(rp_env_t* env, editbuf_t* eb ) {
   ssize_t prev_rows = eb->prev_rows;
   eb->prev_rows = term_get_height(&env->term) - 1;
   edit_clear(env,eb);
@@ -575,7 +575,7 @@ static void edit_clear_screen(rl_env_t* env, editbuf_t* eb ) {
 //-------------------------------------------------------------
 
 
-static void edit_history_at(rl_env_t* env, editbuf_t* eb, int ofs ) 
+static void edit_history_at(rp_env_t* env, editbuf_t* eb, int ofs ) 
 {
   if (eb->modified) { history_update(env, eb->buf); }
   const char* entry = history_get(env,eb->history_idx + ofs);
@@ -583,10 +583,10 @@ static void edit_history_at(rl_env_t* env, editbuf_t* eb, int ofs )
   if (entry == NULL) return;
   eb->history_idx += ofs;
   eb->len = 0;
-  ssize_t len = rl_strlen(entry);
+  ssize_t len = rp_strlen(entry);
   editbuf_ensure_space(env,eb,len + 1);
   assert(eb->buflen >= len + 1);
-  if (rl_strcpy(eb->buf, eb->buflen, entry)) {
+  if (rp_strcpy(eb->buf, eb->buflen, entry)) {
     eb->len = len + 1;
     eb->pos = len;
   }
@@ -594,15 +594,15 @@ static void edit_history_at(rl_env_t* env, editbuf_t* eb, int ofs )
   edit_refresh(env,eb);
 }
 
-static void edit_history_prev(rl_env_t* env, editbuf_t* eb) {
+static void edit_history_prev(rp_env_t* env, editbuf_t* eb) {
   edit_history_at(env,eb, 1 );
 }
 
-static void edit_history_next(rl_env_t* env, editbuf_t* eb) {
+static void edit_history_next(rp_env_t* env, editbuf_t* eb) {
   edit_history_at(env,eb, -1 );
 }
 
-static void edit_cursor_left(rl_env_t* env, editbuf_t* eb) {
+static void edit_cursor_left(rp_env_t* env, editbuf_t* eb) {
   ssize_t w;
   ssize_t n = editbuf_previous_ofs(eb,eb->buf,eb->pos,&w);
   if (n <= 0) return;
@@ -618,7 +618,7 @@ static void edit_cursor_left(rl_env_t* env, editbuf_t* eb) {
   }
 }
 
-static void edit_cursor_right(rl_env_t* env, editbuf_t* eb) {
+static void edit_cursor_right(rp_env_t* env, editbuf_t* eb) {
   ssize_t w;
   ssize_t n = editbuf_next_ofs(eb,eb->buf,editbuf_input_len(eb),eb->pos,&w);
   if (n <= 0) return;
@@ -634,46 +634,46 @@ static void edit_cursor_right(rl_env_t* env, editbuf_t* eb) {
   }
 }
 
-static void edit_cursor_line_end(rl_env_t* env, editbuf_t* eb) {
+static void edit_cursor_line_end(rp_env_t* env, editbuf_t* eb) {
   ssize_t end = editbuf_get_line_end(eb,eb->pos);
   if (end < 0) return;  
   eb->pos = end; 
   edit_refresh(env,eb);
 }
 
-static void edit_cursor_line_start(rl_env_t* env, editbuf_t* eb) {
+static void edit_cursor_line_start(rp_env_t* env, editbuf_t* eb) {
   ssize_t start = editbuf_get_line_start(eb,eb->pos);
   if (start < 0) return;
   eb->pos = start;
   edit_refresh(env,eb);
 }
 
-static void edit_cursor_next_word(rl_env_t* env, editbuf_t* eb) {
+static void edit_cursor_next_word(rp_env_t* env, editbuf_t* eb) {
   ssize_t end = editbuf_get_word_end(eb,eb->pos);
   if (end < 0) return;
   eb->pos = end;
   edit_refresh(env,eb);
 }
 
-static void edit_cursor_prev_word(rl_env_t* env, editbuf_t* eb) {
+static void edit_cursor_prev_word(rp_env_t* env, editbuf_t* eb) {
   ssize_t start = editbuf_get_word_start(eb,eb->pos);
   if (start < 0) return;
   eb->pos = start;
   edit_refresh(env,eb);
 }
 
-static void edit_cursor_to_start(rl_env_t* env, editbuf_t* eb) {
+static void edit_cursor_to_start(rp_env_t* env, editbuf_t* eb) {
   eb->pos = 0; 
   edit_refresh(env,eb);
 }
 
-static void edit_cursor_to_end(rl_env_t* env, editbuf_t* eb) {
+static void edit_cursor_to_end(rp_env_t* env, editbuf_t* eb) {
   eb->pos = editbuf_input_len(eb); 
   edit_refresh(env,eb);
 }
 
 
-static void edit_cursor_row_up(rl_env_t* env, editbuf_t* eb) {
+static void edit_cursor_row_up(rp_env_t* env, editbuf_t* eb) {
   rowcol_t rc;
   edit_get_current_pos( env, eb, &rc);
   if (rc.row == 0) {
@@ -684,7 +684,7 @@ static void edit_cursor_row_up(rl_env_t* env, editbuf_t* eb) {
   }
 }
 
-static void edit_cursor_row_down(rl_env_t* env, editbuf_t* eb) {
+static void edit_cursor_row_down(rp_env_t* env, editbuf_t* eb) {
   rowcol_t rc;
   ssize_t rows = edit_get_current_pos( env, eb, &rc);
   if (rc.row + 1 >= rows) {
@@ -695,12 +695,12 @@ static void edit_cursor_row_down(rl_env_t* env, editbuf_t* eb) {
   }
 }
 
-static void edit_backspace(rl_env_t* env, editbuf_t* eb) {
+static void edit_backspace(rp_env_t* env, editbuf_t* eb) {
   if (eb->pos <= 0) return;
   eb->modified = true;
   ssize_t n = editbuf_previous_ofs(eb, eb->buf, eb->pos, NULL);
   if (n <= 0) return;  
-  rl_memmove( eb->buf + eb->pos - n, eb->buf + eb->pos, eb->len - eb->pos );
+  rp_memmove( eb->buf + eb->pos - n, eb->buf + eb->pos, eb->len - eb->pos );
   eb->len -= n;
   eb->pos -= n;
   eb->buf[eb->len] = 0;
@@ -708,29 +708,29 @@ static void edit_backspace(rl_env_t* env, editbuf_t* eb) {
   edit_refresh(env,eb);
 }
 
-static void edit_delete(rl_env_t* env, editbuf_t* eb) {
+static void edit_delete(rp_env_t* env, editbuf_t* eb) {
   ssize_t n = editbuf_next_ofs(eb, eb->buf, editbuf_input_len(eb), eb->pos, NULL);
   if (n <= 0) return;  
   eb->modified = true;
-  rl_memmove( eb->buf + eb->pos, eb->buf + eb->pos + n, eb->len - eb->pos - n);
+  rp_memmove( eb->buf + eb->pos, eb->buf + eb->pos + n, eb->len - eb->pos - n);
   eb->len -= n;
   eb->buf[eb->len] = 0;
   edit_refresh(env,eb);
 }
 
-static void edit_delete_all(rl_env_t* env, editbuf_t* eb) {
+static void edit_delete_all(rp_env_t* env, editbuf_t* eb) {
   eb->len = 1;
   eb->pos = 0;
   eb->buf[0] = 0;
   edit_refresh(env,eb);
 }
 
-static void edit_delete_from_to(rl_env_t* env, editbuf_t* eb, ssize_t start, ssize_t end) 
+static void edit_delete_from_to(rp_env_t* env, editbuf_t* eb, ssize_t start, ssize_t end) 
 {   
   if (end >= eb->len) end = eb->len-1; // preserve final 0
   ssize_t n = end - start;
   if (n <= 0) return;
-  rl_memmove( eb->buf + start, eb->buf + end, eb->len - end );
+  rp_memmove( eb->buf + start, eb->buf + end, eb->len - end );
   //debug_msg("edit: del from to: %zd -> %zd (len %zd, pos %zd)", start, end, eb->len, eb->pos);
   eb->len -= n;
   if (eb->pos > start && eb->pos < end) {
@@ -743,18 +743,18 @@ static void edit_delete_from_to(rl_env_t* env, editbuf_t* eb, ssize_t start, ssi
   edit_refresh(env,eb);
 }
 
-static void edit_delete_line_from(rl_env_t* env, editbuf_t* eb, ssize_t start) 
+static void edit_delete_line_from(rp_env_t* env, editbuf_t* eb, ssize_t start) 
 { 
   ssize_t end = editbuf_get_line_end(eb,start);
   if (end < 0) return;
   edit_delete_from_to( env, eb, start, end );
 }
 
-static void edit_delete_to_end_of_line(rl_env_t* env, editbuf_t* eb) {
+static void edit_delete_to_end_of_line(rp_env_t* env, editbuf_t* eb) {
   edit_delete_line_from(env, eb, eb->pos);
 }
 
-static void edit_delete_line(rl_env_t* env, editbuf_t* eb) {
+static void edit_delete_line(rp_env_t* env, editbuf_t* eb) {
   ssize_t start = editbuf_get_line_start(eb,eb->pos);
   if (start < 0) return;
   ssize_t end   = editbuf_get_line_end(eb,start);
@@ -765,7 +765,7 @@ static void edit_delete_line(rl_env_t* env, editbuf_t* eb) {
   edit_delete_from_to(env,eb,start,end);
 }
  
-static void edit_delete_to_start_of_word(rl_env_t* env, editbuf_t* eb) {
+static void edit_delete_to_start_of_word(rp_env_t* env, editbuf_t* eb) {
   ssize_t start = editbuf_get_word_start(eb,eb->pos);
   if (start < 0) return;
   ssize_t end = eb->pos;
@@ -773,7 +773,7 @@ static void edit_delete_to_start_of_word(rl_env_t* env, editbuf_t* eb) {
   edit_delete_from_to(env,eb,start,end);
 }
 
-static void edit_swap( rl_env_t* env, editbuf_t* eb ) {
+static void edit_swap( rp_env_t* env, editbuf_t* eb ) {
   if (eb->pos <= 0 || eb->pos == eb->len-1) return;
   ssize_t next = editbuf_next_ofs( eb, eb->buf, eb->len, eb->pos, NULL );
   ssize_t prev = editbuf_previous_ofs( eb, eb->buf, eb->pos, NULL );
@@ -781,19 +781,19 @@ static void edit_swap( rl_env_t* env, editbuf_t* eb ) {
   eb->pos -= prev;
   assert(eb->pos >= 0);
   char buf[32];
-  rl_memcpy( buf, eb->buf + eb->pos, prev );
-  rl_memcpy( eb->buf + eb->pos, eb->buf + eb->pos + prev, next );
-  rl_memcpy( eb->buf + eb->pos + prev, buf, prev );
+  rp_memcpy( buf, eb->buf + eb->pos, prev );
+  rp_memcpy( eb->buf + eb->pos, eb->buf + eb->pos + prev, next );
+  rp_memcpy( eb->buf + eb->pos + prev, buf, prev );
   edit_refresh(env,eb);
 }
 
-static void edit_insert_char(rl_env_t* env, editbuf_t* eb, char c, bool refresh) {
+static void edit_insert_char(rp_env_t* env, editbuf_t* eb, char c, bool refresh) {
   if (!editbuf_ensure_space(env,eb,1)) return;
   eb->modified = true;
 
   // insert in buffer
   if (eb->pos < eb->len) {
-    rl_memmove( eb->buf + eb->pos + 1, eb->buf + eb->pos, eb->len - eb->pos );
+    rp_memmove( eb->buf + eb->pos + 1, eb->buf + eb->pos, eb->len - eb->pos );
   }
   eb->buf[eb->pos] = c;
   eb->pos++;
@@ -880,7 +880,7 @@ static const char* help[] = {
   NULL, NULL
 };
 
-static void edit_show_help( rl_env_t* env, editbuf_t* eb ) {
+static void edit_show_help( rp_env_t* env, editbuf_t* eb ) {
   for (ssize_t i = 0; help[i] != NULL && help[i+1] != NULL; i+=2) {
     if (help[i][0] == 0) {
       term_writef(&env->term, "\x1B[90m%s\x1B[0m\r\n", help[i+1]);
@@ -897,7 +897,7 @@ static void edit_show_help( rl_env_t* env, editbuf_t* eb ) {
 // Completion
 //-------------------------------------------------------------
 
-static void edit_complete(rl_env_t* env, editbuf_t* eb, int idx) {
+static void edit_complete(rp_env_t* env, editbuf_t* eb, int idx) {
   completion_t* cm = completions_get(env,idx);
   if (cm == NULL) return;
   editbuf_ensure_space(env,eb,completion_extra_needed(cm));
@@ -905,7 +905,7 @@ static void edit_complete(rl_env_t* env, editbuf_t* eb, int idx) {
   edit_refresh(env,eb);
 }
 
-static void editbuf_append_completion(rl_env_t* env, editbuf_t* eb, ssize_t idx, ssize_t width, bool numbered, bool selected ) {
+static void editbuf_append_completion(rp_env_t* env, editbuf_t* eb, ssize_t idx, ssize_t width, bool numbered, bool selected ) {
   completion_t* cm = completions_get(env,idx);
   if (cm == NULL) return;
   if (numbered) {
@@ -933,29 +933,29 @@ static void editbuf_append_completion(rl_env_t* env, editbuf_t* eb, ssize_t idx,
 }
 
 // 2 and 3 column output up to 80 wide
-#define RL_DISPLAY2_MAX    35
-#define RL_DISPLAY2_COL    (3+RL_DISPLAY2_MAX)
-#define RL_DISPLAY2_WIDTH  (2*RL_DISPLAY2_COL + 2)    // 78
+#define RP_DISPLAY2_MAX    35
+#define RP_DISPLAY2_COL    (3+RP_DISPLAY2_MAX)
+#define RP_DISPLAY2_WIDTH  (2*RP_DISPLAY2_COL + 2)    // 78
 
-#define RL_DISPLAY3_MAX    22
-#define RL_DISPLAY3_COL    (3+RL_DISPLAY3_MAX)
-#define RL_DISPLAY3_WIDTH  (3*RL_DISPLAY3_COL + 2*2)  // 79
+#define RP_DISPLAY3_MAX    22
+#define RP_DISPLAY3_COL    (3+RP_DISPLAY3_MAX)
+#define RP_DISPLAY3_WIDTH  (3*RP_DISPLAY3_COL + 2*2)  // 79
 
-static void editbuf_append_completion2(rl_env_t* env, editbuf_t* eb, ssize_t idx1, ssize_t idx2, ssize_t selected ) {  
-  editbuf_append_completion(env, eb, idx1, RL_DISPLAY2_COL, true, (idx1 == selected) );
+static void editbuf_append_completion2(rp_env_t* env, editbuf_t* eb, ssize_t idx1, ssize_t idx2, ssize_t selected ) {  
+  editbuf_append_completion(env, eb, idx1, RP_DISPLAY2_COL, true, (idx1 == selected) );
   editbuf_append_extra(env, eb, "  ");
-  editbuf_append_completion(env, eb, idx2, RL_DISPLAY2_COL, true, (idx2 == selected) );
+  editbuf_append_completion(env, eb, idx2, RP_DISPLAY2_COL, true, (idx2 == selected) );
 }
 
-static void editbuf_append_completion3(rl_env_t* env, editbuf_t* eb, ssize_t idx1, ssize_t idx2, ssize_t idx3, ssize_t selected ) {  
-  editbuf_append_completion(env, eb, idx1, RL_DISPLAY3_COL, true, (idx1 == selected) );
+static void editbuf_append_completion3(rp_env_t* env, editbuf_t* eb, ssize_t idx1, ssize_t idx2, ssize_t idx3, ssize_t selected ) {  
+  editbuf_append_completion(env, eb, idx1, RP_DISPLAY3_COL, true, (idx1 == selected) );
   editbuf_append_extra(env, eb, "  ");
-  editbuf_append_completion(env, eb, idx2, RL_DISPLAY3_COL, true, (idx2 == selected) );
+  editbuf_append_completion(env, eb, idx2, RP_DISPLAY3_COL, true, (idx2 == selected) );
   editbuf_append_extra(env, eb, "  ");
-  editbuf_append_completion(env, eb, idx3, RL_DISPLAY3_COL, true, (idx3 == selected) );
+  editbuf_append_completion(env, eb, idx3, RP_DISPLAY3_COL, true, (idx3 == selected) );
 }
 
-static ssize_t edit_completions_max_width( rl_env_t* env, editbuf_t* eb, ssize_t count ) {
+static ssize_t edit_completions_max_width( rp_env_t* env, editbuf_t* eb, ssize_t count ) {
   ssize_t max_width = 0;
   for( ssize_t i = 0; i < count; i++) {
     completion_t* cm = completions_get(env,i);
@@ -967,7 +967,7 @@ static ssize_t edit_completions_max_width( rl_env_t* env, editbuf_t* eb, ssize_t
   return max_width;
 }
 
-static void edit_completion_menu(rl_env_t* env, editbuf_t* eb) {
+static void edit_completion_menu(rp_env_t* env, editbuf_t* eb) {
   ssize_t count  = completions_count( env );
   ssize_t count_displayed = count;
   assert(count > 1);
@@ -979,7 +979,7 @@ again:
   // show first 9 (or 8) completions
   editbuf_clear_extra(eb);
   ssize_t twidth = term_get_width(&env->term);   
-  if (count > 3 && twidth > RL_DISPLAY3_WIDTH && edit_completions_max_width(env,eb,9) <= RL_DISPLAY3_MAX) {
+  if (count > 3 && twidth > RP_DISPLAY3_WIDTH && edit_completions_max_width(env,eb,9) <= RP_DISPLAY3_MAX) {
     // display as a 3 column block
     count_displayed = (count > 9 ? 9 : count);
     columns = 3;
@@ -989,7 +989,7 @@ again:
       editbuf_append_completion3( env, eb, rw, percolumn+rw, (2*percolumn)+rw, selected );
     }
   }
-  else if (count > 4 && twidth > RL_DISPLAY2_WIDTH && edit_completions_max_width(env,eb,8) <= RL_DISPLAY2_MAX) {
+  else if (count > 4 && twidth > RP_DISPLAY2_WIDTH && edit_completions_max_width(env,eb,8) <= RP_DISPLAY2_MAX) {
     // display as a 2 column block if some entries are too wide for three columns
     count_displayed = (count > 8 ? 8 : count);
     columns = 2;
@@ -1066,7 +1066,7 @@ again:
     eb->len = completion_apply(cm, eb->buf, eb->len, eb->pos, &eb->pos);        
     edit_refresh(env,eb);    
   }
-  else if ((c == KEY_PAGEDOWN || c == KEY_LINEFEED || c == KEY_CTRL_END) && count > 9) {
+  else if ((c == KEY_PAGEDOWN || c == KEY_LINEFEED || c == KEY_CTRP_END) && count > 9) {
     // show all completions
     c = 0;
     rowcol_t rc;
@@ -1093,7 +1093,7 @@ again:
   if (c != 0) tty_code_pushback(&env->tty,c);
 }
 
-static void edit_generate_completions(rl_env_t* env, editbuf_t* eb) {
+static void edit_generate_completions(rp_env_t* env, editbuf_t* eb) {
   debug_msg( "edit: complete: %zd: %s\n", eb->pos, eb->buf );
   if (eb->pos <= 0) return;
   ssize_t count = completions_generate(env,eb->buf,eb->pos,1000);
@@ -1116,7 +1116,7 @@ static void edit_generate_completions(rl_env_t* env, editbuf_t* eb) {
 // Edit line
 //-------------------------------------------------------------
 
-static char* edit_line( rl_env_t* env, const char* prompt )
+static char* edit_line( rp_env_t* env, const char* prompt )
 {
   // set up an edit buffer
   editbuf_t eb;
@@ -1217,17 +1217,17 @@ static char* edit_line( rl_env_t* env, const char* prompt )
       case KEY_CTRL('E'):
         edit_cursor_line_end(env,&eb);
         break;
-      case KEY_CTRL_LEFT:
+      case KEY_CTRP_LEFT:
         edit_cursor_prev_word(env,&eb);
         break;
-      case KEY_CTRL_RIGHT:
+      case KEY_CTRP_RIGHT:
         edit_cursor_next_word(env,&eb);
         break;      
-      case KEY_CTRL_HOME:
+      case KEY_CTRP_HOME:
       case KEY_PAGEUP:
         edit_cursor_to_start(env,&eb);
         break;
-      case KEY_CTRL_END:
+      case KEY_CTRP_END:
       case KEY_PAGEDOWN:
         edit_cursor_to_end(env,&eb);
         break;
@@ -1287,7 +1287,7 @@ static char* edit_line( rl_env_t* env, const char* prompt )
   // return the captured buffer (return NULL on error or Ctrl-D without input)
   char* res = ((c == KEY_CTRL('D') && rlen == 0) || c == KEY_CTRL('C')) ? NULL : (char*)env_realloc(env,eb.buf,rlen+1);
   if (res == NULL) {
-    rl_history_remove_last(env);
+    rp_history_remove_last(env);
     env_free(env,eb.buf);
     return NULL;
   }

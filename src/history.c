@@ -17,15 +17,15 @@
 // push/clear
 //-------------------------------------------------------------
 
-internal bool history_update( rl_env_t* env, const char* entry ) {
+internal bool history_update( rp_env_t* env, const char* entry ) {
   if (entry==NULL) return false;
-  rl_history_remove_last(env);
+  rp_history_remove_last(env);
   history_push(env,entry);
   debug_msg("history: update: with %s; now at %s\n", entry, history_get(env,0));
   return true;
 }
 
-internal bool history_push( rl_env_t* env, const char* entry ) {
+internal bool history_push( rp_env_t* env, const char* entry ) {
   history_t* h = &env->history; 
   if (h->len <= 0 || entry==NULL)  return false;
   if (h->count == h->len) {
@@ -43,7 +43,7 @@ internal bool history_push( rl_env_t* env, const char* entry ) {
 }
 
 
-static void history_remove_last_n( rl_env_t* env, ssize_t n ) {
+static void history_remove_last_n( rp_env_t* env, ssize_t n ) {
   history_t* h = &env->history;
   if (n <= 0) return;
   if (n > h->count) n = h->count;
@@ -54,15 +54,15 @@ static void history_remove_last_n( rl_env_t* env, ssize_t n ) {
   assert(h->count >= 0);    
 }
 
-exported void rl_history_remove_last(rl_env_t* env) {
+exported void rp_history_remove_last(rp_env_t* env) {
   history_remove_last_n(env,1);
 }
 
-exported void rl_history_clear(rl_env_t* env) {
+exported void rp_history_clear(rp_env_t* env) {
   history_remove_last_n( env, env->history.count );
 }
 
-internal const char* history_get( rl_env_t* env, ssize_t n ) {
+internal const char* history_get( rp_env_t* env, ssize_t n ) {
   history_t* h = &env->history;
   if (n < 0 || n >= h->count) return NULL;
   return h->elems[h->count - n - 1];
@@ -73,8 +73,8 @@ internal const char* history_get( rl_env_t* env, ssize_t n ) {
 // 
 //-------------------------------------------------------------
 
-internal void history_done(rl_env_t* env) {
-  rl_history_clear(env);
+internal void history_done(rp_env_t* env) {
+  rp_history_clear(env);
   history_t* h = &env->history;
   if (h->len > 0) {
     env_free( env, h->elems );
@@ -85,7 +85,7 @@ internal void history_done(rl_env_t* env) {
   h->fname = NULL;
 }
 
-exported void rl_set_history(rl_env_t* env, const char* fname, long max_entries ) {
+exported void rp_set_history(rp_env_t* env, const char* fname, long max_entries ) {
   history_done(env);
   history_t* h = &env->history;
   h->fname = env_strdup(env,fname);
@@ -93,7 +93,7 @@ exported void rl_set_history(rl_env_t* env, const char* fname, long max_entries 
     assert(h->elems == NULL);
     return;
   }
-  if (max_entries < 0 || max_entries > RL_MAX_HISTORY) max_entries = RL_MAX_HISTORY;
+  if (max_entries < 0 || max_entries > RP_MAX_HISTORY) max_entries = RP_MAX_HISTORY;
   h->elems = (const char**)env_zalloc(env, max_entries * ssizeof(h->elems[0]) );
   if (h->elems == NULL) return;
   h->len = max_entries;
@@ -120,10 +120,10 @@ static char to_xdigit( uint8_t c ) {
   return '0';
 }
 
-static bool history_read_entry( rl_env_t* env, FILE* f ) {
-  char buf[RL_MAX_LINE + 1];
+static bool history_read_entry( rp_env_t* env, FILE* f ) {
+  char buf[RP_MAX_LINE + 1];
   int count = 0;
-  while( !feof(f) && count < RL_MAX_LINE) {
+  while( !feof(f) && count < RP_MAX_LINE) {
     int c = fgetc(f);
     if (c == EOF || c == '\n') break;
     if (c == '\\') {
@@ -145,16 +145,16 @@ static bool history_read_entry( rl_env_t* env, FILE* f ) {
     }
     else buf[count++] = (char)c;
   }
-  assert(count <= RL_MAX_LINE);
+  assert(count <= RP_MAX_LINE);
   buf[count] = 0;
   if (count == 0 || buf[0] == '#') return true;
   return history_push(env,buf);
 }
 
 static bool history_write_entry( const char* entry, FILE* f ) {
-  char buf[RL_MAX_LINE + 5];
+  char buf[RP_MAX_LINE + 5];
   int count = 0;
-  while( entry != NULL && *entry != 0 && count < RL_MAX_LINE ) {
+  while( entry != NULL && *entry != 0 && count < RP_MAX_LINE ) {
     char c = *entry++;
     if (c == '\\')      { buf[count++] = '\\'; buf[count++] = '\\'; }
     else if (c == '\n') { buf[count++] = '\\'; buf[count++] = 'n'; }
@@ -168,7 +168,7 @@ static bool history_write_entry( const char* entry, FILE* f ) {
     }
     else buf[count++] = (char)c;
   }
-  assert( count < RL_MAX_LINE + 5 );
+  assert( count < RP_MAX_LINE + 5 );
   buf[count] = 0;
   if (count > 0) {
     fputs(buf,f);
@@ -177,7 +177,7 @@ static bool history_write_entry( const char* entry, FILE* f ) {
   return true;
 }
 
-internal void history_load( rl_env_t* env ) {
+internal void history_load( rp_env_t* env ) {
   history_t* h = &env->history;
   if (h->fname == NULL) return;
   FILE* f = fopen(h->fname, "r");
@@ -188,7 +188,7 @@ internal void history_load( rl_env_t* env ) {
   fclose(f);
 }
 
-internal void history_save( rl_env_t* env ) {
+internal void history_save( rp_env_t* env ) {
   history_t* h = &env->history;
   if (h->fname == NULL) return;
   FILE* f = fopen(h->fname, "w");

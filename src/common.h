@@ -6,8 +6,8 @@
 -----------------------------------------------------------------------------*/
 
 #pragma once
-#ifndef RL_COMMON_H
-#define RL_COMMON_H
+#ifndef RP_COMMON_H
+#define RP_COMMON_H
 
 #include <sys/types.h>  // ssize_t
 #include <limits.h>
@@ -15,16 +15,16 @@
 #include <stdint.h>
 #include <stdbool.h>
 #include <assert.h>
-#include "../include/repline.h"  // rl_malloc_fun_t, rl_color_t etc.
+#include "../include/repline.h"  // rp_malloc_fun_t, rp_color_t etc.
 
 # ifdef __cplusplus
-#  define rl_extern_c   extern "C"
+#  define rp_extern_c   extern "C"
 # else
-#  define rl_extern_c
+#  define rp_extern_c
 # endif
 
-#if defined(RL_SEPARATE_OBJS)
-#  define exported  rl_extern_c 
+#if defined(RP_SEPARATE_OBJS)
+#  define exported  rp_extern_c 
 # if defined(__GNUC__) // includes clang and icc      
 #  define internal  __attribute__((visibility("hidden")))
 # else
@@ -32,7 +32,7 @@
 # endif
 #else
 # define internal   static
-# define exported   rl_extern_c
+# define exported   rp_extern_c
 #endif
 
 #define unused(x)  (void)(x)
@@ -50,26 +50,26 @@ typedef intptr_t ssize_t;
 static inline size_t  to_size_t(ssize_t sz) { return (sz >= 0 ? (size_t)sz : 0); }
 static inline ssize_t to_ssize_t(size_t sz) { return (sz <= SIZE_MAX/2 ? (ssize_t)sz : 0); }
 
-static inline ssize_t rl_strlen( const char* s ) {
+static inline ssize_t rp_strlen( const char* s ) {
   if (s==NULL) return 0;
   return to_ssize_t(strlen(s));
 }
 
-static inline void rl_memmove( void* dest, const void* src, ssize_t n ) {
+static inline void rp_memmove( void* dest, const void* src, ssize_t n ) {
   assert(dest!=NULL && src != NULL);
   if (n <= 0) return;
   memmove(dest,src,to_size_t(n));
 }
 
 
-static inline void rl_memcpy( void* dest, const void* src, ssize_t n ) {
+static inline void rp_memcpy( void* dest, const void* src, ssize_t n ) {
   assert(dest!=NULL && src != NULL);
   if (n <= 0) return;
   memcpy(dest,src,to_size_t(n));
 }
 
 
-static inline bool rl_memnmove( void* dest, ssize_t dest_size, const void* src, ssize_t n ) {
+static inline bool rp_memnmove( void* dest, ssize_t dest_size, const void* src, ssize_t n ) {
   assert(dest!=NULL && src != NULL);
   if (n <= 0) return true;
   if (dest_size < n) { assert(false); return false; }
@@ -77,10 +77,10 @@ static inline bool rl_memnmove( void* dest, ssize_t dest_size, const void* src, 
   return true;
 }
 
-static inline bool rl_strcpy( char* dest, ssize_t dest_size /* including 0 */, const char* src) {
+static inline bool rp_strcpy( char* dest, ssize_t dest_size /* including 0 */, const char* src) {
   assert(dest!=NULL && src != NULL);
   if (dest == NULL || dest_size <= 0) return false;
-  ssize_t slen = rl_strlen(src);
+  ssize_t slen = rp_strlen(src);
   if (slen >= dest_size) return false;
   strcpy(dest,src);
   assert(dest[slen] == 0);
@@ -92,7 +92,7 @@ static inline bool rl_strcpy( char* dest, ssize_t dest_size /* including 0 */, c
 // Debug
 //-------------------------------------------------------------
 
-#ifdef RL_DEBUG_MSG
+#ifdef RP_DEBUG_MSG
 internal void debug_msg( const char* fmt, ... );
 #else
 #define debug_msg(...)
@@ -118,4 +118,4 @@ internal char* mem_strdup( alloc_t* mem, const char* s);
 #define mem_zalloc_tp(mem,tp)     (tp*)mem_zalloc(mem,ssizeof(tp))
 #define mem_malloc_tp_n(mem,tp,n) (tp*)mem_malloc(mem,(n)*ssizeof(tp))
 
-#endif // RL_COMMON_H
+#endif // RP_COMMON_H

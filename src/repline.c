@@ -13,7 +13,7 @@
 // You can compile the entire library just as: 
 // $ gcc -c src/repline.c
 //-------------------------------------------------------------
-#if !defined(RL_SEPARATE_OBJS)
+#if !defined(RP_SEPARATE_OBJS)
 # include "editline.c"
 # include "history.c"
 # include "completions.c"
@@ -46,15 +46,15 @@
 // Readline
 //-------------------------------------------------------------
 
-static char*  rl_getline( rl_env_t* env, const char* prompt_text );
+static char*  rp_getline( rp_env_t* env, const char* prompt_text );
 
-exported char* rl_readline(rl_env_t* env, const char* prompt_text) {
+exported char* rp_readline(rp_env_t* env, const char* prompt_text) {
   if (env == NULL) return NULL;
   if (env->noedit) {
-    return rl_getline(env, prompt_text);
+    return rp_getline(env, prompt_text);
   }
   else {
-    return rl_editline(env, prompt_text);
+    return rp_editline(env, prompt_text);
   }
 }
 
@@ -83,10 +83,10 @@ internal void mem_free( alloc_t* mem, const void* p ) {
 
 internal char* mem_strdup( alloc_t* mem, const char* s) {
   if (s==NULL) return NULL;
-  ssize_t n = rl_strlen(s);
+  ssize_t n = rp_strlen(s);
   char* p = mem_malloc_tp_n(mem,char,n+1);
   if (p == NULL) return NULL;
-  rl_memcpy(p, s, n+1);
+  rp_memcpy(p, s, n+1);
   return p;
 }
 
@@ -96,16 +96,16 @@ internal char* mem_strdup( alloc_t* mem, const char* s) {
 //-------------------------------------------------------------
 
 // Keep a list of environments to ensure every env is deallocated at the end
-static rl_env_t* envs; // = NULL
+static rp_env_t* envs; // = NULL
 
-static void rl_atexit(void) {
-  rl_env_t* env;
+static void rp_atexit(void) {
+  rp_env_t* env;
   while ( (env = envs) != NULL ) {
-    rl_done(env);  // removes itself from the list
+    rp_done(env);  // removes itself from the list
   }
 }
 
-exported void rl_done( rl_env_t* env ) {
+exported void rp_done( rp_env_t* env ) {
   if (env == NULL) return;
   history_save(env);
   history_done(env);
@@ -115,8 +115,8 @@ exported void rl_done( rl_env_t* env ) {
   env_free(env,env->prompt_marker); env->prompt_marker = NULL;
   
   // remove from list
-  rl_env_t* prev = NULL;
-  rl_env_t* cur = envs;
+  rp_env_t* prev = NULL;
+  rp_env_t* cur = envs;
   while( cur != NULL ) {
     if (cur == env) {
       if (prev == NULL) envs = env->next;
@@ -133,10 +133,10 @@ exported void rl_done( rl_env_t* env ) {
   env_free(env,env);
 }
 
-exported rl_env_t* rl_init_ex( malloc_fun_t* _malloc, realloc_fun_t* _realloc, free_fun_t* _free )  
+exported rp_env_t* rp_init_ex( malloc_fun_t* _malloc, realloc_fun_t* _realloc, free_fun_t* _free )  
 {
   // allocate
-  rl_env_t* env = (rl_env_t*)malloc(sizeof(rl_env_t));
+  rp_env_t* env = (rp_env_t*)malloc(sizeof(rp_env_t));
   if (env==NULL) return NULL;
   memset(env,0,sizeof(*env));
   env->alloc.malloc  = _malloc;
@@ -149,28 +149,28 @@ exported rl_env_t* rl_init_ex( malloc_fun_t* _malloc, realloc_fun_t* _realloc, f
     env->noedit = true;
   }
   env->prompt_marker = NULL;
-  env->prompt_color = RL_DEFAULT;
+  env->prompt_color = RP_DEFAULT;
   env->multiline = '\\';
   // install atexit handler
-  if (envs==NULL) atexit(&rl_atexit);
+  if (envs==NULL) atexit(&rp_atexit);
   // push on env list
   env->next = envs;
   envs = env;
-  rl_set_history(env, NULL, -1);  
+  rp_set_history(env, NULL, -1);  
   return env;
 }
 
-exported rl_env_t* rl_init(void) {
-  return rl_init_ex( &malloc, &realloc, &free );
+exported rp_env_t* rp_init(void) {
+  return rp_init_ex( &malloc, &realloc, &free );
 }
 
-exported void rl_set_prompt_marker( rl_env_t* env, const char* prompt_marker ) {
+exported void rp_set_prompt_marker( rp_env_t* env, const char* prompt_marker ) {
   if (prompt_marker == NULL) prompt_marker = "> ";
   env_free(env, env->prompt_marker);
   env->prompt_marker = env_strdup(env,prompt_marker);  
 }
 
-exported void rl_set_prompt_color( rl_env_t* env, rl_color_t color ) {
+exported void rp_set_prompt_color( rp_env_t* env, rp_color_t color ) {
   env->prompt_color = color;
 }
 
@@ -180,7 +180,7 @@ exported void rl_set_prompt_color( rl_env_t* env, rl_color_t color ) {
 // (like from a pipe, file, or dumb terminal).
 //-------------------------------------------------------------
 
-static char* rl_getline( rl_env_t* env, const char* prompt_text ) {
+static char* rp_getline( rp_env_t* env, const char* prompt_text ) {
   ssize_t buflen = 32;
   char*  buf = (char*)env_zalloc(env,buflen);
   if (buf==NULL) return NULL;
@@ -224,7 +224,7 @@ static char* rl_getline( rl_env_t* env, const char* prompt_text ) {
   }
 }
 
-#ifdef RL_DEBUG_MSG
+#ifdef RP_DEBUG_MSG
 internal void debug_msg( const char* fmt, ... ) {
   static bool debug_init;
   FILE* fdbg = fopen("repline.debug.txt",(debug_init ? "a" : "w"));        

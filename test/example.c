@@ -9,7 +9,7 @@
 #include "repline.h"
 
 // completion function defined below
-static void completer(rl_env_t* env, const char* input, long cur, void* arg ); 
+static void completer(rp_env_t* env, const char* input, long cur, void* arg ); 
 
 // main example
 int main() 
@@ -22,20 +22,20 @@ int main()
          "\n");
 
   // initialize and get a repline environment         
-  rl_env_t* env = rl_init();
+  rp_env_t* env = rp_init();
 
   // enable completion with a completion function
-  rl_set_completer(env, &completer, NULL);
+  rp_set_completer(env, &completer, NULL);
 
   // enable history; use a NULL filename to not persist history to disk
-  rl_set_history(env, "history.txt", -1 /* default entries (= 200) */);
+  rp_set_history(env, "history.txt", -1 /* default entries (= 200) */);
 
   // set a nice color for the prompt and the prompt marker (>)
-  rl_set_prompt_color(env, RL_GREEN);
+  rp_set_prompt_color(env, RP_GREEN);
 
   // run until empty input
   char* input;
-  while((input = rl_readline(env,"rεplinε")) != NULL)    // ctrl-d/ctrl-c return NULL (as well as errors)
+  while((input = rp_readline(env,"rεplinε")) != NULL)    // ctrl-d/ctrl-c return NULL (as well as errors)
   {
     bool stop = (strcmp(input,"exit") == 0 || strcmp(input,"") == 0); 
     printf("-----\n"           // echo the input
@@ -48,14 +48,14 @@ int main()
   
   // release the repline environment 
   // (not required as it is otherwise released at the end through an atexit handler)
-  rl_done(env);
+  rp_done(env);
   return 0;
 }
 
 // A completer function is called by repline to complete on input.
-// Use `rl_add_completion( env, display, replacement, delete_before, delete_after )` to
+// Use `rp_add_completion( env, display, replacement, delete_before, delete_after )` to
 // add actual completions.
-static void completer(rl_env_t* env, const char* input, long cur, void* arg ) 
+static void completer(rp_env_t* env, const char* input, long cur, void* arg ) 
 {
   (void)(arg);
   assert(cur > 0);
@@ -65,25 +65,25 @@ static void completer(rl_env_t* env, const char* input, long cur, void* arg )
     for(int i = 0; i < 100; i++) {
       char buf[32];
       snprintf(buf,32,"hello repline (%2d)", i+1);
-      rl_add_completion(env, NULL, buf, 1, 0);
+      rp_add_completion(env, NULL, buf, 1, 0);
     }
   }
   else if (input[cur-1] == 'f') {  
-    rl_add_completion(env,NULL,"banana 🍌 etc.", 1, 0);
-    rl_add_completion(env,NULL,"〈pear〉with brackets", 1, 0); 
-    rl_add_completion(env,NULL,"猕猴桃 wide", 1, 0);
-    rl_add_completion(env,NULL,"apples 🍎", 1, 0);
-    rl_add_completion(env,NULL,"with a zero‍width", 1, 0);
+    rp_add_completion(env,NULL,"banana 🍌 etc.", 1, 0);
+    rp_add_completion(env,NULL,"〈pear〉with brackets", 1, 0); 
+    rp_add_completion(env,NULL,"猕猴桃 wide", 1, 0);
+    rp_add_completion(env,NULL,"apples 🍎", 1, 0);
+    rp_add_completion(env,NULL,"with a zero‍width", 1, 0);
   }
   else if (strncmp( input+cur-2, "id", 2) == 0) {
-    // rl_add_completion(env,"C++ - [](auto x){ return x; }", "c++", 2, 0);
-    rl_add_completion(env,"D — (x) => x", "d", 1, 0);
-    rl_add_completion(env,"Haskell — \\x -> x", "haskell", 2, 0);
-    rl_add_completion(env,"Idris — \\x => x", "ris", 2, 0);          // keep the initial "id" :-)
-    rl_add_completion(env,"Koka — fn(x){ x }", "koka", 2, 0);    
-    rl_add_completion(env,"Ocaml — fun x -> x", "ocaml", 2, 0);
+    // rp_add_completion(env,"C++ - [](auto x){ return x; }", "c++", 2, 0);
+    rp_add_completion(env,"D — (x) => x", "d", 1, 0);
+    rp_add_completion(env,"Haskell — \\x -> x", "haskell", 2, 0);
+    rp_add_completion(env,"Idris — \\x => x", "ris", 2, 0);          // keep the initial "id" :-)
+    rp_add_completion(env,"Koka — fn(x){ x }", "koka", 2, 0);    
+    rp_add_completion(env,"Ocaml — fun x -> x", "ocaml", 2, 0);
   }
   else if (strncmp( input+cur-2, "ex", 2) == 0) {
-    rl_add_completion(env, NULL, "excellent", 2, 0);
+    rp_add_completion(env, NULL, "excellent", 2, 0);
   }
 }

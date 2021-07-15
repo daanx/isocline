@@ -22,11 +22,11 @@ Include the repline header in your C or C++ source:
 #include <include/repline.h>
 ```
 
-and call `rl_readline` to get user input with rich editing abilities:
+and call `rp_readline` to get user input with rich editing abilities:
 ```C
-rl_env_t* env = rl_init();
+rp_env_t* env = rp_init();
 char* input;
-while( (input = rl_readline(env,"prompt")) != NULL ) { // ctrl+d or errors return NULL
+while( (input = rp_readline(env,"prompt")) != NULL ) { // ctrl+d or errors return NULL
   // use the input
   free(input);  
 }
@@ -79,5 +79,5 @@ Some other libraries that we considered:
 [linenoise](https://github.com/antirez/linenoise),
 [replxx](https://github.com/AmokHuginnsson/replxx).
 
-[koka]: https://www.koka-lang.org
+[koka]: www.koka-lang.org
 

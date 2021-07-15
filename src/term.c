@@ -21,7 +21,7 @@
 #include <sys/ioctl.h>
 #endif
 
-#define RL_CSI      "\x1B["
+#define RP_CSI      "\x1B["
 
 
 static bool term_write_direct(term_t* term, const char* s, ssize_t n );
@@ -35,26 +35,26 @@ static bool term_buffered_ensure( term_t* term, ssize_t extra );
 
 internal void term_left(term_t* term, ssize_t n) {
   if (n <= 0) return;
-  term_writef( term, RL_CSI "%zdD", n );
+  term_writef( term, RP_CSI "%zdD", n );
 }
 
 internal void term_right(term_t* term, ssize_t n) {
   if (n <= 0) return;
-  term_writef( term, RL_CSI "%zdC", n );
+  term_writef( term, RP_CSI "%zdC", n );
 }
 
 internal void term_up(term_t* term, ssize_t n) {
   if (n <= 0) return;
-  term_writef( term, RL_CSI "%zdA", n );
+  term_writef( term, RP_CSI "%zdA", n );
 }
 
 internal void term_down(term_t* term, ssize_t n) {
   if (n <= 0) return;
-  term_writef( term, RL_CSI "%zdB", n );
+  term_writef( term, RP_CSI "%zdB", n );
 }
 
 internal void term_clear_line(term_t* term) {
-  term_write( term, "\r" RL_CSI "2K");
+  term_write( term, "\r" RP_CSI "2K");
 }
 
 internal void term_start_of_line(term_t* term) {
@@ -70,30 +70,30 @@ internal ssize_t term_get_height(term_t* term) {
 }
 
 internal void term_attr_reset(term_t* term) {
-  term_write(term, RL_CSI "0m" );
+  term_write(term, RP_CSI "0m" );
 }
 
 internal void term_underline(term_t* term, bool on) {
-  term_write(term, on ? RL_CSI "4m" : RL_CSI "24m" );
+  term_write(term, on ? RP_CSI "4m" : RP_CSI "24m" );
 }
 
-internal void term_color(term_t* term, rl_color_t color) {
-  term_writef(term, RL_CSI "%dm", color );
+internal void term_color(term_t* term, rp_color_t color) {
+  term_writef(term, RP_CSI "%dm", color );
 }
 
 
 // Unused for now
 /*
 internal void term_bold(term_t* term) {
-  term_write(term, RL_CSI "1m" );
+  term_write(term, RP_CSI "1m" );
 }
 
 internal void term_italic(term_t* term) {
-  term_write(term, RL_CSI "2m" );
+  term_write(term, RP_CSI "2m" );
 }
 
-internal void term_bgcolor(term_t* term, rl_color_t color) {
-  term_writef(term, RL_CSI "%dm", color + 10 );
+internal void term_bgcolor(term_t* term, rp_color_t color) {
+  term_writef(term, RP_CSI "%dm", color + 10 );
 }
 
 internal void term_end_of_line(term_t* term) {
@@ -101,18 +101,18 @@ internal void term_end_of_line(term_t* term) {
 }
 
 internal void term_clear_screen(term_t* term) {
-  term_write( term, RL_CSI "2J" RL_CSI "H" );
+  term_write( term, RP_CSI "2J" RP_CSI "H" );
 }
 
 internal void term_clear_line_from_cursor(term_t* term) {
-  term_write( term, RL_CSI "0K");
+  term_write( term, RP_CSI "0K");
 }
 
 internal void term_clear(term_t* term, ssize_t n) {
   if (n <= 0) return;
-  char buf[RL_MAX_LINE];
-  memset(buf,' ',(n >= RL_MAX_LINE ? RL_MAX_LINE-1 : n));
-  buf[RL_MAX_LINE-1] = 0;
+  char buf[RP_MAX_LINE];
+  memset(buf,' ',(n >= RP_MAX_LINE ? RP_MAX_LINE-1 : n));
+  buf[RP_MAX_LINE-1] = 0;
   term_write( term, buf );
 }
 */
@@ -132,11 +132,11 @@ internal bool term_writef(term_t* term, const char* fmt, ...) {
 }
 
 internal bool term_vwritef(term_t* term, const char* fmt, va_list args ) {
-  if (!term_buffered_ensure(term, RL_MAX_LINE)) return false;
+  if (!term_buffered_ensure(term, RP_MAX_LINE)) return false;
   bool buffering = term->buffered;
   term_start_buffered(term);
   vsnprintf( term->buf + term->bufcount, to_size_t(term->buflen - term->bufcount), fmt, args );
-  ssize_t written = rl_strlen(term->buf + term->bufcount);
+  ssize_t written = rp_strlen(term->buf + term->bufcount);
   term->bufcount += written;
   assert(term->bufcount <= term->buflen);
   if (!buffering) term_end_buffered(term);
@@ -172,14 +172,14 @@ static bool term_buffered_ensure( term_t* term, ssize_t extra ) {
 
 internal bool term_write(term_t* term, const char* s) {
   // todo: strip colors on monochrome
-  ssize_t n = rl_strlen(s);
+  ssize_t n = rp_strlen(s);
   if (!term->buffered) {
     return term_write_direct(term,s,n);
   }
   else {
     // write to buffer to reduce flicker
     if (!term_buffered_ensure(term, n)) return false;
-    if (!rl_strcpy( term->buf + term->bufcount, term->buflen - term->bufcount, s)) {
+    if (!rp_strcpy( term->buf + term->bufcount, term->buflen - term->bufcount, s)) {
       assert(false);
       return false;
     };
@@ -539,7 +539,7 @@ internal bool term_update_dim(term_t* term, tty_t* tty) {
 static bool term_get_cursor_pos( term_t* term, tty_t* tty, int* row, int* col) 
 {
   // send request
-  if (!term_write(term, RL_CSI "6n")) return false;
+  if (!term_write(term, RP_CSI "6n")) return false;
  
   // parse response ESC[%d;%dR
   char buf[64];
@@ -558,7 +558,7 @@ static bool term_get_cursor_pos( term_t* term, tty_t* tty, int* row, int* col)
 }
 
 static void term_set_cursor_pos( term_t* term, int row, int col ) {
-  term_writef( term, RL_CSI "%d;%dH", row, col );
+  term_writef( term, RP_CSI "%d;%dH", row, col );
 }
 
 internal bool term_update_dim(term_t* term, tty_t* tty) {

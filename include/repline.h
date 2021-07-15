@@ -5,8 +5,8 @@
   found in the "LICENSE" file at the root of this distribution.
 -----------------------------------------------------------------------------*/
 #pragma once
-#ifndef RL_REPLINE_H
-#define RL_REPLINE_H
+#ifndef RP_REPLINE_H
+#define RP_REPLINE_H
 
 #ifdef __cplusplus
 extern "C" {
@@ -19,57 +19,57 @@ extern "C" {
 // main interface
 //--------------------------------------------------------------
 
-struct rl_env_s;
-typedef struct rl_env_s rl_env_t;   // abstract environment
+struct rp_env_s;
+typedef struct rp_env_s rp_env_t;   // abstract environment
 
-rl_env_t* rl_init(void);
-void      rl_done(rl_env_t* env);
-char*     rl_readline(rl_env_t* env, const char* prompt_text);
+rp_env_t* rp_init(void);
+void      rp_done(rp_env_t* env);
+char*     rp_readline(rp_env_t* env, const char* prompt_text);
 
 
 //--------------------------------------------------------------
 // history
 //--------------------------------------------------------------
 
-void      rl_set_history(rl_env_t* env, const char* fname, long max_entries );
-void      rl_history_remove_last(rl_env_t* env);
-void      rl_history_clear(rl_env_t* env);
+void      rp_set_history(rp_env_t* env, const char* fname, long max_entries );
+void      rp_history_remove_last(rp_env_t* env);
+void      rp_history_clear(rp_env_t* env);
 
 
 //--------------------------------------------------------------
 // completion
 //--------------------------------------------------------------
-typedef void (rl_completion_fun_t)(rl_env_t* env, const char* input, long cursor, void* arg );
+typedef void (rp_completion_fun_t)(rp_env_t* env, const char* input, long cursor, void* arg );
 
-void      rl_set_completer( rl_env_t* env, rl_completion_fun_t* completer, void* arg);
-bool      rl_add_completion( rl_env_t* env, const char* display, const char* completion, long delete_before, long delete_after);
+void      rp_set_completer( rp_env_t* env, rp_completion_fun_t* completer, void* arg);
+bool      rp_add_completion( rp_env_t* env, const char* display, const char* completion, long delete_before, long delete_after);
 
 
 //--------------------------------------------------------------
 // set prompt
 //--------------------------------------------------------------
-typedef enum rl_color_e {
-  RL_BLACK  = 30,
-  RL_MAROON,
-  RL_GREEN,
-  RL_ORANGE,
-  RL_NAVY,
-  RL_PURPLE,
-  RL_TEAL,
-  RL_LIGHTGRAY,
-  RL_DARKGRAY  = 90,
-  RL_RED,
-  RL_LIME,
-  RL_YELLOW,
-  RL_BLUE,
-  RL_MAGENTA,
-  RL_CYAN,
-  RL_WHITE,
-  RL_DEFAULT = 39
-} rl_color_t;
+typedef enum rp_color_e {
+  RP_BLACK  = 30,
+  RP_MAROON,
+  RP_GREEN,
+  RP_ORANGE,
+  RP_NAVY,
+  RP_PURPLE,
+  RP_TEAL,
+  RP_LIGHTGRAY,
+  RP_DARKGRAY  = 90,
+  RP_RED,
+  RP_LIME,
+  RP_YELLOW,
+  RP_BLUE,
+  RP_MAGENTA,
+  RP_CYAN,
+  RP_WHITE,
+  RP_DEFAULT = 39
+} rp_color_t;
 
-void rl_set_prompt_marker( rl_env_t* env, const char* prompt_marker );
-void rl_set_prompt_color( rl_env_t* env, rl_color_t color );
+void rp_set_prompt_marker( rp_env_t* env, const char* prompt_marker );
+void rp_set_prompt_color( rp_env_t* env, rp_color_t color );
 
 
 //--------------------------------------------------------------
@@ -80,11 +80,11 @@ typedef void* (malloc_fun_t)( size_t size );
 typedef void* (realloc_fun_t)( void* p, size_t newsize );
 typedef void  (free_fun_t)( void* p );
 
-rl_env_t* rl_init_ex( malloc_fun_t* _malloc, realloc_fun_t* _realloc, free_fun_t* _free );
+rp_env_t* rp_init_ex( malloc_fun_t* _malloc, realloc_fun_t* _realloc, free_fun_t* _free );
 
 
 #ifdef __cplusplus
 }
 #endif
 
-#endif // RL_REPLINE_H
+#endif // RP_REPLINE_H

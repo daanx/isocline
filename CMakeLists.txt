@@ -7,22 +7,22 @@ project(libmprompt C CXX ASM)
 set(CMAKE_C_STANDARD 99)
 set(CMAKE_CXX_STANDARD 11)
 
-option(RL_USE_CXX           "Build with C++ compiler" OFF)
-option(RL_DEBUG_UBSAN       "Build with undefined behaviour sanitizer" OFF)
-option(RL_DEBUG_ASAN        "Build with address sanitizer" OFF)
-option(RL_DEBUG_MSG         "Output debug messages to repline.debug.txt (warning: do not enable in release)" OFF)
-option(RL_SEPARATE_OBJS     "Compile with separate object files instead of one (warning: exports internal symbols)" OFF)
+option(RP_USE_CXX           "Build with C++ compiler" OFF)
+option(RP_DEBUG_UBSAN       "Build with undefined behaviour sanitizer" OFF)
+option(RP_DEBUG_ASAN        "Build with address sanitizer" OFF)
+option(RP_DEBUG_MSG         "Output debug messages to repline.debug.txt (warning: do not enable in release)" OFF)
+option(RP_SEPARATE_OBJS     "Compile with separate object files instead of one (warning: exports internal symbols)" OFF)
 
-set(rl_version "0.6")
+set(rp_version "0.6")
 
 
-set(rl_sources          src/repline.c)    
-set(rl_example_sources  test/example.c)
-set(rl_cflags)
-set(rl_install_dir)
+set(rp_sources          src/repline.c)    
+set(rp_example_sources  test/example.c)
+set(rp_cflags)
+set(rp_install_dir)
 
-if(RL_SEPARATE_OBJS)
-list(APPEND rl_sources  
+if(RP_SEPARATE_OBJS)
+list(APPEND rp_sources  
     src/completions.c
     src/editline.c
     src/history.c
@@ -31,12 +31,12 @@ list(APPEND rl_sources
     src/wcwidth.c)
 endif()
 
-if(RL_USE_CXX)
-  set(RL_COMPILER_ID "${CMAKE_CXX_COMPILER_ID}")
-  set_source_files_properties(${rl_sources} PROPERTIES LANGUAGE CXX )
-  set_source_files_properties(${rl_example_sources} PROPERTIES LANGUAGE CXX )
+if(RP_USE_CXX)
+  set(RP_COMPILER_ID "${CMAKE_CXX_COMPILER_ID}")
+  set_source_files_properties(${rp_sources} PROPERTIES LANGUAGE CXX )
+  set_source_files_properties(${rp_example_sources} PROPERTIES LANGUAGE CXX )
 else()
-  set(RL_COMPILER_ID "${CMAKE_C_COMPILER_ID}")  
+  set(RP_COMPILER_ID "${CMAKE_C_COMPILER_ID}")  
 endif()
 
 # -----------------------------------------------------------------------------
@@ -58,20 +58,20 @@ endif()
 # Sanitizers
 # -----------------------------------------------------------------------------
 
-if(RL_DEBUG_UBSAN OR RL_DEBUG_ASAN)
-  if((CMAKE_BUILD_TYPE MATCHES "Debug") AND (RL_COMPILER_ID MATCHES "Clang"))
-    set(rl_san)
-    if (RL_DEBUG_UBSAN)
-      list(APPEND rl_san "undefined")
+if(RP_DEBUG_UBSAN OR RP_DEBUG_ASAN)
+  if((CMAKE_BUILD_TYPE MATCHES "Debug") AND (RP_COMPILER_ID MATCHES "Clang"))
+    set(rp_san)
+    if (RP_DEBUG_UBSAN)
+      list(APPEND rp_san "undefined")
     endif()
-    if (RL_DEBUG_ASAN)
-      list(APPEND rl_san "address")
+    if (RP_DEBUG_ASAN)
+      list(APPEND rp_san "address")
     endif()
-    list(JOIN rl_san "," rl_san)
-    list(APPEND rl_cflags -fsanitize=${rl_san})
-    list(APPEND CMAKE_EXE_LINKER_FLAGS -fsanitize=${rl_san})
+    list(JOIN rp_san "," rp_san)
+    list(APPEND rp_cflags -fsanitize=${rp_san})
+    list(APPEND CMAKE_EXE_LINKER_FLAGS -fsanitize=${rp_san})
   else()
-    message(WARNING "Can only use sanitizer with a clang debug build (currently: ${RL_COMPILER_ID}, CMAKE_BUILD_TYPE=${CMAKE_BUILD_TYPE}, RL_USE_C=${RL_USE_C})")
+    message(WARNING "Can only use sanitizer with a clang debug build (currently: ${RP_COMPILER_ID}, CMAKE_BUILD_TYPE=${CMAKE_BUILD_TYPE}, RP_USE_C=${RP_USE_C})")
   endif()
 endif()
 
@@ -80,23 +80,23 @@ endif()
 # Flags
 # -----------------------------------------------------------------------------
 
-if (RL_COMPILER_ID MATCHES "AppleClang|Clang|GNU|Intel")
-  list(APPEND rl_cflags -Wall -Wextra -Wpedantic -Wno-unknown-pragmas -Wno-unused-function -Wno-padded)
-  if (RL_COMPILER_ID MATCHES "AppleClang|Clang")
-    list(APPEND rl_cflags -Wimplicit-int-conversion -Wsign-conversion)
+if (RP_COMPILER_ID MATCHES "AppleClang|Clang|GNU|Intel")
+  list(APPEND rp_cflags -Wall -Wextra -Wpedantic -Wno-unknown-pragmas -Wno-unused-function -Wno-padded)
+  if (RP_COMPILER_ID MATCHES "AppleClang|Clang")
+    list(APPEND rp_cflags -Wimplicit-int-conversion -Wsign-conversion)
   endif()
-  if (RL_COMPILER_ID MATCHES "GNU")
-    list(APPEND rl_cflags -Wint-conversion -Wsign-conversion)
+  if (RP_COMPILER_ID MATCHES "GNU")
+    list(APPEND rp_cflags -Wint-conversion -Wsign-conversion)
   endif()
 endif()
 
 # treat C extension as C++
-if (RL_USE_CXX)
+if (RP_USE_CXX)
   if(CMAKE_CXX_COMPILER_ID MATCHES "AppleClang|Clang")
-    list(APPEND rl_cflags -Wno-deprecated)
+    list(APPEND rp_cflags -Wno-deprecated)
   endif()
   if(CMAKE_CXX_COMPILER_ID MATCHES "Intel")
-    list(APPEND rl_cflags -Kc++)
+    list(APPEND rp_cflags -Kc++)
   endif()
 endif()
 
@@ -109,12 +109,12 @@ endif()
 message(STATUS "")
 message(STATUS   "Library   : librepline")
 message(STATUS   "Build type: ${CMAKE_BUILD_TYPE}")
-if(RL_USE_CXX)
+if(RP_USE_CXX)
   message(STATUS "Compiler  : ${CMAKE_CXX_COMPILER}")
 else()
   message(STATUS "Compiler  : ${CMAKE_C_COMPILER}")
 endif()
-message(STATUS   "            ${rl_cflags}")
+message(STATUS   "            ${rp_cflags}")
 message(STATUS "")
 
 
@@ -122,21 +122,21 @@ message(STATUS "")
 # Library and samples
 # -----------------------------------------------------------------------------
 
-add_library(repline STATIC ${rl_sources})
+add_library(repline STATIC ${rp_sources})
 set_property(TARGET repline PROPERTY POSITION_INDEPENDENT_CODE ON)
-target_compile_options(repline PRIVATE ${rl_cflags})
+target_compile_options(repline PRIVATE ${rp_cflags})
 target_include_directories(repline PUBLIC
     $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
-    $<INSTALL_INTERFACE:${rl_install_dir}/include>
+    $<INSTALL_INTERFACE:${rp_install_dir}/include>
 )
-if (RL_SEPARATE_OBJS)
-  target_compile_definitions(repline PRIVATE RL_SEPARATE_OBJS)
+if (RP_SEPARATE_OBJS)
+  target_compile_definitions(repline PRIVATE RP_SEPARATE_OBJS)
 endif()
-if (RL_DEBUG_MSG)
-  target_compile_definitions(repline PRIVATE RL_DEBUG_MSG)
+if (RP_DEBUG_MSG)
+  target_compile_definitions(repline PRIVATE RP_DEBUG_MSG)
 endif()  
 
-add_executable(example ${rl_example_sources})
-target_compile_options(example PRIVATE ${rl_cflags})
+add_executable(example ${rp_example_sources})
+target_compile_options(example PRIVATE ${rp_cflags})
 target_include_directories(example PRIVATE include)
 target_link_libraries(example PRIVATE repline)
