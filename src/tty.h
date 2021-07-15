@@ -23,7 +23,7 @@ typedef int code_t;
 
 #define KEY_NONE          (0)
 #define KEY_TAB           (9)
-#define KEY_LINEFEED      (10)  // ctrl/shift+enter is considered KEY_LINEFEED
+#define KEY_LINEFEED      (10)  // ctrl/shift + enter/tab is considered KEY_LINEFEED
 #define KEY_ENTER         (13)
 #define KEY_ESC           (27)
 #define KEY_SPACE         (32)
@@ -51,7 +51,10 @@ typedef int code_t;
 #define KEY_CTRL_PAGEUP   (KEY_VIRT+107)
 #define KEY_CTRL_PAGEDOWN (KEY_VIRT+108)
 #define KEY_CTRL_INS      (KEY_VIRT+109)
-#define KEY_CTRL_TAB      (KEY_VIRT+110)
+
+// We treat ctrl+<tab/enter> and shift+<tab/enter> as '\n' for portability. 
+// - shift+tab  works across linux/macos/windows.
+// - ctrl+enter works on linux/windows but not macos.
 
 
 #define KEY_EVENT_RESIZE  (KEY_VIRT+1000)

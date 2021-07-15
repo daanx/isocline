@@ -859,11 +859,7 @@ again:
   //snprintf(buf,128,"\n\x1B[90m(enter or 1-%zd to complete, tab/cursor to change selection)\x1B[0m", count9);
   //editbuf_append_extra( env, eb, buf);       
   if (count > 9) {
-    #if __APPLE__    
     snprintf(buf,128,"\n\x1B[90m(press shift-tab to see all %zd completions)\x1B[0m", count);
-    #else
-    snprintf(buf,128,"\n\x1B[90m(press page-down to see all %zd completions)\x1B[0m", count);
-    #endif
     editbuf_append_extra( env, eb, buf);      
   }   
   edit_refresh(env,eb);
@@ -916,7 +912,7 @@ again:
     eb->len = completion_apply(cm, eb->buf, eb->len, eb->pos, &eb->pos);        
     edit_refresh(env,eb);    
   }
-  else if ((c == KEY_PAGEDOWN || c == KEY_CTRL_TAB || c == KEY_CTRL_END) && count > 9) {
+  else if ((c == KEY_PAGEDOWN || c == KEY_LINEFEED || c == KEY_CTRL_END) && count > 9) {
     // show all completions
     c = 0;
     rowcol_t rc;
@@ -1040,7 +1036,6 @@ static char* edit_line( rl_env_t* env, const char* prompt )
     }  
     else switch(c) {
       case KEY_LINEFEED: // '\n' (ctrl+J, shift+enter, ctrl+tab)
-      case KEY_CTRL_TAB:
         edit_insert_char(env,&eb,'\n',true);
         break;
       case KEY_TAB:

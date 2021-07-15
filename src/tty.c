@@ -92,8 +92,8 @@ static bool esc_ctrl( char c, code_t* code ) {
     case 'D': *code = KEY_CTRL_LEFT; return true;
     case 'F': *code = KEY_CTRL_END; return true;
     case 'H': *code = KEY_CTRL_HOME; return true;
-    case 'M': *code = KEY_LINEFEED; return true;
-    case 'Z': *code = KEY_CTRL_TAB; return true;
+    case 'M': *code = KEY_LINEFEED; return true;  // ctrl+enter
+    case 'Z': *code = KEY_LINEFEED; return true;  // ctrl+tab
     default : *code = 0; return false;
   }  
 }
@@ -170,7 +170,7 @@ static code_t tty_read_esc(tty_t* tty) {
       case 'F': return KEY_END;
       case 'H': return KEY_HOME;
       case 'M': return KEY_LINEFEED;  // ctrl+enter 
-      case 'Z': return KEY_CTRL_TAB;  // shift+tab
+      case 'Z': return KEY_LINEFEED;  // shift+tab
       // Freebsd:
       case 'I': return KEY_PAGEUP;  
       case 'L': return KEY_INS;     
@@ -198,7 +198,7 @@ static code_t tty_read_esc(tty_t* tty) {
       case 'b': return KEY_CTRL_DOWN;
       case 'c': return KEY_CTRL_RIGHT;
       case 'd': return KEY_CTRL_LEFT;
-      case 'z': return KEY_CTRL_TAB;
+      case 'z': return KEY_LINEFEED;  // ctrl+tab
       // numpad 
       case 'E': return '5';       
       case 'M': return KEY_ENTER; 
@@ -478,7 +478,7 @@ static void tty_waitc_console(tty_t* tty)
   //  wait for a key down event
   INPUT_RECORD inp;
 	DWORD count;
-  DWORD modstate = 0;
+  static DWORD modstate = 0;
   uint32_t surrogate_hi;
   while (true) {
 		if (!ReadConsoleInputW( tty->hcon, &inp, 1, &count)) return;
@@ -497,14 +497,15 @@ static void tty_waitc_console(tty_t* tty)
       }
     }
 
+    // we need to handle shift up events separately
+    if (!inp.Event.KeyEvent.bKeyDown && inp.Event.KeyEvent.wVirtualKeyCode == VK_SHIFT) {
+      modstate &= ~SHIFT_PRESSED;
+    }
+
     // ignore AltGr
     DWORD altgr = LEFT_CTRL_PRESSED | RIGHT_ALT_PRESSED;
     if ((modstate & altgr) == altgr) { modstate &= ~altgr; }
 
-    // only process keydown events (except for Alt-up which is used for unicode pasting...)
-    if (!inp.Event.KeyEvent.bKeyDown && inp.Event.KeyEvent.wVirtualKeyCode != VK_MENU) {
-			continue;
-		}
     
     // get modifiers
     bool ctrl = (modstate & ( RIGHT_CTRL_PRESSED | LEFT_CTRL_PRESSED )) != 0;
@@ -513,8 +514,13 @@ static void tty_waitc_console(tty_t* tty)
 
     // virtual keys
     uint32_t chr = (uint32_t)inp.Event.KeyEvent.uChar.UnicodeChar;
-    //debug_msg("tty: console %s: %s%s virt 0x%04x, chr 0x%04x ('%c')\n", inp.Event.KeyEvent.bKeyDown ? "down" : "up", ctrl ? "ctrl-" : "", alt ? "alt-" : "", inp.Event.KeyEvent.wVirtualKeyCode, chr, chr);
+    debug_msg("tty: console %s: %s%s%s virt 0x%04x, chr 0x%04x ('%c')\n", inp.Event.KeyEvent.bKeyDown ? "down" : "up", ctrl ? "ctrl-" : "", alt ? "alt-" : "", shift ? "shift-" : "", inp.Event.KeyEvent.wVirtualKeyCode, chr, chr);
 
+    // only process keydown events (except for Alt-up which is used for unicode pasting...)
+    if (!inp.Event.KeyEvent.bKeyDown && inp.Event.KeyEvent.wVirtualKeyCode != VK_MENU) {
+			continue;
+		}
+    
     if (chr == 0) { 
       if (!ctrl && !alt) {
         switch (inp.Event.KeyEvent.wVirtualKeyCode) {
@@ -526,7 +532,9 @@ static void tty_waitc_console(tty_t* tty)
           case VK_END:    tty_cpush(tty, "\x1B[F"); return;
           case VK_DELETE: tty_cpush(tty, "\x1B[3~"); return;
           case VK_PRIOR:  tty_cpush(tty, "\x1B[5~"); return;  //page up
-          case VK_NEXT:   tty_cpush(tty, "\x1B[6~"); return;  //page down          
+          case VK_NEXT:   tty_cpush(tty, "\x1B[6~"); return;  //page down
+          case VK_TAB:    if (shift) { tty_cpush(tty, "\n"); return; }
+          case VK_RETURN: if (shift) { tty_cpush(tty, "\n"); return; }
         }
       }
       else if (ctrl && !alt) {
@@ -538,27 +546,22 @@ static void tty_waitc_console(tty_t* tty)
           case VK_DOWN:   tty_cpush(tty, "\x1B[1;5B"); return;
           case VK_HOME:   tty_cpush(tty, "\x1B[1;5H"); return;
           case VK_END:    tty_cpush(tty, "\x1B[1;5F"); return;
-          case VK_TAB:    tty_cpush(tty, "\x1B[1;5Z"); return;
-          case VK_RETURN: tty_cpush(tty, "\n");      return;
+          case VK_TAB:    tty_cpush(tty, "\n"); return;
+          case VK_RETURN: tty_cpush(tty, "\n"); return;
           case VK_DELETE: tty_cpush(tty, "\x1B[3^"); return;
           case VK_PRIOR:  tty_cpush(tty, "\x1B[5^"); return;  //page up
           case VK_NEXT:   tty_cpush(tty, "\x1B[6^"); return;  //page down          
         }        
-      }
+      }      
       continue;  // ignore other control keys (shift etc).
     }
     // non-virtual keys
-    // ctrl/shift+ENTER
-    if (chr == KEY_ENTER && (ctrl || shift)) {  
+    // ctrl/shift+ENTER/TAB
+    if ((chr == KEY_ENTER || chr == KEY_TAB) && (ctrl || shift)) {  
       chr = '\n';   // shift/ctrl+enter becomes linefeed
     }
-    // ctrl+TAB
-    if (chr == KEY_TAB && ctrl) {  
-      tty_cpush(tty, "\x1B[1;5Z");
-      return;
-    }
     // surrogate pairs
-    else if (chr >= 0xD800 && chr <= 0xDBFF) {
+    if (chr >= 0xD800 && chr <= 0xDBFF) {
 			surrogate_hi = (chr - 0xD800);
 			continue;
     }

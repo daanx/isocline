@@ -38,7 +38,7 @@ int main()
 {
   printf("start repline example:\n"
          "- use ctrl+D or empty input to quit.\n"
-         "- use ctrl+J or type '\\' followed by ENTER for multiline input.\n"
+         "- use shift+TAB (or ctrl+J, or '\\' followed by ENTER) for multiline input.\n"
          "\n");
   rl_env_t* env = rl_init();
   rl_set_completer(env, &completer, NULL);
