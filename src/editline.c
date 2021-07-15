@@ -1140,8 +1140,8 @@ static char* edit_line( rp_env_t* env, const char* prompt_text )
   history_push(env, "");
 
   // process keys
-  code_t c;
-  int tofollow = 0;
+  code_t c;          // current key code
+  int tofollow = 0;  // utf8 extended characters to still follow (to delay refresh)
   while(true) {    
     // read a character
     c = tty_read(&env->tty);
@@ -1170,7 +1170,7 @@ static char* edit_line( rp_env_t* env, const char* prompt_text )
     assert(tofollow==0);
 
     if (c == KEY_ENTER) {
-      if (eb.pos > 0 && eb.buf[eb.pos-1] == env->multiline_eol && edit_pos_is_at_row_end(env,&eb)) {
+      if (!env->singleline_only && eb.pos > 0 && eb.buf[eb.pos-1] == env->multiline_eol && edit_pos_is_at_row_end(env,&eb)) {
         // replace line-continuation with newline
         eb.buf[eb.pos-1] = '\n';
         edit_refresh(env,&eb);
@@ -1191,7 +1191,7 @@ static char* edit_line( rp_env_t* env, const char* prompt_text )
     }  
     else switch(c) {
       case KEY_LINEFEED: // '\n' (ctrl+J, shift+enter, ctrl+tab)
-        edit_insert_char(env,&eb,'\n',true);
+        if (!env->singleline_only) { edit_insert_char(env,&eb,'\n',true); }
         break;
       case KEY_TAB:
         edit_generate_completions(env,&eb);

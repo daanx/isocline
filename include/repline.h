@@ -77,7 +77,7 @@ bool rp_add_completion( rp_env_t* env, const char* display, const char* completi
 
 
 //--------------------------------------------------------------
-// Prompt customization
+// Customization
 //--------------------------------------------------------------
 
 // Available ANSI colors.
@@ -106,6 +106,9 @@ void rp_set_prompt_marker( rp_env_t* env, const char* prompt_marker );
 
 // Set the color used for the prompt text and marker.
 void rp_set_prompt_color( rp_env_t* env, rp_color_t color );
+
+// Enable/disable multi-line input.
+void rp_set_multiline_input( rp_env_t* env, bool enable );
 
 
 //--------------------------------------------------------------

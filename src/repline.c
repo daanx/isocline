@@ -51,12 +51,15 @@ static char*  rp_getline( rp_env_t* env, const char* prompt_text );
 exported char* rp_readline(rp_env_t* env, const char* prompt_text) {
   if (env == NULL) return NULL;
   if (env->noedit) {
+    // no editing capability (pipe, dumb terminal, etc)
     return rp_getline(env, prompt_text);
   }
   else {
+    // terminal editing enabled
     return rp_editline(env, prompt_text);
   }
 }
+
 
 
 //-------------------------------------------------------------
@@ -172,6 +175,10 @@ exported void rp_set_prompt_marker( rp_env_t* env, const char* prompt_marker ) {
 
 exported void rp_set_prompt_color( rp_env_t* env, rp_color_t color ) {
   env->prompt_color = color;
+}
+
+exported void rp_set_multiline_input( rp_env_t* env, bool enable ) {
+  env->singleline_only = !enable;
 }
 
 

@@ -59,9 +59,10 @@ struct rp_env_s {
   history_t     history;
   const char*   prompt_marker;
   rp_color_t    prompt_color;
-  char          multiline_eol;
+  char          multiline_eol;  
   bool          initialized;
   bool          noedit;
+  bool          singleline_only;
 };
 
 
