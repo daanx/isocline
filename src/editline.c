@@ -220,6 +220,14 @@ static ssize_t editbuf_get_start_of( editbuf_t* eb, ssize_t pos, match_fun_t* ma
   if (pos >= eb->len) pos = eb->len-1;
   if (pos < 0) pos = 0;
   ssize_t i = pos;
+  // skip matching first (say, whitespace in case of the previous start-of-word)
+  do {
+    ssize_t prev = editbuf_previous_ofs(eb, eb->buf, i, NULL); 
+    if (prev <= 0) break;
+    if (!match(eb->buf + i - prev, prev)) break;
+    i -= prev;
+  } while (i > 0);  
+  // find match
   do {
     ssize_t prev = editbuf_previous_ofs(eb, eb->buf, i, NULL); 
     if (prev <= 0) break;
@@ -237,6 +245,13 @@ static ssize_t editbuf_get_end_of( editbuf_t* eb, ssize_t pos, match_fun_t* matc
   if (pos < 0) pos = 0;  
   ssize_t i = pos;
   ssize_t next;
+  // skip matching first (say, whitespace in case of the next end-of-word)
+  do {
+    next = editbuf_next_ofs(eb, eb->buf, eb->len, i, NULL); 
+    if (!match(eb->buf + i, next)) break;
+    i += next;
+  } while (next > 0);  
+  // and then look
   do {
     next = editbuf_next_ofs(eb, eb->buf, eb->len, i, NULL); 
     if (match(eb->buf + i, next)) {
@@ -633,7 +648,21 @@ static void edit_cursor_home(rl_env_t* env, editbuf_t* eb) {
   edit_refresh(env,eb);
 }
 
-static void edit_cursor_up(rl_env_t* env, editbuf_t* eb) {
+static void edit_cursor_next_word(rl_env_t* env, editbuf_t* eb) {
+  ssize_t end = editbuf_get_word_end(eb,eb->pos);
+  if (end < 0) return;
+  eb->pos = end;
+  edit_refresh(env,eb);
+}
+
+static void edit_cursor_prev_word(rl_env_t* env, editbuf_t* eb) {
+  ssize_t start = editbuf_get_word_start(eb,eb->pos);
+  if (start < 0) return;
+  eb->pos = start;
+  edit_refresh(env,eb);
+}
+
+static void edit_cursor_row_up(rl_env_t* env, editbuf_t* eb) {
   rowcol_t rc;
   edit_get_current_pos( env, eb, &rc);
   if (rc.row == 0) {
@@ -644,7 +673,7 @@ static void edit_cursor_up(rl_env_t* env, editbuf_t* eb) {
   }
 }
 
-static void edit_cursor_down(rl_env_t* env, editbuf_t* eb) {
+static void edit_cursor_row_down(rl_env_t* env, editbuf_t* eb) {
   rowcol_t rc;
   ssize_t rows = edit_get_current_pos( env, eb, &rc);
   if (rc.row + 1 >= rows) {
@@ -1050,11 +1079,11 @@ static char* edit_line( rl_env_t* env, const char* prompt )
         edit_cursor_right(env,&eb);
         break;
       case KEY_UP:
-        edit_cursor_up(env,&eb);
+        edit_cursor_row_up(env,&eb);
         break;
       case KEY_DOWN:
-        edit_cursor_down(env,&eb);
-        break;       
+        edit_cursor_row_down(env,&eb);
+        break;                 
       case KEY_HOME:
       case KEY_CTRL('A'):
         edit_cursor_home(env,&eb);
@@ -1062,6 +1091,12 @@ static char* edit_line( rl_env_t* env, const char* prompt )
       case KEY_END:
       case KEY_CTRL('E'):
         edit_cursor_end(env,&eb);
+        break;
+      case KEY_CTRL_LEFT:
+        edit_cursor_prev_word(env,&eb);
+        break;
+      case KEY_CTRL_RIGHT:
+        edit_cursor_next_word(env,&eb);
         break;      
       case KEY_DEL:
         edit_delete(env,&eb);

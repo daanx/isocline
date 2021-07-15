@@ -19,11 +19,10 @@ static void completer(rl_env_t* env, const char* input, long cur, void* arg )
   }
   else if (input[cur-1] == 'f') {
     rl_add_completion(env,NULL,"banana 🍌 etc.", 1, 0);
-    rl_add_completion(env,NULL,"苹果 wide", 1, 0);
     rl_add_completion(env,NULL,"〈pear〉with brackets", 1, 0); 
     rl_add_completion(env,NULL,"猕猴桃 wide", 1, 0);
     rl_add_completion(env,NULL,"apples 🍎", 1, 0);
-    rl_add_completion(env,NULL,"with a zero‍width joiner", 1, 0);
+    rl_add_completion(env,NULL,"with a zero‍width", 1, 0);
   }
   else if (input[cur-1] == 'e' || input[cur-1] == 'E') {
     rl_add_completion(env, "excëllent", "excëllent", 1, 0);
