@@ -16,40 +16,73 @@ extern "C" {
 #include <stdbool.h>   // bool
 
 //--------------------------------------------------------------
-// main interface
+// Main interface
 //--------------------------------------------------------------
 
+// The readline abstract environment.
 struct rp_env_s;
-typedef struct rp_env_s rp_env_t;   // abstract environment
+typedef struct rp_env_s rp_env_t;
 
+// Initialize and get the repline environment.
+// See also: `rp_init_custom_alloc`.
 rp_env_t* rp_init(void);
-void      rp_done(rp_env_t* env);
-char*     rp_readline(rp_env_t* env, const char* prompt_text);
+
+// Release the repline environment. 
+// This is called automatically on program exit for unreleased environments.
+void rp_done(rp_env_t* env);
+
+// Read input for the user using rich editing abilities.
+// The `prompt_text` can be NULL for the default (""). The displayed prompt
+// becomes `prompt_text` followed by the `prompt_marker` ("> "). 
+// Returns NULL on error, or if the user typed ctrl+d or ctrl+c.
+// Otherwise returns the heap allocated input which should be `free`d by the caller.  
+// See also: `rp_set_prompt_marker`, `rp_set_prompt_color`.
+char* rp_readline(rp_env_t* env, const char* prompt_text);   
 
 
 //--------------------------------------------------------------
 // history
 //--------------------------------------------------------------
 
-void      rp_set_history(rp_env_t* env, const char* fname, long max_entries );
-void      rp_history_remove_last(rp_env_t* env);
-void      rp_history_clear(rp_env_t* env);
+// Enable history. Use a NULL filename to not persist the history. Use -1 for max_entries to get the default (200).
+void rp_set_history(rp_env_t* env, const char* fname, long max_entries );
+
+// The last input is automatically added to the history; this function removes it.
+void rp_history_remove_last(rp_env_t* env);
+
+// Clear the history.
+void rp_history_clear(rp_env_t* env);
 
 
 //--------------------------------------------------------------
-// completion
+// Completion
 //--------------------------------------------------------------
+
+// A completion callback that is called by repline when tab is pressed.
+// It is passed the current input, the current cursor position, 
+// and the user given argument when the callback was set.
 typedef void (rp_completion_fun_t)(rp_env_t* env, const char* input, long cursor, void* arg );
 
-void      rp_set_completer( rp_env_t* env, rp_completion_fun_t* completer, void* arg);
-bool      rp_add_completion( rp_env_t* env, const char* display, const char* completion, long delete_before, long delete_after);
+// Set the completion handler.
+void rp_set_completer( rp_env_t* env, rp_completion_fun_t* completer, void* arg);
+
+// In a completion callback, use this to add completions.
+// When completed, `delete_before` _bytes_ are deleted before the cursor position,
+// `delete_after` _bytes_ are deleted after the cursor, and finally `completion` is inserted.
+// The `display` is used to display the completion in the completion menu.
+//
+// Returns `true` if the callback should continue trying to find more possible completions.
+// If `false` is returned, the callback should try to return and not add more completions (for improved latency).
+bool rp_add_completion( rp_env_t* env, const char* display, const char* completion, long delete_before, long delete_after);
 
 
 //--------------------------------------------------------------
-// set prompt
+// Prompt customization
 //--------------------------------------------------------------
+
+// Available ANSI colors.
 typedef enum rp_color_e {
-  RP_BLACK  = 30,
+  RP_BLACK      = 30,
   RP_MAROON,
   RP_GREEN,
   RP_ORANGE,
@@ -57,7 +90,7 @@ typedef enum rp_color_e {
   RP_PURPLE,
   RP_TEAL,
   RP_LIGHTGRAY,
-  RP_DARKGRAY  = 90,
+  RP_DARKGRAY   = 90,
   RP_RED,
   RP_LIME,
   RP_YELLOW,
@@ -65,22 +98,26 @@ typedef enum rp_color_e {
   RP_MAGENTA,
   RP_CYAN,
   RP_WHITE,
-  RP_DEFAULT = 39
+  RP_DEFAULT_COLOR = 39
 } rp_color_t;
 
+// Set a prompt marker. Pass NULL for the default marker ("> ").
 void rp_set_prompt_marker( rp_env_t* env, const char* prompt_marker );
+
+// Set the color used for the prompt text and marker.
 void rp_set_prompt_color( rp_env_t* env, rp_color_t color );
 
 
 //--------------------------------------------------------------
-// register allocation functions for custom allocators
+// Register allocation functions for custom allocators
 //--------------------------------------------------------------
 
-typedef void* (malloc_fun_t)( size_t size );
-typedef void* (realloc_fun_t)( void* p, size_t newsize );
-typedef void  (free_fun_t)( void* p );
+typedef void* (rp_malloc_fun_t)( size_t size );
+typedef void* (rp_realloc_fun_t)( void* p, size_t newsize );
+typedef void  (rp_free_fun_t)( void* p );
 
-rp_env_t* rp_init_ex( malloc_fun_t* _malloc, realloc_fun_t* _realloc, free_fun_t* _free );
+// Initialize with custom allocation functions.
+rp_env_t* rp_init_custom_alloc( rp_malloc_fun_t* _malloc, rp_realloc_fun_t* _realloc, rp_free_fun_t* _free );
 
 
 #ifdef __cplusplus

@@ -133,7 +133,7 @@ exported void rp_done( rp_env_t* env ) {
   env_free(env,env);
 }
 
-exported rp_env_t* rp_init_ex( malloc_fun_t* _malloc, realloc_fun_t* _realloc, free_fun_t* _free )  
+exported rp_env_t* rp_init_custom_alloc( rp_malloc_fun_t* _malloc, rp_realloc_fun_t* _realloc, rp_free_fun_t* _free )  
 {
   // allocate
   rp_env_t* env = (rp_env_t*)malloc(sizeof(rp_env_t));
@@ -149,8 +149,8 @@ exported rp_env_t* rp_init_ex( malloc_fun_t* _malloc, realloc_fun_t* _realloc, f
     env->noedit = true;
   }
   env->prompt_marker = NULL;
-  env->prompt_color = RP_DEFAULT;
-  env->multiline = '\\';
+  env->prompt_color = RP_DEFAULT_COLOR;
+  env->multiline_eol = '\\';
   // install atexit handler
   if (envs==NULL) atexit(&rp_atexit);
   // push on env list
@@ -161,7 +161,7 @@ exported rp_env_t* rp_init_ex( malloc_fun_t* _malloc, realloc_fun_t* _realloc, f
 }
 
 exported rp_env_t* rp_init(void) {
-  return rp_init_ex( &malloc, &realloc, &free );
+  return rp_init_custom_alloc( &malloc, &realloc, &free );
 }
 
 exported void rp_set_prompt_marker( rp_env_t* env, const char* prompt_marker ) {

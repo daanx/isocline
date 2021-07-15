@@ -27,9 +27,9 @@ typedef struct editbuf_s {
   ssize_t prev_row;
   bool    modified;
   bool    is_utf8;
-  const char* prompt;
-  ssize_t prompt_width;
   int     history_idx;
+  const char* prompt_text;
+  ssize_t     prompt_width;
 } editbuf_t;
 
 
@@ -38,13 +38,13 @@ typedef struct editbuf_s {
 //-------------------------------------------------------------
 // Main edit line 
 //-------------------------------------------------------------
-static char* edit_line( rp_env_t* env, const char* prompt );
+static char* edit_line( rp_env_t* env, const char* prompt_text );
 static void edit_refresh(rp_env_t* env, editbuf_t* eb);
 
-internal char* rp_editline(rp_env_t* env, const char* prompt) {
+internal char* rp_editline(rp_env_t* env, const char* prompt_text) {
   tty_start_raw(&env->tty);
   term_start_raw(&env->term);
-  char* line = edit_line(env,prompt);
+  char* line = edit_line(env,prompt_text);
   term_end_raw(&env->term);
   tty_end_raw(&env->tty);
   term_write(&env->term,"\r\n");
@@ -445,15 +445,15 @@ static bool edit_pos_is_at_row_end(rp_env_t* env, editbuf_t* eb) {
 
 static void edit_write_prompt( rp_env_t* env, editbuf_t* eb, ssize_t row, bool in_extra ) {
   if (!in_extra) { 
-    if (env->prompt_color != RP_DEFAULT) term_color( &env->term, env->prompt_color );
+    if (env->prompt_color != RP_DEFAULT_COLOR) term_color( &env->term, env->prompt_color );
     if (row==0) {
-      term_write(&env->term, eb->prompt);
+      term_write(&env->term, eb->prompt_text);
     }
     else {
-      term_writef(&env->term, "%*c", editbuf_width(eb,eb->prompt), ' ' );
+      term_writef(&env->term, "%*c", editbuf_width(eb,eb->prompt_text), ' ' );
     }
     term_attr_reset( &env->term );
-    if (env->prompt_color != RP_DEFAULT) term_color( &env->term, env->prompt_color );
+    if (env->prompt_color != RP_DEFAULT_COLOR) term_color( &env->term, env->prompt_color );
     term_write( &env->term, (env->prompt_marker == NULL ? "> " : env->prompt_marker )); 
     term_attr_reset( &env->term );
   }
@@ -1117,7 +1117,7 @@ static void edit_generate_completions(rp_env_t* env, editbuf_t* eb) {
 // Edit line
 //-------------------------------------------------------------
 
-static char* edit_line( rp_env_t* env, const char* prompt )
+static char* edit_line( rp_env_t* env, const char* prompt_text )
 {
   // set up an edit buffer
   editbuf_t eb;
@@ -1129,8 +1129,8 @@ static char* edit_line( rp_env_t* env, const char* prompt )
   eb.prev_row = 0;
   eb.modified = false;
   eb.is_utf8  = env->tty.is_utf8;
-  eb.prompt   = (prompt != NULL ? prompt : "");
-  eb.prompt_width  = editbuf_width( &eb, eb.prompt ) + (env->prompt_marker != NULL ? editbuf_width( &eb, env->prompt_marker) : 2);
+  eb.prompt_text   = (prompt_text != NULL ? prompt_text : "");
+  eb.prompt_width  = editbuf_width( &eb, eb.prompt_text ) + (env->prompt_marker != NULL ? editbuf_width( &eb, env->prompt_marker) : 2);
   eb.history_idx   = 0;
   
   // show prompt
@@ -1170,7 +1170,7 @@ static char* edit_line( rp_env_t* env, const char* prompt )
     assert(tofollow==0);
 
     if (c == KEY_ENTER) {
-      if (eb.pos > 0 && eb.buf[eb.pos-1] == env->multiline && edit_pos_is_at_row_end(env,&eb)) {
+      if (eb.pos > 0 && eb.buf[eb.pos-1] == env->multiline_eol && edit_pos_is_at_row_end(env,&eb)) {
         // replace line-continuation with newline
         eb.buf[eb.pos-1] = '\n';
         edit_refresh(env,&eb);

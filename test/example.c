@@ -15,10 +15,10 @@ static void completer(rp_env_t* env, const char* input, long cur, void* arg );
 int main() 
 {
   printf("\nRepline sample program:\n"
-         "- Use 'exit' to quit. (or ctrl+d).\n"
+         "- Type 'exit' to quit. (or use ctrl+d).\n"
          "- Press F1 for help on editing commands.\n"
          "- Use shift+tab for multiline input. (or ctrl+enter, or ctrl+j)\n"
-         "- Type 'h' (or 'ex', 'f', or 'l') followed by tab for completion.\n"
+         "- Type 'id' (or 'ex', 'f', or 'h') followed by tab for completion.\n"
          "\n");
 
   // initialize and get a repline environment         
@@ -77,9 +77,9 @@ static void completer(rp_env_t* env, const char* input, long cur, void* arg )
   }
   else if (strncmp( input+cur-2, "id", 2) == 0) {
     // rp_add_completion(env,"C++ - [](auto x){ return x; }", "c++", 2, 0);
-    rp_add_completion(env,"D — (x) => x", "d", 1, 0);
+    rp_add_completion(env,"D — (x) => x", "d", 2, 0);                
     rp_add_completion(env,"Haskell — \\x -> x", "haskell", 2, 0);
-    rp_add_completion(env,"Idris — \\x => x", "ris", 2, 0);          // keep the initial "id" :-)
+    rp_add_completion(env,"Idris — \\x => x", "ris", 0, 0);          // keep the initial "id" :-)
     rp_add_completion(env,"Koka — fn(x){ x }", "koka", 2, 0);    
     rp_add_completion(env,"Ocaml — fun x -> x", "ocaml", 2, 0);
   }

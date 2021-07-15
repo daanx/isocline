@@ -103,9 +103,9 @@ internal void debug_msg( const char* fmt, ... );
 //-------------------------------------------------------------
 
 typedef struct alloc_s {
-  malloc_fun_t*  malloc;
-  realloc_fun_t* realloc;
-  free_fun_t*    free;
+  rp_malloc_fun_t*  malloc;
+  rp_realloc_fun_t* realloc;
+  rp_free_fun_t*    free;
 } alloc_t;
 
 
