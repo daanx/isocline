@@ -60,16 +60,18 @@ static void completer(rp_env_t* env, const char* input, long cur, void* arg )
   (void)(arg);
   assert(cur > 0);
   assert(input != NULL && strlen(input) >= (size_t)cur);
+
   size_t len = strlen(input);
   if (len <= 0 || cur <= 0) return;  // should never happen
-  if (input[cur-1] == 'h') {
-    for(int i = 0; i < 100; i++) {
+
+  if (len >= 1 && input[cur-1] == 'h') {
+    for(int i = 0; i < 100000; i++) {
       char buf[32];
-      snprintf(buf,32,"hello repline (%2d)", i+1);
-      rp_add_completion(env, NULL, buf, 1, 0);
+      snprintf(buf,32,"hello repline (%d)", i+1);
+      if (!rp_add_completion(env, NULL, buf, 1, 0)) break;  // break early if not all completions are needed (for better latency)
     }
   }
-  else if (input[cur-1] == 'f') {  
+  else if (len >= 1 && input[cur-1] == 'f') {  
     rp_add_completion(env,NULL,"banana 🍌 etc.", 1, 0);
     rp_add_completion(env,NULL,"〈pear〉with brackets", 1, 0); 
     rp_add_completion(env,NULL,"猕猴桃 wide", 1, 0);

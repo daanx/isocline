@@ -968,7 +968,7 @@ static ssize_t edit_completions_max_width( rp_env_t* env, editbuf_t* eb, ssize_t
   return max_width;
 }
 
-static void edit_completion_menu(rp_env_t* env, editbuf_t* eb) {
+static void edit_completion_menu(rp_env_t* env, editbuf_t* eb, bool more_available) {
   ssize_t count  = completions_count( env );
   ssize_t count_displayed = count;
   assert(count > 1);
@@ -1010,12 +1010,8 @@ again:
       editbuf_append_completion(env, eb, i, -1, true /* numbered */, selected == i );        
     }
   }
-  char buf[128];
-  //snprintf(buf,128,"\n\x1B[90m(enter or 1-%zd to complete, tab/cursor to change selection)\x1B[0m", count9);
-  //editbuf_append_extra( env, eb, buf);       
-  if (count > 9) {
-    snprintf(buf,128,"\n\x1B[90m(press shift-tab to see all %zd completions)\x1B[0m", count);
-    editbuf_append_extra( env, eb, buf);      
+  if (count > count_displayed) {
+    editbuf_append_extra(env, eb, "\n\x1B[90m(press shift-tab to see all further completions)\x1B[0m");
   }   
   edit_refresh(env,eb);
   
@@ -1070,6 +1066,9 @@ again:
   else if ((c == KEY_PAGEDOWN || c == KEY_LINEFEED || c == KEY_CTRP_END) && count > 9) {
     // show all completions
     c = 0;
+    if (more_available) {
+      count = completions_generate(env,eb->buf,eb->pos,RP_MAX_COMPLETIONS_TO_SHOW);  // generate up to max entries
+    }
     rowcol_t rc;
     edit_get_current_pos(env,eb,&rc);
     edit_clear(env,eb);
@@ -1082,6 +1081,9 @@ again:
         term_write(&env->term, (cm->display != NULL ? cm->display : cm->replacement ));         
         term_write(&env->term, "\r\n"); 
       }
+    }
+    if (count >= RP_MAX_COMPLETIONS_TO_SHOW) {
+      term_write(&env->term, "\x1B[90m... and more.\x1B[0m\r\n");
     }
     for(ssize_t i = 0; i < rc.row+1; i++) {
       term_write(&env->term, " \r\n");
@@ -1097,7 +1099,7 @@ again:
 static void edit_generate_completions(rp_env_t* env, editbuf_t* eb) {
   debug_msg( "edit: complete: %zd: %s\n", eb->pos, eb->buf );
   if (eb->pos <= 0) return;
-  ssize_t count = completions_generate(env,eb->buf,eb->pos,1000);
+  ssize_t count = completions_generate(env,eb->buf,eb->pos,10);
   if (count <= 0) {
     // no completions
     term_beep(&env->term); 
@@ -1108,7 +1110,7 @@ static void edit_generate_completions(rp_env_t* env, editbuf_t* eb) {
     edit_complete(env,eb,0);
   }
   else {
-    edit_completion_menu( env, eb );    
+    edit_completion_menu( env, eb, count>=10 );    
   }
 }
 

@@ -14,6 +14,9 @@
 #include "tty.h"
 
 
+#define RP_MAX_HISTORY              (200)
+#define RP_MAX_COMPLETIONS_TO_SHOW  (1000)
+
 
 //-------------------------------------------------------------
 // Completions
@@ -65,10 +68,7 @@ struct rp_env_s {
   bool          singleline_only;
 };
 
-
 internal char*    rp_editline(rp_env_t* env, const char* prompt_text);
-
-#define RP_MAX_HISTORY (200)
 
 internal void     history_done( rp_env_t* env );
 internal void     history_load( rp_env_t* env );
