@@ -77,6 +77,6 @@ Some other libraries that we considered:
 [linenoise](https://github.com/antirez/linenoise),
 [replxx](https://github.com/AmokHuginnsson/replxx).
 
-[koka]: https://koka-lang.org
+[koka]: http://www.koka-lang.org
 [submodule]: https://git-scm.com/book/en/v2/Git-Tools-Submodules
 
