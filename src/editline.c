@@ -1063,7 +1063,7 @@ again:
     eb->len = completion_apply(cm, eb->buf, eb->len, eb->pos, &eb->pos);        
     edit_refresh(env,eb);    
   }
-  else if ((c == KEY_PAGEDOWN || c == KEY_LINEFEED || c == KEY_CTRP_END) && count > 9) {
+  else if ((c == KEY_PAGEDOWN || c == KEY_LINEFEED || c == KEY_CTRL_END) && count > 9) {
     // show all completions
     c = 0;
     if (more_available) {
@@ -1221,17 +1221,17 @@ static char* edit_line( rp_env_t* env, const char* prompt_text )
       case KEY_CTRL('E'):
         edit_cursor_line_end(env,&eb);
         break;
-      case KEY_CTRP_LEFT:
+      case KEY_CTRL_LEFT:
         edit_cursor_prev_word(env,&eb);
         break;
-      case KEY_CTRP_RIGHT:
+      case KEY_CTRL_RIGHT:
         edit_cursor_next_word(env,&eb);
         break;      
-      case KEY_CTRP_HOME:
+      case KEY_CTRL_HOME:
       case KEY_PAGEUP:
         edit_cursor_to_start(env,&eb);
         break;
-      case KEY_CTRP_END:
+      case KEY_CTRL_END:
       case KEY_PAGEDOWN:
         edit_cursor_to_end(env,&eb);
         break;

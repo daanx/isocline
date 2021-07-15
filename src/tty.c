@@ -86,12 +86,12 @@ internal bool code_is_key( tty_t* tty, code_t c ) {
 
 static bool esc_ctrl( char c, code_t* code ) {
   switch(c) {
-    case 'A': *code = KEY_CTRP_UP; return true;
-    case 'B': *code = KEY_CTRP_DOWN; return true;
-    case 'C': *code = KEY_CTRP_RIGHT; return true;
-    case 'D': *code = KEY_CTRP_LEFT; return true;
-    case 'F': *code = KEY_CTRP_END; return true;
-    case 'H': *code = KEY_CTRP_HOME; return true;
+    case 'A': *code = KEY_CTRL_UP; return true;
+    case 'B': *code = KEY_CTRL_DOWN; return true;
+    case 'C': *code = KEY_CTRL_RIGHT; return true;
+    case 'D': *code = KEY_CTRL_LEFT; return true;
+    case 'F': *code = KEY_CTRL_END; return true;
+    case 'H': *code = KEY_CTRL_HOME; return true;
     case 'M': *code = KEY_LINEFEED; return true;  // ctrl+enter
     case 'Z': *code = KEY_LINEFEED; return true;  // ctrl+tab
     default : *code = 0; return false;
@@ -122,11 +122,12 @@ static code_t tty_read_esc(tty_t* tty) {
       if (c3 == '~') {
         // ESC [ ? ~
         switch(c2) {  
+          case '2': return KEY_INS;
           case '3': return KEY_DEL;
           case '1': 
           case '7': return KEY_HOME;
           case '4': 
-          case '8': return KEY_END;
+          case '8': return KEY_END;          
           case '5': return KEY_PAGEUP;
           case '6': return KEY_PAGEDOWN;
         }
@@ -135,11 +136,12 @@ static code_t tty_read_esc(tty_t* tty) {
       else if (c3 == '^') {
         // ESC [ ? ^
         switch(c2) {
-          case '3': return KEY_CTRP_DEL;  // urxvt
-          case '5': return KEY_CTRP_PAGEUP;    // Eterm/rxvt
-          case '6': return KEY_CTRP_PAGEDOWN;  // Eterm/rxvt
-          case '7': return KEY_CTRP_HOME; // Eterm/rxvt
-          case '8': return KEY_CTRP_END;  // Eterm/rxvt
+          case '2': return KEY_CTRL_INS;  // urxvt
+          case '3': return KEY_CTRL_DEL;  // urxvt
+          case '5': return KEY_CTRL_PAGEUP;    // Eterm/rxvt
+          case '6': return KEY_CTRL_PAGEDOWN;  // Eterm/rxvt
+          case '7': return KEY_CTRL_HOME; // Eterm/rxvt
+          case '8': return KEY_CTRL_END;  // Eterm/rxvt
         }
         return KEY_NONE;
       }      
@@ -173,7 +175,7 @@ static code_t tty_read_esc(tty_t* tty) {
         }
         else if (c2 == '3' && c4 == '3' && c5 == '~') {
           // ESC [ 3 ; 3 ~
-          return KEY_CTRP_DEL;
+          return KEY_CTRL_DEL;
         }
         return KEY_NONE;
       }
@@ -232,10 +234,10 @@ static code_t tty_read_esc(tty_t* tty) {
       case 'D': return KEY_LEFT;
       case 'F': return KEY_END;
       case 'H': return KEY_HOME;  
-      case 'a': return KEY_CTRP_UP;
-      case 'b': return KEY_CTRP_DOWN;
-      case 'c': return KEY_CTRP_RIGHT;
-      case 'd': return KEY_CTRP_LEFT;
+      case 'a': return KEY_CTRL_UP;
+      case 'b': return KEY_CTRL_DOWN;
+      case 'c': return KEY_CTRL_RIGHT;
+      case 'd': return KEY_CTRL_LEFT;
       case 'z': return KEY_LINEFEED;  // ctrl+tab
       // numpad 
       case 'E': return '5';       
@@ -547,12 +549,12 @@ static void tty_waitc_console(tty_t* tty)
     }
 
     // ignore AltGr
-    DWORD altgr = LEFT_CTRP_PRESSED | RIGHT_ALT_PRESSED;
+    DWORD altgr = LEFT_CTRL_PRESSED | RIGHT_ALT_PRESSED;
     if ((modstate & altgr) == altgr) { modstate &= ~altgr; }
 
     
     // get modifiers
-    bool ctrl = (modstate & ( RIGHT_CTRP_PRESSED | LEFT_CTRP_PRESSED )) != 0;
+    bool ctrl = (modstate & ( RIGHT_CTRL_PRESSED | LEFT_CTRL_PRESSED )) != 0;
     bool alt  = (modstate & ( RIGHT_ALT_PRESSED | LEFT_ALT_PRESSED )) != 0;
     bool shift= (modstate & SHIFT_PRESSED) != 0;
 
