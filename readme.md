@@ -64,8 +64,6 @@ and add `repline/src/repline.c` to your build rules -- no configuration is neede
 $ gcc -c repline/src/repline.c
 ```
 
-[submodule]: https://git-scm.com/book/en/v2/Git-Tools-Submodules
-
 ## Motivation
 
 Repline was created for use in the [Koka] interative compiler. 
@@ -79,5 +77,6 @@ Some other libraries that we considered:
 [linenoise](https://github.com/antirez/linenoise),
 [replxx](https://github.com/AmokHuginnsson/replxx).
 
-[koka]: www.koka-lang.org
+[koka]: http://www.koka-lang.org
+[submodule]: https://git-scm.com/book/en/v2/Git-Tools-Submodules
 
