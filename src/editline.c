@@ -634,14 +634,14 @@ static void edit_cursor_right(rl_env_t* env, editbuf_t* eb) {
   }
 }
 
-static void edit_cursor_end(rl_env_t* env, editbuf_t* eb) {
+static void edit_cursor_line_end(rl_env_t* env, editbuf_t* eb) {
   ssize_t end = editbuf_get_line_end(eb,eb->pos);
   if (end < 0) return;  
   eb->pos = end; 
   edit_refresh(env,eb);
 }
 
-static void edit_cursor_home(rl_env_t* env, editbuf_t* eb) {
+static void edit_cursor_line_start(rl_env_t* env, editbuf_t* eb) {
   ssize_t start = editbuf_get_line_start(eb,eb->pos);
   if (start < 0) return;
   eb->pos = start;
@@ -661,6 +661,17 @@ static void edit_cursor_prev_word(rl_env_t* env, editbuf_t* eb) {
   eb->pos = start;
   edit_refresh(env,eb);
 }
+
+static void edit_cursor_to_start(rl_env_t* env, editbuf_t* eb) {
+  eb->pos = 0; 
+  edit_refresh(env,eb);
+}
+
+static void edit_cursor_to_end(rl_env_t* env, editbuf_t* eb) {
+  eb->pos = editbuf_input_len(eb); 
+  edit_refresh(env,eb);
+}
+
 
 static void edit_cursor_row_up(rl_env_t* env, editbuf_t* eb) {
   rowcol_t rc;
@@ -1086,11 +1097,11 @@ static char* edit_line( rl_env_t* env, const char* prompt )
         break;                 
       case KEY_HOME:
       case KEY_CTRL('A'):
-        edit_cursor_home(env,&eb);
+        edit_cursor_line_start(env,&eb);
         break;
       case KEY_END:
       case KEY_CTRL('E'):
-        edit_cursor_end(env,&eb);
+        edit_cursor_line_end(env,&eb);
         break;
       case KEY_CTRL_LEFT:
         edit_cursor_prev_word(env,&eb);
@@ -1098,6 +1109,14 @@ static char* edit_line( rl_env_t* env, const char* prompt )
       case KEY_CTRL_RIGHT:
         edit_cursor_next_word(env,&eb);
         break;      
+      case KEY_CTRL_HOME:
+      case KEY_PAGEUP:
+        edit_cursor_to_start(env,&eb);
+        break;
+      case KEY_CTRL_END:
+      case KEY_PAGEDOWN:
+        edit_cursor_to_end(env,&eb);
+        break;
       case KEY_DEL:
         edit_delete(env,&eb);
         break;
@@ -1113,7 +1132,7 @@ static char* edit_line( rl_env_t* env, const char* prompt )
         break;
       case KEY_CTRL('W'):
         edit_delete_to_start_of_word(env,&eb);
-        break;
+        break;      
       case KEY_CTRL('P'):
         edit_history_prev(env,&eb);
         break;
