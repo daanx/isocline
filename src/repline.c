@@ -146,16 +146,20 @@ exported rp_env_t* rp_init_custom_alloc( rp_malloc_fun_t* _malloc, rp_realloc_fu
   env->alloc.realloc = _realloc;
   env->alloc.free    = _free;
   int fin = STDIN_FILENO;
+  
   // initialize term & tty
-  if (!tty_init(&env->tty, fin) || !term_init(&env->term,&env->tty,&env->alloc,false,false,-1))
+  if (!tty_init(&env->tty, fin) || 
+      !term_init(&env->term,&env->tty,&env->alloc,false,false,-1))
   {
     env->noedit = true;
   }
   env->prompt_marker = NULL;
   env->prompt_color = RP_DEFAULT_COLOR;
   env->multiline_eol = '\\';
+  
   // install atexit handler
   if (envs==NULL) atexit(&rp_atexit);
+  
   // push on env list
   env->next = envs;
   envs = env;
@@ -177,8 +181,16 @@ exported void rp_set_prompt_color( rp_env_t* env, rp_color_t color ) {
   env->prompt_color = color;
 }
 
-exported void rp_set_multiline_input( rp_env_t* env, bool enable ) {
+exported void rp_enable_multiline( rp_env_t* env, bool enable ) {
   env->singleline_only = !enable;
+}
+
+exported void rp_enable_beep( rp_env_t* env, bool enable ) {
+  env->term.silent = !enable;
+}
+
+exported void rp_enable_color( rp_env_t* env, bool enable ) {
+  env->term.monochrome = !enable;
 }
 
 

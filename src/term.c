@@ -211,23 +211,31 @@ static void term_init_raw(term_t* term);
 
 internal bool term_init(term_t* term, tty_t* tty, alloc_t* mem, bool monochrome, bool silent, int fout ) 
 {
-  term->fout = (fout < 0 ? STDOUT_FILENO : fout);
+  term->fout   = (fout < 0 ? STDOUT_FILENO : fout);
   term->monochrome = monochrome;
-  term->silent = silent;
-  term->width = 80;
+  term->silent = silent;  
+  term->mem    = mem;
+  term->width  = 80;
   term->height = 25;
-  term->mem = mem;
+  
+  // read COLUMS/LINES from the environment for a better initial guess.
+  const char* env_columns = getenv("COLUMNS");
+  if (env_columns != NULL) { sscanf(env_columns, "%zd", &term->width); }
+  const char* env_lines = getenv("LINES");
+  if (env_lines != NULL)   { sscanf(env_lines, "%zd", &term->height); }
+  
+  // initialize raw terminal output and terminal dimensions
   term_init_raw(term);
   term_update_dim(term,tty);
 
-  // check dimensions
+  // check dimensions (0 is used for debuggers)
   if (term->width <= 0) return false; 
   
   // check editing support
   const char* eterm = getenv("TERM");
   debug_msg("term: TERM=%s\n", eterm);
   if (eterm != NULL &&
-      (strstr(eterm,"dumb|DUMB|cons25|CONS25|emacs|EMACS") != NULL)) {
+      (strstr("dumb|DUMB|cons25|CONS25|emacs|EMACS",eterm) != NULL)) {
     return false;
   }
 

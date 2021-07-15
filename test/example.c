@@ -60,7 +60,8 @@ static void completer(rp_env_t* env, const char* input, long cur, void* arg )
   (void)(arg);
   assert(cur > 0);
   assert(input != NULL && strlen(input) >= (size_t)cur);
-  if (cur <= 0) return;
+  size_t len = strlen(input);
+  if (len <= 0 || cur <= 0) return;  // should never happen
   if (input[cur-1] == 'h') {
     for(int i = 0; i < 100; i++) {
       char buf[32];
@@ -75,7 +76,7 @@ static void completer(rp_env_t* env, const char* input, long cur, void* arg )
     rp_add_completion(env,NULL,"apples 🍎", 1, 0);
     rp_add_completion(env,NULL,"with a zero‍width", 1, 0);
   }
-  else if (strncmp( input+cur-2, "id", 2) == 0) {
+  else if (len >= 2 && strncmp( input+cur-2, "id", 2) == 0) {
     // rp_add_completion(env,"C++ - [](auto x){ return x; }", "c++", 2, 0);
     rp_add_completion(env,"D — (x) => x", "d", 2, 0);                
     rp_add_completion(env,"Haskell — \\x -> x", "haskell", 2, 0);
@@ -83,7 +84,7 @@ static void completer(rp_env_t* env, const char* input, long cur, void* arg )
     rp_add_completion(env,"Koka — fn(x){ x }", "koka", 2, 0);    
     rp_add_completion(env,"Ocaml — fun x -> x", "ocaml", 2, 0);
   }
-  else if (strncmp( input+cur-2, "ex", 2) == 0) {
+  else if (len >= 2 && strncmp( input+cur-2, "ex", 2) == 0) {
     rp_add_completion(env, NULL, "excellent", 2, 0);
   }
 }

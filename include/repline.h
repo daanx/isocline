@@ -72,6 +72,7 @@ typedef void (rp_completion_fun_t)(rp_env_t* env, const char* input, long cursor
 // Set the completion handler.
 // The `arg` is passed to every `completer` call by repline as is (and can be NULL).
 // This can be used to propagate user state to the `completer`.
+// There can only be one completion function, setting it again disables the previous one.
 void rp_set_completer( rp_env_t* env, rp_completion_fun_t* completer, void* arg);
 
 // In a completion callback, use this function to add completions.
@@ -117,8 +118,14 @@ void rp_set_prompt_marker( rp_env_t* env, const char* prompt_marker );
 void rp_set_prompt_color( rp_env_t* env, rp_color_t color );
 
 // Disable or enable multi-line input (enabled by default).
-void rp_set_multiline_input( rp_env_t* env, bool enable );
+void rp_enable_multiline( rp_env_t* env, bool enable );
 
+// Disable or enable sound (enabled by default).
+// A beep is used when tab cannot find any completion for example.
+void rp_enable_beep( rp_env_t* env, bool enable );
+
+// Disable or enable color output (enabled by default).
+void rp_enable_color( rp_env_t* env, bool enable );
 
 //--------------------------------------------------------------
 // Register allocation functions for custom allocators
