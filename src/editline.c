@@ -810,16 +810,16 @@ static void edit_insert_char(rl_env_t* env, editbuf_t* eb, char c, bool refresh)
 
 static const char* help[] = {
   "","",
-  "","Repline v1.0, Copyright (c) 2021 Daan Leijen", 
+  "","Repline v1.0, copyright (c) 2021 Daan Leijen.", 
   "","This is free software; you can redistribute it and/or",
   "","modify it under the terms of the MIT License.",
   "","See <https://github.com/daanx/repline> for further information.",
   "","",
   "","Navigation:",
   "left, "
-  "^B",         "go one character to the left",
+  "^b",         "go one character to the left",
   "right, "
-  "^F",         "go one character to the right",
+  "^f",         "go one character to the right",
   "up",         "go one row up, or back in the history",
   "down",       "go one row down, or forward in the history",  
   #ifdef __APPLE__
@@ -835,34 +835,34 @@ static const char* help[] = {
   #endif
                 "go to the end the current word",
   "home, "
-  "^A",         "go to the start of the current line",  
+  "^a",         "go to the start of the current line",  
   "end, "
-  "^E",         "go to the end of the current line",
+  "^e",         "go to the end of the current line",
   "^home, "
-  "PgUp",       "go to the start of the current input",
+  "pgup",       "go to the start of the current input",
   "^end, "
-  "PgDn",       "go to the end of the current input",
-  "^P",         "go back in the history",
-  "^N",         "go forward in the history",
+  "pgdn",       "go to the end of the current input",
+  "^p",         "go back in the history",
+  "^n",         "go forward in the history",
   "","",
   "", "Editing:",
   "enter",      "accept current input",
   #ifndef __APPLE__
-  "^enter, ^J", "",
+  "^enter, ^j", "",
   #else
-  "^J,", "",
+  "^j,", "",
   #endif
   "shift+tab",  "create a new line for multi-line input",
   //" ",          "(or type '\\' followed by enter)",
-  "^L",         "clear screen",
+  "^l",         "clear screen",
   "del",        "delete the current character",
   "backspace",  "delete the previour character",
-  "^K",         "delete to the end of a line",
-  "^W",         "delete to start of a word",
+  "^k",         "delete to the end of a line",
+  "^w",         "delete to start of a word",
   "esc, "
-  "^U",         "delete the current line",
-  "^T",         "swap with previous character (move character backward)",
-  "^D",         "done with empty input, or delete current character",
+  "^u",         "delete the current line",
+  "^t",         "swap with previous character (move character backward)",
+  "^d",         "done with empty input, or delete current character",
   //"^C",         "done with empty input",
   //"F1",         "show this help",
   "tab",        "try to complete the current input",
@@ -873,7 +873,7 @@ static const char* help[] = {
   "1 - 9",      "use completion N from the menu",
   "tab",        "select the next completion",
   "cursor keys","select completion N in the menu",
-  "PgDn, ", "",
+  "pgdn, ", "",
   "shift-tab",  "show all further possible completions",
   "esc",        "exit menu without completing",
   "","\x1B[0m",
@@ -932,54 +932,79 @@ static void editbuf_append_completion(rl_env_t* env, editbuf_t* eb, ssize_t idx,
   }
 }
 
-#define RL_DISPLAY_MAX    22
-#define RL_DISPLAY_COL    (3+RL_DISPLAY_MAX)
-#define RL_DISPLAY3_WIDTH (3*RL_DISPLAY_COL + 2*2)  // 79
+// 2 and 3 column output up to 80 wide
+#define RL_DISPLAY2_MAX    35
+#define RL_DISPLAY2_COL    (3+RL_DISPLAY2_MAX)
+#define RL_DISPLAY2_WIDTH  (2*RL_DISPLAY2_COL + 2)    // 78
 
-static void editbuf_append_completion3(rl_env_t* env, editbuf_t* eb, ssize_t idx1, ssize_t idx2, ssize_t idx3, ssize_t selected ) {  
-  editbuf_append_completion(env, eb, idx1, RL_DISPLAY_COL, true, (idx1 == selected) );
+#define RL_DISPLAY3_MAX    22
+#define RL_DISPLAY3_COL    (3+RL_DISPLAY3_MAX)
+#define RL_DISPLAY3_WIDTH  (3*RL_DISPLAY3_COL + 2*2)  // 79
+
+static void editbuf_append_completion2(rl_env_t* env, editbuf_t* eb, ssize_t idx1, ssize_t idx2, ssize_t selected ) {  
+  editbuf_append_completion(env, eb, idx1, RL_DISPLAY2_COL, true, (idx1 == selected) );
   editbuf_append_extra(env, eb, "  ");
-  editbuf_append_completion(env, eb, idx2, RL_DISPLAY_COL, true, (idx2 == selected) );
-  editbuf_append_extra(env, eb, "  ");
-  editbuf_append_completion(env, eb, idx3, RL_DISPLAY_COL, true, (idx3 == selected) );
+  editbuf_append_completion(env, eb, idx2, RL_DISPLAY2_COL, true, (idx2 == selected) );
 }
 
-static bool edit_completions_all_fit( rl_env_t* env, editbuf_t* eb, ssize_t count, ssize_t width ) {
+static void editbuf_append_completion3(rl_env_t* env, editbuf_t* eb, ssize_t idx1, ssize_t idx2, ssize_t idx3, ssize_t selected ) {  
+  editbuf_append_completion(env, eb, idx1, RL_DISPLAY3_COL, true, (idx1 == selected) );
+  editbuf_append_extra(env, eb, "  ");
+  editbuf_append_completion(env, eb, idx2, RL_DISPLAY3_COL, true, (idx2 == selected) );
+  editbuf_append_extra(env, eb, "  ");
+  editbuf_append_completion(env, eb, idx3, RL_DISPLAY3_COL, true, (idx3 == selected) );
+}
+
+static ssize_t edit_completions_max_width( rl_env_t* env, editbuf_t* eb, ssize_t count ) {
+  ssize_t max_width = 0;
   for( ssize_t i = 0; i < count; i++) {
     completion_t* cm = completions_get(env,i);
-    if (cm != NULL && editbuf_width(eb, (cm->display != NULL ? cm->display : cm->replacement)) > width) {
-      return false;
+    if (cm != NULL) {
+      ssize_t w = editbuf_width(eb, (cm->display != NULL ? cm->display : cm->replacement));
+      if (w > max_width) max_width = w;
     }
   }
-  return true;
+  return max_width;
 }
 
 static void edit_completion_menu(rl_env_t* env, editbuf_t* eb) {
   ssize_t count  = completions_count( env );
-  ssize_t count9 = (count > 9 ? 9 : count);
+  ssize_t count_displayed = count;
   assert(count > 1);
   ssize_t selected = 0;
   ssize_t columns  = 1;
   ssize_t percolumn= count;
   
 again: 
-  // show first 9 completions
+  // show first 9 (or 8) completions
   editbuf_clear_extra(eb);
-  ssize_t width = term_get_width(&env->term);      
-  if (count > 3 && width > RL_DISPLAY3_WIDTH && edit_completions_all_fit(env,eb,9,RL_DISPLAY_MAX)) {
-    // display as a block
+  ssize_t twidth = term_get_width(&env->term);   
+  if (count > 3 && twidth > RL_DISPLAY3_WIDTH && edit_completions_max_width(env,eb,9) <= RL_DISPLAY3_MAX) {
+    // display as a 3 column block
+    count_displayed = (count > 9 ? 9 : count);
     columns = 3;
     percolumn = 3;
-    for( ssize_t rw = 0; rw < (count > 3 ? 3 : count); rw++ ) {
+    for( ssize_t rw = 0; rw < percolumn; rw++ ) {
       editbuf_append_extra( env, eb, "\n");
-      editbuf_append_completion3( env, eb, rw, 3+rw, 6+rw, selected );
+      editbuf_append_completion3( env, eb, rw, percolumn+rw, (2*percolumn)+rw, selected );
+    }
+  }
+  else if (count > 4 && twidth > RL_DISPLAY2_WIDTH && edit_completions_max_width(env,eb,8) <= RL_DISPLAY2_MAX) {
+    // display as a 2 column block if some entries are too wide for three columns
+    count_displayed = (count > 8 ? 8 : count);
+    columns = 2;
+    percolumn = (count_displayed <= 6 ? 3 : 4);
+    for( ssize_t rw = 0; rw < percolumn; rw++ ) {
+      editbuf_append_extra( env, eb, "\n");
+      editbuf_append_completion2( env, eb, rw, percolumn+rw, selected );
     }
   }
   else {
     // display as a list
+    count_displayed = (count > 9 ? 9 : count);    
     columns = 1;
-    percolumn = count;
-    for(ssize_t i = 0; i < count9; i++) {
+    percolumn = count_displayed;
+    for(ssize_t i = 0; i < count_displayed; i++) {
       editbuf_append_extra( env, eb, "\n");
       editbuf_append_completion(env, eb, i, -1, true /* numbered */, selected == i );        
     }
@@ -1002,16 +1027,16 @@ again:
   }   
   else if (c == KEY_TAB || c == KEY_DOWN) {
     selected++;
-    if (selected >= count9) selected = 0;
+    if (selected >= count_displayed) selected = 0;
     goto again;
   }
   else if (c == KEY_UP) {
     selected--;
-    if (selected < 0) selected = count9 - 1;
+    if (selected < 0) selected = count_displayed - 1;
     goto again;
   }
   if (c == KEY_RIGHT) {
-    if (columns > 1 && selected + percolumn < count9) selected += percolumn;
+    if (columns > 1 && selected + percolumn < count_displayed) selected += percolumn;
     goto again;
   }
   if (c == KEY_LEFT) {
@@ -1019,7 +1044,7 @@ again:
     goto again;
   }
   else if (c == KEY_END) {
-    selected = count9 - 1;
+    selected = count_displayed - 1;
     goto again;
   }
   else if (c == KEY_HOME) {
