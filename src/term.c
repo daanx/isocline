@@ -464,10 +464,14 @@ internal void term_start_raw(term_t* term) {
   }
 	GetConsoleMode( term->hcon, &term->hcon_orig_mode );
   term->hcon_orig_cp = GetConsoleOutputCP(); 
-  SetConsoleOutputCP(65001);  
-  SetConsoleMode( term->hcon,  ENABLE_PROCESSED_OUTPUT   // for \r \n and \b
+  SetConsoleOutputCP(65001);  // set to UTF-8
+  SetConsoleMode( term->hcon, ENABLE_PROCESSED_OUTPUT   // for \r \n and \b
+                             #ifdef ENABLE_LVB_GRID_WORLDWIDE 
                              | ENABLE_LVB_GRID_WORLDWIDE // for underline
+                             #endif
+                             #ifdef ENABLE_VIRTUAL_TERMINAL_PROCESSING 
                              // | ENABLE_VIRTUAL_TERMINAL_PROCESSING // we already emulate ourselves 
+                             #endif
                              );
   term->raw_enabled = true;  
 }

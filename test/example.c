@@ -35,7 +35,7 @@ static void completer(rl_env_t* env, const char* input, long cur, void* arg )
 
 int main() 
 {
-  printf("Repline sample program:\n"
+  printf("\nRepline sample program:\n"
          "- Use empty input to quit.\n"
          "- Press F1 for help on editing commands.\n"
          "- Use shift+TAB (or ctrl+ENTER, or ctrl+J) for multiline input.\n"
