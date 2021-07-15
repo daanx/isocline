@@ -822,8 +822,18 @@ static const char* help[] = {
   "^F",         "go one character to the right",
   "up",         "go one row up, or back in the history",
   "down",       "go one row down, or forward in the history",  
-  "^left,",     "go to the start of the previous word",
-  "^right,",    "go to the end the current word",
+  #ifdef __APPLE__
+  "shift+left",
+  #else
+  "^left",     
+  #endif
+                "go to the start of the previous word",
+  #ifdef __APPLE__
+  "shift+right",
+  #else
+  "^right",
+  #endif
+                "go to the end the current word",
   "home, "
   "^A",         "go to the start of the current line",  
   "end, "
