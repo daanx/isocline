@@ -272,6 +272,7 @@ static code_t tty_read_esc(tty_t* tty) {
         if (esc_ctrl(c3,&code)) return code;
       }
       default: {
+        // ESC O ?
         if (c2 >= 'P' && c2 <= 'Y') return (KEY_F1 + (c2 - 'P'));
       }
     }
@@ -557,16 +558,17 @@ static void tty_waitc_console(tty_t* tty)
 
     // virtual keys
     uint32_t chr = (uint32_t)inp.Event.KeyEvent.uChar.UnicodeChar;
-    debug_msg("tty: console %s: %s%s%s virt 0x%04x, chr 0x%04x ('%c')\n", inp.Event.KeyEvent.bKeyDown ? "down" : "up", ctrl ? "ctrl-" : "", alt ? "alt-" : "", shift ? "shift-" : "", inp.Event.KeyEvent.wVirtualKeyCode, chr, chr);
+    WORD     virt = inp.Event.KeyEvent.wVirtualKeyCode;
+    debug_msg("tty: console %s: %s%s%s virt 0x%04x, chr 0x%04x ('%c')\n", inp.Event.KeyEvent.bKeyDown ? "down" : "up", ctrl ? "ctrl-" : "", alt ? "alt-" : "", shift ? "shift-" : "", virt, chr, chr);
 
     // only process keydown events (except for Alt-up which is used for unicode pasting...)
-    if (!inp.Event.KeyEvent.bKeyDown && inp.Event.KeyEvent.wVirtualKeyCode != VK_MENU) {
+    if (!inp.Event.KeyEvent.bKeyDown && virt != VK_MENU) {
 			continue;
 		}
     
     if (chr == 0) { 
       if (!ctrl && !alt) {
-        switch (inp.Event.KeyEvent.wVirtualKeyCode) {
+        switch (virt) {
           case VK_LEFT:   tty_cpush(tty, "\x1B[D"); return; 
           case VK_RIGHT:  tty_cpush(tty, "\x1B[C"); return;
           case VK_UP:     tty_cpush(tty, "\x1B[A"); return;
@@ -578,6 +580,13 @@ static void tty_waitc_console(tty_t* tty)
           case VK_NEXT:   tty_cpush(tty, "\x1B[6~"); return;  //page down
           case VK_TAB:    if (shift) { tty_cpush(tty, "\n"); return; }
           case VK_RETURN: if (shift) { tty_cpush(tty, "\n"); return; }
+          default: {
+            if (virt >= VK_F1 && virt <= VK_F12) {
+              tty_cpush_char( tty, 'P' + (virt - VK_F1) );
+              tty_cpush( tty, "\x1B[O");
+              return;
+            }
+          }
         }
       }
       else if (ctrl && !alt) {
