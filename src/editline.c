@@ -82,8 +82,8 @@ typedef struct editbuf_s {
   int     history_idx;  // current index in the history 
   const char*  prompt_text;   // text of the prompt before the prompt marker
   ssize_t      prompt_width;  // total width of the prompt including the marker
-  editstate_t* undo;         // undo buffer
-  editstate_t* redo;
+  editstate_t* undo;    // undo buffer
+  editstate_t* redo;    // redo buffer
 } editbuf_t;
 
 
@@ -1014,6 +1014,8 @@ static const char* help[] = {
   "^u",         "delete the current line",
   "^t",         "swap with previous character (move character backward)",
   "^d",         "done with empty input, or delete current character",
+  "^z",         "undo",
+  "^y",         "redo",
   //"^C",         "done with empty input",
   //"F1",         "show this help",
   "tab",        "try to complete the current input",
