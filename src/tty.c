@@ -263,7 +263,7 @@ static code_t tty_read_csi(tty_t* tty, char c1, char peek) {
   char   final = peek;
   code_t modifiers = 0;
 
-  debug_msg("tty: escape sequence: ESC %c1 %c %d;%d %c\n", c1, (special == 0 ? '_' : special), num1, num2, final);
+  debug_msg("tty: escape sequence: ESC %c %c %d;%d %c\n", c1, (special == 0 ? '_' : special), num1, num2, final);
   
   // Adjust special cases into standard ones.
   if ((final == '@' || final == '9') && c1 == '[' && num1 == 1) {
@@ -618,7 +618,7 @@ internal code_t tty_read(tty_t* tty) {
   }
   code_t key  = KEY_NOMODS(code);
   code_t mods = KEY_MODS(code);
-  debug_msg( "tty: %s%s%s 0x%03x ('%c')\n", 
+  debug_msg( "tty: readc %s%s%s 0x%03x ('%c')\n", 
               mods&MOD_SHIFT ? "shift+" : "", 
               mods&MOD_CTRL  ? "ctrl+" : "",
               mods&MOD_ALT   ? "alt+" : "",
