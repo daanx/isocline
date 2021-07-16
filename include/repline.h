@@ -127,6 +127,9 @@ void rp_enable_beep( rp_env_t* env, bool enable );
 // Disable or enable color output (enabled by default).
 void rp_enable_color( rp_env_t* env, bool enable );
 
+// Disable or enable duplicate entries in the history (disabled by default).
+void rp_enable_history_duplicates( rp_env_t* env, bool enable );
+
 //--------------------------------------------------------------
 // Register allocation functions for custom allocators
 //--------------------------------------------------------------

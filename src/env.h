@@ -43,10 +43,11 @@ typedef struct completions_s {
 //-------------------------------------------------------------
 
 typedef struct history_s {
-  ssize_t count;
-  ssize_t len;
-  const char** elems;
-  const char*  fname;
+  ssize_t count;              // current number of entries in use
+  ssize_t len;                // size of elems (realloc'd on demand)
+  const char** elems;         // history items (up to count)
+  const char*  fname;         // history file
+  bool    allow_duplicates;   // allow duplicate entries?
 } history_t;
 
 //-------------------------------------------------------------

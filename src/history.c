@@ -25,16 +25,30 @@ internal bool history_update( rp_env_t* env, const char* entry ) {
   return true;
 }
 
+static void history_delete_at( rp_env_t* env, history_t* h, int idx ) {
+  if (idx < 0 || idx >= h->count) return;
+  env_free(env, h->elems[idx]);
+  for(ssize_t i = idx+1; i < h->count; i++) {
+    h->elems[i-1] = h->elems[i];
+  }
+  h->count--;
+}
+
 internal bool history_push( rp_env_t* env, const char* entry ) {
   history_t* h = &env->history; 
   if (h->len <= 0 || entry==NULL)  return false;
+  // remove any older duplicate
+  if (!h->allow_duplicates) {
+    for( int i = 0; i < h->count; i++) {
+      if (strcmp(h->elems[i],entry) == 0) {
+        history_delete_at(env,h,i);
+      }
+    }
+  }
+  // insert at front
   if (h->count == h->len) {
     // delete oldest entry
-    env_free(env, h->elems[0]);
-    for(ssize_t i = 1; i < h->count; i++) {
-      h->elems[i-1] = h->elems[i];
-    }
-    h->count--;
+    history_delete_at(env,h,0);    
   }
   assert(h->count < h->len);
   h->elems[h->count] = env_strdup(env,entry);

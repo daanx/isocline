@@ -193,6 +193,10 @@ exported void rp_enable_color( rp_env_t* env, bool enable ) {
   env->term.monochrome = !enable;
 }
 
+exported void rp_enable_history_duplicates( rp_env_t* env, bool enable ) {
+  env->history.allow_duplicates = enable;
+}
+
 
 //-------------------------------------------------------------
 // Read a line from stdin if there is no editing support 
