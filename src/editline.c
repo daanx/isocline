@@ -19,70 +19,54 @@
 #endif
 
 // Undo buffer
-typedef struct undo_entry_s {
-  struct undo_entry_s* next;
+typedef struct editstate_s {
+  struct editstate_s* next;
   const char* input;          // input
   ssize_t     pos;            // cursor position
-} undo_entry_t;
+} editstate_t;
 
-typedef struct undo_s {
-  undo_entry_t* entries;
-  undo_entry_t* redo;  
-} undo_t;
 
-static void undo_free_all( alloc_t* mem, undo_entry_t* entry ) {
-  while (entry != NULL) {
-    undo_entry_t* next = entry;
-    mem_free( mem, entry->input );
-    mem_free( mem, entry );
-    entry = next;
+static void editstate_init( editstate_t** es ) {
+  *es = NULL;
+}
+
+static void editstate_done( alloc_t* mem, editstate_t** es ) {
+  while (*es != NULL) {
+    editstate_t* next = (*es)->next;
+    mem_free(mem, (*es)->input);
+    mem_free(mem, *es );
+    *es = next;
   }
+  *es = NULL;
 }
 
-internal void undo_init( undo_t* u ) {
-  memset( u, 0, sizeof(u));
-}
-
-internal void undo_done( alloc_t* mem, undo_t* u ) {
-  undo_free_all( mem, u->entries );
-  undo_free_all( mem, u->redo );
-  u->entries = NULL;
-  u->redo = NULL;
-}
-
-internal void undo_capture( alloc_t* mem, undo_t* u, const char* s, ssize_t len, ssize_t pos) {
-  assert(s!=NULL && pos < len && len > 0);
-  if (s==NULL) return;
-  if (pos >= len) pos = len-1;
+internal void editstate_capture( alloc_t* mem, editstate_t** es, const char* input, ssize_t pos) {
+  assert(input!=NULL);
+  if (input==NULL) return;
   // alloc
-  char* input = mem_malloc_tp_n(mem,char,len + 1);
-  if (input == NULL) return;
-  undo_entry_t* entry = mem_zalloc_tp(mem, undo_entry_t);
-  if (entry == NULL) { mem_free(mem,input); return; }
+  editstate_t* entry = mem_zalloc_tp(mem, editstate_t);
+  if (entry == NULL) return;
   // initialize
-  rp_memcpy(input, s, len);
-  input[len] = 0;  
-  entry->input = input;
+  entry->input = mem_strdup( mem, input);
   entry->pos   = pos;
+  if (entry->input == NULL) { mem_free(mem, entry); return; }
   // and push
-  entry->next = u->entries;
-  u->entries = entry;
-  // and clear redo entries
-  undo_free_all( mem, u->redo );
-  u->redo = NULL;
+  entry->next = *es;
+  *es = entry;
 }
 
-internal bool undo_restore( undo_t* u, const char** input, ssize_t* pos ) {
-  if (u->entries == NULL) return false;
-  // pop from undo, and push on redo
-  undo_entry_t* entry = u->entries;
-  u->entries = entry->next;
-  entry->next = u->redo;
-  u->redo = entry;
-  if (input != NULL) *input = entry->input;
-  if (pos != NULL)   *pos = entry->pos;
+// caller should free *input
+internal bool editstate_restore( alloc_t* mem, editstate_t** es, const char** input, ssize_t* pos ) {
+  if (*es == NULL) return false;
+  // pop 
+  editstate_t* entry = *es;
+  *es = entry->next;
+  *input = entry->input;
+  *pos = entry->pos;
+  mem_free(mem, entry);
   return true;
 }
+
 
 
 // The edit buffer
@@ -96,9 +80,10 @@ typedef struct editbuf_s {
   bool    modified;     // has a modification happened? (used for history navigation for example)
   bool    is_utf8;      // should we consider bytes >= 0x80 as utf8-followers or as single characters?
   int     history_idx;  // current index in the history 
-  const char* prompt_text;   // text of the prompt before the prompt marker
-  ssize_t     prompt_width;  // total width of the prompt including the marker
-  undo_t  undo;         // undo buffer
+  const char*  prompt_text;   // text of the prompt before the prompt marker
+  ssize_t      prompt_width;  // total width of the prompt including the marker
+  editstate_t* undo;         // undo buffer
+  editstate_t* redo;
 } editbuf_t;
 
 
@@ -379,9 +364,9 @@ static void editbuf_delete_from_to(editbuf_t* eb, ssize_t start, ssize_t end)
 static void editbuf_replace_input(alloc_t* mem, editbuf_t* eb, const char* input, ssize_t pos) 
 { 
   assert(input != NULL);
-  assert(pos >= 0 && pos <= strlen(input));
+  assert(pos >= 0 && pos <= rp_strlen(input));
   ssize_t cur_len = editbuf_input_len(eb);
-  ssize_t new_len = strlen(input);
+  ssize_t new_len = rp_strlen(input);
   ssize_t diff = new_len - cur_len;
   if (diff > 0) {
     editbuf_ensure_space( mem, eb, diff);
@@ -396,20 +381,40 @@ static ssize_t editbuf_get_word_end( editbuf_t* eb, ssize_t pos) {
   return editbuf_get_end_of(eb,pos,&match_word_boundary,true);
 }
 
-static void editbuf_undo_capture(alloc_t* mem, editbuf_t* eb ) {
-  undo_capture( mem, &eb->undo, eb->buf, editbuf_input_len(eb), eb->pos );
+static void editbuf_capture(alloc_t* mem, editbuf_t* eb, editstate_t** es ) {
+  editstate_capture( mem, es, eb->buf, eb->pos );
 }
 
-static void editbuf_set_modified(alloc_t* env, editbuf_t* eb ) {
-  editbuf_undo_capture(mem,eb);
-  eb->modified = true;
+static void editbuf_undo_capture(alloc_t* mem, editbuf_t* eb ) {
+  editbuf_capture(mem, eb, &eb->undo );
 }
 
 static void editbuf_undo_restore(alloc_t* mem, editbuf_t* eb ) {
+  if (eb->undo == NULL) return;
   const char* input;
   ssize_t pos;
-  if (!undo_restore( &eb->undo, &input, &pos )) return;
+  editbuf_capture( mem, eb, &eb->redo );
+  if (!editstate_restore( mem, &eb->undo, &input, &pos )) return;
   editbuf_replace_input(mem, eb, input, pos );
+  mem_free(mem, input);
+  eb->modified = false;
+}
+
+static void editbuf_redo_restore(alloc_t* mem, editbuf_t* eb ) {
+  if (eb->redo == NULL) return;
+  const char* input;
+  ssize_t pos;
+  editbuf_undo_capture( mem, eb );
+  if (!editstate_restore( mem, &eb->redo, &input, &pos )) return;
+  editbuf_replace_input(mem, eb, input, pos );
+  mem_free(mem, input);
+  eb->modified = false;
+}
+
+static void edit_start_modify(rp_env_t* env, editbuf_t* eb ) {
+  editbuf_undo_capture(&env->alloc,eb);
+  editstate_done(&env->alloc, &eb->redo);  // clear redo
+  eb->modified = true;
 }
 
 
@@ -699,6 +704,17 @@ static void edit_clear_screen(rp_env_t* env, editbuf_t* eb ) {
 // Edit operations
 //-------------------------------------------------------------
 
+static void edit_undo_restore(rp_env_t* env, editbuf_t* eb) {
+  editbuf_undo_restore( &env->alloc, eb);
+  eb->modified = false;
+  edit_refresh(env,eb);
+}
+
+static void edit_redo_restore(rp_env_t* env, editbuf_t* eb) {
+  editbuf_redo_restore( &env->alloc, eb);
+  eb->modified = false;
+  edit_refresh(env,eb);
+}
 
 static void edit_history_at(rp_env_t* env, editbuf_t* eb, int ofs ) 
 {
@@ -712,7 +728,7 @@ static void edit_history_at(rp_env_t* env, editbuf_t* eb, int ofs )
   eb->history_idx += ofs;
   eb->count = 0;
   ssize_t len = rp_strlen(entry);
-  editbuf_ensure_space(env,eb,len + 1);
+  editbuf_ensure_space(&env->alloc,eb,len + 1);
   assert(eb->buflen >= len + 1);
   if (rp_strcpy(eb->buf, eb->buflen, entry)) {
     eb->count = len + 1;
@@ -825,6 +841,7 @@ static void edit_cursor_row_down(rp_env_t* env, editbuf_t* eb) {
 
 static void edit_backspace(rp_env_t* env, editbuf_t* eb) {
   if (eb->pos <= 0) return;
+  edit_start_modify(env,eb);
   ssize_t n = editbuf_previous_ofs(eb, eb->buf, eb->pos, NULL);
   if (n <= 0) return;  
   rp_memmove( eb->buf + eb->pos - n, eb->buf + eb->pos, eb->count - eb->pos );
@@ -832,34 +849,33 @@ static void edit_backspace(rp_env_t* env, editbuf_t* eb) {
   eb->pos -= n;
   eb->buf[eb->count] = 0;
   edit_refresh(env,eb);
-  editbuf_set_modified(env,eb);
 }
 
 static void edit_delete(rp_env_t* env, editbuf_t* eb) {
   ssize_t n = editbuf_next_ofs(eb, eb->buf, editbuf_input_len(eb), eb->pos, NULL);
   if (n <= 0) return;  
+  edit_start_modify(env,eb);
   rp_memmove( eb->buf + eb->pos, eb->buf + eb->pos + n, eb->count - eb->pos - n);
   eb->count -= n;
   eb->buf[eb->count] = 0;
   edit_refresh(env,eb);
-  editbuf_set_modified(env,eb);
 }
 
 static void edit_delete_all(rp_env_t* env, editbuf_t* eb) {
+  edit_start_modify(env,eb);
   eb->count = 1;
   eb->pos = 0;
   eb->buf[0] = 0;
   edit_refresh(env,eb);
-  editbuf_set_modified(env,eb);
 }
 
 static void edit_delete_line_from(rp_env_t* env, editbuf_t* eb, ssize_t start) 
 { 
   ssize_t end = editbuf_get_line_end(eb,start);
   if (end < 0) return;
+  edit_start_modify(env,eb);
   editbuf_delete_from_to( eb, start, end );
   edit_refresh(env,eb);
-  editbuf_set_modified(env,eb);
 }
 
 static void edit_delete_to_end_of_line(rp_env_t* env, editbuf_t* eb) {
@@ -871,6 +887,7 @@ static void edit_delete_line(rp_env_t* env, editbuf_t* eb) {
   if (start < 0) return;
   ssize_t end   = editbuf_get_line_end(eb,start);
   if (end < 0) return;
+  edit_start_modify(env,eb);
   // delete newline as well so no empty line is left;
   bool goright = false;
   if (start > 0 && eb->buf[start-1] == '\n') {
@@ -882,17 +899,16 @@ static void edit_delete_line(rp_env_t* env, editbuf_t* eb) {
   editbuf_delete_from_to(eb,start,end);
   if (goright) edit_cursor_right(env,eb); 
   edit_refresh(env,eb);
-  editbuf_set_modified(env,eb);
 }
  
 static void edit_delete_to_start_of_word(rp_env_t* env, editbuf_t* eb) {
   ssize_t start = editbuf_get_word_start(eb,eb->pos);
   if (start < 0) return;
+  edit_start_modify(env,eb);
   ssize_t end = eb->pos;
   eb->pos = start;
   editbuf_delete_from_to(eb,start,end);
   edit_refresh(env,eb);
-  editbuf_set_modified(env,eb);
 }
 
 static void edit_swap( rp_env_t* env, editbuf_t* eb ) {
@@ -900,6 +916,7 @@ static void edit_swap( rp_env_t* env, editbuf_t* eb ) {
   ssize_t next = editbuf_next_ofs( eb, eb->buf, eb->count, eb->pos, NULL );
   ssize_t prev = editbuf_previous_ofs( eb, eb->buf, eb->pos, NULL );
   if (next <= 0 || prev <= 0 || prev > 32) return;
+  edit_start_modify(env,eb);
   eb->pos -= prev;
   assert(eb->pos >= 0);
   char buf[32];
@@ -907,20 +924,21 @@ static void edit_swap( rp_env_t* env, editbuf_t* eb ) {
   rp_memcpy( eb->buf + eb->pos, eb->buf + eb->pos + prev, next );
   rp_memcpy( eb->buf + eb->pos + prev, buf, prev );
   edit_refresh(env,eb);
-  editbuf_set_modified(env,eb);
 }
 
 static void edit_multiline_eol(rp_env_t* env, editbuf_t* eb) {
   if (eb->pos <= 0 || eb->buf[eb->pos-1] != env->multiline_eol) return;
+  edit_start_modify(env,eb);
   // replace line continuation with a real newline
   eb->buf[eb->pos-1] = '\n';
-  edit_refresh(env,&eb);
-  editbuf_set_modified(env,eb);
+  edit_refresh(env,eb);
 }
 
 static void edit_insert_char(rp_env_t* env, editbuf_t* eb, char c, bool refresh) {
-  if (!editbuf_ensure_space(env,eb,1)) return;
-  eb->modified = true;
+  if (!editbuf_ensure_space(&env->alloc,eb,1)) return;
+  if (refresh) {
+    edit_start_modify(env,eb);
+  }
 
   // insert in buffer
   if (eb->pos < eb->count) {
@@ -934,7 +952,6 @@ static void edit_insert_char(rp_env_t* env, editbuf_t* eb, char c, bool refresh)
   // output to terminal
   if (refresh) {
     edit_refresh(env,eb);
-    editbuf_set_modified(env,eb);
   }
 }
 
@@ -1034,36 +1051,35 @@ static void edit_show_help( rp_env_t* env, editbuf_t* eb ) {
 static void edit_complete(rp_env_t* env, editbuf_t* eb, int idx) {
   completion_t* cm = completions_get(env,idx);
   if (cm == NULL) return;
-  editbuf_ensure_space(env,eb,completion_extra_needed(cm));
+  edit_start_modify(env,eb);
+  editbuf_ensure_space(&env->alloc,eb,completion_extra_needed(cm));
   eb->count = completion_apply(cm, eb->buf, eb->count, eb->pos, &eb->pos);
   edit_refresh(env,eb);
-  editbuf_set_modified(env,eb);
 }
 
-static void editbuf_append_completion(rp_env_t* env, editbuf_t* eb, ssize_t idx, ssize_t width, bool numbered, bool selected ) {
-  completion_t* cm = completions_get(env,idx);
+static void editbuf_append_completion(alloc_t* mem, editbuf_t* eb, completion_t* cm, ssize_t idx, ssize_t width, bool numbered, bool selected ) {
   if (cm == NULL) return;
   if (numbered) {
     char buf[32];
     snprintf(buf, 32, "\x1B[90m%s%zd \x1B[0m", (selected ? (eb->is_utf8 ? "\xE2\x86\x92" : "*") : " "), 1 + idx);
-    editbuf_append_extra(env, eb, buf);
+    editbuf_append_extra(mem, eb, buf);
     width -= 3;
   }
   const char* s = (cm->display==NULL ? cm->replacement : cm->display);
   if (width <= 0) {
-    editbuf_append_extra(env, eb, s);
+    editbuf_append_extra(mem, eb, s);
   }
   else {
     // fit to width
     const char* sc = editbuf_drop_until_fit( eb, s, width);
     if (sc != s) {
-      editbuf_append_extra(env, eb, "...");
+      editbuf_append_extra(mem, eb, "...");
       sc = editbuf_drop_until_fit( eb, s, width - 3);
     }
-    editbuf_append_extra(env, eb, sc);
+    editbuf_append_extra(mem, eb, sc);
     // fill out with spaces
     ssize_t n = width - editbuf_width(eb,sc);
-    while( n-- > 0 ) { editbuf_append_extra(env, eb," "); }  
+    while( n-- > 0 ) { editbuf_append_extra(mem, eb," "); }  
   }
 }
 
@@ -1077,17 +1093,17 @@ static void editbuf_append_completion(rp_env_t* env, editbuf_t* eb, ssize_t idx,
 #define RP_DISPLAY3_WIDTH  (3*RP_DISPLAY3_COL + 2*2)  // 79
 
 static void editbuf_append_completion2(rp_env_t* env, editbuf_t* eb, ssize_t idx1, ssize_t idx2, ssize_t selected ) {  
-  editbuf_append_completion(env, eb, idx1, RP_DISPLAY2_COL, true, (idx1 == selected) );
-  editbuf_append_extra(env, eb, "  ");
-  editbuf_append_completion(env, eb, idx2, RP_DISPLAY2_COL, true, (idx2 == selected) );
+  editbuf_append_completion(&env->alloc, eb, completions_get(env,idx1), idx1, RP_DISPLAY2_COL, true, (idx1 == selected) );
+  editbuf_append_extra(&env->alloc, eb, "  ");
+  editbuf_append_completion(&env->alloc, eb, completions_get(env,idx2), idx2, RP_DISPLAY2_COL, true, (idx2 == selected) );
 }
 
 static void editbuf_append_completion3(rp_env_t* env, editbuf_t* eb, ssize_t idx1, ssize_t idx2, ssize_t idx3, ssize_t selected ) {  
-  editbuf_append_completion(env, eb, idx1, RP_DISPLAY3_COL, true, (idx1 == selected) );
-  editbuf_append_extra(env, eb, "  ");
-  editbuf_append_completion(env, eb, idx2, RP_DISPLAY3_COL, true, (idx2 == selected) );
-  editbuf_append_extra(env, eb, "  ");
-  editbuf_append_completion(env, eb, idx3, RP_DISPLAY3_COL, true, (idx3 == selected) );
+  editbuf_append_completion(&env->alloc, eb, completions_get(env,idx1), idx1, RP_DISPLAY3_COL, true, (idx1 == selected) );
+  editbuf_append_extra(&env->alloc, eb, "  ");
+  editbuf_append_completion(&env->alloc, eb, completions_get(env,idx2), idx2, RP_DISPLAY3_COL, true, (idx2 == selected) );
+  editbuf_append_extra(&env->alloc, eb, "  ");
+  editbuf_append_completion(&env->alloc, eb, completions_get(env,idx3), idx3, RP_DISPLAY3_COL, true, (idx3 == selected) );
 }
 
 static ssize_t edit_completions_max_width( rp_env_t* env, editbuf_t* eb, ssize_t count ) {
@@ -1120,7 +1136,7 @@ again:
     columns = 3;
     percolumn = 3;
     for( ssize_t rw = 0; rw < percolumn; rw++ ) {
-      editbuf_append_extra( env, eb, "\n");
+      editbuf_append_extra( &env->alloc, eb, "\n");
       editbuf_append_completion3( env, eb, rw, percolumn+rw, (2*percolumn)+rw, selected );
     }
   }
@@ -1130,7 +1146,7 @@ again:
     columns = 2;
     percolumn = (count_displayed <= 6 ? 3 : 4);
     for( ssize_t rw = 0; rw < percolumn; rw++ ) {
-      editbuf_append_extra( env, eb, "\n");
+      editbuf_append_extra( &env->alloc, eb, "\n");
       editbuf_append_completion2( env, eb, rw, percolumn+rw, selected );
     }
   }
@@ -1140,12 +1156,12 @@ again:
     columns = 1;
     percolumn = count_displayed;
     for(ssize_t i = 0; i < count_displayed; i++) {
-      editbuf_append_extra( env, eb, "\n");
-      editbuf_append_completion(env, eb, i, -1, true /* numbered */, selected == i );        
+      editbuf_append_extra( &env->alloc, eb, "\n");
+      editbuf_append_completion(&env->alloc, eb, completions_get(env,i), i, -1, true /* numbered */, selected == i );        
     }
   }
   if (count > count_displayed) {
-    editbuf_append_extra(env, eb, "\n\x1B[90m(press shift-tab to see all further completions)\x1B[0m");
+    editbuf_append_extra(&env->alloc, eb, "\n\x1B[90m(press shift-tab to see all further completions)\x1B[0m");
   }   
   edit_refresh(env,eb);
   
@@ -1265,7 +1281,9 @@ static char* edit_line( rp_env_t* env, const char* prompt_text )
   eb.prompt_text   = (prompt_text != NULL ? prompt_text : "");
   eb.prompt_width  = editbuf_width( &eb, eb.prompt_text ) + (env->prompt_marker != NULL ? editbuf_width( &eb, env->prompt_marker) : 2);
   eb.history_idx   = 0;
-  
+  editstate_init(&eb.undo);
+  editstate_init(&eb.redo);
+
   // show prompt
   edit_write_prompt(env, &eb, 0, false); 
 
@@ -1305,7 +1323,7 @@ static char* edit_line( rp_env_t* env, const char* prompt_text )
     if (c == KEY_ENTER) {
       if (!env->singleline_only && eb.pos > 0 && eb.buf[eb.pos-1] == env->multiline_eol && edit_pos_is_at_row_end(env,&eb)) {
         // replace line-continuation with newline
-        editbuf_multiline_eol(env,eb);        
+        edit_multiline_eol(env,&eb);        
       }
       else {
         // otherwise done
@@ -1392,6 +1410,12 @@ static char* edit_line( rp_env_t* env, const char* prompt_text )
       case KEY_CTRL('T'):
         edit_swap(env,&eb);
         break;
+      case KEY_CTRL('Z'):
+        edit_undo_restore(env,&eb);
+        break;
+      case KEY_CTRL('Y'):
+        edit_redo_restore(env,&eb);
+        break;        
       case KEY_F1:
         edit_show_help(env,&eb);
         break;
@@ -1416,7 +1440,11 @@ static char* edit_line( rp_env_t* env, const char* prompt_text )
   eb.pos = rlen;  
   assert(eb.buf[rlen] == 0);
   edit_refresh(env,&eb);
-  
+
+  // free resources (except eb.buf)
+  editstate_done(&env->alloc, &eb.undo);
+  editstate_done(&env->alloc, &eb.redo);
+
   // return the captured buffer (return NULL on error or Ctrl-D without input)
   char* res = ((c == KEY_CTRL('D') && rlen == 0) || c == KEY_CTRL('C')) ? NULL : (char*)env_realloc(env,eb.buf,rlen+1);
   if (res == NULL) {
