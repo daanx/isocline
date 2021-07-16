@@ -215,18 +215,20 @@ static const char* editbuf_drop_until_fit( editbuf_t* eb, const char* s, ssize_t
 
 typedef bool (match_fun_t)(const char* s, ssize_t len);
 
-static ssize_t editbuf_get_start_of( editbuf_t* eb, ssize_t pos, match_fun_t* match ) {
+static ssize_t editbuf_get_start_of( editbuf_t* eb, ssize_t pos, match_fun_t* match, bool skip_immediate_matches ) {
   assert(pos >= 0 && pos < eb->len);
   if (pos >= eb->len) pos = eb->len-1;
   if (pos < 0) pos = 0;
   ssize_t i = pos;
   // skip matching first (say, whitespace in case of the previous start-of-word)
-  do {
-    ssize_t prev = editbuf_previous_ofs(eb, eb->buf, i, NULL); 
-    if (prev <= 0) break;
-    if (!match(eb->buf + i - prev, prev)) break;
-    i -= prev;
-  } while (i > 0);  
+  if (skip_immediate_matches) {
+    do {
+      ssize_t prev = editbuf_previous_ofs(eb, eb->buf, i, NULL); 
+      if (prev <= 0) break;
+      if (!match(eb->buf + i - prev, prev)) break;
+      i -= prev;
+    } while (i > 0);  
+  }
   // find match
   do {
     ssize_t prev = editbuf_previous_ofs(eb, eb->buf, i, NULL); 
@@ -239,18 +241,20 @@ static ssize_t editbuf_get_start_of( editbuf_t* eb, ssize_t pos, match_fun_t* ma
   return -1;
 }
 
-static ssize_t editbuf_get_end_of( editbuf_t* eb, ssize_t pos, match_fun_t* match) {
+static ssize_t editbuf_get_end_of( editbuf_t* eb, ssize_t pos, match_fun_t* match, bool skip_immediate_matches ) {
   assert(pos >= 0 && pos < eb->len);
   if (pos >= eb->len) pos = eb->len-1;
   if (pos < 0) pos = 0;  
   ssize_t i = pos;
   ssize_t next;
   // skip matching first (say, whitespace in case of the next end-of-word)
-  do {
-    next = editbuf_next_ofs(eb, eb->buf, eb->len, i, NULL); 
-    if (!match(eb->buf + i, next)) break;
-    i += next;
-  } while (next > 0);  
+  if (skip_immediate_matches) {
+    do {
+      next = editbuf_next_ofs(eb, eb->buf, eb->len, i, NULL); 
+      if (!match(eb->buf + i, next)) break;
+      i += next;
+    } while (next > 0);  
+  }
   // and then look
   do {
     next = editbuf_next_ofs(eb, eb->buf, eb->len, i, NULL); 
@@ -267,12 +271,12 @@ static bool match_newline( const char* s, ssize_t n ) {
 }
 
 static ssize_t editbuf_get_line_start( editbuf_t* eb, ssize_t pos) {
-  ssize_t start = editbuf_get_start_of(eb,pos,&match_newline);
+  ssize_t start = editbuf_get_start_of(eb,pos,&match_newline,false /* don't skip immediate matches */);
   return (start < 0 ? 0 : start); 
 }
 
 static ssize_t editbuf_get_line_end( editbuf_t* eb, ssize_t pos) {
-  return editbuf_get_end_of(eb,pos,&match_newline);
+  return editbuf_get_end_of(eb, pos, &match_newline, false);
 }
 
 static bool match_word_boundary( const char* s, ssize_t n ) {  
@@ -281,12 +285,12 @@ static bool match_word_boundary( const char* s, ssize_t n ) {
 }
 
 static ssize_t editbuf_get_word_start( editbuf_t* eb, ssize_t pos) {
-  ssize_t start = editbuf_get_start_of(eb,pos,&match_word_boundary);
+  ssize_t start = editbuf_get_start_of(eb,pos,&match_word_boundary,true /* skip immediate matches */);
   return (start < 0 ? 0 : start); 
 }
 
 static ssize_t editbuf_get_word_end( editbuf_t* eb, ssize_t pos) {
-  return editbuf_get_end_of(eb,pos,&match_word_boundary);
+  return editbuf_get_end_of(eb,pos,&match_word_boundary,true);
 }
 
 
@@ -761,9 +765,15 @@ static void edit_delete_line(rp_env_t* env, editbuf_t* eb) {
   ssize_t end   = editbuf_get_line_end(eb,start);
   if (end < 0) return;
   // delete newline as well so no empty line is left;
-  if (eb->buf[end] == '\n') end++;
-  else if (start > 0 && eb->buf[start-1] == '\n') start--;
+  bool goright = false;
+  if (start > 0 && eb->buf[start-1] == '\n') {
+    start--;
+    // afterwards, move to start of next line if it exists (so the cursor stays on the same row)
+    goright = true;
+  }
+  else if (eb->buf[end] == '\n') end++;
   edit_delete_from_to(env,eb,start,end);
+  if (goright) edit_cursor_right(env,eb); 
 }
  
 static void edit_delete_to_start_of_word(rp_env_t* env, editbuf_t* eb) {
