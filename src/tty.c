@@ -37,7 +37,7 @@ static bool tty_cpop(tty_t* tty, char* c);
 //-------------------------------------------------------------
 
 internal bool code_is_char(tty_t* tty, code_t c, char* chr ) {
-  if (c >= 0x20 && c <= (tty->is_utf8 ? 0x7F : 0xFF)) {
+  if (c >= 0x20 && c <= (tty->is_utf8 ? 0x7FU : 0xFFU)) {
     if (chr != NULL) *chr = (char)c;
     return true;
   }
@@ -618,7 +618,7 @@ internal code_t tty_read(tty_t* tty) {
   }
   code_t key  = KEY_NOMODS(code);
   code_t mods = KEY_MODS(code);
-  debug_msg( "tty: %s%s%s %d ('%c')\n", 
+  debug_msg( "tty: %s%s%s 0x%03x ('%c')\n", 
               mods&MOD_SHIFT ? "shift+" : "", 
               mods&MOD_CTRL  ? "ctrl+" : "",
               mods&MOD_ALT   ? "alt+" : "",
@@ -630,7 +630,7 @@ internal code_t tty_read(tty_t* tty) {
   }
   // treat ^c codes at CTRL+char
   if (key < ' ' && (key != KEY_TAB && key != KEY_ENTER && key != KEY_LINEFEED)) {
-    code = ((key + 'A' - 1) | mods | MOD_CTRL);
+    code = (key == 0x08 ? KEY_BACKSP : (key + 'A' - 1) | MOD_CTRL);
   }
   return code;
 }
@@ -662,6 +662,18 @@ static void tty_cpush(tty_t* tty, const char* s) {
     tty->cpushbuf[tty->cpushed + i] = s[len - i - 1];
   }
   tty->cpushed += len;
+  return;
+}
+
+// convenience function for small sequences
+static void tty_cpushf(tty_t* tty, const char* fmt, ...) {
+  va_list args;
+  va_start(args,fmt);
+  char buf[128+1];
+  vsnprintf(buf,128,fmt,args);
+  buf[128] = 0;
+  tty_cpush(tty,buf);
+  va_end(args);
   return;
 }
 
@@ -697,6 +709,35 @@ static void tty_cpush_unicode(tty_t* tty, uint32_t c) {
   tty_cpush(tty, (char*)buf);
 }
 
+static unsigned csi_mods(code_t mods) {
+  unsigned m = 1;
+  if (mods&MOD_SHIFT) m += 1;
+  if (mods&MOD_ALT)   m += 2;
+  if (mods&MOD_CTRL)  m += 4;
+  return m;
+}
+
+// Push ESC [ <vtcode> ; <mods> ~
+static void tty_cpush_csi_vt( tty_t* tty, code_t mods, uint32_t vtcode ) {
+  tty_cpushf(tty,"\x1B[%u;%u~", vtcode, csi_mods(mods) );
+}
+
+// push ESC [ 1 ; <mods> <xcmd>
+static void tty_cpush_csi_xterm( tty_t* tty, code_t mods, char xcode ) {
+  tty_cpushf(tty,"\x1B[1;%u%c", csi_mods(mods), xcode );
+}
+
+// push ESC [ <unicode> ; <mods> u
+static void tty_cpush_csi_unicode( tty_t* tty, code_t mods, uint32_t unicode ) {
+  if ((unicode < 0x80 && mods == 0) || 
+      (mods == MOD_CTRL && unicode < ' ' && unicode != KEY_TAB && unicode != KEY_ENTER && unicode != KEY_LINEFEED && unicode != 0x08) ||
+      (mods == MOD_SHIFT && unicode >= ' ' && unicode <= 0x7F)) {
+    tty_cpush_char(tty,(char)unicode);
+  }
+  else {
+    tty_cpushf(tty,"\x1B[%u;%uu", unicode, csi_mods(mods) );
+  }
+}
 
 //-------------------------------------------------------------
 // Init
@@ -814,13 +855,11 @@ static void tty_waitc_console(tty_t* tty)
 
     // maintain modifier state
     DWORD state = inp.Event.KeyEvent.dwControlKeyState;
-    if (inp.Event.KeyEvent.uChar.UnicodeChar == 0) {
-      if (inp.Event.KeyEvent.bKeyDown) {
-        modstate |= state;      
-      }
-      else {
-        modstate &= ~state;
-      }
+    if (inp.Event.KeyEvent.bKeyDown) {
+      modstate |= state;      
+    }
+    else {
+      modstate &= ~state;
     }
 
     // we need to handle shift up events separately
@@ -834,14 +873,15 @@ static void tty_waitc_console(tty_t* tty)
 
     
     // get modifiers
-    bool ctrl = (modstate & ( RIGHT_CTRL_PRESSED | LEFT_CTRL_PRESSED )) != 0;
-    bool alt  = (modstate & ( RIGHT_ALT_PRESSED | LEFT_ALT_PRESSED )) != 0;
-    bool shift= (modstate & SHIFT_PRESSED) != 0;
+    code_t mods = 0;
+    if ((modstate & ( RIGHT_CTRL_PRESSED | LEFT_CTRL_PRESSED )) != 0) mods |= MOD_CTRL;
+    if ((modstate & ( RIGHT_ALT_PRESSED | LEFT_ALT_PRESSED )) != 0)   mods |= MOD_ALT;
+    if ((modstate & SHIFT_PRESSED) != 0)                              mods |= MOD_SHIFT;
 
     // virtual keys
     uint32_t chr = (uint32_t)inp.Event.KeyEvent.uChar.UnicodeChar;
     WORD     virt = inp.Event.KeyEvent.wVirtualKeyCode;
-    debug_msg("tty: console %s: %s%s%s virt 0x%04x, chr 0x%04x ('%c')\n", inp.Event.KeyEvent.bKeyDown ? "down" : "up", ctrl ? "ctrl-" : "", alt ? "alt-" : "", shift ? "shift-" : "", virt, chr, chr);
+    debug_msg("tty: console %s: %s%s%s virt 0x%04x, chr 0x%04x ('%c')\n", inp.Event.KeyEvent.bKeyDown ? "down" : "up", mods&MOD_CTRL ? "ctrl-" : "", mods&MOD_ALT ? "alt-" : "", mods&MOD_SHIFT ? "shift-" : "", virt, chr, chr);
 
     // only process keydown events (except for Alt-up which is used for unicode pasting...)
     if (!inp.Event.KeyEvent.bKeyDown && virt != VK_MENU) {
@@ -849,64 +889,52 @@ static void tty_waitc_console(tty_t* tty)
 		}
     
     if (chr == 0) { 
-      if (!ctrl && !alt) {
-        switch (virt) {
-          case VK_LEFT:   tty_cpush(tty, "\x1B[D"); return; 
-          case VK_RIGHT:  tty_cpush(tty, "\x1B[C"); return;
-          case VK_UP:     tty_cpush(tty, "\x1B[A"); return;
-          case VK_DOWN:   tty_cpush(tty, "\x1B[B"); return;
-          case VK_HOME:   tty_cpush(tty, "\x1B[H"); return;
-          case VK_END:    tty_cpush(tty, "\x1B[F"); return;
-          case VK_DELETE: tty_cpush(tty, "\x1B[3~"); return;
-          case VK_PRIOR:  tty_cpush(tty, "\x1B[5~"); return;  //page up
-          case VK_NEXT:   tty_cpush(tty, "\x1B[6~"); return;  //page down
-          case VK_TAB:    if (shift) { tty_cpush(tty, "\n"); return; }
-          case VK_RETURN: if (shift) { tty_cpush(tty, "\n"); return; }
-          default: {
-            if (virt >= VK_F1 && virt <= VK_F12) {
-              tty_cpush_char( tty, 'P' + (virt - VK_F1) );
-              tty_cpush( tty, "\x1B[O");
-              return;
-            }
+      switch (virt) {
+        case VK_LEFT:   tty_cpush_csi_xterm(tty,mods,'D'); return; 
+        case VK_RIGHT:  tty_cpush_csi_xterm(tty,mods,'C'); return;
+        case VK_UP:     tty_cpush_csi_xterm(tty,mods,'A'); return; 
+        case VK_DOWN:   tty_cpush_csi_xterm(tty,mods,'B'); return; 
+        case VK_HOME:   tty_cpush_csi_xterm(tty,mods,'H'); return; 
+        case VK_END:    tty_cpush_csi_xterm(tty,mods,'F'); return; 
+        case VK_DELETE: tty_cpush_csi_vt(tty,mods,3); return; 
+        case VK_PRIOR:  tty_cpush_csi_vt(tty,mods,5); return;   //page up
+        case VK_NEXT:   tty_cpush_csi_vt(tty,mods,6); return;   //page down
+        case VK_TAB:    tty_cpush_csi_unicode(tty,mods,9);  return; 
+        case VK_RETURN: tty_cpush_csi_unicode(tty,mods,13); return;         
+        default: {
+          uint32_t vtcode = 0;
+          if (virt >= VK_F1 && virt <= VK_F5) {
+            vtcode = 10 + (virt - VK_F1);
+          }
+          else if (virt >= VK_F6 && virt <= VK_F10) {
+            vtcode = 17 + (virt - VK_F6);
+          }
+          else if (virt >= VK_F11 && virt <= VK_F12) {
+            vtcode = 13 + (virt - VK_F11);
+          }
+          if (vtcode > 0) {
+            tty_cpush_csi_vt(tty,mods,vtcode);
+            return;
           }
         }
-      }
-      else if (ctrl && !alt) {
-        // ctrl+?
-        switch (inp.Event.KeyEvent.wVirtualKeyCode) {
-          case VK_LEFT:   tty_cpush(tty, "\x1B[1;5D"); return; 
-          case VK_RIGHT:  tty_cpush(tty, "\x1B[1;5C"); return;
-          case VK_UP:     tty_cpush(tty, "\x1B[1;5A"); return;
-          case VK_DOWN:   tty_cpush(tty, "\x1B[1;5B"); return;
-          case VK_HOME:   tty_cpush(tty, "\x1B[1;5H"); return;
-          case VK_END:    tty_cpush(tty, "\x1B[1;5F"); return;
-          case VK_TAB:    tty_cpush(tty, "\n"); return;
-          case VK_RETURN: tty_cpush(tty, "\n"); return;
-          case VK_DELETE: tty_cpush(tty, "\x1B[3^"); return;
-          case VK_PRIOR:  tty_cpush(tty, "\x1B[5^"); return;  //page up
-          case VK_NEXT:   tty_cpush(tty, "\x1B[6^"); return;  //page down          
-        }        
-      }      
+      }    
       continue;  // ignore other control keys (shift etc).
     }
-    // non-virtual keys
-    // ctrl/shift+ENTER/TAB
-    if ((chr == KEY_ENTER || chr == KEY_TAB) && (ctrl || shift)) {  
-      chr = '\n';   // shift/ctrl+enter becomes linefeed
-    }
-    // surrogate pairs
-    if (chr >= 0xD800 && chr <= 0xDBFF) {
+    // high surrogate pair
+    else if (chr >= 0xD800 && chr <= 0xDBFF) {
 			surrogate_hi = (chr - 0xD800);
 			continue;
     }
+    // low surrogate pair
     else if (chr >= 0xDC00 && chr <= 0xDFFF) {
 			chr = ((surrogate_hi << 10) + (chr - 0xDC00) + 0x10000);
       tty_cpush_unicode(tty,chr);
+      surrogate_hi = 0;
       return;
 		}
     // regular character
     else {
-			tty_cpush_unicode(tty,chr);
+      tty_cpush_csi_unicode(tty,mods,chr);
 			return;
     }
   }

@@ -12,6 +12,8 @@
 
 #if defined(_WIN32)
 #include <windows.h>
+#undef MOD_SHIFT
+#undef MOD_ALT
 #include <io.h>
 #else
 #include <termios.h>

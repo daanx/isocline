@@ -1050,7 +1050,7 @@ static void edit_show_help( rp_env_t* env, editbuf_t* eb ) {
 // Completion
 //-------------------------------------------------------------
 
-static void edit_complete(rp_env_t* env, editbuf_t* eb, int idx) {
+static void edit_complete(rp_env_t* env, editbuf_t* eb, ssize_t idx) {
   completion_t* cm = completions_get(env,idx);
   if (cm == NULL) return;
   edit_start_modify(env,eb);
@@ -1430,7 +1430,7 @@ static char* edit_line( rp_env_t* env, const char* prompt_text )
           edit_insert_char(env,&eb,chr, (tofollow > 0));
         }
         else {
-          debug_msg( "edit: ignore code: %d\n", c);
+          debug_msg( "edit: ignore code: 0x%04x\n", c);
         }
         break;
       }
