@@ -552,11 +552,11 @@ static bool term_get_cursor_pos( term_t* term, tty_t* tty, int* row, int* col)
   // parse response ESC[%d;%dR
   char buf[64];
   int len = 0;
-  char c;
-  if (!tty_readc_peek(tty,&c) || c != '\x1B') return false;
-  if (!tty_readc_peek(tty,&c) || c != '[')    return false;
+  char c = 0;
+  if (!tty_readc_noblock(tty,&c) || c != '\x1B') return false;
+  if (!tty_readc_noblock(tty,&c) || c != '[')    return false;
   while( len < 63 ) {
-    if (!tty_readc_peek(tty,&c)) return false;
+    if (!tty_readc_noblock(tty,&c)) return false;
     if (!((c >= '0' && c <= '9') || (c == ';'))) break;
     buf[len] = c;
     len++;    

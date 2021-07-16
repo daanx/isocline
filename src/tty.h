@@ -17,7 +17,7 @@
 #include <termios.h>
 #endif
 
-typedef int code_t;
+typedef uint32_t  code_t;
 
 #define ESC               "\x1B"
 
@@ -29,7 +29,19 @@ typedef int code_t;
 #define KEY_SPACE         (32)
 #define KEY_BACKSP        (127)
 
-#define KEY_VIRT          0x100   
+#define MOD_SHIFT         0x1000
+#define MOD_ALT           0x2000
+#define MOD_CTRL          0x4000
+
+#define KEY_CHAR(c)       ((code_t)c)
+#define KEY_CTRL(x)       (x | MOD_CTRL)
+#define KEY_ALT(x)        (x | MOD_ALT)
+#define KEY_SHIFT(x)      (x | MOD_SHIFT)
+
+#define KEY_NOMODS(k)     (k & 0x0FFF)
+#define KEY_MODS(k)       (k & 0xF000)
+
+#define KEY_VIRT          0x0100   
 #define KEY_UP            (KEY_VIRT+0)
 #define KEY_DOWN          (KEY_VIRT+1)
 #define KEY_LEFT          (KEY_VIRT+2)
@@ -53,17 +65,20 @@ typedef int code_t;
 #define KEY_F10           (KEY_VIRT+20)
 #define KEY_F11           (KEY_VIRT+21)
 #define KEY_F12           (KEY_VIRT+22)
+#define KEY_F(n)          (KEY_F1 + n)
 
-#define KEY_CTRL_UP       (KEY_VIRT+100)
-#define KEY_CTRL_DOWN     (KEY_VIRT+101)
-#define KEY_CTRL_LEFT     (KEY_VIRT+102)
-#define KEY_CTRL_RIGHT    (KEY_VIRT+103)
-#define KEY_CTRL_HOME     (KEY_VIRT+104)
-#define KEY_CTRL_END      (KEY_VIRT+105)
-#define KEY_CTRL_DEL      (KEY_VIRT+106)
-#define KEY_CTRL_PAGEUP   (KEY_VIRT+107)
-#define KEY_CTRL_PAGEDOWN (KEY_VIRT+108)
-#define KEY_CTRL_INS      (KEY_VIRT+109)
+// Convenience
+
+#define KEY_CTRL_UP       (KEY_UP | MOD_CTRL)
+#define KEY_CTRL_DOWN     (KEY_DOWN | MOD_CTRL)
+#define KEY_CTRL_LEFT     (KEY_LEFT | MOD_CTRL)
+#define KEY_CTRL_RIGHT    (KEY_RIGHT | MOD_CTRL)
+#define KEY_CTRL_HOME     (KEY_HOME | MOD_CTRL)
+#define KEY_CTRL_END      (KEY_END | MOD_CTRL)
+#define KEY_CTRL_DEL      (KEY_DEL | MOD_CTRL)
+#define KEY_CTRL_PAGEUP   (KEY_PAGEUP | MOD_CTRL)
+#define KEY_CTRL_PAGEDOWN (KEY_PAGEDOWN | MOD_CTRL))
+#define KEY_CTRL_INS      (KEY_INS | MOD_CTRL)
 
 // We treat ctrl+<tab/enter> and shift+<tab/enter> as '\n' for portability. 
 // - shift+tab  works across linux/macos/windows.
@@ -73,7 +88,6 @@ typedef int code_t;
 #define KEY_EVENT_RESIZE  (KEY_VIRT+1000)
 
 
-#define KEY_CTRL(x)  (x - 'A' + 1)
 
 #define TTY_PUSH_MAX (32)
 
@@ -100,7 +114,7 @@ internal void tty_done(tty_t* tty);
 internal void tty_start_raw(tty_t* tty);
 internal void tty_end_raw(tty_t* tty);
 internal code_t tty_read(tty_t* tty);
-internal bool tty_readc_peek(tty_t* tty, char* c);   // used in term.c
+internal bool tty_readc_noblock(tty_t* tty, char* c);   // used in term.c
 internal void tty_code_pushback( tty_t* tty, code_t c );
 
 internal bool code_is_char(tty_t*, code_t c, char* chr );
