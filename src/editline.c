@@ -375,6 +375,7 @@ static void editbuf_replace_input(alloc_t* mem, editbuf_t* eb, const char* input
   rp_memcpy( eb->buf, input, new_len );
   eb->count += diff;
   eb->pos = pos;
+  eb->modified = true;
 }
 
 static ssize_t editbuf_get_word_end( editbuf_t* eb, ssize_t pos) {
@@ -708,13 +709,11 @@ static void edit_history_next(rp_env_t* env, editbuf_t* eb);
 
 static void edit_undo_restore(rp_env_t* env, editbuf_t* eb) {
   editbuf_undo_restore( &env->alloc, eb);
-  eb->modified = false;
   edit_refresh(env,eb);
 }
 
 static void edit_redo_restore(rp_env_t* env, editbuf_t* eb) {
   editbuf_redo_restore( &env->alloc, eb);
-  eb->modified = false;
   edit_refresh(env,eb);
 }
 
@@ -1023,7 +1022,6 @@ again:
     c = 0;
     editbuf_replace_input( &env->alloc, eb, hentry, 0 );
     eb->pos = editbuf_input_len(eb);
-    eb->modified = true;
   }
   else if (c == KEY_UP) {
     const char* next = history_get(env,hidx+1);
@@ -1357,7 +1355,6 @@ static void edit_generate_completions(rp_env_t* env, editbuf_t* eb) {
   }
   else if (count == 1) {
     // complete if only one match    
-    eb->modified = true;
     edit_complete(env,eb,0);
   }
   else {
