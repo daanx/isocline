@@ -4,7 +4,7 @@
 
 Repline is a pure C library that can be used as readline alternative. 
 
-- Small: less than 3k lines and can be compiled as a single C file without 
+- Small: less than 5k lines and can be compiled as a single C file without 
   any dependencies or configuration (e.g. `gcc -c src/repline.c`).
 - Portable: works on Unix, Windows, and macOS, and relies on a minimal
   subset of ANSI escape sequences.
@@ -27,7 +27,7 @@ and call `rp_readline` to get user input with rich editing abilities:
 rp_env_t* env = rp_init();
 char* input;
 while( (input = rp_readline(env,"prompt")) != NULL ) { // ctrl+d or errors return NULL
-  // use the input
+  printf("you typed:\n%s\n", input); // use the input
   free(input);  
 }
 ```

@@ -12,36 +12,61 @@
 
 #if defined(_WIN32)
 #include <windows.h>
+#undef MOD_SHIFT
+#undef MOD_ALT
 #include <io.h>
 #else
 #include <termios.h>
 #endif
 
+
 typedef uint32_t  code_t;
 
-#define ESC               "\x1B"
+#define KEY_CHAR(c)       ((code_t)c)
+
+#define MOD_SHIFT         0x1000U
+#define MOD_ALT           0x2000U
+#define MOD_CTRL          0x4000U
+
+#define KEY_NOMODS(k)     (k & 0x0FFFU)
+#define KEY_MODS(k)       (k & 0xF000U)
+
+#define WITH_SHIFT(x)     (x | MOD_SHIFT)
+#define WITH_ALT(x)       (x | MOD_ALT)
+#define WITH_CTRL(x)      (x | MOD_CTRL)
 
 #define KEY_NONE          (0)
+#define KEY_CTRL_A        (1)
+#define KEY_CTRL_B        (2)
+#define KEY_CTRL_C        (3)
+#define KEY_CTRL_D        (4)
+#define KEY_CTRL_E        (5)
+#define KEY_CTRL_F        (6)
+#define KEY_BELL          (7)
+#define KEY_BACKSP        (8)
 #define KEY_TAB           (9)
-#define KEY_LINEFEED      (10)  // ctrl/shift + enter/tab is considered KEY_LINEFEED
+#define KEY_LINEFEED      (10)   // ctrl/shift + enter/tab is considered KEY_LINEFEED
+#define KEY_CTRL_K        (11)
+#define KEY_CTRL_L        (12)
 #define KEY_ENTER         (13)
+#define KEY_CTRL_N        (14)
+#define KEY_CTRL_O        (15)
+#define KEY_CTRL_P        (16)
+#define KEY_CTRL_Q        (17)
+#define KEY_CTRL_R        (18)
+#define KEY_CTRL_S        (19)
+#define KEY_CTRL_T        (20)
+#define KEY_CTRL_U        (21)
+#define KEY_CTRL_V        (22)
+#define KEY_CTRL_W        (23)
+#define KEY_CTRL_X        (24)
+#define KEY_CTRL_Y        (25)
+#define KEY_CTRL_Z        (26)
 #define KEY_ESC           (27)
 #define KEY_SPACE         (32)
-#define KEY_BACKSP        (127)
+#define KEY_BACKSP2       (127)  // always translated to KEY_BACKSP
 
-#define MOD_SHIFT         0x1000
-#define MOD_ALT           0x2000
-#define MOD_CTRL          0x4000
-
-#define KEY_CHAR(c)       ((code_t)c)
-#define KEY_CTRL(x)       (x | MOD_CTRL)
-#define KEY_ALT(x)        (x | MOD_ALT)
-#define KEY_SHIFT(x)      (x | MOD_SHIFT)
-
-#define KEY_NOMODS(k)     (k & 0x0FFF)
-#define KEY_MODS(k)       (k & 0xF000)
-
-#define KEY_VIRT          0x0100   
+#define KEY_VIRT          (0x100)  
 #define KEY_UP            (KEY_VIRT+0)
 #define KEY_DOWN          (KEY_VIRT+1)
 #define KEY_LEFT          (KEY_VIRT+2)
@@ -68,7 +93,6 @@ typedef uint32_t  code_t;
 #define KEY_F(n)          (KEY_F1 + n)
 
 // Convenience
-
 #define KEY_CTRL_UP       (KEY_UP | MOD_CTRL)
 #define KEY_CTRL_DOWN     (KEY_DOWN | MOD_CTRL)
 #define KEY_CTRL_LEFT     (KEY_LEFT | MOD_CTRL)
@@ -80,13 +104,8 @@ typedef uint32_t  code_t;
 #define KEY_CTRL_PAGEDOWN (KEY_PAGEDOWN | MOD_CTRL))
 #define KEY_CTRL_INS      (KEY_INS | MOD_CTRL)
 
-// We treat ctrl+<tab/enter> and shift+<tab/enter> as '\n' for portability. 
-// - shift+tab  works across linux/macos/windows.
-// - ctrl+enter works on linux/windows but not macos.
-
-
-#define KEY_EVENT_RESIZE  (KEY_VIRT+1000)
-
+#define KEY_EVENT_BASE    (0x200)
+#define KEY_EVENT_RESIZE  (KEY_EVENT_BASE+0)
 
 
 #define TTY_PUSH_MAX (32)
@@ -120,6 +139,6 @@ internal void tty_code_pushback( tty_t* tty, code_t c );
 internal bool code_is_char(tty_t*, code_t c, char* chr );
 internal bool code_is_follower( tty_t*, code_t c, char* chr);
 internal bool code_is_extended( tty_t*, code_t c, char* chr, int* tofollow);
-internal bool code_is_key( tty_t*, code_t c );
+
 
 #endif // RP_TTY_H
