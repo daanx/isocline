@@ -157,6 +157,7 @@ static code_t esc_decode_ss3( char ss3_code ) {
     case 'E': return '5';           // numpad 5
     case 'F': return KEY_END;
     case 'H': return KEY_HOME;
+    case 'I': return KEY_TAB;
     case 'Z': return KEY_TAB | MOD_SHIFT;
     case 'M': return KEY_LINEFEED; 
     case 'P': return KEY_F1;
@@ -168,7 +169,7 @@ static code_t esc_decode_ss3( char ss3_code ) {
     case 'U': return KEY_F6;
     case 'V': return KEY_F7;
     case 'W': return KEY_F8;
-    case 'X': return KEY_F9;
+    case 'X': return KEY_F9;  // = on vt220
     case 'Y': return KEY_F10;
     // numpad
     case 'a': return KEY_UP;
@@ -179,7 +180,7 @@ static code_t esc_decode_ss3( char ss3_code ) {
     case 'k': return '+';
     case 'l': return ',';
     case 'm': return '-'; 
-    case 'n': return KEY_DEL;
+    case 'n': return KEY_DEL; // '.'
     case 'o': return '/'; 
     case 'p': return KEY_INS;
     case 'q': return KEY_END;  
@@ -210,10 +211,10 @@ static void tty_read_csi_num(tty_t* tty, char* ppeek, uint32_t* num) {
 
 static code_t tty_read_csi(tty_t* tty, char c1, char peek) {
   // CSI starts with 0x9b (c1=='[') | ESC [ (c1=='[')
-  // also process SS3 which starts with ESC O or ESC o  (c1=='O' or 'o')
+  // also process SS3 which starts with ESC O, ESC o, or ESC ? (on a vt52)  (c1=='O' or 'o' or '?')
   // See <http://www.leonerd.org.uk/hacks/fixterms/>.
   // and <https://en.wikipedia.org/wiki/ANSI_escape_code#CSI_(Control_Sequence_Introducer)_sequences>
-  //
+  // and <https://www.xfree86.org/current/ctlseqs.html>
   // grammar:  CSI special? num1? (;num2)? final
   // 
   // standard sequences are:
@@ -233,7 +234,13 @@ static code_t tty_read_csi(tty_t* tty, char c1, char peek) {
     }
   }
 
-  // handle xterm: ESC [ O ?  and treat O as a special in that case.
+  // treat vt52 as standard SS3 (<https://www.xfree86.org/current/ctlseqs.html#VT52-Style%20Function%20Keys>)
+  if (c1 == '?') {
+    special = '?';
+    c1 = 'O'; 
+  }
+
+  // handle xterm: ESC [ O [P-S]  and treat O as a special in that case.
   if (c1 == '[' && peek == 'O') {
     if (tty_readc_noblock(tty,&peek)) {
       if (peek >= 'P' && peek <= 'S') {
@@ -247,7 +254,7 @@ static code_t tty_read_csi(tty_t* tty, char c1, char peek) {
     }
   }
 
-  // up to 2 parameters
+  // up to 2 parameters that default to 1
   uint32_t num1 = 1;
   uint32_t num2 = 1;
   tty_read_csi_num(tty,&peek,&num1);
@@ -256,7 +263,7 @@ static code_t tty_read_csi(tty_t* tty, char c1, char peek) {
     tty_read_csi_num(tty,&peek,&num2);
   }
 
-  // final 
+  // the final character (we do not allow 'intermediate characters')
   char   final = peek;
   code_t modifiers = 0;
 
@@ -292,7 +299,7 @@ static code_t tty_read_csi(tty_t* tty, char c1, char peek) {
     final = 'A' + (final - 'a');  // to uppercase A - D.
   }
   else if (c1 == 'O' && num2 == 1 && num1 > 1 && num1 <= 8) {
-    // on haiku the modifier can be parameter 1
+    // on haiku the modifier can be parameter 1, make it parameter 2 instead
     num2 = num1;
     num1 = 1;
   }
@@ -336,11 +343,11 @@ static code_t tty_read_esc(tty_t* tty) {
     if (!tty_readc_noblock(tty,&peek)) return ('[' | MOD_ALT);  // ESC [
     return tty_read_csi(tty,'[',peek);  // ESC [ ...
   }
-  else if (peek == 'O' || peek == 'o') {
+  else if (peek == 'O' || peek == 'o' || peek == '?' /*vt52*/) {
     // SS3 ?
     char c1 = peek;
-    if (!tty_readc_noblock(tty,&peek)) return (KEY_CHAR(c1) | MOD_ALT);  // ESC O or ESC o
-    return tty_read_csi(tty,c1,peek);  // ESC O|o ...
+    if (!tty_readc_noblock(tty,&peek)) return (KEY_CHAR(c1) | MOD_ALT);  // ESC [Oo?]
+    return tty_read_csi(tty,c1,peek);  // ESC [Oo?] ...
   }
   else {
     return (KEY_CHAR(peek) | MOD_ALT);  // ESC any    
@@ -400,14 +407,22 @@ internal code_t tty_read(tty_t* tty) {
               mods&MOD_ALT   ? "alt+" : "",
               key, (key >= ' ' && key <= '~' ? key : ' '));
 
-  // treat KEY_BACKSP2 as KEY_BACKSP
-  if (key == KEY_BACKSP2) {
+  // treat KEY_RUBOUT (0x7F) as KEY_BACKSP
+  if (key == KEY_RUBOUT) {
     code = KEY_BACKSP | mods;
   }
   // treat ctrl/shift + tab/enter always as KEY_LINEFEED for portability
-  if ((key == KEY_TAB || key==KEY_ENTER) && (mods & (MOD_SHIFT|MOD_CTRL)) != 0) {
+  else if ((key == KEY_TAB || key==KEY_ENTER) && (mods & (MOD_SHIFT|MOD_CTRL)) != 0) {
     code = KEY_LINEFEED;
   }
+  // treat ctrl+end/alt+> and ctrl-home/alt+< always as pagedown/pageup for portability
+  else if (code == WITH_ALT('>') || code == WITH_CTRL(KEY_END)) {
+    code = KEY_PAGEDOWN;
+  }
+  else if (code == WITH_ALT('<') || code == WITH_CTRL(KEY_HOME)) {
+    code = KEY_PAGEUP;
+  }
+  
   // treat C0 codes without MOD_CTRL
   if (key < ' ' && (mods&MOD_CTRL) != 0) {
     code &= ~MOD_CTRL; 
@@ -511,8 +526,9 @@ static void tty_cpush_csi_xterm( tty_t* tty, code_t mods, char xcode ) {
 // push ESC [ <unicode> ; <mods> u
 static void tty_cpush_csi_unicode( tty_t* tty, code_t mods, uint32_t unicode ) {
   if ((unicode < 0x80 && mods == 0) || 
-      (mods == MOD_CTRL && unicode < ' ' && unicode != KEY_TAB && unicode != KEY_ENTER && unicode != KEY_LINEFEED && unicode != 0x08) ||
-      (mods == MOD_SHIFT && unicode >= ' ' && unicode <= 0x7F)) {
+      (mods == MOD_CTRL && unicode < ' ' && unicode != KEY_TAB && unicode != KEY_ENTER 
+                        && unicode != KEY_LINEFEED && unicode != KEY_BACKSP) ||
+      (mods == MOD_SHIFT && unicode >= ' ' && unicode <= KEY_RUBOUT)) {
     tty_cpush_char(tty,(char)unicode);
   }
   else {

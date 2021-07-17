@@ -64,7 +64,7 @@ typedef uint32_t  code_t;
 #define KEY_CTRL_Z        (26)
 #define KEY_ESC           (27)
 #define KEY_SPACE         (32)
-#define KEY_BACKSP2       (127)  // always translated to KEY_BACKSP
+#define KEY_RUBOUT        (127)  // always translated to KEY_BACKSP
 
 #define KEY_VIRT          (0x100)  
 #define KEY_UP            (KEY_VIRT+0)

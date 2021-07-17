@@ -1063,6 +1063,7 @@ static const char* help[] = {
   "","This is free software; you can redistribute it and/or",
   "","modify it under the terms of the MIT License.",
   "","See <https://github.com/daanx/repline> for further information.",
+  "","We use ^<key> as a shorthand for ctrl-<key>.",
   "","",
   "","Navigation:",
   "left, "
@@ -1072,13 +1073,13 @@ static const char* help[] = {
   "up",         "go one row up, or back in the history",
   "down",       "go one row down, or forward in the history",  
   #ifdef __APPLE__
-  "shift+left",
+  "shift-left",
   #else
   "^left",     
   #endif
                 "go to the start of the previous word",
   #ifdef __APPLE__
-  "shift+right",
+  "shift-right",
   #else
   "^right",
   #endif
@@ -1099,21 +1100,22 @@ static const char* help[] = {
   #ifndef __APPLE__
   "^enter, ^j", "",
   #else
-  "^j,", "",
+  "^j, "
   #endif
-  "shift+tab",  "create a new line for multi-line input",
+  "shift-tab",  "create a new line for multi-line input",
   //" ",          "(or type '\\' followed by enter)",
   "^l",         "clear screen",
+  "^t",         "swap with previous character (move character backward)",
   "del",        "delete the current character",
-  "backspace",  "delete the previour character",
+  "backsp",     "delete the previous character",
+  "^w",         "delete to preceding white space",
+  "alt-backsp", "delete to the start of the current word",
+  "alt-d",      "delete to the end of the current word",
   "^u",         "delete to the start of the current line",
   "^k",         "delete to the end of the current line",
-  "^w",         "delete to the start of the current word",
-  "@d",         "delete to the end of the current word"
-  "esc",        "delete the current line",
-  "^t",         "swap with previous character (move character backward)",
-  "^d",         "done with empty input, or delete current character",
-  "^z",         "undo",
+  "esc",        "delete the current line, or done with empty input",
+  "^d",         "delete current character, or done with empty input",
+  "^z, ^_",     "undo",
   "^y",         "redo",
   //"^C",         "done with empty input",
   //"F1",         "show this help",
@@ -1125,20 +1127,20 @@ static const char* help[] = {
   "1 - 9",      "use completion N from the menu",
   "tab",        "select the next completion",
   "cursor keys","select completion N in the menu",
-  "pgdn, ", "",
-  "shift-tab",  "show all further possible completions",
   "esc",        "exit menu without completing",
+  "pgdn,", "",
+  "shift-tab",  "show all further possible completions",
   " ","",
   NULL, NULL
 };
-
+ 
 static void edit_show_help( rp_env_t* env, editbuf_t* eb ) {
   for (ssize_t i = 0; help[i] != NULL && help[i+1] != NULL; i+=2) {
     if (help[i][0] == 0) {
       term_writef(&env->term, "\x1B[90m%s\x1B[0m\r\n", help[i+1]);
     }
     else {
-      term_writef(&env->term, "  \x1B[97m%-12s\x1B[0m%s%s\r\n", help[i], (help[i+1][0] == 0 ? "" : ": "), help[i+1]);
+      term_writef(&env->term, "  \x1B[97m%-13s\x1B[0m%s%s\r\n", help[i], (help[i+1][0] == 0 ? "" : ": "), help[i+1]);
     }
   }
   eb->cur_rows = 0;
