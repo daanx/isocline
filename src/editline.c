@@ -851,7 +851,7 @@ static void edit_backspace(rp_env_t* env, editbuf_t* eb) {
   edit_refresh(env,eb);
 }
 
-static void edit_delete(rp_env_t* env, editbuf_t* eb) {
+static void edit_delete_char(rp_env_t* env, editbuf_t* eb) {
   ssize_t n = editbuf_next_ofs(eb, eb->buf, editbuf_input_len(eb), eb->pos, NULL);
   if (n <= 0) return;  
   edit_start_modify(env,eb);
@@ -869,8 +869,9 @@ static void edit_delete_all(rp_env_t* env, editbuf_t* eb) {
   edit_refresh(env,eb);
 }
 
-static void edit_delete_line_from(rp_env_t* env, editbuf_t* eb, ssize_t start) 
+static void edit_delete_to_end_of_line(rp_env_t* env, editbuf_t* eb) 
 { 
+  ssize_t start = eb->pos;
   ssize_t end = editbuf_get_line_end(eb,start);
   if (end < 0) return;
   edit_start_modify(env,eb);
@@ -878,8 +879,12 @@ static void edit_delete_line_from(rp_env_t* env, editbuf_t* eb, ssize_t start)
   edit_refresh(env,eb);
 }
 
-static void edit_delete_to_end_of_line(rp_env_t* env, editbuf_t* eb) {
-  edit_delete_line_from(env, eb, eb->pos);  
+static void edit_delete_to_start_of_line(rp_env_t* env, editbuf_t* eb) {
+  ssize_t start = editbuf_get_line_start(eb,eb->pos);
+  if (start < 0) return;
+  edit_start_modify(env,eb);
+  editbuf_delete_from_to( eb, start, eb->pos);
+  edit_refresh(env,eb);
 }
 
 static void edit_delete_line(rp_env_t* env, editbuf_t* eb) {
@@ -911,7 +916,27 @@ static void edit_delete_to_start_of_word(rp_env_t* env, editbuf_t* eb) {
   edit_refresh(env,eb);
 }
 
-static void edit_swap( rp_env_t* env, editbuf_t* eb ) {
+static void edit_delete_to_end_of_word(rp_env_t* env, editbuf_t* eb) {
+  ssize_t end = editbuf_get_word_end(eb,eb->pos);
+  if (end < 0) return;
+  edit_start_modify(env,eb);
+  ssize_t start = eb->pos;
+  editbuf_delete_from_to(eb,start,end);
+  edit_refresh(env,eb);
+}
+
+static void edit_delete_word(rp_env_t* env, editbuf_t* eb) {
+  ssize_t start = editbuf_get_word_start(eb,eb->pos);
+  if (start < 0) return;
+  ssize_t end = editbuf_get_word_end(eb,eb->pos);
+  if (end < 0) return;
+  edit_start_modify(env,eb);
+  eb->pos = start;
+  editbuf_delete_from_to(eb,start,end);
+  edit_refresh(env,eb);
+}
+
+static void edit_swap_char( rp_env_t* env, editbuf_t* eb ) {
   if (eb->pos <= 0 || eb->pos == eb->count-1) return;
   ssize_t next = editbuf_next_ofs( eb, eb->buf, eb->count, eb->pos, NULL );
   ssize_t prev = editbuf_previous_ofs( eb, eb->buf, eb->pos, NULL );
@@ -921,8 +946,8 @@ static void edit_swap( rp_env_t* env, editbuf_t* eb ) {
   assert(eb->pos >= 0);
   char buf[32];
   rp_memcpy( buf, eb->buf + eb->pos, prev );
-  rp_memcpy( eb->buf + eb->pos, eb->buf + eb->pos + prev, next );
-  rp_memcpy( eb->buf + eb->pos + prev, buf, prev );
+  rp_memmove( eb->buf + eb->pos, eb->buf + eb->pos + prev, next );
+  rp_memcpy( eb->buf + eb->pos + next, buf, prev );
   edit_refresh(env,eb);
 }
 
@@ -1322,6 +1347,7 @@ static char* edit_line( rp_env_t* env, const char* prompt_text )
     }
     assert(tofollow==0);
 
+    // Operations that may return
     if (c == KEY_ENTER) {
       if (!env->singleline_only && eb.pos > 0 && eb.buf[eb.pos-1] == env->multiline_eol && edit_pos_is_at_row_end(env,&eb)) {
         // replace line-continuation with newline
@@ -1332,28 +1358,36 @@ static char* edit_line( rp_env_t* env, const char* prompt_text )
         break;
       }
     } 
-    else if (c == KEY_CTRL('D')) {
-      if (eb.pos == 0 && editbuf_pos_is_at_end(&eb)) 
-        break;                    // ctrl+D on empty quits with NULL
-      else 
-        edit_delete(env,&eb);     // otherwise it is like delete
+    else if (c == KEY_CTRL_D) {
+      if (eb.pos == 0 && editbuf_pos_is_at_end(&eb)) break; // ctrl+D on empty quits with NULL
+      edit_delete_char(env,&eb);     // otherwise it is like delete
     } 
-    else if (c == KEY_CTRL('C')) {
+    else if (c == KEY_CTRL_C) {
       break; // ctrl+C quits with NULL
-    }  
+    }
+    else if (c == KEY_ESC) {
+      if (eb.pos == 0 && editbuf_pos_is_at_end(&eb)) break;  // ESC on empty input returns with empty input
+      edit_delete_line(env,&eb);  // otherwise delete the current line
+    }
+    else if (c == KEY_BELL /* ^G */) {
+      edit_delete_all(env,&eb);
+      break; // ctrl+G cancels (and returns empty input)
+    }
+    // Editing Operations
     else switch(c) {
       case KEY_LINEFEED: // '\n' (ctrl+J, shift+enter, ctrl+tab)
         if (!env->singleline_only) { edit_insert_char(env,&eb,'\n',true); }
         break;
       case KEY_TAB:
+      case WITH_ALT('?'):
         edit_generate_completions(env,&eb);
         break;
       case KEY_LEFT:
-      case KEY_CTRL('B'):
+      case KEY_CTRL_B:
         edit_cursor_left(env,&eb);
         break;
       case KEY_RIGHT:
-      case KEY_CTRL('F'):
+      case KEY_CTRL_F:
         edit_cursor_right(env,&eb);
         break;
       case KEY_UP:
@@ -1363,59 +1397,69 @@ static char* edit_line( rp_env_t* env, const char* prompt_text )
         edit_cursor_row_down(env,&eb);
         break;                 
       case KEY_HOME:
-      case KEY_CTRL('A'):
+      case KEY_CTRL_A:
         edit_cursor_line_start(env,&eb);
         break;
       case KEY_END:
-      case KEY_CTRL('E'):
+      case KEY_CTRL_E:
         edit_cursor_line_end(env,&eb);
         break;
       case KEY_CTRL_LEFT:
+      case WITH_ALT('b'):
         edit_cursor_prev_word(env,&eb);
         break;
       case KEY_CTRL_RIGHT:
+      case WITH_ALT('f'):
         edit_cursor_next_word(env,&eb);
         break;      
       case KEY_CTRL_HOME:
       case KEY_PAGEUP:
+      case WITH_ALT('<'):
         edit_cursor_to_start(env,&eb);
         break;
       case KEY_CTRL_END:
       case KEY_PAGEDOWN:
+      case WITH_ALT('>'):
         edit_cursor_to_end(env,&eb);
-        break;
-      case KEY_DEL:
-        edit_delete(env,&eb);
         break;
       case KEY_BACKSP:
         edit_backspace(env,&eb);
         break;
-      case KEY_ESC:
-      case KEY_CTRL('U'):
-        edit_delete_line(env,&eb);
+      case KEY_DEL:
+        edit_delete_char(env,&eb);
         break;
-      case KEY_CTRL('K'):
-        edit_delete_to_end_of_line(env,&eb);
+      case WITH_ALT('d'):
+        edit_delete_to_end_of_word(env,&eb);
         break;
-      case KEY_CTRL('W'):
+      case KEY_CTRL_W:
+      case WITH_ALT(KEY_DEL):
+      case WITH_ALT(KEY_BACKSP):
         edit_delete_to_start_of_word(env,&eb);
         break;      
-      case KEY_CTRL('P'):
+        // edit_delete_word?
+      case KEY_CTRL_U:
+        edit_delete_to_start_of_line(env,&eb);
+        break;
+      case KEY_CTRL_K:
+        edit_delete_to_end_of_line(env,&eb);
+        break;
+      case KEY_CTRL_P:
         edit_history_prev(env,&eb);
         break;
-      case KEY_CTRL('N'):
+      case KEY_CTRL_N:
         edit_history_next(env,&eb);
         break;
-      case KEY_CTRL('L'): 
+      case KEY_CTRL_L: 
         edit_clear_screen(env,&eb);
         break; 
-      case KEY_CTRL('T'):
-        edit_swap(env,&eb);
+      case KEY_CTRL_T:
+        edit_swap_char(env,&eb);
         break;
-      case KEY_CTRL('Z'):
+      case KEY_CTRL_Z:
+      case WITH_CTRL('_'):
         edit_undo_restore(env,&eb);
         break;
-      case KEY_CTRL('Y'):
+      case KEY_CTRL_Y:
         edit_redo_restore(env,&eb);
         break;        
       case KEY_F1:
@@ -1448,7 +1492,7 @@ static char* edit_line( rp_env_t* env, const char* prompt_text )
   editstate_done(&env->alloc, &eb.redo);
 
   // return the captured buffer (return NULL on error or Ctrl-D without input)
-  char* res = ((c == KEY_CTRL('D') && rlen == 0) || c == KEY_CTRL('C')) ? NULL : (char*)env_realloc(env,eb.buf,rlen+1);
+  char* res = ((c == KEY_CTRL_D && rlen == 0) || c == KEY_CTRL_C) ? NULL : (char*)env_realloc(env,eb.buf,rlen+1);
   if (res == NULL) {
     rp_history_remove_last(env);
     env_free(env,eb.buf);
