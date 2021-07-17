@@ -103,6 +103,7 @@ static code_t esc_decode_vt( uint32_t vt_code ) {
     case 8: return KEY_END;          
     default: 
       if (vt_code >= 10 && vt_code <= 15) return KEY_F(1  + (vt_code - 10));
+      if (vt_code == 16) return KEY_F5; // minicom
       if (vt_code >= 17 && vt_code <= 21) return KEY_F(6  + (vt_code - 17));
       if (vt_code >= 23 && vt_code <= 26) return KEY_F(11 + (vt_code - 23));
       if (vt_code >= 28 && vt_code <= 29) return KEY_F(15 + (vt_code - 28));

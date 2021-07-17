@@ -1008,10 +1008,11 @@ static const char* help[] = {
   "^l",         "clear screen",
   "del",        "delete the current character",
   "backspace",  "delete the previour character",
-  "^k",         "delete to the end of a line",
-  "^w",         "delete to start of a word",
-  "esc, "
-  "^u",         "delete the current line",
+  "^u",         "delete to the start of the current line",
+  "^k",         "delete to the end of the current line",
+  "^w",         "delete to the start of the current word",
+  "@d",         "delete to the end of the current word"
+  "esc",        "delete the current line",
   "^t",         "swap with previous character (move character backward)",
   "^d",         "done with empty input, or delete current character",
   "^z",         "undo",
