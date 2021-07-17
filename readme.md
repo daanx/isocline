@@ -4,7 +4,7 @@
 
 Repline is a pure C library that can be used as readline alternative. 
 
-- Small: less than 3k lines and can be compiled as a single C file without 
+- Small: less than 5k lines and can be compiled as a single C file without 
   any dependencies or configuration (e.g. `gcc -c src/repline.c`).
 - Portable: works on Unix, Windows, and macOS, and relies on a minimal
   subset of ANSI escape sequences.
