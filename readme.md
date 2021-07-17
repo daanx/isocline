@@ -27,7 +27,7 @@ and call `rp_readline` to get user input with rich editing abilities:
 rp_env_t* env = rp_init();
 char* input;
 while( (input = rp_readline(env,"prompt")) != NULL ) { // ctrl+d or errors return NULL
-  // use the input
+  printf("you typed:\n%s\n", input); // use the input
   free(input);  
 }
 ```
