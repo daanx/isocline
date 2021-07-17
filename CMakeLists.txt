@@ -31,6 +31,7 @@ if(RP_SEPARATE_OBJS)
               src/editline.c
               src/history.c
               src/term.c
+              src/tty_esc.c
               src/tty.c
               src/wcwidth.c)
 endif()

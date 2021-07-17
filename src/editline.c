@@ -520,7 +520,7 @@ static bool edit_get_current_pos_iter(
 
 static ssize_t edit_get_current_pos(rp_env_t* env, editbuf_t* eb, rowcol_t* rc) {
   ssize_t rows = edit_for_each_row(env,eb,&edit_get_current_pos_iter,rc);
-  debug_msg("edit: current pos: (%d, %d) %s %s\n", rc->row, rc->col, rc->first_on_row ? "first" : "", rc->last_on_row ? "last" : "");
+  // debug_msg("edit: current pos: (%d, %d) %s %s\n", rc->row, rc->col, rc->first_on_row ? "first" : "", rc->last_on_row ? "last" : "");
   return rows;
 }
 
@@ -1486,19 +1486,23 @@ static char* edit_line( rp_env_t* env, const char* prompt_text )
         edit_cursor_line_end(env,&eb);
         break;
       case KEY_CTRL_LEFT:
+      case WITH_SHIFT(KEY_LEFT):    
       case WITH_ALT('b'):
         edit_cursor_prev_word(env,&eb);
         break;
       case KEY_CTRL_RIGHT:
+      case WITH_SHIFT(KEY_RIGHT):      
       case WITH_ALT('f'):
         edit_cursor_next_word(env,&eb);
         break;      
       case KEY_CTRL_HOME:
+      case WITH_SHIFT(KEY_HOME):      
       case KEY_PAGEUP:
       case WITH_ALT('<'):
         edit_cursor_to_start(env,&eb);
         break;
       case KEY_CTRL_END:
+      case WITH_SHIFT(KEY_END):      
       case KEY_PAGEDOWN:
       case WITH_ALT('>'):
         edit_cursor_to_end(env,&eb);

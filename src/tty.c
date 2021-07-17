@@ -23,14 +23,12 @@
 #endif
 
 //-------------------------------------------------------------
-// Forward declarations
+// Forward declarations of platform dependent primitives below
 //-------------------------------------------------------------
 
-static bool tty_has_available(tty_t* tty);
-static bool tty_readc(tty_t* tty, char* c);
-static void tty_cpush_char(tty_t* tty, char c);
-static void tty_cpush_unicode(tty_t* tty, uint32_t c);
-static bool tty_cpop(tty_t* tty, char* c);
+static bool tty_has_available(tty_t* tty);   // characters available?
+static bool tty_readc(tty_t* tty, char* c);  // read one byte
+static bool tty_code_pop( tty_t* tty, code_t* code ); 
 
 //-------------------------------------------------------------
 // Key code helpers
@@ -76,302 +74,6 @@ internal bool code_is_follower( tty_t* tty, code_t c, char* chr) {
   }
 }
 
-
-static code_t code_from_char( char c ) {
-  // ensure that either negative signed char, or 
-  // unsigned char > 0x80 gets translated correctly.
-  return (code_t)((uint8_t)c);
-}
-
-//-------------------------------------------------------------
-// Decode escape sequences
-//-------------------------------------------------------------
-
-static code_t esc_decode_vt( uint32_t vt_code ) {
-  switch(vt_code) {
-    case 1: return KEY_HOME; 
-    case 2: return KEY_INS;
-    case 3: return KEY_DEL;
-    case 4: return KEY_END;          
-    case 5: return KEY_PAGEUP;
-    case 6: return KEY_PAGEDOWN;
-    case 7: return KEY_HOME;
-    case 8: return KEY_END;          
-    default: 
-      if (vt_code >= 10 && vt_code <= 15) return KEY_F(1  + (vt_code - 10));
-      if (vt_code == 16) return KEY_F5; // minicom
-      if (vt_code >= 17 && vt_code <= 21) return KEY_F(6  + (vt_code - 17));
-      if (vt_code >= 23 && vt_code <= 26) return KEY_F(11 + (vt_code - 23));
-      if (vt_code >= 28 && vt_code <= 29) return KEY_F(15 + (vt_code - 28));
-      if (vt_code >= 31 && vt_code <= 34) return KEY_F(17 + (vt_code - 31));
-  }
-  return KEY_NONE;
-}
-
-static code_t esc_decode_unicode( tty_t* tty, uint32_t unicode ) {
-  // push unicode and pop the lead byte to return
-  tty_cpush_unicode(tty,unicode);
-  char c = 0;
-  tty_cpop(tty,&c);
-  return code_from_char(c);
-}
-
-static code_t esc_decode_xterm( char xcode ) {
-  // ESC [
-  switch(xcode) {
-    case 'A': return KEY_UP;
-    case 'B': return KEY_DOWN;
-    case 'C': return KEY_RIGHT;
-    case 'D': return KEY_LEFT;
-    case 'E': return '5';          // numpad 5
-    case 'F': return KEY_END;
-    case 'H': return KEY_HOME;
-    case 'Z': return KEY_TAB | MOD_SHIFT;
-    // Freebsd:
-    case 'I': return KEY_PAGEUP;  
-    case 'L': return KEY_INS;   
-    case 'M': return KEY_F1;
-    case 'N': return KEY_F2;
-    case 'O': return KEY_F3;
-    case 'P': return KEY_F4;       // note: differs from <https://en.wikipedia.org/wiki/ANSI_escape_code#CSI_(Control_Sequence_Introducer)_sequences>
-    case 'Q': return KEY_F5;
-    case 'R': return KEY_F6;
-    case 'S': return KEY_F7;
-    case 'T': return KEY_F8;
-    case 'U': return KEY_PAGEDOWN; // Mach
-    case 'V': return KEY_PAGEUP;   // Mach
-    case 'W': return KEY_F11;
-    case 'X': return KEY_F12;    
-    case 'Y': return KEY_END;      // Mach    
-  }
-  return KEY_NONE;
-}
-
-static code_t esc_decode_ss3( char ss3_code ) {
-  // ESC O 
-  switch(ss3_code) {
-    case 'A': return KEY_UP;
-    case 'B': return KEY_DOWN;
-    case 'C': return KEY_RIGHT;
-    case 'D': return KEY_LEFT;
-    case 'E': return '5';           // numpad 5
-    case 'F': return KEY_END;
-    case 'H': return KEY_HOME;
-    case 'I': return KEY_TAB;
-    case 'Z': return KEY_TAB | MOD_SHIFT;
-    case 'M': return KEY_LINEFEED; 
-    case 'P': return KEY_F1;
-    case 'Q': return KEY_F2;
-    case 'R': return KEY_F3;
-    case 'S': return KEY_F4;
-    // on Mach
-    case 'T': return KEY_F5;
-    case 'U': return KEY_F6;
-    case 'V': return KEY_F7;
-    case 'W': return KEY_F8;
-    case 'X': return KEY_F9;  // = on vt220
-    case 'Y': return KEY_F10;
-    // numpad
-    case 'a': return KEY_UP;
-    case 'b': return KEY_DOWN;
-    case 'c': return KEY_RIGHT;
-    case 'd': return KEY_LEFT;
-    case 'j': return '*';
-    case 'k': return '+';
-    case 'l': return ',';
-    case 'm': return '-'; 
-    case 'n': return KEY_DEL; // '.'
-    case 'o': return '/'; 
-    case 'p': return KEY_INS;
-    case 'q': return KEY_END;  
-    case 'r': return KEY_DOWN; 
-    case 's': return KEY_PAGEDOWN; 
-    case 't': return KEY_LEFT; 
-    case 'u': return '5';
-    case 'v': return KEY_RIGHT;
-    case 'w': return KEY_HOME;  
-    case 'x': return KEY_UP; 
-    case 'y': return KEY_PAGEUP;   
-  }
-  return KEY_NONE;
-}
-
-static void tty_read_csi_num(tty_t* tty, char* ppeek, uint32_t* num) {
-  *num = 1; // default
-  int count = 0;
-  uint32_t i = 0;
-  while (*ppeek >= '0' && *ppeek <= '9' && count < 16) {    
-    char digit = *ppeek - '0';
-    if (!tty_readc_noblock(tty,ppeek)) break;  // peek is not modified in this case 
-    count++;
-    i = 10*i + (uint32_t)digit;
-  }
-  if (count > 0) *num = i;
-}
-
-static code_t tty_read_csi(tty_t* tty, char c1, char peek) {
-  // CSI starts with 0x9b (c1=='[') | ESC [ (c1=='[')
-  // also process SS3 which starts with ESC O, ESC o, or ESC ? (on a vt52)  (c1=='O' or 'o' or '?')
-  // See <http://www.leonerd.org.uk/hacks/fixterms/>.
-  // and <https://en.wikipedia.org/wiki/ANSI_escape_code#CSI_(Control_Sequence_Introducer)_sequences>
-  // and <https://www.xfree86.org/current/ctlseqs.html>
-  // grammar:  CSI special? num1? (;num2)? final
-  // 
-  // standard sequences are:
-  // alt+   : ESC any
-  // vtcode : ESC [ special? <vtcode> ; <modifiers> ~
-  // xterm  : ESC [ special? 1 ; <modifiers> [A-Z]
-  // ss3    : ESC O special? 1 ; <modifiers> [A-Za-z]
-  // unicode: ESC [ special? <unicode> ; <modifiers> u
-
-  // "special" characters (includes non-standard '[' for linux function keys)
-  char special = 0;
-  if (strchr(":<=>?[",peek) != NULL) { 
-    special = peek;
-    if (!tty_readc_noblock(tty,&peek)) {  
-      tty_cpush_char(tty,special); // recover
-      return (KEY_CHAR(c1) | MOD_ALT);       // Alt+any
-    }
-  }
-
-  // treat vt52 as standard SS3 (<https://www.xfree86.org/current/ctlseqs.html#VT52-Style%20Function%20Keys>)
-  if (c1 == '?') {
-    special = '?';
-    c1 = 'O'; 
-  }
-
-  // handle xterm: ESC [ O [P-S]  and treat O as a special in that case.
-  if (c1 == '[' && peek == 'O') {
-    if (tty_readc_noblock(tty,&peek)) {
-      if (peek >= 'P' && peek <= 'S') {
-        // ESC [ O [P-S]   : used for F1-F4 on xterm
-        special = 'O';  // make the O a special and continue
-      }
-      else {
-        tty_cpush_char(tty,peek); // recover
-        peek = 'O';
-      }
-    }
-  }
-
-  // up to 2 parameters that default to 1
-  uint32_t num1 = 1;
-  uint32_t num2 = 1;
-  tty_read_csi_num(tty,&peek,&num1);
-  if (peek == ';') {
-    if (!tty_readc_noblock(tty,&peek)) return KEY_NONE;
-    tty_read_csi_num(tty,&peek,&num2);
-  }
-
-  // the final character (we do not allow 'intermediate characters')
-  char   final = peek;
-  code_t modifiers = 0;
-
-  debug_msg("tty: escape sequence: ESC %c %c %d;%d %c\n", c1, (special == 0 ? '_' : special), num1, num2, final);
-  
-  // Adjust special cases into standard ones.
-  if ((final == '@' || final == '9') && c1 == '[' && num1 == 1) {
-    // ESC [ @, ESC [ 9  : on Mach
-    if (final == '@')      num1 = 3; // DEL
-    else if (final == '9') num1 = 2; // INS 
-    final = '~';
-  }
-  else if (final == '^' || final == '$' || final == '@') {  
-    // Eterm/rxvt/urxt  
-    if (final=='^') modifiers |= MOD_CTRL;
-    if (final=='$') modifiers |= MOD_SHIFT;
-    if (final=='@') modifiers |= MOD_SHIFT | MOD_CTRL;
-    final = '~';
-  }
-  if (c1 == '[' && special == '[' && (final >= 'A' && final <= 'E')) {
-    // ESC [ [ [A-E]  : linux F1-F5 codes
-    final = 'M' + (final - 'A');  // map to xterm M-Q codes.
-  }
-  else if (c1 == '[' && final >= 'a' && final <= 'd') {
-    // ESC [ [a-d]  : on Eterm for shift+ cursor
-    modifiers |= MOD_SHIFT;
-    final = 'A' + (final - 'a');
-  }
-  else if (c1 == 'o' && final >= 'a' && final <= 'd') {
-    // ESC o [a-d]  : on Eterm these are ctrl+cursor
-    c1 = '[';
-    modifiers |= MOD_CTRL;
-    final = 'A' + (final - 'a');  // to uppercase A - D.
-  }
-  else if (c1 == 'O' && num2 == 1 && num1 > 1 && num1 <= 8) {
-    // on haiku the modifier can be parameter 1, make it parameter 2 instead
-    num2 = num1;
-    num1 = 1;
-  }
-
-  // parameter 2 determines the modifiers
-  if (num2 > 1 && num2 <= 9) {
-    if (num2 == 9) num2 = 3; // iTerm2 in xterm mode
-    num2--;
-    if (num2 & 0x1) modifiers |= MOD_SHIFT;
-    if (num2 & 0x2) modifiers |= MOD_ALT;
-    if (num2 & 0x4) modifiers |= MOD_CTRL;
-  }
-
-  // and translate
-  code_t code = KEY_NONE;
-  if (final == '~') {
-    // vt codes
-    code = esc_decode_vt(num1);
-  }
-  else if (final == 'u' && c1 == '[') {
-    // unicode
-    code = esc_decode_unicode(tty,num1);
-  }
-  else if (c1 == 'O' && ((final >= 'A' && final <= 'Z') || (final >= 'a' && final <= 'z'))) {
-    // ss3
-    code = esc_decode_ss3(final);
-  }
-  else if (num1 == 1 && final >= 'A' && final <= 'Z') {
-    // xterm 
-    code = esc_decode_xterm(final);
-  }
-  if (code == KEY_NONE) debug_msg("tty: ignore escape sequence: ESC %c1 %d;%d %c\n", c1, num1, num2, final);
-  return (code != KEY_NONE ? (code | modifiers) : KEY_NONE);
-}
-
-static code_t tty_read_esc(tty_t* tty) {
-  // <https://en.wikipedia.org/wiki/ANSI_escape_code#Terminal_input_sequences>
-  char peek = 0;
-  if (!tty_readc_noblock(tty,&peek)) return KEY_ESC; // ESC
-  if (peek == '[') {
-    if (!tty_readc_noblock(tty,&peek)) return ('[' | MOD_ALT);  // ESC [
-    return tty_read_csi(tty,'[',peek);  // ESC [ ...
-  }
-  else if (peek == 'O' || peek == 'o' || peek == '?' /*vt52*/) {
-    // SS3 ?
-    char c1 = peek;
-    if (!tty_readc_noblock(tty,&peek)) return (KEY_CHAR(c1) | MOD_ALT);  // ESC [Oo?]
-    return tty_read_csi(tty,c1,peek);  // ESC [Oo?] ...
-  }
-  else {
-    return (KEY_CHAR(peek) | MOD_ALT);  // ESC any    
-  }  
-}
-  
-//-------------------------------------------------------------
-// Code point buffer
-//-------------------------------------------------------------
-
-static bool tty_code_pop( tty_t* tty, code_t* code ) {
-  if (tty->pushed <= 0) return false;
-  tty->pushed--;
-  *code = tty->pushbuf[tty->pushed];
-  return true;
-}
-
-internal void tty_code_pushback( tty_t* tty, code_t c ) {
-  if (tty->pushed >= TTY_PUSH_MAX) return;
-  tty->pushbuf[tty->pushed] = c;
-  tty->pushed++;
-}
-
-
 //-------------------------------------------------------------
 // Read a key code
 //-------------------------------------------------------------
@@ -389,22 +91,22 @@ internal code_t tty_read(tty_t* tty) {
     return code;
   }
 
-  // read from a character stream
+  // read a single char/byte from a character stream
   char c;
   if (!tty_readc(tty, &c)) return KEY_NONE;  
   
+  // Escape sequence?
   if (c == KEY_ESC) {
     code = tty_read_esc(tty);
   }
   else {
-    code = code_from_char(c);
+    code = KEY_CHAR(c);
   }
+
   code_t key  = KEY_NOMODS(code);
   code_t mods = KEY_MODS(code);
   debug_msg( "tty: readc %s%s%s 0x%03x ('%c')\n", 
-              mods&MOD_SHIFT ? "shift+" : "", 
-              mods&MOD_CTRL  ? "ctrl+" : "",
-              mods&MOD_ALT   ? "alt+" : "",
+              mods&MOD_SHIFT ? "shift+" : "",  mods&MOD_CTRL  ? "ctrl+" : "", mods&MOD_ALT   ? "alt+" : "",
               key, (key >= ' ' && key <= '~' ? key : ' '));
 
   // treat KEY_RUBOUT (0x7F) as KEY_BACKSP
@@ -432,11 +134,30 @@ internal code_t tty_read(tty_t* tty) {
 }
 
 
+
+//-------------------------------------------------------------
+// High level code pushback
+//-------------------------------------------------------------
+
+static bool tty_code_pop( tty_t* tty, code_t* code ) {
+  if (tty->pushed <= 0) return false;
+  tty->pushed--;
+  *code = tty->pushbuf[tty->pushed];
+  return true;
+}
+
+internal void tty_code_pushback( tty_t* tty, code_t c ) {
+  if (tty->pushed >= TTY_PUSH_MAX) return;
+  tty->pushbuf[tty->pushed] = c;
+  tty->pushed++;
+}
+
+
 //-------------------------------------------------------------
 // low-level character pushback (for escape sequences and windows)
 //-------------------------------------------------------------
 
-static bool tty_cpop(tty_t* tty, char* c) {  
+internal bool tty_cpop(tty_t* tty, char* c) {  
   if (tty->cpushed <= 0) {  // do not modify c on failure (see `tty_decode_unicode`)
     return false;
   }
@@ -473,7 +194,7 @@ static void tty_cpushf(tty_t* tty, const char* fmt, ...) {
   return;
 }
 
-static void tty_cpush_char(tty_t* tty, char c) {  
+internal void tty_cpush_char(tty_t* tty, char c) {  
   char buf[2];
   buf[0] = c;
   buf[1] = 0;
@@ -481,7 +202,7 @@ static void tty_cpush_char(tty_t* tty, char c) {
 }
 
 
-static void tty_cpush_unicode(tty_t* tty, uint32_t c) {
+internal void tty_cpush_unicode(tty_t* tty, uint32_t c) {
   uint8_t buf[5];
   memset(buf,0,5);
   if (c <= 0x7F) {
@@ -504,6 +225,10 @@ static void tty_cpush_unicode(tty_t* tty, uint32_t c) {
   }
   tty_cpush(tty, (char*)buf);
 }
+
+//-------------------------------------------------------------
+// Push escape codes (used on Windows)
+//-------------------------------------------------------------
 
 static unsigned csi_mods(code_t mods) {
   unsigned m = 1;
@@ -565,7 +290,7 @@ internal void tty_done(tty_t* tty) {
 
 
 //-------------------------------------------------------------
-// Posix
+// Unix
 //-------------------------------------------------------------
 #if !defined(_WIN32)
 
@@ -633,7 +358,7 @@ static bool tty_readc(tty_t* tty, char* c) {
   */
   
   if (tty_cpop(tty,c)) return true;
-  tty_waitc_console(tty);
+  tty_waitc_console(tty); 
   return tty_cpop(tty,c);
 }
 

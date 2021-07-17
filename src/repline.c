@@ -18,6 +18,7 @@
 # include "history.c"
 # include "completions.c"
 # include "term.c"
+# include "tty_esc.c"
 # include "tty.c"
 # include "wcwidth.c"
 #endif

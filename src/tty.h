@@ -19,8 +19,56 @@
 #include <termios.h>
 #endif
 
+//-------------------------------------------------------------
+// TTY/Keyboard input 
+//-------------------------------------------------------------
 
+#define TTY_PUSH_MAX (32)
+
+// Key code
 typedef uint32_t  code_t;
+
+// TTY interface
+typedef struct tty_s {
+  int     fin;  
+  bool    raw_enabled;
+  bool    is_utf8;
+  code_t  pushbuf[TTY_PUSH_MAX];
+  ssize_t pushed;
+  char    cpushbuf[TTY_PUSH_MAX];
+  ssize_t cpushed;
+  #if defined(_WIN32)
+  HANDLE  hcon;
+  DWORD   hcon_orig_mode;
+  #else
+  struct termios default_ios;
+  struct termios raw_ios;
+  #endif
+} tty_t;
+
+
+internal bool   tty_init(tty_t* tty, int fin);
+internal void   tty_done(tty_t* tty);
+internal void   tty_start_raw(tty_t* tty);
+internal void   tty_end_raw(tty_t* tty);
+internal code_t tty_read(tty_t* tty);
+internal bool   tty_readc_noblock(tty_t* tty, char* c);   // used in term.c
+internal void   tty_code_pushback( tty_t* tty, code_t c );
+
+internal bool   code_is_char(tty_t*, code_t c, char* chr );
+internal bool   code_is_follower( tty_t*, code_t c, char* chr);
+internal bool   code_is_extended( tty_t*, code_t c, char* chr, int* tofollow);
+
+
+// shared between tty.c and tty_esc.c
+internal void   tty_cpush_char(tty_t* tty, char c);
+internal void   tty_cpush_unicode(tty_t* tty, uint32_t c);
+internal bool   tty_cpop(tty_t* tty, char* c);
+internal code_t tty_read_esc(tty_t* tty); // in tty_esc.c
+
+//-------------------------------------------------------------
+// Key codes
+//-------------------------------------------------------------
 
 #define KEY_CHAR(c)       ((code_t)c)
 
@@ -92,53 +140,22 @@ typedef uint32_t  code_t;
 #define KEY_F12           (KEY_VIRT+22)
 #define KEY_F(n)          (KEY_F1 + n)
 
-// Convenience
-#define KEY_CTRL_UP       (KEY_UP | MOD_CTRL)
-#define KEY_CTRL_DOWN     (KEY_DOWN | MOD_CTRL)
-#define KEY_CTRL_LEFT     (KEY_LEFT | MOD_CTRL)
-#define KEY_CTRL_RIGHT    (KEY_RIGHT | MOD_CTRL)
-#define KEY_CTRL_HOME     (KEY_HOME | MOD_CTRL)
-#define KEY_CTRL_END      (KEY_END | MOD_CTRL)
-#define KEY_CTRL_DEL      (KEY_DEL | MOD_CTRL)
-#define KEY_CTRL_PAGEUP   (KEY_PAGEUP | MOD_CTRL)
-#define KEY_CTRL_PAGEDOWN (KEY_PAGEDOWN | MOD_CTRL))
-#define KEY_CTRL_INS      (KEY_INS | MOD_CTRL)
-
 #define KEY_EVENT_BASE    (0x200)
-#define KEY_EVENT_RESIZE  (KEY_EVENT_BASE+0)
+#define KEY_EVENT_RESIZE  (KEY_EVENT_BASE+0)  // not use for now
 
 
-#define TTY_PUSH_MAX (32)
+// Convenience
+#define KEY_CTRL_UP       (WITH_CTRL(KEY_UP))
+#define KEY_CTRL_DOWN     (WITH_CTRL(KEY_DOWN))
+#define KEY_CTRL_LEFT     (WITH_CTRL(KEY_LEFT))
+#define KEY_CTRL_RIGHT    (WITH_CTRL(KEY_RIGHT))
+#define KEY_CTRL_HOME     (WITH_CTRL(KEY_HOME))
+#define KEY_CTRL_END      (WITH_CTRL(KEY_END))
+#define KEY_CTRL_DEL      (WITH_CTRL(KEY_DEL))
+#define KEY_CTRL_PAGEUP   (WITH_CTRL(KEY_PAGEUP))
+#define KEY_CTRL_PAGEDOWN (WITH_CTRL(KEY_PAGEDOWN)))
+#define KEY_CTRL_INS      (WITH_CTRL(KEY_INS))
 
-typedef struct tty_s {
-  int     fin;  
-  bool    raw_enabled;
-  bool    is_utf8;
-  code_t  pushbuf[TTY_PUSH_MAX];
-  ssize_t pushed;
-  char    cpushbuf[TTY_PUSH_MAX];
-  ssize_t cpushed;
-  #if defined(_WIN32)
-  HANDLE  hcon;
-  DWORD   hcon_orig_mode;
-  #else
-  struct termios default_ios;
-  struct termios raw_ios;
-  #endif
-} tty_t;
-
-// Primitives
-internal bool tty_init(tty_t* tty, int fin);
-internal void tty_done(tty_t* tty);
-internal void tty_start_raw(tty_t* tty);
-internal void tty_end_raw(tty_t* tty);
-internal code_t tty_read(tty_t* tty);
-internal bool tty_readc_noblock(tty_t* tty, char* c);   // used in term.c
-internal void tty_code_pushback( tty_t* tty, code_t c );
-
-internal bool code_is_char(tty_t*, code_t c, char* chr );
-internal bool code_is_follower( tty_t*, code_t c, char* chr);
-internal bool code_is_extended( tty_t*, code_t c, char* chr, int* tofollow);
 
 
 #endif // RP_TTY_H
