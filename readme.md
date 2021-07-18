@@ -9,7 +9,7 @@ Repline is a pure C library that can be used as readline alternative.
 - Portable: works on Unix, Windows, and macOS, and relies on a minimal
   subset of ANSI escape sequences.
 - Features: extensive multi-line editing mode, colors, history, completion, unicode, 
-  undo/redo, graceful fallback, etc.
+  undo/redo, incremental history search, graceful fallback, etc.
 - License: MIT.
 
 Enjoy,
