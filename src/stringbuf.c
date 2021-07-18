@@ -80,7 +80,7 @@ internal bool skip_csi_esc( const char* s, ssize_t len, ssize_t* esclen ) {
 }
 
 // Offset to the next codepoint, treats CSI escape sequences as a single code point.
-static ssize_t str_next_ofs( const char* s, ssize_t len, ssize_t pos, bool is_utf8, ssize_t* cwidth ) {
+internal ssize_t str_next_ofs( const char* s, ssize_t len, ssize_t pos, bool is_utf8, ssize_t* cwidth ) {
   ssize_t ofs = 0;
   if (s != NULL && len > pos) {
     if (skip_csi_esc(s+pos,len-pos,&ofs)) {
@@ -119,11 +119,11 @@ static ssize_t str_column_width_n( const char* s, ssize_t len, bool is_utf8 ) {
   return cwidth;
 }
 
-static ssize_t str_column_width( const char* s, bool is_utf8 ) {
+internal ssize_t str_column_width( const char* s, bool is_utf8 ) {
   return str_column_width_n( s, rp_strlen(s), is_utf8 );
 }
 
-static const char* str_skip_until_fit( const char* s, ssize_t max_width, bool is_utf8) {
+internal const char* str_skip_until_fit( const char* s, ssize_t max_width, bool is_utf8) {
   if (s == NULL) return s;
   ssize_t cwidth = str_column_width(s, is_utf8);
   ssize_t len    = rp_strlen(s);
@@ -255,10 +255,6 @@ static ssize_t str_find_ws_word_end( const char* s, ssize_t len, ssize_t pos, bo
 // String row/column iteration
 //-------------------------------------------------------------
 
-typedef bool (row_fun_t)(const char* s,
-                          ssize_t row, ssize_t row_start, ssize_t row_len, 
-                          bool is_wrap, bool is_utf8, const void* arg, void* res);
-
 // invoke a function for each terminal row; returns total row count.
 static ssize_t str_for_each_row( const char* s, ssize_t len, ssize_t termw, ssize_t promptw, 
                                  row_fun_t* fun, bool is_utf8, const void* arg, void* res ) 
@@ -313,6 +309,7 @@ static bool str_get_current_pos_iter(
     ssize_t row, ssize_t row_start, ssize_t row_len, 
     bool is_wrap, bool is_utf8, const void* arg, void* res)
 {
+  unused(is_wrap);
   rowcol_t* rc = (rowcol_t*)res;
   ssize_t pos = *((ssize_t*)arg);
 
@@ -355,7 +352,7 @@ static bool str_set_pos_iter(
   ssize_t end = row_start + row_len;
   while (col < rc->col && i < end) {
     ssize_t cw;
-    ssize_t next = str_next_ofs(s, row_start + row_len, i, is_utf8, &w);
+    ssize_t next = str_next_ofs(s, row_start + row_len, i, is_utf8, &cw);
     if (next <= 0) break;
     i   += next;
     col += cw;
@@ -379,7 +376,7 @@ static ssize_t str_get_pos_at_rc(const char* s, ssize_t len, ssize_t termw, ssiz
 // String buffer
 //-------------------------------------------------------------
 
-internal void sbuf_init( stringbuf_t* sbuf, alloc_t* mem, bool is_utf8 ) {
+static void sbuf_init( stringbuf_t* sbuf, alloc_t* mem, bool is_utf8 ) {
   sbuf->mem = mem;
   sbuf->buf = NULL;
   sbuf->buflen = 0;
@@ -387,11 +384,24 @@ internal void sbuf_init( stringbuf_t* sbuf, alloc_t* mem, bool is_utf8 ) {
   sbuf->is_utf8 = is_utf8;
 }
 
-internal void sbuf_done( stringbuf_t* sbuf ) {
+static void sbuf_done( stringbuf_t* sbuf ) {
   mem_free( sbuf->mem, sbuf->buf );
   sbuf->buf = NULL;
   sbuf->buflen = 0;
   sbuf->count = 0;
+}
+
+internal stringbuf_t*  sbuf_alloc( alloc_t* mem, bool is_utf8 ) {
+  stringbuf_t* sbuf = mem_zalloc_tp(mem,stringbuf_t);
+  if (sbuf == NULL) return NULL;
+  sbuf_init(sbuf,mem,is_utf8);
+  return sbuf;
+}
+
+internal void sbuf_free( stringbuf_t* sbuf ) {
+  if (sbuf==NULL) return;
+  sbuf_done(sbuf);
+  mem_free(sbuf->mem, sbuf);
 }
 
 internal const char* sbuf_string_at( stringbuf_t* sbuf, ssize_t pos ) {
@@ -404,11 +414,11 @@ internal const char* sbuf_string( stringbuf_t* sbuf ) {
   return sbuf_string_at( sbuf, 0 );
 }
 
-internal const char* sbuf_strdup_at( stringbuf_t* sbuf, ssize_t pos ) {
+internal char* sbuf_strdup_at( stringbuf_t* sbuf, ssize_t pos ) {
   return mem_strdup(sbuf->mem, sbuf_string_at(sbuf,pos));
 }
 
-internal const char* sbuf_strdup( stringbuf_t* sbuf ) {
+internal char* sbuf_strdup( stringbuf_t* sbuf ) {
   return mem_strdup(sbuf->mem, sbuf_string(sbuf));
 }
 
@@ -435,18 +445,19 @@ internal ssize_t sbuf_len(const stringbuf_t* s) {
   return s->count;
 }
 
-internal void sbuf_insert_at_n(stringbuf_t* sbuf, const char* s, ssize_t n, ssize_t pos ) {
-  if (pos < 0 || pos > sbuf->count || s == NULL) return;
+internal ssize_t sbuf_insert_at_n(stringbuf_t* sbuf, const char* s, ssize_t n, ssize_t pos ) {
+  if (pos < 0 || pos > sbuf->count || s == NULL) return pos;
   n = str_limit_to_length(s,n);
-  if (n <= 0 || !sbuf_ensure_extra(sbuf,n)) return;
+  if (n <= 0 || !sbuf_ensure_extra(sbuf,n)) return pos;
   rp_memmove(sbuf + pos + n, sbuf + pos, sbuf->count - pos);
   rp_memcpy(sbuf + pos, s, n);
   sbuf->count += n;
   sbuf->buf[sbuf->count] = 0;
+  return (pos + n);
 }
 
-internal void sbuf_insert_at(stringbuf_t* sbuf, const char* s, ssize_t pos ) {
-  sbuf_insert_at_n( sbuf, s, rp_strlen(s), pos );
+internal ssize_t sbuf_insert_at(stringbuf_t* sbuf, const char* s, ssize_t pos ) {
+  return sbuf_insert_at_n( sbuf, s, rp_strlen(s), pos );
 }
 
 internal void sbuf_delete_at( stringbuf_t* sbuf, ssize_t pos, ssize_t count ) {
@@ -456,6 +467,12 @@ internal void sbuf_delete_at( stringbuf_t* sbuf, ssize_t pos, ssize_t count ) {
   sbuf->count -= count;
   sbuf->buf[sbuf->count] = 0;
 }
+
+internal void sbuf_delete_from_to( stringbuf_t* sbuf, ssize_t pos, ssize_t end ) {
+  if (end <= pos) return;
+  sbuf_delete_at( sbuf, pos, end - pos);
+}
+
 
 internal void sbuf_clear( stringbuf_t* sbuf ) {
   sbuf_delete_at(sbuf, 0, sbuf_len(sbuf));
@@ -489,11 +506,40 @@ internal ssize_t sbuf_next( stringbuf_t* sbuf, ssize_t pos ) {
   return pos + ofs; 
 }
 
-internal ssize_t sbuf_prev( stringbuf_t* sbuf, ssize_t pos, ssize_t* cwidth ) {
+internal ssize_t sbuf_prev( stringbuf_t* sbuf, ssize_t pos) {
   ssize_t ofs = sbuf_prev_ofs(sbuf,pos,NULL);
   if (ofs <= 0) return -1;
   assert(pos - ofs >= 0);
   return pos - ofs;
+}
+
+internal ssize_t sbuf_delete_char_before( stringbuf_t* sbuf, ssize_t pos ) {
+  ssize_t n = sbuf_prev_ofs(sbuf, pos, NULL);
+  if (n <= 0) return 0;  
+  assert( pos - n >= 0 );
+  sbuf_delete_at(sbuf, pos - n, n);
+  return n;
+}
+
+internal ssize_t sbuf_delete_char_at( stringbuf_t* sbuf, ssize_t pos ) {
+  ssize_t n = sbuf_next_ofs(sbuf, pos, NULL);
+  if (n <= 0) return 0;  
+  assert( pos + n <= sbuf->count );
+  sbuf_delete_at(sbuf, pos, n);
+  return n;
+}
+
+internal ssize_t sbuf_swap_char( stringbuf_t* sbuf, ssize_t pos ) {
+  ssize_t next = sbuf_next_ofs(sbuf, pos, NULL);
+  if (next <= 0) return 0;  
+  ssize_t prev = sbuf_prev_ofs(sbuf, pos, NULL);
+  if (prev <= 0) return 0;  
+  char buf[64];
+  if (prev >= 63) return 0;
+  rp_memcpy(buf, sbuf->buf + pos - prev, prev );
+  rp_memmove(sbuf->buf + pos - prev, sbuf->buf + pos, next);
+  rp_memmove(sbuf->buf + pos - prev + next, buf, prev);
+  return prev;
 }
 
 internal ssize_t sbuf_find_line_start( stringbuf_t* sbuf, ssize_t pos ) {
@@ -530,6 +576,6 @@ internal ssize_t sbuf_get_rc_at_pos( stringbuf_t* sbuf, ssize_t termw, ssize_t p
   return str_get_rc_at_pos( sbuf->buf, sbuf->count, termw, promptw, pos, sbuf->is_utf8, rc);
 }
 
-internal ssize_t sbuf_iterate_rows( stringbuf_t* sbuf, ssize_t termw, ssize_t promptw, row_fun_t* fun, void* arg, void* res ) {
+internal ssize_t sbuf_for_each_row( stringbuf_t* sbuf, ssize_t termw, ssize_t promptw, row_fun_t* fun, void* arg, void* res ) {
   return str_for_each_row( sbuf->buf, sbuf->count, termw, promptw, fun, sbuf->is_utf8, arg, res);
 }

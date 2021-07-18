@@ -87,6 +87,14 @@ static inline bool rp_strcpy( char* dest, ssize_t dest_size /* including 0 */, c
   return true;
 }
 
+static inline bool rp_strncpy( char* dest, ssize_t dest_size /* including 0 */, const char* src, ssize_t n) {
+  assert(dest!=NULL && src != NULL && n < dest_size);
+  if (dest == NULL || dest_size <= 0) return false;
+  if (n >= dest_size) return false;
+  strncpy(dest,src,to_size_t(n));
+  return true;
+}
+
 
 //-------------------------------------------------------------
 // Debug

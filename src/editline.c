@@ -42,8 +42,7 @@ static void editstate_done( alloc_t* mem, editstate_t** es ) {
 }
 
 internal void editstate_capture( alloc_t* mem, editstate_t** es, const char* input, ssize_t pos) {
-  assert(input!=NULL);
-  if (input==NULL) return;
+  if (input==NULL) input = "";
   // alloc
   editstate_t* entry = mem_zalloc_tp(mem, editstate_t);
   if (entry == NULL) return;
@@ -71,21 +70,20 @@ internal bool editstate_restore( alloc_t* mem, editstate_t** es, const char** in
 
 
 // The edit buffer
-typedef struct editbuf_s {
-  char*   buf;          // buffer: user input ends with 0, anything after that is "extra" and used for completion menu etc.
-  ssize_t buflen;       // total length of the buffer (realloc'd on demand)
-  ssize_t count;        // used count of characters (including extra content)
-  ssize_t pos;          // current cursor position (always before the 0 in the user space)
+typedef struct editor_s {
+  stringbuf_t* input;    // current user input
+  stringbuf_t* extra;    // extra displayed info (for completion menu etc)
+  ssize_t pos;          // current cursor position in the input
   ssize_t cur_rows;     // current used rows to display our content (including extra content)
   ssize_t cur_row;      // current row that has the cursor (0 based, relative to the prompt)
-  bool    modified;     // has a modification happened? (used for history navigation for example)
-  bool    is_utf8;      // should we consider bytes >= 0x80 as utf8-followers or as single characters?
+  bool    modified;     // has a modification happened? (used for history navigation for example)  
+  bool    is_utf8;      // terminal is utf8
   int     history_idx;  // current index in the history 
-  const char*  prompt_text;   // text of the prompt before the prompt marker
-  ssize_t      prompt_width;  // total width of the prompt including the marker
-  editstate_t* undo;    // undo buffer
+  editstate_t* undo;    // undo buffer  
   editstate_t* redo;    // redo buffer
-} editbuf_t;
+  const char*  prompt_text;   // text of the prompt before the prompt marker  
+  alloc_t* mem;
+} editor_t;
 
 
 
@@ -94,7 +92,7 @@ typedef struct editbuf_s {
 // Main edit line 
 //-------------------------------------------------------------
 static char* edit_line( rp_env_t* env, const char* prompt_text );
-static void edit_refresh(rp_env_t* env, editbuf_t* eb);
+static void edit_refresh(rp_env_t* env, editor_t* eb);
 
 internal char* rp_editline(rp_env_t* env, const char* prompt_text) {
   tty_start_raw(&env->tty);
@@ -107,459 +105,83 @@ internal char* rp_editline(rp_env_t* env, const char* prompt_text) {
 }
 
 
-//-------------------------------------------------------------
-// Edit buffer
-//-------------------------------------------------------------
-
-static ssize_t editbuf_cwidth( editbuf_t* eb, const char* s, ssize_t n ) {
-  if (s == NULL || n <= 0) return 0;
-  else if ((uint8_t)(*s) < ' ') return 0;  
-  else if (!eb->is_utf8) return 1;
-  else return utf8_char_width(s,n); 
+static void editor_capture(editor_t* eb, editstate_t** es ) {
+  editstate_capture( eb->mem, es, sbuf_string(eb->input), eb->pos );
 }
 
-static ssize_t editbuf_previous_ofs( editbuf_t* eb, const char* s, ssize_t pos, ssize_t* width ) {
-  ssize_t n = 0;
-  if (pos > n) {
-    n = 1;
-    if (eb->is_utf8) {
-      while (pos > n) {
-        uint8_t u = (uint8_t)s[pos - n];
-        if (u < 0x80 || u > 0xBF) break;  // continue while follower
-        n++;
-      }
-    }
-  }
-  if (width != NULL) *width = editbuf_cwidth( eb, s+(pos-n), n );
-  return n;
+static void editor_undo_capture(editor_t* eb ) {
+  editor_capture(eb, &eb->undo );
 }
 
-
-internal ssize_t skip_next_code( const char* s, ssize_t len, ssize_t pos, bool utf8 ) {
-  ssize_t n = 0;
-  if (len > pos) {
-    if (skip_csi_esc(s+pos,len-pos,&n)) {
-      // CSI escape sequence      
-    }
-    else {
-      n = 1;
-      if (utf8) {
-        // utf8 extended character
-        while(len > pos + n) {
-          uint8_t u = (uint8_t)s[pos + n];
-          if (u < 0x80 || u > 0xBF) break;  // break if not a follower
-          n++;
-        }
-      }
-    } 
-  }
-  return n;
+static void editor_restore(editor_t* eb, editstate_t** from, editstate_t** to ) {
+  if (*from == NULL) return;
+  const char* input;
+  editor_capture( eb, to );
+  if (!editstate_restore( eb->mem, from, &input, &eb->pos )) return;
+  sbuf_replace( eb->input, input );
+  mem_free(eb->mem, input);
+  eb->modified = false;
 }
 
-static ssize_t editbuf_next_ofs( editbuf_t* eb, const char* s, ssize_t len, ssize_t pos, ssize_t* width ) {
-  ssize_t n = skip_next_code( s, len, pos, eb->is_utf8 );  
-  if (n > 0 && width != NULL) *width = editbuf_cwidth( eb, s+pos, n );
-  //debug_msg("edit: next ofs '%s' %d %d %d\n", s, pos, n, (width != NULL ? *width : -1));
-  return n;
+static void editor_undo_restore(editor_t* eb ) {
+  editor_restore(eb, &eb->undo, &eb->redo);
 }
 
-static ssize_t editbuf_width( editbuf_t* eb, const char* s ) {
-  if (s == NULL) return 0;
-  ssize_t len = rp_strlen(s);
-  ssize_t pos = 0;
-  ssize_t width = 0;
-  ssize_t w;
-  ssize_t n;
-  while ((n = editbuf_next_ofs(eb, s, len, pos, &w)) > 0) {
-    width += w;
-    pos += n;
-  }
-  // debug_msg("edit: width of '%s' = %zd\n", s, width);
-  return width;
+static void editor_redo_restore(editor_t* eb ) {
+  editor_restore(eb, &eb->redo, &eb->undo);
+  eb->modified = false;
 }
 
-static bool editbuf_ensure_space(alloc_t* mem, editbuf_t* eb, ssize_t extra) 
-{
-  if (eb->buflen < eb->count + extra) {
-    // reallocate
-    ssize_t newlen = (eb->buflen == 0 ? 1024 : 2*eb->buflen);
-    if (newlen <= eb->count + extra) newlen = eb->count + extra + 1;
-    debug_msg("edit: reallocate edit buffer: old %zd, new %zd\n", eb->buflen, newlen);
-    char* newbuf = (char*)mem_realloc(mem, eb->buf, newlen+1);
-    if (newbuf == NULL) {
-      assert(false);
-      return false;
-    }
-    eb->buf = newbuf;
-    eb->buflen = newlen;
-    eb->buf[eb->buflen] = 0;
-  }
-  assert(eb->buflen >= eb->count + extra);
-  return true;
+static void editor_start_modify(editor_t* eb ) {
+  editor_undo_capture(eb);
+  editstate_done(eb->mem, &eb->redo);  // clear redo
+  eb->modified = true;
 }
 
-static ssize_t editbuf_input_len(editbuf_t* eb) {
-  return rp_strlen(eb->buf);
-}
-
-static bool editbuf_pos_is_at_end(editbuf_t* eb) {
-  return (eb->buf[eb->pos] == 0);
+static bool editor_pos_is_at_end(editor_t* eb ) {
+  return (eb->pos == sbuf_len(eb->input));  
 }
 
 
-static void editbuf_clear_extra( editbuf_t* eb ) {
-  ssize_t ilen = editbuf_input_len(eb);
-  assert(eb->buf[ilen] == 0);
-  eb->count = ilen + 1;
+
+static ssize_t edit_get_prompt_width( rp_env_t* env, editor_t* eb, bool in_extra, ssize_t* termw ) {
+  if (termw!=NULL) *termw = term_get_width( &env->term );
+  return (in_extra ? 0 : str_column_width(eb->prompt_text,eb->is_utf8) + 
+                         (env->prompt_marker == NULL ? 2 : str_column_width(env->prompt_marker,eb->is_utf8)));
 }
 
-static bool editbuf_append_extra_n( alloc_t* mem, editbuf_t* eb, const char* s, ssize_t n ) {
-  if (s == NULL || n < 0) return true;
-  ssize_t len = rp_strlen(s);
-  if (len < n) n = len;
-  if (!editbuf_ensure_space(mem,eb,n)) return false;
-  assert(eb->buflen - eb->count >= n);
-  if (!rp_memnmove( eb->buf + eb->count, eb->buflen - eb->count, s, n )) {
-    assert(false);
-    return false;
-  }
-  eb->count += n;
-  return true;
+static ssize_t edit_get_rowcol( rp_env_t* env, editor_t* eb, rowcol_t* rc ) {
+  ssize_t termw;
+  ssize_t promptw = edit_get_prompt_width( env, eb, false, &termw );
+  return sbuf_get_rc_at_pos( eb->input, termw, promptw, eb->pos, rc );
 }
 
-static bool editbuf_append_extra( alloc_t* mem, editbuf_t* eb, const char* s ) {
-  if (s == NULL) return true;
-  ssize_t len = rp_strlen(s);
-  return  editbuf_append_extra_n( mem, eb, s, len);
-}
-
-static const char* editbuf_drop_until_fit( editbuf_t* eb, const char* s, ssize_t max_width) {
-  if (s == NULL) return s;
-  ssize_t width = editbuf_width(eb,s);
-  ssize_t len   = rp_strlen(s);
-  ssize_t pos = 0;
-  ssize_t next;
-  ssize_t w;
-  while (width > max_width && (next = editbuf_next_ofs(eb, s, len, pos, &w)) > 0) {
-    width -= w;
-    pos += next;
-  }
-  return (s + pos);
-}
-
-typedef bool (match_fun_t)(const char* s, ssize_t len);
-
-static ssize_t editbuf_get_start_of( editbuf_t* eb, ssize_t pos, match_fun_t* match, bool skip_immediate_matches ) {
-  assert(pos >= 0 && pos < eb->count);
-  if (pos >= eb->count) pos = eb->count-1;
-  if (pos < 0) pos = 0;
-  ssize_t i = pos;
-  // skip matching first (say, whitespace in case of the previous start-of-word)
-  if (skip_immediate_matches) {
-    do {
-      ssize_t prev = editbuf_previous_ofs(eb, eb->buf, i, NULL); 
-      if (prev <= 0) break;
-      if (!match(eb->buf + i - prev, prev)) break;
-      i -= prev;
-    } while (i > 0);  
-  }
-  // find match
-  do {
-    ssize_t prev = editbuf_previous_ofs(eb, eb->buf, i, NULL); 
-    if (prev <= 0) break;
-    if (match(eb->buf + i - prev, prev)) {
-      return i;  // found;
-    }
-    i -= prev;
-  } while (i > 0);
-  return -1;
-}
-
-static ssize_t editbuf_get_end_of( editbuf_t* eb, ssize_t pos, match_fun_t* match, bool skip_immediate_matches ) {
-  assert(pos >= 0 && pos < eb->count);
-  if (pos >= eb->count) pos = eb->count-1;
-  if (pos < 0) pos = 0;  
-  ssize_t i = pos;
-  ssize_t next;
-  // skip matching first (say, whitespace in case of the next end-of-word)
-  if (skip_immediate_matches) {
-    do {
-      next = editbuf_next_ofs(eb, eb->buf, eb->count, i, NULL); 
-      if (!match(eb->buf + i, next)) break;
-      i += next;
-    } while (next > 0);  
-  }
-  // and then look
-  do {
-    next = editbuf_next_ofs(eb, eb->buf, eb->count, i, NULL); 
-    if (match(eb->buf + i, next)) {
-      return i; // found
-    }
-    i += next;
-  } while (next > 0);
-  return -1;
-} 
-
-static bool match_newline( const char* s, ssize_t n ) {  
-  return (n == 1 && (*s == '\n' || *s == 0));
-}
-
-static ssize_t editbuf_get_line_start( editbuf_t* eb, ssize_t pos) {
-  ssize_t start = editbuf_get_start_of(eb,pos,&match_newline,false /* don't skip immediate matches */);
-  return (start < 0 ? 0 : start); 
-}
-
-static ssize_t editbuf_get_line_end( editbuf_t* eb, ssize_t pos) {
-  return editbuf_get_end_of(eb, pos, &match_newline, false);
-}
-
-static bool match_word_boundary( const char* s, ssize_t n ) {  
-  char c = s[0];
-  return !(n != 1 || (c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z') || (c > '~'));
-}
-
-static ssize_t editbuf_get_word_start( editbuf_t* eb, ssize_t pos) {
-  ssize_t start = editbuf_get_start_of(eb,pos,&match_word_boundary,true /* skip immediate matches */);
-  return (start < 0 ? 0 : start); 
-}
-
-
-static void editbuf_delete_from_to(editbuf_t* eb, ssize_t start, ssize_t end) 
-{   
-  if (end >= eb->count) end = eb->count-1; // preserve final 0
-  ssize_t n = end - start;
-  if (n <= 0) return;
-  rp_memmove( eb->buf + start, eb->buf + end, eb->count - end );
-  //debug_msg("edit: del from to: %zd -> %zd (len %zd, pos %zd)", start, end, eb->count, eb->pos);
-  eb->count -= n;
-  if (eb->pos > start && eb->pos < end) {
-    eb->pos = start;
-  }
-  else if (eb->pos >= end) {
-    eb->pos -= n;
-  }
-  assert(eb->pos >= 0 && eb->pos < eb->count);
-}
-
-static void editbuf_replace_input(alloc_t* mem, editbuf_t* eb, const char* input, ssize_t pos) 
-{ 
-  assert(input != NULL);
-  assert(pos >= 0 && pos <= rp_strlen(input));
-  ssize_t cur_len = editbuf_input_len(eb);
-  ssize_t new_len = rp_strlen(input);
-  ssize_t diff = new_len - cur_len;
-  if (diff > 0) {
-    editbuf_ensure_space( mem, eb, diff);
-  }
-  rp_memmove( eb->buf + new_len, eb->buf + cur_len, eb->count - cur_len );
-  rp_memcpy( eb->buf, input, new_len );
-  eb->count += diff;
+static void edit_set_pos_at_rowcol( rp_env_t* env, editor_t* eb, ssize_t row, ssize_t col ) {
+  ssize_t termw;
+  ssize_t promptw = edit_get_prompt_width( env, eb, false, &termw );
+  ssize_t pos = sbuf_get_pos_at_rc( eb->input, termw, promptw, row, col );
+  if (pos < 0) return;
   eb->pos = pos;
-  eb->modified = true;
 }
 
-static ssize_t editbuf_get_word_end( editbuf_t* eb, ssize_t pos) {
-  return editbuf_get_end_of(eb,pos,&match_word_boundary,true);
-}
-
-static void editbuf_capture(alloc_t* mem, editbuf_t* eb, editstate_t** es ) {
-  editstate_capture( mem, es, eb->buf, eb->pos );
-}
-
-static void editbuf_undo_capture(alloc_t* mem, editbuf_t* eb ) {
-  editbuf_capture(mem, eb, &eb->undo );
-}
-
-static void editbuf_undo_restore(alloc_t* mem, editbuf_t* eb ) {
-  if (eb->undo == NULL) return;
-  const char* input;
-  ssize_t pos;
-  editbuf_capture( mem, eb, &eb->redo );
-  if (!editstate_restore( mem, &eb->undo, &input, &pos )) return;
-  editbuf_replace_input(mem, eb, input, pos );
-  mem_free(mem, input);
-  eb->modified = false;
-}
-
-static void editbuf_redo_restore(alloc_t* mem, editbuf_t* eb ) {
-  if (eb->redo == NULL) return;
-  const char* input;
-  ssize_t pos;
-  editbuf_undo_capture( mem, eb );
-  if (!editstate_restore( mem, &eb->redo, &input, &pos )) return;
-  editbuf_replace_input(mem, eb, input, pos );
-  mem_free(mem, input);
-  eb->modified = false;
-}
-
-static void edit_start_modify(rp_env_t* env, editbuf_t* eb ) {
-  editbuf_undo_capture(&env->alloc,eb);
-  editstate_done(&env->alloc, &eb->redo);  // clear redo
-  eb->modified = true;
-}
-
-
-//-------------------------------------------------------------
-// Row iterator
-//-------------------------------------------------------------
-
-typedef bool (edit_line_fun_t)(rp_env_t* env, editbuf_t* eb, 
-                               ssize_t row, ssize_t row_start, ssize_t row_len, 
-                               bool in_extra, bool is_wrap,
-                               void* arg);
-
-static ssize_t edit_for_each_row( rp_env_t* env, editbuf_t* eb, edit_line_fun_t* fun, void* arg ) {
-  ssize_t i;
-  ssize_t termw = term_get_width(&env->term);
-  ssize_t rcount = 0;
-  ssize_t rcol = 0;
-  ssize_t rstart = 0;  
-  bool    in_extra = false;
-  bool    after_user = false;  
-  for(i = 0; i < eb->count; ) {
-    ssize_t w;
-    ssize_t next = editbuf_next_ofs(eb, eb->buf, eb->count, i, &w);    
-    if (next <= 0) {
-      debug_msg("edit: foreach row: next<=0: len %zd, i %zd, w %zd, buf %s\n", eb->count, i, w, eb->buf );
-      assert(false);
-      break;
-    }
-    ssize_t pwidth = (in_extra ? 0 : eb->prompt_width);
-    if (termw != 0 && i != 0 && (rcol + w + pwidth + 1 /* for the cursor */) > termw) {  
-      // wrap
-      if (fun != NULL) {
-        if (fun(env,eb,rcount,rstart,i - rstart,in_extra,true,arg)) return rcount;
-      }
-      rcount++;
-      rstart = i;
-      rcol   = 0;
-    }
-    if (eb->buf[i] == '\n') {
-      // newline
-      if (fun != NULL) {
-        if (fun(env,eb,rcount,rstart,i - rstart,in_extra,false,arg)) return rcount;
-      }
-      rcount++;
-      rstart = i+1;
-      rcol = 0;
-      if (after_user) in_extra = true;
-    }
-    if (eb->buf[i] == 0) {
-      after_user = true;
-    }
-    i += next;
-    rcol += w;
-  }
-  if (fun != NULL) {
-    if (fun(env,eb,rcount,rstart,i - rstart,in_extra,false,arg)) return rcount;
-  }
-  return rcount+1;
-}
-
-//-------------------------------------------------------------
-// Get position
-//-------------------------------------------------------------
-
-typedef struct rowcol_s {
-  ssize_t row;
-  ssize_t col;
-  ssize_t col_start;
-  ssize_t row_start;
-  ssize_t row_len;
-  bool    first_on_row;
-  bool    last_on_row;
-} rowcol_t;
-
-static bool edit_get_current_pos_iter(
-    rp_env_t* env, editbuf_t* eb,
-    ssize_t row, ssize_t row_start, ssize_t row_len, 
-    bool in_extra, bool is_wrap, void* arg)
-{
-  unused(env); unused(arg);
-  if (eb->pos >= row_start && eb->pos <= (row_start + row_len)) {
-    // found the cursor row
-    rowcol_t* rc = (rowcol_t*)arg;
-    rc->row_start = row_start;
-    rc->row_len   = row_len;
-    rc->row = row;
-    rc->col = rc->col_start = (in_extra ? 0 : eb->prompt_width);
-    rc->first_on_row = (eb->pos == row_start);
-    ssize_t adjust = (is_wrap  /* wrap has no newline at end */ || 
-                      (row_len > 0 && eb->buf[row_start + row_len - 1] == 0) /* end of user input */ ? 1 : 0);
-    rc->last_on_row  = (eb->pos == row_start + row_len - adjust);
-    // debug_msg("edit: pos iter%s%s, row %zd, pos: %zd, row_start: %zd, rowlen: %zd\n", in_extra ? " inextra" : "", is_wrap ? " wrap" : "", row, eb->pos, row_start, row_len);
-    for(ssize_t i = row_start; i < eb->pos; ) {
-      ssize_t w;
-      ssize_t next = editbuf_next_ofs(eb, eb->buf, eb->count, i, &w);
-      if (next <= 0) break;
-      i += next;
-      rc->col += w;
-    }
-  }  
-  return false; // always continue to count all rows
-}
-
-static ssize_t edit_get_current_pos(rp_env_t* env, editbuf_t* eb, rowcol_t* rc) {
-  ssize_t rows = edit_for_each_row(env,eb,&edit_get_current_pos_iter,rc);
-  // debug_msg("edit: current pos: (%d, %d) %s %s\n", rc->row, rc->col, rc->first_on_row ? "first" : "", rc->last_on_row ? "last" : "");
-  return rows;
-}
-
-//-------------------------------------------------------------
-// Set position
-//-------------------------------------------------------------
-
-static bool edit_set_pos_iter(
-    rp_env_t* env, editbuf_t* eb,
-    ssize_t row, ssize_t row_start, ssize_t row_len, 
-    bool in_extra, bool is_wrap, void* arg)
-{
-  unused(env); unused(arg); unused(is_wrap); unused(in_extra);
-  rowcol_t* rc = (rowcol_t*)arg;
-  if (rc->row != row) return false; // keep searching
-  ssize_t col = 0; 
-  ssize_t i = row_start;
-  ssize_t end = row_start + row_len;
-  while (col < rc->col && i < end) {
-    ssize_t w;
-    ssize_t next = editbuf_next_ofs(eb, eb->buf, eb->count, i, &w);
-    i += next;
-    col += w;
-  }
-  eb->pos = i;
-  return true;
-}
-
-static void edit_set_pos_at(rp_env_t* env, editbuf_t* eb, ssize_t row, ssize_t col /* without prompt */) {
+static bool edit_pos_is_at_row_end( rp_env_t* env, editor_t* eb ) {
   rowcol_t rc;
-  memset(&rc,0,ssizeof(rc));
-  rc.row = row;
-  rc.col = col;
-  edit_for_each_row(env,eb,&edit_set_pos_iter,&rc);  
-  edit_refresh(env,eb);
-}
-
-static bool edit_pos_is_at_row_end(rp_env_t* env, editbuf_t* eb) {
-  rowcol_t rc;
-  edit_get_current_pos(env,eb,&rc);
+  edit_get_rowcol( env, eb, &rc );
   return rc.last_on_row;
 }
-
-
-
 
 //-------------------------------------------------------------
 // Refresh
 //-------------------------------------------------------------
 
-static void edit_write_prompt( rp_env_t* env, editbuf_t* eb, ssize_t row, bool in_extra ) {
+static void edit_write_prompt( rp_env_t* env, editor_t* eb, ssize_t row, bool in_extra ) {
   if (!in_extra) { 
     if (env->prompt_color != RP_DEFAULT_COLOR) term_color( &env->term, env->prompt_color );
     if (row==0) {
       term_write(&env->term, eb->prompt_text);
     }
     else {
-      term_writef(&env->term, "%*c", editbuf_width(eb,eb->prompt_text), ' ' );
+      term_writef(&env->term, "%*c", str_column_width(eb->prompt_text,eb->is_utf8), ' ' );
     }
     term_attr_reset( &env->term );
     if (env->prompt_color != RP_DEFAULT_COLOR) term_color( &env->term, env->prompt_color );
@@ -569,75 +191,96 @@ static void edit_write_prompt( rp_env_t* env, editbuf_t* eb, ssize_t row, bool i
 }
 
 typedef struct refresh_info_s {
+  rp_env_t* env;
+  editor_t* eb;
+  bool      in_extra;
   ssize_t first_row;
   ssize_t last_row;
 } refresh_info_t;
 
 static bool edit_refresh_rows_iter(
-    rp_env_t* env, editbuf_t* eb,
+    const char* s,
     ssize_t row, ssize_t row_start, ssize_t row_len, 
-    bool in_extra, bool is_wrap, void* arg)
+    bool is_wrap, bool is_utf8, const void* arg, void* res)
 {
-  refresh_info_t* info = (refresh_info_t*)(arg);
+  unused(is_utf8); unused(res);
+  const refresh_info_t* info = (const refresh_info_t*)(arg);
+  term_t* term = &info->env->term;
+
   // debug_msg("edit: line refresh: row %zd, len: %zd\n", row, row_len);
   if (row < info->first_row) return false;
   if (row > info->last_row)  return true; // should not occur
   
-  term_clear_line(&env->term);
-  edit_write_prompt(env, eb, row, in_extra);
+  term_clear_line(term);
+  edit_write_prompt(info->env, info->eb, row, info->in_extra);
 
-  char* p = &eb->buf[row_start + row_len];
-  char c = *p; *p = 0;
-  term_write( &env->term, eb->buf + row_start );
-  *p = c;
+  term_write_n( term, s + row_start, row_len );  
   if (row < info->last_row) {
-    if (is_wrap && eb->is_utf8) { 
-      term_color( &env->term, RP_DARKGRAY );
+    if (is_wrap && info->eb->is_utf8) { 
+      term_color( term, RP_DARKGRAY );
       #ifdef _WIN32
-      term_write( &env->term, "\xE2\x86\x90");  // left arrow 
+      term_write( term, "\xE2\x86\x90");  // left arrow 
       #else
-      term_write( &env->term, "\xE2\x86\xB5" ); // return symbol
+      term_write( term, "\xE2\x86\xB5" ); // return symbol
       #endif
-      term_attr_reset( &env->term );
+      term_attr_reset( term );
     }
-    term_write(&env->term, "\r\n");
+    term_write(term, "\r\n");
   }
-  return (row >= info->last_row);
+  return true; // (row >= info->last_row);  // keep going so we get the total rows
 }
 
-static ssize_t edit_refresh_rows(rp_env_t* env, editbuf_t* eb, ssize_t first_row, ssize_t last_row) {
+static ssize_t edit_refresh_rows(rp_env_t* env, editor_t* eb, 
+                                  ssize_t termw, ssize_t promptw, 
+                                  bool in_extra, ssize_t first_row, ssize_t last_row) 
+{
   refresh_info_t info;
+  info.env = env;
+  info.eb  = eb;
+  info.in_extra = in_extra;
   info.first_row  = first_row;
   info.last_row   = last_row;
-  return edit_for_each_row(env,eb,&edit_refresh_rows_iter, &info );
+  return sbuf_for_each_row( (in_extra ? eb->extra : eb->input), termw, promptw,
+                            &edit_refresh_rows_iter, &info, NULL );
 }
 
-static void edit_refresh(rp_env_t* env, editbuf_t* eb) {
+
+
+static void edit_refresh(rp_env_t* env, editor_t* eb) 
+{
+  ssize_t termw;
+  ssize_t promptw = edit_get_prompt_width( env, eb, false, &termw );
+
   rowcol_t rc;
-  ssize_t rows = edit_get_current_pos( env, eb, &rc );
+  ssize_t rows_input = sbuf_get_rc_at_pos( eb->input, termw, promptw, eb->pos, &rc );
+  rowcol_t rc_extra;
+  ssize_t rows_extra = sbuf_get_rc_at_pos( eb->extra, termw, 0, 0, &rc_extra );
+  if (sbuf_len(eb->extra) == 0) rows_extra = 0;
+  ssize_t rows = rows_input + rows_extra; 
   debug_msg("edit: start refresh: rows %zd, pos: %zd,%zd (previous rows %zd, row %zd)\n", rows, rc.row, rc.col, eb->cur_rows, eb->cur_row);
   
   // only render at most terminal height rows
-  ssize_t ht = term_get_height(&env->term);
+  ssize_t termh = term_get_height(&env->term);
   ssize_t first_row = 0;
   ssize_t last_row = rows - 1;
-  if (rows > ht) {
-    first_row = rc.row - ht + 1;          // ensure cursor is visible
+  if (rows > termh) {
+    first_row = rc.row - termh + 1;          // ensure cursor is visible
     if (first_row < 0) first_row = 0;
-    last_row = first_row + ht - 1;
+    last_row = first_row + termh - 1;
   }
  
   term_start_buffered(&env->term);        // reduce flicker
   term_up(&env->term, eb->cur_row);
   
   // render rows
-  edit_refresh_rows( env, eb, first_row, last_row );
+  edit_refresh_rows( env, eb, termw, promptw, false, first_row, last_row );
+  if (rows_extra > 0) edit_refresh_rows( env, eb, termw, promptw, false, first_row + rows_input, last_row );
 
   // overwrite trailing rows we do not use anymore
   ssize_t rrows = last_row - first_row + 1;  // rendered rows
-  if (rrows < ht && rows < eb->cur_rows) {
+  if (rrows < termh && rows < eb->cur_rows) {
     ssize_t clear = eb->cur_rows - rows;
-    while (rrows < ht && clear > 0) {
+    while (rrows < termh && clear > 0) {
       clear--;
       rrows++;
       term_write(&env->term, "\r\n");
@@ -651,14 +294,13 @@ static void edit_refresh(rp_env_t* env, editbuf_t* eb) {
   term_right(&env->term, rc.col);
   term_end_buffered(&env->term);
 
-
   // update previous
   eb->cur_rows = rows;
   eb->cur_row = rc.row;
 }
 
 
-static void edit_clear(rp_env_t* env, editbuf_t* eb ) {
+static void edit_clear(rp_env_t* env, editor_t* eb ) {
   term_attr_reset(&env->term);  
   term_up(&env->term, eb->cur_row);
   
@@ -672,7 +314,7 @@ static void edit_clear(rp_env_t* env, editbuf_t* eb ) {
   term_up(&env->term, eb->cur_rows );  
 }
 
-static void edit_clear_screen(rp_env_t* env, editbuf_t* eb ) {
+static void edit_clear_screen(rp_env_t* env, editor_t* eb ) {
   ssize_t cur_rows = eb->cur_rows;
   eb->cur_rows = term_get_height(&env->term) - 1;
   edit_clear(env,eb);
@@ -684,26 +326,26 @@ static void edit_clear_screen(rp_env_t* env, editbuf_t* eb ) {
 //-------------------------------------------------------------
 // Edit operations
 //-------------------------------------------------------------
-static void edit_history_prev(rp_env_t* env, editbuf_t* eb);
-static void edit_history_next(rp_env_t* env, editbuf_t* eb);
+static void edit_history_prev(rp_env_t* env, editor_t* eb);
+static void edit_history_next(rp_env_t* env, editor_t* eb);
 
-static void edit_undo_restore(rp_env_t* env, editbuf_t* eb) {
-  editbuf_undo_restore( &env->alloc, eb);
+static void edit_undo_restore(rp_env_t* env, editor_t* eb) {
+  editor_undo_restore(eb);
   edit_refresh(env,eb);
 }
 
-static void edit_redo_restore(rp_env_t* env, editbuf_t* eb) {
-  editbuf_redo_restore( &env->alloc, eb);
+static void edit_redo_restore(rp_env_t* env, editor_t* eb) {
+  editor_redo_restore(eb);
   edit_refresh(env,eb);
 }
 
-static void edit_cursor_left(rp_env_t* env, editbuf_t* eb) {
-  ssize_t w;
-  ssize_t n = editbuf_previous_ofs(eb,eb->buf,eb->pos,&w);
-  if (n <= 0) return;
+static void edit_cursor_left(rp_env_t* env, editor_t* eb) {
+  ssize_t prev = sbuf_prev(eb->input,eb->pos);
+  if (prev <= 0) return;
   rowcol_t rc;
-  edit_get_current_pos( env, eb, &rc);
-  eb->pos -= n;    // go back one character
+  edit_get_rowcol( env, eb, &rc);
+  ssize_t w = eb->pos - prev;
+  eb->pos = prev;  
   if (!rc.first_on_row) {
     // if we were not at a start column we do not need a full refresh
     term_left(&env->term,w);
@@ -713,15 +355,15 @@ static void edit_cursor_left(rp_env_t* env, editbuf_t* eb) {
   }
 }
 
-static void edit_cursor_right(rp_env_t* env, editbuf_t* eb) {
-  ssize_t w;
-  ssize_t n = editbuf_next_ofs(eb,eb->buf,editbuf_input_len(eb),eb->pos,&w);
-  if (n <= 0) return;
+static void edit_cursor_right(rp_env_t* env, editor_t* eb) {
+  ssize_t next = sbuf_next(eb->input,eb->pos);
+  if (next <= 0) return;
   rowcol_t rc;
-  edit_get_current_pos( env, eb, &rc);
-  eb->pos += n;    // go forward one character
+  edit_get_rowcol( env, eb, &rc);
+  ssize_t w = next - eb->pos;
+  eb->pos = next;  
   if (!rc.last_on_row) {
-    // if we were not at an end column we do not need a full refresh
+    // if we were not at the end column we do not need a full refresh
     term_right(&env->term,w);
   }
   else {
@@ -729,202 +371,182 @@ static void edit_cursor_right(rp_env_t* env, editbuf_t* eb) {
   }
 }
 
-static void edit_cursor_line_end(rp_env_t* env, editbuf_t* eb) {
-  ssize_t end = editbuf_get_line_end(eb,eb->pos);
+static void edit_cursor_line_end(rp_env_t* env, editor_t* eb) {
+  ssize_t end = sbuf_find_line_end(eb->input,eb->pos);
   if (end < 0) return;  
   eb->pos = end; 
   edit_refresh(env,eb);
 }
 
-static void edit_cursor_line_start(rp_env_t* env, editbuf_t* eb) {
-  ssize_t start = editbuf_get_line_start(eb,eb->pos);
+static void edit_cursor_line_start(rp_env_t* env, editor_t* eb) {
+  ssize_t start = sbuf_find_line_start(eb->input,eb->pos);
   if (start < 0) return;
   eb->pos = start;
   edit_refresh(env,eb);
 }
 
-static void edit_cursor_next_word(rp_env_t* env, editbuf_t* eb) {
-  ssize_t end = editbuf_get_word_end(eb,eb->pos);
+static void edit_cursor_next_word(rp_env_t* env, editor_t* eb) {
+  ssize_t end = sbuf_find_word_end(eb->input,eb->pos);
   if (end < 0) return;
   eb->pos = end;
   edit_refresh(env,eb);
 }
 
-static void edit_cursor_prev_word(rp_env_t* env, editbuf_t* eb) {
-  ssize_t start = editbuf_get_word_start(eb,eb->pos);
+static void edit_cursor_prev_word(rp_env_t* env, editor_t* eb) {
+  ssize_t start = sbuf_find_word_start(eb->input,eb->pos);
   if (start < 0) return;
   eb->pos = start;
   edit_refresh(env,eb);
 }
 
-static void edit_cursor_to_start(rp_env_t* env, editbuf_t* eb) {
+static void edit_cursor_to_start(rp_env_t* env, editor_t* eb) {
   eb->pos = 0; 
   edit_refresh(env,eb);
 }
 
-static void edit_cursor_to_end(rp_env_t* env, editbuf_t* eb) {
-  eb->pos = editbuf_input_len(eb); 
+static void edit_cursor_to_end(rp_env_t* env, editor_t* eb) {
+  eb->pos = sbuf_len(eb->input); 
   edit_refresh(env,eb);
 }
 
 
-static void edit_cursor_row_up(rp_env_t* env, editbuf_t* eb) {
+static void edit_cursor_row_up(rp_env_t* env, editor_t* eb) {
   rowcol_t rc;
-  edit_get_current_pos( env, eb, &rc);
+  edit_get_rowcol( env, eb, &rc);
   if (rc.row == 0) {
     edit_history_prev(env,eb);
   }
   else {
-    edit_set_pos_at( env, eb, rc.row - 1, rc.col - rc.col_start );
+    edit_set_pos_at_rowcol( env, eb, rc.row - 1, rc.col );
   }
 }
 
-static void edit_cursor_row_down(rp_env_t* env, editbuf_t* eb) {
+static void edit_cursor_row_down(rp_env_t* env, editor_t* eb) {
   rowcol_t rc;
-  ssize_t rows = edit_get_current_pos( env, eb, &rc);
+  ssize_t rows = edit_get_rowcol( env, eb, &rc);
   if (rc.row + 1 >= rows) {
     edit_history_next(env,eb);
   }
   else {
-    edit_set_pos_at( env, eb, rc.row + 1, rc.col - rc.col_start );
+    edit_set_pos_at_rowcol( env, eb, rc.row + 1, rc.col );
   }
 }
 
-static void edit_backspace(rp_env_t* env, editbuf_t* eb) {
+static void edit_backspace(rp_env_t* env, editor_t* eb) {
   if (eb->pos <= 0) return;
-  edit_start_modify(env,eb);
-  ssize_t n = editbuf_previous_ofs(eb, eb->buf, eb->pos, NULL);
-  if (n <= 0) return;  
-  rp_memmove( eb->buf + eb->pos - n, eb->buf + eb->pos, eb->count - eb->pos );
-  eb->count -= n;
-  eb->pos -= n;
-  eb->buf[eb->count] = 0;
+  editor_start_modify(eb);
+  eb->pos -= sbuf_delete_char_before(eb->input,eb->pos);
   edit_refresh(env,eb);
 }
 
-static void edit_delete_char(rp_env_t* env, editbuf_t* eb) {
-  ssize_t n = editbuf_next_ofs(eb, eb->buf, editbuf_input_len(eb), eb->pos, NULL);
-  if (n <= 0) return;  
-  edit_start_modify(env,eb);
-  rp_memmove( eb->buf + eb->pos, eb->buf + eb->pos + n, eb->count - eb->pos - n);
-  eb->count -= n;
-  eb->buf[eb->count] = 0;
+static void edit_delete_char(rp_env_t* env, editor_t* eb) {
+  if (eb->pos >= sbuf_len(eb->input)) return;
+  editor_start_modify(eb);
+  eb->pos -= sbuf_delete_char_at(eb->input,eb->pos);
   edit_refresh(env,eb);
 }
 
-static void edit_delete_all(rp_env_t* env, editbuf_t* eb) {
-  edit_start_modify(env,eb);
-  eb->count = 1;
+static void edit_delete_all(rp_env_t* env, editor_t* eb) {
+  if (sbuf_len(eb->input) <= 0) return;
+  editor_start_modify(eb);
+  sbuf_clear(eb->input);
   eb->pos = 0;
-  eb->buf[0] = 0;
   edit_refresh(env,eb);
 }
 
-static void edit_delete_to_end_of_line(rp_env_t* env, editbuf_t* eb) 
-{ 
-  ssize_t start = eb->pos;
-  ssize_t end = editbuf_get_line_end(eb,start);
+static void edit_delete_to_end_of_line(rp_env_t* env, editor_t* eb) { 
+  ssize_t end = sbuf_find_line_end(eb->input,eb->pos);
   if (end < 0) return;
-  edit_start_modify(env,eb);
-  editbuf_delete_from_to( eb, start, end );
+  editor_start_modify(eb);
+  sbuf_delete_from_to( eb->input, eb->pos, end );
   edit_refresh(env,eb);
 }
 
-static void edit_delete_to_start_of_line(rp_env_t* env, editbuf_t* eb) {
-  ssize_t start = editbuf_get_line_start(eb,eb->pos);
+static void edit_delete_to_start_of_line(rp_env_t* env, editor_t* eb) {
+  ssize_t start = sbuf_find_line_start(eb->input,eb->pos);
   if (start < 0) return;
-  edit_start_modify(env,eb);
-  editbuf_delete_from_to( eb, start, eb->pos);
+  editor_start_modify(eb);
+  sbuf_delete_from_to( eb->input, start, eb->pos );
+  eb->pos = start;
   edit_refresh(env,eb);
 }
 
-static void edit_delete_line(rp_env_t* env, editbuf_t* eb) {
-  ssize_t start = editbuf_get_line_start(eb,eb->pos);
+static void edit_delete_line(rp_env_t* env, editor_t* eb) {
+  ssize_t start = sbuf_find_line_start(eb->input,eb->pos);
   if (start < 0) return;
-  ssize_t end   = editbuf_get_line_end(eb,start);
+  ssize_t end   = sbuf_find_line_end(eb->input,eb->pos);
   if (end < 0) return;
-  edit_start_modify(env,eb);
+  editor_start_modify(eb);
   // delete newline as well so no empty line is left;
+  const char* s = sbuf_string(eb->input);
   bool goright = false;
-  if (start > 0 && eb->buf[start-1] == '\n') {
+  if (start > 0 && s[start-1] == '\n') {
     start--;
     // afterwards, move to start of next line if it exists (so the cursor stays on the same row)
     goright = true;
   }
-  else if (eb->buf[end] == '\n') end++;
-  editbuf_delete_from_to(eb,start,end);
+  else if (s[end] == '\n') end++;
+  sbuf_delete_from_to(eb->input,start,end);
+  eb->pos = start;
   if (goright) edit_cursor_right(env,eb); 
   edit_refresh(env,eb);
 }
  
-static void edit_delete_to_start_of_word(rp_env_t* env, editbuf_t* eb) {
-  ssize_t start = editbuf_get_word_start(eb,eb->pos);
+static void edit_delete_to_start_of_word(rp_env_t* env, editor_t* eb) {
+   ssize_t start = sbuf_find_word_start(eb->input,eb->pos);
   if (start < 0) return;
-  edit_start_modify(env,eb);
-  ssize_t end = eb->pos;
+  editor_start_modify(eb);
+  sbuf_delete_from_to( eb->input, start, eb->pos );
   eb->pos = start;
-  editbuf_delete_from_to(eb,start,end);
   edit_refresh(env,eb);
 }
 
-static void edit_delete_to_end_of_word(rp_env_t* env, editbuf_t* eb) {
-  ssize_t end = editbuf_get_word_end(eb,eb->pos);
+static void edit_delete_to_end_of_word(rp_env_t* env, editor_t* eb) {
+  ssize_t end = sbuf_find_word_end(eb->input,eb->pos);
   if (end < 0) return;
-  edit_start_modify(env,eb);
-  ssize_t start = eb->pos;
-  editbuf_delete_from_to(eb,start,end);
+  editor_start_modify(eb);
+  sbuf_delete_from_to( eb->input, eb->pos, end );
   edit_refresh(env,eb);
 }
 
-static void edit_delete_word(rp_env_t* env, editbuf_t* eb) {
-  ssize_t start = editbuf_get_word_start(eb,eb->pos);
+static void edit_delete_word(rp_env_t* env, editor_t* eb) {
+  ssize_t start = sbuf_find_word_start(eb->input,eb->pos);
   if (start < 0) return;
-  ssize_t end = editbuf_get_word_end(eb,eb->pos);
+  ssize_t end   = sbuf_find_word_end(eb->input,eb->pos);
   if (end < 0) return;
-  edit_start_modify(env,eb);
+  editor_start_modify(eb);  
+  sbuf_delete_from_to(eb->input,start,end);
   eb->pos = start;
-  editbuf_delete_from_to(eb,start,end);
   edit_refresh(env,eb);
 }
 
-static void edit_swap_char( rp_env_t* env, editbuf_t* eb ) {
-  if (eb->pos <= 0 || eb->pos == eb->count-1) return;
-  ssize_t next = editbuf_next_ofs( eb, eb->buf, eb->count, eb->pos, NULL );
-  ssize_t prev = editbuf_previous_ofs( eb, eb->buf, eb->pos, NULL );
-  if (next <= 0 || prev <= 0 || prev > 32) return;
-  edit_start_modify(env,eb);
-  eb->pos -= prev;
-  assert(eb->pos >= 0);
-  char buf[32];
-  rp_memcpy( buf, eb->buf + eb->pos, prev );
-  rp_memmove( eb->buf + eb->pos, eb->buf + eb->pos + prev, next );
-  rp_memcpy( eb->buf + eb->pos + next, buf, prev );
+static void edit_swap_char( rp_env_t* env, editor_t* eb ) { 
+  if (eb->pos <= 0 || eb->pos == sbuf_len(eb->input)) return;
+  editor_start_modify(eb);
+  eb->pos -= sbuf_swap_char(eb->input,eb->pos);
   edit_refresh(env,eb);
 }
 
-static void edit_multiline_eol(rp_env_t* env, editbuf_t* eb) {
-  if (eb->pos <= 0 || eb->buf[eb->pos-1] != env->multiline_eol) return;
-  edit_start_modify(env,eb);
+static void edit_multiline_eol(rp_env_t* env, editor_t* eb) {
+  if (eb->pos < 0 || eb->pos >= sbuf_len(eb->input)) return;
+  if (sbuf_string(eb->input)[eb->pos-1] != env->multiline_eol) return;
+  editor_start_modify(eb);
   // replace line continuation with a real newline
-  eb->buf[eb->pos-1] = '\n';
+  sbuf_delete_at( eb->input, eb->pos, 1);
+  sbuf_insert_at( eb->input, "\n", eb->pos);  
   edit_refresh(env,eb);
 }
 
-static void edit_insert_char(rp_env_t* env, editbuf_t* eb, char c, bool refresh) {
-  if (!editbuf_ensure_space(&env->alloc,eb,1)) return;
+static void edit_insert_char(rp_env_t* env, editor_t* eb, char c, bool refresh) {
   if (refresh) {
-    edit_start_modify(env,eb);
+    editor_start_modify(eb);
   }
-
-  // insert in buffer
-  if (eb->pos < eb->count) {
-    rp_memmove( eb->buf + eb->pos + 1, eb->buf + eb->pos, eb->count - eb->pos );
-  }
-  eb->buf[eb->pos] = c;
+  char buf[2];
+  buf[0] = c;
+  buf[1] = 0;
+  sbuf_insert_at( eb->input, buf, eb->pos );
   eb->pos++;
-  eb->count++;
-  eb->buf[eb->count] = 0;
-
+  
   // output to terminal
   if (refresh) {
     edit_refresh(env,eb);
@@ -935,33 +557,26 @@ static void edit_insert_char(rp_env_t* env, editbuf_t* eb, char c, bool refresh)
 // History
 //-------------------------------------------------------------
 
-static void edit_history_at(rp_env_t* env, editbuf_t* eb, int ofs ) 
+static void edit_history_at(rp_env_t* env, editor_t* eb, int ofs ) 
 {
   if (eb->modified) { 
-    history_update(env, eb->buf); // update first entry if modified
+    history_update(env, sbuf_string(eb->input)); // update first entry if modified
     eb->history_idx = 0;          // and start again 
     eb->modified = false;    
   }
   const char* entry = history_get(&env->history,eb->history_idx + ofs);
   debug_msg( "edit: history: at: %d + %d, found: %s\n", eb->history_idx, ofs, entry);
   if (entry == NULL) return;
-  eb->history_idx += ofs;
-  eb->count = 0;
-  ssize_t len = rp_strlen(entry);
-  editbuf_ensure_space(&env->alloc,eb,len + 1);
-  assert(eb->buflen >= len + 1);
-  if (rp_strcpy(eb->buf, eb->buflen, entry)) {
-    eb->count = len + 1;
-    eb->pos = len;
-  }
+  sbuf_replace( eb->input, entry);
+  eb->pos = sbuf_len(eb->input);
   edit_refresh(env,eb);
 }
 
-static void edit_history_prev(rp_env_t* env, editbuf_t* eb) {
+static void edit_history_prev(rp_env_t* env, editor_t* eb) {
   edit_history_at(env,eb, 1 );
 }
 
-static void edit_history_next(rp_env_t* env, editbuf_t* eb) {
+static void edit_history_next(rp_env_t* env, editor_t* eb) {
   edit_history_at(env,eb, -1 );
 }
 
@@ -1003,22 +618,18 @@ static void hsearch_done( alloc_t* mem, hsearch_t* hs ) {
   }
 }
 
-static void edit_history_search(rp_env_t* env, editbuf_t* eb, char* initial ) {
+static void edit_history_search(rp_env_t* env, editor_t* eb, char* initial ) {
   // update history
   if (eb->modified) { 
-    history_update(env, eb->buf); // update first entry if modified
-    eb->history_idx = 0;          // and start again 
+    history_update(env, sbuf_string(eb->input)); // update first entry if modified
+    eb->history_idx = 0;               // and start again 
     eb->modified = false;
   }
 
   // set a search prompt
-  const char* prompt_text = eb->prompt_text;
-  ssize_t prompt_width = eb->prompt_width;
   ssize_t old_pos = eb->pos;
-  
+  const char* prompt_text = eb->prompt_text;
   eb->prompt_text = "history search";
-  eb->prompt_width = editbuf_width(eb,eb->prompt_text) + (env->prompt_marker==NULL ? 2 : editbuf_width(eb,env->prompt_marker));
-  editbuf_clear_extra(eb);
   
   // search state
   hsearch_t* hs = NULL;        // search undo 
@@ -1033,9 +644,9 @@ static void edit_history_search(rp_env_t* env, editbuf_t* eb, char* initial ) {
     const ssize_t initial_len = rp_strlen(initial);
     ssize_t ipos = 0;
     while( ipos < initial_len ) {
-      ssize_t next = editbuf_next_ofs( eb, initial, initial_len, ipos, NULL );
+      ssize_t next = str_next_ofs( initial, initial_len, ipos, eb->is_utf8, NULL );
       if (next < 0) break;
-      hsearch_push( &env->alloc, &hs, hidx, match_pos, match_len, true);
+      hsearch_push( eb->mem, &hs, hidx, match_pos, match_len, true);
       char c = initial[ipos + next];  // terminate temporarily
       initial[ipos + next] = 0;
       if (history_search( &env->history, hidx, initial, true, &hidx, &match_pos )) {
@@ -1047,38 +658,41 @@ static void edit_history_search(rp_env_t* env, editbuf_t* eb, char* initial ) {
       initial[ipos + next] = c;       // restore
       ipos += next;
     }
-    editbuf_replace_input( &env->alloc, eb, initial, ipos);
+    sbuf_replace( eb->input, initial);
+    eb->pos = ipos;
   }
   else {
-    editbuf_replace_input(&env->alloc, eb, "", 0);
+    sbuf_clear( eb->input );
+    eb->pos = 0;
   }
 
   // Incremental search
 again:
   hentry = history_get(&env->history,hidx);
   snprintf(buf,32,"\n\x1B[97m%zd. ", hidx);
-  editbuf_append_extra( &env->alloc, eb, buf );
-  editbuf_append_extra( &env->alloc, eb, "\x1B[90m" );         // dark gray
-  editbuf_append_extra_n( &env->alloc, eb, hentry, match_pos );  
-  editbuf_append_extra( &env->alloc, eb, "\x1B[4m\x1B[97m" );  // underline bright white
-  editbuf_append_extra_n( &env->alloc, eb, hentry + match_pos, match_len );
-  editbuf_append_extra( &env->alloc, eb, "\x1B[90m\x1B[24m" ); // no underline dark gray
-  editbuf_append_extra( &env->alloc, eb, hentry + match_pos + match_len );
-  editbuf_append_extra( &env->alloc, eb, "\n\n(use tab for the next match and backspace to go back)" );
-  editbuf_append_extra( &env->alloc, eb, "\x1B[0m\n" );
+  sbuf_append(eb->extra, buf );
+  sbuf_append(eb->extra, "\x1B[90m" );         // dark gray
+  sbuf_append_n( eb->extra, hentry, match_pos );  
+  sbuf_append(eb->extra, "\x1B[4m\x1B[97m" );  // underline bright white
+  sbuf_append_n( eb->extra, hentry + match_pos, match_len );
+  sbuf_append(eb->extra, "\x1B[90m\x1B[24m" ); // no underline dark gray
+  sbuf_append(eb->extra, hentry + match_pos + match_len );
+  sbuf_append(eb->extra, "\n\n(use tab for the next match and backspace to go back)" );
+  sbuf_append(eb->extra, "\x1B[0m\n" );
   edit_refresh(env, eb);
 
   // Process commands
   code_t c = tty_read(&env->tty);
-  editbuf_clear_extra(eb);
+  sbuf_clear(eb->extra);
   if (c == KEY_ESC || c == KEY_BELL /* ^G */ || c == KEY_CTRL_C) {
     c = 0;  
-    editbuf_replace_input( &env->alloc, eb, history_get(&env->history,0), old_pos );
+    sbuf_replace( eb->input, history_get(&env->history,0) );
+    eb->pos = old_pos;
   } 
   else if (c == KEY_ENTER) {
     c = 0;
-    editbuf_replace_input( &env->alloc, eb, hentry, 0 );
-    eb->pos = editbuf_input_len(eb);
+    sbuf_replace( eb->input, hentry );
+    eb->pos = sbuf_len(eb->input);
     eb->modified = false;
     eb->history_idx = hidx;
   }  
@@ -1093,7 +707,7 @@ again:
   else if (c == KEY_CTRL_R || c == KEY_TAB || c == KEY_UP) {    
     // search backward
     hsearch_push(&env->alloc, &hs, hidx, match_pos, match_len, false);
-    if (!history_search( &env->history, hidx+1, eb->buf, true, &hidx, &match_pos )) {
+    if (!history_search( &env->history, hidx+1, sbuf_string(eb->input), true, &hidx, &match_pos )) {
       hsearch_pop(&hs,NULL,NULL,NULL,NULL);
       term_beep(&env->term);
     };
@@ -1102,7 +716,7 @@ again:
   else if (c == KEY_CTRL_S || c == KEY_SHIFT_TAB || c == KEY_DOWN) {    
     // search forward
     hsearch_push(&env->alloc, &hs, hidx, match_pos, match_len, false);
-    if (!history_search( &env->history, hidx-1, eb->buf, false, &hidx, &match_pos )) {
+    if (!history_search( &env->history, hidx-1, sbuf_string(eb->input), false, &hidx, &match_pos )) {
       hsearch_pop(&hs,NULL,NULL,NULL,NULL);
       term_beep(&env->term);
     };
@@ -1138,8 +752,8 @@ again:
       goto again;
     }
     // search for the new input
-    if (history_search( &env->history, hidx, eb->buf, true, &hidx, &match_pos )) {
-      match_len = editbuf_input_len(eb);
+    if (history_search( &env->history, hidx, sbuf_string(eb->input), true, &hidx, &match_pos )) {
+      match_len = sbuf_len(eb->input);
     }
     else {
       term_beep(&env->term);
@@ -1150,17 +764,16 @@ again:
   // done
   hsearch_done(&env->alloc,hs);
   eb->prompt_text = prompt_text;
-  eb->prompt_width = prompt_width;
   edit_refresh(env,eb);
   if (c != 0) tty_code_pushback(&env->tty, c);
 }
 
 // Start an incremental search with the current word 
-static void edit_history_search_with_current_word(rp_env_t* env, editbuf_t* eb) {
+static void edit_history_search_with_current_word(rp_env_t* env, editor_t* eb) {
   char* initial = NULL;
-  ssize_t start = editbuf_get_word_start( eb, eb->pos );
+  ssize_t start = sbuf_find_word_start( eb->input, eb->pos );
   if (start >= 0) {
-    initial = mem_strndup( &env->alloc, eb->buf + start, eb->pos - start);
+    initial = mem_strndup( eb->mem, sbuf_string(eb->input) + start, eb->pos - start);
   }
   edit_history_search( env, eb, initial);
   mem_free(&env->alloc, initial);
@@ -1262,7 +875,7 @@ static const char* help[] = {
   NULL, NULL
 };
  
-static void edit_show_help( rp_env_t* env, editbuf_t* eb ) {
+static void edit_show_help( rp_env_t* env, editor_t* eb ) {
   for (ssize_t i = 0; help[i] != NULL && help[i+1] != NULL; i+=2) {
     if (help[i][0] == 0) {
       term_writef(&env->term, "\x1B[90m%s\x1B[0m\r\n", help[i+1]);
@@ -1280,38 +893,38 @@ static void edit_show_help( rp_env_t* env, editbuf_t* eb ) {
 // Completion
 //-------------------------------------------------------------
 
-static void edit_complete(rp_env_t* env, editbuf_t* eb, ssize_t idx) {
+static void edit_complete(rp_env_t* env, editor_t* eb, ssize_t idx) {
   completion_t* cm = completions_get(env,idx);
   if (cm == NULL) return;
-  edit_start_modify(env,eb);
-  editbuf_ensure_space(&env->alloc,eb,completion_extra_needed(cm));
-  eb->count = completion_apply(cm, eb->buf, eb->count, eb->pos, &eb->pos);
+  editor_start_modify(eb);
+
+  eb->pos = completion_apply(cm, eb->input, eb->pos);
   edit_refresh(env,eb);
 }
 
-static void editbuf_append_completion(alloc_t* mem, editbuf_t* eb, completion_t* cm, ssize_t idx, ssize_t width, bool numbered, bool selected ) {
+static void editor_append_completion(editor_t* eb, completion_t* cm, ssize_t idx, ssize_t width, bool numbered, bool selected ) {
   if (cm == NULL) return;
   if (numbered) {
     char buf[32];
     snprintf(buf, 32, "\x1B[90m%s%zd \x1B[0m", (selected ? (eb->is_utf8 ? "\xE2\x86\x92" : "*") : " "), 1 + idx);
-    editbuf_append_extra(mem, eb, buf);
+    sbuf_append(eb->extra, buf);
     width -= 3;
   }
   const char* s = (cm->display==NULL ? cm->replacement : cm->display);
   if (width <= 0) {
-    editbuf_append_extra(mem, eb, s);
+    sbuf_append(eb->extra, s);
   }
   else {
     // fit to width
-    const char* sc = editbuf_drop_until_fit( eb, s, width);
+    const char* sc = str_skip_until_fit( s, width, eb->is_utf8);
     if (sc != s) {
-      editbuf_append_extra(mem, eb, "...");
-      sc = editbuf_drop_until_fit( eb, s, width - 3);
+      sbuf_append( eb->extra, "...");
+      sc = str_skip_until_fit( s, width - 3, eb->is_utf8);
     }
-    editbuf_append_extra(mem, eb, sc);
+    sbuf_append( eb->extra, sc);
     // fill out with spaces
-    ssize_t n = width - editbuf_width(eb,sc);
-    while( n-- > 0 ) { editbuf_append_extra(mem, eb," "); }  
+    ssize_t n = width - str_column_width(sc, eb->is_utf8);
+    while( n-- > 0 ) { sbuf_append( eb->extra," "); }  
   }
 }
 
@@ -1324,33 +937,33 @@ static void editbuf_append_completion(alloc_t* mem, editbuf_t* eb, completion_t*
 #define RP_DISPLAY3_COL    (3+RP_DISPLAY3_MAX)
 #define RP_DISPLAY3_WIDTH  (3*RP_DISPLAY3_COL + 2*2)  // 79
 
-static void editbuf_append_completion2(rp_env_t* env, editbuf_t* eb, ssize_t idx1, ssize_t idx2, ssize_t selected ) {  
-  editbuf_append_completion(&env->alloc, eb, completions_get(env,idx1), idx1, RP_DISPLAY2_COL, true, (idx1 == selected) );
-  editbuf_append_extra(&env->alloc, eb, "  ");
-  editbuf_append_completion(&env->alloc, eb, completions_get(env,idx2), idx2, RP_DISPLAY2_COL, true, (idx2 == selected) );
+static void editor_append_completion2(rp_env_t* env, editor_t* eb, ssize_t idx1, ssize_t idx2, ssize_t selected ) {  
+  editor_append_completion(eb, completions_get(env,idx1), idx1, RP_DISPLAY2_COL, true, (idx1 == selected) );
+  sbuf_append( eb->extra, "  ");
+  editor_append_completion(eb, completions_get(env,idx2), idx2, RP_DISPLAY2_COL, true, (idx2 == selected) );
 }
 
-static void editbuf_append_completion3(rp_env_t* env, editbuf_t* eb, ssize_t idx1, ssize_t idx2, ssize_t idx3, ssize_t selected ) {  
-  editbuf_append_completion(&env->alloc, eb, completions_get(env,idx1), idx1, RP_DISPLAY3_COL, true, (idx1 == selected) );
-  editbuf_append_extra(&env->alloc, eb, "  ");
-  editbuf_append_completion(&env->alloc, eb, completions_get(env,idx2), idx2, RP_DISPLAY3_COL, true, (idx2 == selected) );
-  editbuf_append_extra(&env->alloc, eb, "  ");
-  editbuf_append_completion(&env->alloc, eb, completions_get(env,idx3), idx3, RP_DISPLAY3_COL, true, (idx3 == selected) );
+static void editor_append_completion3(rp_env_t* env, editor_t* eb, ssize_t idx1, ssize_t idx2, ssize_t idx3, ssize_t selected ) {  
+  editor_append_completion(eb, completions_get(env,idx1), idx1, RP_DISPLAY3_COL, true, (idx1 == selected) );
+  sbuf_append( eb->extra, "  ");
+  editor_append_completion(eb, completions_get(env,idx2), idx2, RP_DISPLAY3_COL, true, (idx2 == selected) );
+  sbuf_append( eb->extra, "  ");
+  editor_append_completion(eb, completions_get(env,idx3), idx3, RP_DISPLAY3_COL, true, (idx3 == selected) );
 }
 
-static ssize_t edit_completions_max_width( rp_env_t* env, editbuf_t* eb, ssize_t count ) {
+static ssize_t edit_completions_max_width( rp_env_t* env, editor_t* eb, ssize_t count ) {
   ssize_t max_width = 0;
   for( ssize_t i = 0; i < count; i++) {
     completion_t* cm = completions_get(env,i);
     if (cm != NULL) {
-      ssize_t w = editbuf_width(eb, (cm->display != NULL ? cm->display : cm->replacement));
+      ssize_t w = str_column_width( (cm->display != NULL ? cm->display : cm->replacement), eb->is_utf8);
       if (w > max_width) max_width = w;
     }
   }
   return max_width;
 }
 
-static void edit_completion_menu(rp_env_t* env, editbuf_t* eb, bool more_available) {
+static void edit_completion_menu(rp_env_t* env, editor_t* eb, bool more_available) {
   ssize_t count  = completions_count( env );
   ssize_t count_displayed = count;
   assert(count > 1);
@@ -1360,7 +973,7 @@ static void edit_completion_menu(rp_env_t* env, editbuf_t* eb, bool more_availab
   
 again: 
   // show first 9 (or 8) completions
-  editbuf_clear_extra(eb);
+  sbuf_clear(eb->extra);
   ssize_t twidth = term_get_width(&env->term);   
   if (count > 3 && twidth > RP_DISPLAY3_WIDTH && edit_completions_max_width(env,eb,9) <= RP_DISPLAY3_MAX) {
     // display as a 3 column block
@@ -1368,8 +981,8 @@ again:
     columns = 3;
     percolumn = 3;
     for( ssize_t rw = 0; rw < percolumn; rw++ ) {
-      editbuf_append_extra( &env->alloc, eb, "\n");
-      editbuf_append_completion3( env, eb, rw, percolumn+rw, (2*percolumn)+rw, selected );
+      sbuf_append( eb->extra, "\n");
+      editor_append_completion3( env, eb, rw, percolumn+rw, (2*percolumn)+rw, selected );
     }
   }
   else if (count > 4 && twidth > RP_DISPLAY2_WIDTH && edit_completions_max_width(env,eb,8) <= RP_DISPLAY2_MAX) {
@@ -1378,8 +991,8 @@ again:
     columns = 2;
     percolumn = (count_displayed <= 6 ? 3 : 4);
     for( ssize_t rw = 0; rw < percolumn; rw++ ) {
-      editbuf_append_extra( &env->alloc, eb, "\n");
-      editbuf_append_completion2( env, eb, rw, percolumn+rw, selected );
+      sbuf_append( eb->extra, "\n");
+      editor_append_completion2( env, eb, rw, percolumn+rw, selected );
     }
   }
   else {
@@ -1388,18 +1001,18 @@ again:
     columns = 1;
     percolumn = count_displayed;
     for(ssize_t i = 0; i < count_displayed; i++) {
-      editbuf_append_extra( &env->alloc, eb, "\n");
-      editbuf_append_completion(&env->alloc, eb, completions_get(env,i), i, -1, true /* numbered */, selected == i );        
+      sbuf_append( eb->extra, "\n");
+      editor_append_completion(eb, completions_get(env,i), i, -1, true /* numbered */, selected == i );        
     }
   }
   if (count > count_displayed) {
-    editbuf_append_extra(&env->alloc, eb, "\n\x1B[90m(press shift-tab to see all further completions)\x1B[0m");
+    sbuf_append(eb->extra, "\n\x1B[90m(press shift-tab to see all further completions)\x1B[0m");
   }   
   edit_refresh(env,eb);
   
   // read here; if not a valid key, push it back and return to main event loop
   code_t c = tty_read(&env->tty);
-  editbuf_clear_extra(eb);      
+  sbuf_clear(eb->extra);      
   if (c >= '1' && c <= '9' && c - '1' < count) {
     selected = (c - '1');
     c = KEY_SPACE;
@@ -1446,10 +1059,10 @@ again:
     c = 0;
     if (more_available) {
       // generate all entries (up to the max (= 1000))
-      count = completions_generate(env,eb->buf,eb->pos,RP_MAX_COMPLETIONS_TO_SHOW);
+      count = completions_generate(env, sbuf_string(eb->input), eb->pos, RP_MAX_COMPLETIONS_TO_SHOW);
     }
     rowcol_t rc;
-    edit_get_current_pos(env,eb,&rc);
+    edit_get_rowcol(env,eb,&rc);
     edit_clear(env,eb);
     edit_write_prompt(env,eb,0,false);
     term_write(&env->term, "\r\n");
@@ -1475,10 +1088,10 @@ again:
   if (c != 0) tty_code_pushback(&env->tty,c);
 }
 
-static void edit_generate_completions(rp_env_t* env, editbuf_t* eb) {
-  debug_msg( "edit: complete: %zd: %s\n", eb->pos, eb->buf );
+static void edit_generate_completions(rp_env_t* env, editor_t* eb) {
+  debug_msg( "edit: complete: %zd: %s\n", eb->pos, sbuf_string(eb->input) );
   if (eb->pos <= 0) return;
-  ssize_t count = completions_generate(env,eb->buf,eb->pos,10);
+  ssize_t count = completions_generate(env, sbuf_string(eb->input), eb->pos, 10);
   if (count <= 0) {
     // no completions
     term_beep(&env->term); 
@@ -1500,17 +1113,16 @@ static void edit_generate_completions(rp_env_t* env, editbuf_t* eb) {
 static char* edit_line( rp_env_t* env, const char* prompt_text )
 {
   // set up an edit buffer
-  editbuf_t eb;
-  eb.buflen   = 120;
-  eb.buf      = (char*)env_zalloc(env,eb.buflen);
+  editor_t eb;
+  eb.mem      = &env->alloc;
+  eb.input    = sbuf_alloc(eb.mem, env->tty.is_utf8);
+  eb.extra    = sbuf_alloc(eb.mem, env->tty.is_utf8);
   eb.pos      = 0;
-  eb.count    = 1; // includes ending zero  
   eb.cur_rows = 1; 
   eb.cur_row  = 0; 
   eb.modified = false;
   eb.is_utf8  = env->tty.is_utf8;
   eb.prompt_text   = (prompt_text != NULL ? prompt_text : "");
-  eb.prompt_width  = editbuf_width( &eb, eb.prompt_text ) + (env->prompt_marker != NULL ? editbuf_width( &eb, env->prompt_marker) : 2);
   eb.history_idx   = 0;
   editstate_init(&eb.undo);
   editstate_init(&eb.redo);
@@ -1553,7 +1165,7 @@ static char* edit_line( rp_env_t* env, const char* prompt_text )
 
     // Operations that may return
     if (c == KEY_ENTER) {
-      if (!env->singleline_only && eb.pos > 0 && eb.buf[eb.pos-1] == env->multiline_eol && edit_pos_is_at_row_end(env,&eb)) {
+      if (!env->singleline_only && eb.pos > 0 && sbuf_string(eb.input)[eb.pos-1] == env->multiline_eol && edit_pos_is_at_row_end(env,&eb)) {
         // replace line-continuation with newline
         edit_multiline_eol(env,&eb);        
       }
@@ -1563,14 +1175,14 @@ static char* edit_line( rp_env_t* env, const char* prompt_text )
       }
     } 
     else if (c == KEY_CTRL_D) {
-      if (eb.pos == 0 && editbuf_pos_is_at_end(&eb)) break; // ctrl+D on empty quits with NULL
+      if (eb.pos == 0 && editor_pos_is_at_end(&eb)) break; // ctrl+D on empty quits with NULL
       edit_delete_char(env,&eb);     // otherwise it is like delete
     } 
     else if (c == KEY_CTRL_C) {
       break; // ctrl+C quits with NULL
     }
     else if (c == KEY_ESC) {
-      if (eb.pos == 0 && editbuf_pos_is_at_end(&eb)) break;  // ESC on empty input returns with empty input
+      if (eb.pos == 0 && editor_pos_is_at_end(&eb)) break;  // ESC on empty input returns with empty input
       edit_delete_line(env,&eb);  // otherwise delete the current line
     }
     else if (c == KEY_BELL /* ^G */) {
@@ -1695,28 +1307,20 @@ static char* edit_line( rp_env_t* env, const char* prompt_text )
   }
 
   // goto end
-  ssize_t rlen = editbuf_input_len(&eb);
-  eb.pos = rlen;  
-  assert(eb.buf[rlen] == 0);
+  eb.pos = sbuf_len(eb.input);  
   edit_refresh(env,&eb);
 
-  // free resources (except eb.buf)
+  // save result
+  char* res = ((c == KEY_CTRL_D && sbuf_len(eb.input) == 0) || c == KEY_CTRL_C) ? NULL : sbuf_strdup(eb.input);
+
+  // free resources 
   editstate_done(&env->alloc, &eb.undo);
   editstate_done(&env->alloc, &eb.redo);
-
-  // return the captured buffer (return NULL on error or Ctrl-D without input)
-  char* res = ((c == KEY_CTRL_D && rlen == 0) || c == KEY_CTRL_C) ? NULL : (char*)env_realloc(env,eb.buf,rlen+1);
-  if (res == NULL) {
-    rp_history_remove_last(env);
-    env_free(env,eb.buf);
-    return NULL;
-  }
-  assert(res[rlen] == 0);
-  res[rlen] = 0;
-  debug_msg("edit: input: %s\n", res);
-
+  sbuf_free(eb.input);
+  sbuf_free(eb.extra);
+  
   // update history
-  if (rlen <= 1) rp_history_remove_last(env);  // no empty or single-char entries
+  if (res == NULL || res[0] == 0 || res[1] == 0) rp_history_remove_last(env);  // no empty or single-char entries
   history_update(env,res);
   history_save(env);
   return res;

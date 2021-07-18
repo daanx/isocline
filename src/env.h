@@ -12,7 +12,7 @@
 #include "common.h"
 #include "term.h"
 #include "tty.h"
-
+#include "stringbuf.h"
 
 #define RP_MAX_HISTORY              (200)
 #define RP_MAX_COMPLETIONS_TO_SHOW  (1000)
@@ -86,8 +86,7 @@ internal ssize_t  completions_count(rp_env_t* env);
 internal ssize_t  completions_generate(rp_env_t* env, const char* input, ssize_t pos, ssize_t max);
 
 internal completion_t* completions_get( rp_env_t* env, ssize_t index );
-internal ssize_t  completion_extra_needed( completion_t* cm );
-internal ssize_t  completion_apply( completion_t* cm, char* buf, ssize_t len, ssize_t pos, ssize_t* endpos );
+internal ssize_t completion_apply( completion_t* cm, stringbuf_t* sbuf, ssize_t pos );
 
 internal ssize_t  skip_next_code( const char* s, ssize_t len, ssize_t pos, bool utf8 );
 

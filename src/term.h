@@ -44,6 +44,7 @@ internal bool term_init(term_t* term, tty_t* tty, alloc_t* mem, bool monochrome,
 internal void term_done(term_t* term);
 internal void term_start_raw(term_t* term);
 internal void term_end_raw(term_t* term);
+internal bool term_write_n(term_t* term, const char* s, ssize_t n);
 internal bool term_write(term_t* term, const char* s);
 internal void term_beep(term_t* term);
 internal bool term_update_dim(term_t* term, tty_t* tty);

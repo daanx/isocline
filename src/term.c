@@ -175,13 +175,17 @@ static bool term_buffered_ensure( term_t* term, ssize_t extra ) {
 internal bool term_write(term_t* term, const char* s) {
   // todo: strip colors on monochrome
   ssize_t n = rp_strlen(s);
+  return term_write_n(term,s,n);
+}
+
+internal bool term_write_n(term_t* term, const char* s, ssize_t n) {
   if (!term->buffered) {
     return term_write_direct(term,s,n);
   }
   else {
     // write to buffer to reduce flicker
     if (!term_buffered_ensure(term, n)) return false;
-    if (!rp_strcpy( term->buf + term->bufcount, term->buflen - term->bufcount, s)) {
+    if (!rp_strncpy( term->buf + term->bufcount, term->buflen - term->bufcount, s, n)) {
       assert(false);
       return false;
     };

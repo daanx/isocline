@@ -10,6 +10,7 @@
 #include "../include/repline.h"
 #include "common.h"
 #include "env.h"
+#include "stringbuf.h"
 
 internal void completions_clear(rp_env_t* env) {
   completions_t* cms = &env->completions;
@@ -77,25 +78,13 @@ internal completion_t* completions_get( rp_env_t* env, ssize_t index ) {
   return &env->completions.elems[index];
 }
 
-internal ssize_t completion_extra_needed( completion_t* cm ) {
-  return (rp_strlen(cm->replacement) - cm->delete_before - cm->delete_after);  
-}
 
-internal ssize_t completion_apply( completion_t* cm, char* buf, ssize_t len, ssize_t pos, ssize_t* endpos ) {
+internal ssize_t completion_apply( completion_t* cm, stringbuf_t* sbuf, ssize_t pos ) {
   debug_msg( "completion: apply: %s at %zd\n", cm->replacement, pos);
   ssize_t start = pos - cm->delete_before;
-  if (start < 0) return len;
-  ssize_t rlen = rp_strlen(cm->replacement);
-  ssize_t end  = start + rlen;
-  ssize_t next = pos + cm->delete_after;
-  if (next != end) {
-    rp_memmove( buf+end, buf+next, len - pos );
-  }
-  rp_memcpy( buf+start, cm->replacement, rlen );
-  ssize_t extra = end - next;
-  assert( completion_extra_needed(cm) == extra);
-  if (endpos != NULL) *endpos = end;
-  return (len + extra);
+  if (start < 0) start = 0;
+  sbuf_delete_from_to( sbuf, start, pos + cm->delete_after );
+  return sbuf_insert_at(sbuf, cm->replacement, start); 
 }
 
 exported void rp_set_completer( rp_env_t* env, rp_completion_fun_t* completer, void* arg) {
