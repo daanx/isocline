@@ -145,7 +145,9 @@ internal bool term_vwritef(term_t* term, const char* fmt, va_list args ) {
 
 
 //-------------------------------------------------------------
-// Primitive
+// Write to the terminal
+// The buffered functions are used to reduce cursor flicker
+// during refresh
 //-------------------------------------------------------------
 
 internal void term_beep(term_t* term) {
@@ -207,6 +209,11 @@ internal bool term_end_buffered(term_t* term) {
   return true;
 }
 
+
+//-------------------------------------------------------------
+// Init
+//-------------------------------------------------------------
+
 static void term_init_raw(term_t* term);
 
 internal bool term_init(term_t* term, tty_t* tty, alloc_t* mem, bool monochrome, bool silent, int fout ) 
@@ -252,7 +259,7 @@ internal void term_done(term_t* term) {
 
 
 //-------------------------------------------------------------
-// Write to terminal
+// Platform dependent: Write directly to the terminal
 //-------------------------------------------------------------
 
 #if !defined(_WIN32)

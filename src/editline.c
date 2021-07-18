@@ -1184,7 +1184,7 @@ again:
 
 // Start an incremental search with the current word 
 static void edit_history_search_with_current_word(rp_env_t* env, editbuf_t* eb) {
-  const char* initial = NULL;
+  char* initial = NULL;
   ssize_t start = editbuf_get_word_start( eb, eb->pos );
   if (start >= 0) {
     initial = mem_strndup( &env->alloc, eb->buf + start, eb->pos - start);
@@ -1743,6 +1743,7 @@ static char* edit_line( rp_env_t* env, const char* prompt_text )
   debug_msg("edit: input: %s\n", res);
 
   // update history
+  if (rlen <= 1) rp_history_remove_last(env);  // no empty or single-char entries
   history_update(env,res);
   history_save(env);
   return res;

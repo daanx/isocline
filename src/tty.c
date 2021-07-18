@@ -121,7 +121,7 @@ internal code_t tty_read(tty_t* tty) {
   else if (code == WITH_CTRL(KEY_TAB)) {
     code = KEY_SHIFT_TAB;
   }
-  // treat ctrl+end/alt+> and ctrl-home/alt+< always as pagedown/pageup for portability
+  // treat ctrl+end/alt+> and ctrl+home/alt+< always as pagedown/pageup for portability
   else if (code == WITH_ALT('>') || code == WITH_CTRL(KEY_END)) {
     code = KEY_PAGEDOWN;
   }
@@ -353,15 +353,13 @@ static bool tty_has_available(tty_t* tty) {
 static void tty_waitc_console(tty_t* tty);
 
 static bool tty_readc(tty_t* tty, char* c) {
-  /*
-  // The following does not work as one cannot paste unicode characters this way :-(
-  DWORD nread;
-  ReadConsole(tty->hcon, c, 1, &nread, NULL);
-  if (nread != 1) return false;
-  debug_msg("tty: readc: \\x%02x\n", *c);
-  */
-  
   if (tty_cpop(tty,c)) return true;
+
+  // The following does not work as one cannot paste unicode characters this way :-(
+  //   DWORD nread;
+  //   ReadConsole(tty->hcon, c, 1, &nread, NULL);
+  //   if (nread != 1) return false;
+  // so instead we read directly from the console input events and cpush into the tty   
   tty_waitc_console(tty); 
   return tty_cpop(tty,c);
 }
