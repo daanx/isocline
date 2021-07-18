@@ -21,7 +21,7 @@ internal bool history_update( rp_env_t* env, const char* entry ) {
   if (entry==NULL) return false;
   rp_history_remove_last(env);
   history_push(env,entry);
-  debug_msg("history: update: with %s; now at %s\n", entry, history_get(env,0));
+  debug_msg("history: update: with %s; now at %s\n", entry, history_get(&env->history,0));
   return true;
 }
 
@@ -76,30 +76,30 @@ exported void rp_history_clear(rp_env_t* env) {
   history_remove_last_n( env, env->history.count );
 }
 
-internal const char* history_get( rp_env_t* env, ssize_t n ) {
-  history_t* h = &env->history;
+internal const char* history_get( const history_t* h, ssize_t n ) {
   if (n < 0 || n >= h->count) return NULL;
   return h->elems[h->count - n - 1];
 }
 
-internal ssize_t history_search( history_t* h, ssize_t from /*excluding*/, const char* search, bool backward, ssize_t* pos) {
-  const char* p;
+internal bool history_search( const history_t* h, ssize_t from /*including*/, const char* search, bool backward, ssize_t* hidx, ssize_t* hpos ) {
+  const char* p = NULL;
   ssize_t i;
   if (backward) {
-    for( i = from-1; i >= 0; i-- ) {
-      p = strstr(h->elems[i], search);
+    for( i = from; i < h->count; i++ ) {
+      p = strstr( history_get(h,i), search);
       if (p != NULL) break;
     }
   }
   else {
-    for( i = from+1; i < h->count; i++ ) {
-      p = strstr(h->elems[i], search);
+    for( i = from; i >= 0; i-- ) {
+      p = strstr( history_get(h,i), search);
       if (p != NULL) break;
     }
   }
-  if (p == NULL) return -1;
-  if (pos != NULL) *pos = (p - h->elems[i]);
-  return i;
+  if (p == NULL) return false;
+  if (hidx != NULL) *hidx = i;
+  if (hpos != NULL) *hpos = (p - history_get(h,i));
+  return true;
 }
 
 //-------------------------------------------------------------

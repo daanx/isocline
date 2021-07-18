@@ -94,6 +94,18 @@ internal char* mem_strdup( alloc_t* mem, const char* s) {
   return p;
 }
 
+internal char* mem_strndup( alloc_t* mem, const char* s, ssize_t n) {
+  if (s==NULL || n < 0) return NULL;
+  char* p = mem_malloc_tp_n(mem,char,n+1);
+  if (p == NULL) return NULL;
+  ssize_t i;
+  for( i = 0; i < n && s[i] != 0; i++) {
+    p[i] = s[i];
+  }
+  assert(i <= n);
+  p[i] = 0;
+  return p;
+}
 
 //-------------------------------------------------------------
 // Initialize

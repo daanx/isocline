@@ -113,9 +113,13 @@ internal code_t tty_read(tty_t* tty) {
   if (key == KEY_RUBOUT) {
     code = KEY_BACKSP | mods;
   }
-  // treat ctrl/shift + tab/enter always as KEY_LINEFEED for portability
-  else if ((key == KEY_TAB || key==KEY_ENTER) && (mods & (MOD_SHIFT|MOD_CTRL)) != 0) {
+  // treat ctrl/shift + enter always as KEY_LINEFEED for portability
+  else if (code == WITH_CTRL(KEY_ENTER) || code == WITH_SHIFT(KEY_ENTER)) {
     code = KEY_LINEFEED;
+  }
+  // treat ctrl+tab always as shift+tab for portability
+  else if (code == WITH_CTRL(KEY_TAB)) {
+    code = KEY_SHIFT_TAB;
   }
   // treat ctrl+end/alt+> and ctrl-home/alt+< always as pagedown/pageup for portability
   else if (code == WITH_ALT('>') || code == WITH_CTRL(KEY_END)) {

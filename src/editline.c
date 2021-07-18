@@ -240,17 +240,24 @@ static void editbuf_clear_extra( editbuf_t* eb ) {
   eb->count = ilen + 1;
 }
 
-static bool editbuf_append_extra( alloc_t* mem, editbuf_t* eb, const char* s ) {
-  if (s == NULL) return true;
+static bool editbuf_append_extra_n( alloc_t* mem, editbuf_t* eb, const char* s, ssize_t n ) {
+  if (s == NULL || n < 0) return true;
   ssize_t len = rp_strlen(s);
-  if (!editbuf_ensure_space(mem,eb,len)) return false;
-  assert(eb->buflen - eb->count >= len);
-  if (!rp_memnmove( eb->buf + eb->count, eb->buflen - eb->count, s, len )) {
+  if (len < n) n = len;
+  if (!editbuf_ensure_space(mem,eb,n)) return false;
+  assert(eb->buflen - eb->count >= n);
+  if (!rp_memnmove( eb->buf + eb->count, eb->buflen - eb->count, s, n )) {
     assert(false);
     return false;
   }
-  eb->count += len;
+  eb->count += n;
   return true;
+}
+
+static bool editbuf_append_extra( alloc_t* mem, editbuf_t* eb, const char* s ) {
+  if (s == NULL) return true;
+  ssize_t len = rp_strlen(s);
+  return  editbuf_append_extra_n( mem, eb, s, len);
 }
 
 static const char* editbuf_drop_until_fit( editbuf_t* eb, const char* s, ssize_t max_width) {
@@ -962,7 +969,7 @@ static void edit_history_at(rp_env_t* env, editbuf_t* eb, int ofs )
     eb->history_idx = 0;          // and start again 
     eb->modified = false;    
   }
-  const char* entry = history_get(env,eb->history_idx + ofs);
+  const char* entry = history_get(&env->history,eb->history_idx + ofs);
   debug_msg( "edit: history: at: %d + %d, found: %s\n", eb->history_idx, ofs, entry);
   if (entry == NULL) return;
   eb->history_idx += ofs;
@@ -985,12 +992,53 @@ static void edit_history_next(rp_env_t* env, editbuf_t* eb) {
   edit_history_at(env,eb, -1 );
 }
 
-static void edit_history_search(rp_env_t* env, editbuf_t* eb) {
+typedef struct hsearch_s {
+  struct hsearch_s* next;
+  ssize_t hidx;
+  ssize_t match_pos;
+  ssize_t match_len;
+  bool cinsert;
+} hsearch_t;
+
+static void hsearch_push( alloc_t* mem, hsearch_t** hs, ssize_t hidx, ssize_t mpos, ssize_t mlen, bool cinsert ) {
+  hsearch_t* h = mem_zalloc_tp( mem, hsearch_t );
+  if (h == NULL) return;
+  h->hidx = hidx;
+  h->match_pos = mpos;
+  h->match_len = mlen;
+  h->cinsert = cinsert;
+  h->next = *hs;
+  *hs = h;
+}
+
+static bool hsearch_pop( hsearch_t** hs, ssize_t* hidx, ssize_t* match_pos, ssize_t* match_len, bool* cinsert ) {
+  hsearch_t* h = *hs;
+  if (h == NULL) return false;
+  *hs = h->next;
+  if (hidx != NULL)      *hidx = h->hidx;
+  if (match_pos != NULL) *match_pos = h->match_pos;
+  if (match_len != NULL) *match_len = h->match_len;
+  if (cinsert != NULL)   *cinsert = h->cinsert;
+  return true;
+}
+
+static void hsearch_done( alloc_t* mem, hsearch_t* hs ) {
+  while (hs != NULL) {
+    hsearch_t* next = hs->next;
+    mem_free(mem, hs);
+    hs = next;
+  }
+}
+
+static void edit_history_search(rp_env_t* env, editbuf_t* eb, char* initial ) {
+  // update history
   if (eb->modified) { 
     history_update(env, eb->buf); // update first entry if modified
     eb->history_idx = 0;          // and start again 
     eb->modified = false;
   }
+
+  // set a search prompt
   const char* prompt_text = eb->prompt_text;
   ssize_t prompt_width = eb->prompt_width;
   ssize_t old_pos = eb->pos;
@@ -998,57 +1046,105 @@ static void edit_history_search(rp_env_t* env, editbuf_t* eb) {
   eb->prompt_text = "history search";
   eb->prompt_width = editbuf_width(eb,eb->prompt_text) + (env->prompt_marker==NULL ? 2 : editbuf_width(eb,env->prompt_marker));
   editbuf_clear_extra(eb);
-  editbuf_replace_input(&env->alloc, eb, "", 0);
+  
+  // search state
+  hsearch_t* hs = NULL;        // search undo 
+  ssize_t hidx = 1;            // current history entry
+  ssize_t match_pos = 0;       // current matched position
+  ssize_t match_len = 0;       // length of the match
+  const char* hentry = NULL;   // current history entry
+  char buf[32];                // for formatting the index number
 
-  ssize_t hidx = 1;
-  const char* hentry = NULL;
-  char buf[32];
+  // Simulate per character searches for each letter in `initial` (so backspace works)
+  if (initial != NULL) {
+    const ssize_t initial_len = rp_strlen(initial);
+    ssize_t ipos = 0;
+    while( ipos < initial_len ) {
+      ssize_t next = editbuf_next_ofs( eb, initial, initial_len, ipos, NULL );
+      if (next < 0) break;
+      hsearch_push( &env->alloc, &hs, hidx, match_pos, match_len, true);
+      char c = initial[ipos + next];  // terminate temporarily
+      initial[ipos + next] = 0;
+      if (history_search( &env->history, hidx, initial, true, &hidx, &match_pos )) {
+        match_len = ipos + next;
+      }      
+      else if (ipos + next >= initial_len) {
+        term_beep(&env->term);
+      }
+      initial[ipos + next] = c;       // restore
+      ipos += next;
+    }
+    editbuf_replace_input( &env->alloc, eb, initial, ipos);
+  }
+  else {
+    editbuf_replace_input(&env->alloc, eb, "", 0);
+  }
+
+  // Incremental search
 again:
-  hentry = history_get(env,hidx);
-  snprintf(buf,32,"\n%zd. ", hidx);
+  hentry = history_get(&env->history,hidx);
+  snprintf(buf,32,"\n\x1B[97m%zd. ", hidx);
   editbuf_append_extra( &env->alloc, eb, buf );
-  editbuf_append_extra( &env->alloc, eb, "\x1B[90m" );
-  editbuf_append_extra( &env->alloc, eb, hentry );
+  editbuf_append_extra( &env->alloc, eb, "\x1B[90m" );         // dark gray
+  editbuf_append_extra_n( &env->alloc, eb, hentry, match_pos );  
+  editbuf_append_extra( &env->alloc, eb, "\x1B[4m\x1B[97m" );  // underline bright white
+  editbuf_append_extra_n( &env->alloc, eb, hentry + match_pos, match_len );
+  editbuf_append_extra( &env->alloc, eb, "\x1B[90m\x1B[24m" ); // no underline dark gray
+  editbuf_append_extra( &env->alloc, eb, hentry + match_pos + match_len );
+  editbuf_append_extra( &env->alloc, eb, "\n\n(use tab for the next match and backspace to go back)" );
   editbuf_append_extra( &env->alloc, eb, "\x1B[0m\n" );
   edit_refresh(env, eb);
 
+  // Process commands
   code_t c = tty_read(&env->tty);
   editbuf_clear_extra(eb);
   if (c == KEY_ESC || c == KEY_BELL /* ^G */ || c == KEY_CTRL_C) {
     c = 0;  
-    editbuf_replace_input( &env->alloc, eb, history_get(env,0), old_pos );
+    editbuf_replace_input( &env->alloc, eb, history_get(&env->history,0), old_pos );
   } 
-  else if (c == KEY_ENTER || c == KEY_TAB) {
+  else if (c == KEY_ENTER) {
     c = 0;
     editbuf_replace_input( &env->alloc, eb, hentry, 0 );
     eb->pos = editbuf_input_len(eb);
     eb->modified = false;
     eb->history_idx = hidx;
-  }
-  else if (c == KEY_UP) {
-    const char* next = history_get(env,hidx+1);
-    if (next != NULL) {
-      hentry = next;
-      hidx++;
+  }  
+  else if (c == KEY_BACKSP || c == KEY_CTRL_Z) {
+    // undo last search action
+    bool cinsert;
+    if (hsearch_pop(&hs, &hidx, &match_pos, &match_len, &cinsert)) {
+      if (cinsert) edit_backspace(env,eb);
     }
     goto again;
   }
-  else if (c == KEY_DOWN) {
-    if (hidx > 0) hidx--;
+  else if (c == KEY_CTRL_R || c == KEY_TAB || c == KEY_UP) {    
+    // search backward
+    hsearch_push(&env->alloc, &hs, hidx, match_pos, match_len, false);
+    if (!history_search( &env->history, hidx+1, eb->buf, true, &hidx, &match_pos )) {
+      hsearch_pop(&hs,NULL,NULL,NULL,NULL);
+      term_beep(&env->term);
+    };
     goto again;
-  }
-  else if (c == KEY_BACKSP) {
-    edit_backspace(env,eb);
+  }  
+  else if (c == KEY_CTRL_S || c == KEY_SHIFT_TAB || c == KEY_DOWN) {    
+    // search forward
+    hsearch_push(&env->alloc, &hs, hidx, match_pos, match_len, false);
+    if (!history_search( &env->history, hidx-1, eb->buf, false, &hidx, &match_pos )) {
+      hsearch_pop(&hs,NULL,NULL,NULL,NULL);
+      term_beep(&env->term);
+    };
     goto again;
-  }
+  }  
   else {
+    // insert character and search further backward
     int tofollow;
     char chr;
     if (code_is_char(&env->tty,c,&chr)) {
-      edit_insert_char(env,eb,chr, false /* refresh */);
-      goto again;
+      hsearch_push(&env->alloc, &hs, hidx, match_pos, match_len, true);
+      edit_insert_char(env,eb,chr, false /* refresh */);      
     }
     else if (code_is_extended(&env->tty,c,&chr,&tofollow)) {
+      hsearch_push(&env->alloc, &hs, hidx, match_pos, match_len, true);
       edit_insert_char(env,eb,chr,false);
       while (tofollow-- > 0) {
         c = tty_read(&env->tty);
@@ -1062,17 +1158,41 @@ again:
         }
       }
       edit_refresh(env,eb);
+    }
+    else {
+      // ignore command
+      term_beep(&env->term);
       goto again;
     }
-    term_beep(&env->term);
+    // search for the new input
+    if (history_search( &env->history, hidx, eb->buf, true, &hidx, &match_pos )) {
+      match_len = editbuf_input_len(eb);
+    }
+    else {
+      term_beep(&env->term);
+    };
     goto again;
   }
 
+  // done
+  hsearch_done(&env->alloc,hs);
   eb->prompt_text = prompt_text;
   eb->prompt_width = prompt_width;
   edit_refresh(env,eb);
   if (c != 0) tty_code_pushback(&env->tty, c);
 }
+
+// Start an incremental search with the current word 
+static void edit_history_search_with_current_word(rp_env_t* env, editbuf_t* eb) {
+  const char* initial = NULL;
+  ssize_t start = editbuf_get_word_start( eb, eb->pos );
+  if (start >= 0) {
+    initial = mem_strndup( &env->alloc, eb->buf + start, eb->pos - start);
+  }
+  edit_history_search( env, eb, initial);
+  mem_free(&env->alloc, initial);
+}
+
 
 //-------------------------------------------------------------
 // Help
@@ -1087,9 +1207,9 @@ static const char* help[] = {
   "","We use ^<key> as a shorthand for ctrl-<key>.",
   "","",
   "","Navigation:",
-  "left, "
+  "left,"
   "^b",         "go one character to the left",
-  "right, "
+  "right,"
   "^f",         "go one character to the right",
   "up",         "go one row up, or back in the history",
   "down",       "go one row down, or forward in the history",  
@@ -1105,45 +1225,49 @@ static const char* help[] = {
   "^right",
   #endif
                 "go to the end the current word",
-  "home, "
+  "home,"
   "^a",         "go to the start of the current line",  
-  "end, "
+  "end,"
   "^e",         "go to the end of the current line",
-  "^home, "
-  "pgup",       "go to the start of the current input",
-  "^end, "
-  "pgdn",       "go to the end of the current input",
+  "pgup,"
+  "^home",       "go to the start of the current input",
+  "pgdn,"
+  "^end",       "go to the end of the current input",
   "^p",         "go back in the history",
   "^n",         "go forward in the history",
+  "^r,^s",      "search the history starting with the current word",
   "","",
-  "", "Editing:",
-  "enter",      "accept current input",
-  #ifndef __APPLE__
-  "^enter, ^j", "",
-  #else
-  "^j, "
-  #endif
-  "shift-tab",  "create a new line for multi-line input",
-  //" ",          "(or type '\\' followed by enter)",
-  "^l",         "clear screen",
-  "^t",         "swap with previous character (move character backward)",
-  "del",        "delete the current character",
-  "backsp",     "delete the previous character",
+  
+  "", "Deletion:",
+  "del,^d",     "delete the current character",
+  "backsp,^h",  "delete the previous character",
   "^w",         "delete to preceding white space",
   "alt-backsp", "delete to the start of the current word",
   "alt-d",      "delete to the end of the current word",
   "^u",         "delete to the start of the current line",
   "^k",         "delete to the end of the current line",
-  "esc",        "delete the current line, or done with empty input",
-  "^d",         "delete current character, or done with empty input",
-  "^z, ^_",     "undo",
+  "esc",        "delete the current line, or done with empty input",  
+  "","",
+  
+  "", "Editing:",
+  "enter",      "accept current input",
+  #ifndef __APPLE__
+  "^enter, ^j", "", "shift-tab"
+  #else
+  "shift-tab,^j",
+  #endif
+                "create a new line for multi-line input",
+  //" ",          "(or type '\\' followed by enter)",
+  "^l",         "clear screen",
+  "^t",         "swap with previous character (move character backward)",
+  "^z,^_",      "undo",
   "^y",         "redo",
   //"^C",         "done with empty input",
   //"F1",         "show this help",
   "tab",        "try to complete the current input",
   "","",
-  "","Inside the completion menu:",
-  "enter, "
+  "","In the completion menu:",
+  "enter,"
   "space",      "use the currently selected completion",
   "1 - 9",      "use completion N from the menu",
   "tab",        "select the next completion",
@@ -1151,6 +1275,16 @@ static const char* help[] = {
   "esc",        "exit menu without completing",
   "pgdn,", "",
   "shift-tab",  "show all further possible completions",
+  "","",
+  "","In incremental history search:",
+  "enter",      "use the currently found history entry",
+  "backsp,"
+  "^z",         "go back to the previous match (undo)",
+  "tab,"
+  "^r",         "find the next match",
+  "shift-tab,"
+  "^s",         "find an earlier match",
+  "esc",        "exit search",
   " ","",
   NULL, NULL
 };
@@ -1334,7 +1468,7 @@ again:
     c = 0;      
     edit_complete(env, eb, selected);
   }
-  else if ((c == KEY_PAGEDOWN || c == KEY_LINEFEED || c == KEY_CTRL_END) && count > 9) {
+  else if ((c == KEY_PAGEDOWN || c == KEY_SHIFT_TAB || c == KEY_LINEFEED) && count > 9) {
     // show all completions
     c = 0;
     if (more_available) {
@@ -1472,7 +1606,8 @@ static char* edit_line( rp_env_t* env, const char* prompt_text )
     }
     // Editing Operations
     else switch(c) {
-      case KEY_LINEFEED: // '\n' (ctrl+J, shift+enter, ctrl+tab)
+      case KEY_SHIFT_TAB:
+      case KEY_LINEFEED: // '\n' (ctrl+J, shift+enter)
         if (!env->singleline_only) { edit_insert_char(env,&eb,'\n',true); }
         break;
       case KEY_TAB:
@@ -1481,7 +1616,7 @@ static char* edit_line( rp_env_t* env, const char* prompt_text )
         break;
       case KEY_CTRL_R:
       case KEY_CTRL_S:
-        edit_history_search(env,&eb);
+        edit_history_search_with_current_word(env,&eb);
         break;
       case KEY_LEFT:
       case KEY_CTRL_B:

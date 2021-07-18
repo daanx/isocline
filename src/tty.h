@@ -93,7 +93,7 @@ internal code_t tty_read_esc(tty_t* tty); // in tty_esc.c
 #define KEY_BELL          (7)
 #define KEY_BACKSP        (8)
 #define KEY_TAB           (9)
-#define KEY_LINEFEED      (10)   // ctrl/shift + enter/tab is considered KEY_LINEFEED
+#define KEY_LINEFEED      (10)   // ctrl/shift + enter is considered KEY_LINEFEED
 #define KEY_CTRL_K        (11)
 #define KEY_CTRL_L        (12)
 #define KEY_ENTER         (13)
@@ -156,6 +156,6 @@ internal code_t tty_read_esc(tty_t* tty); // in tty_esc.c
 #define KEY_CTRL_PAGEDOWN (WITH_CTRL(KEY_PAGEDOWN)))
 #define KEY_CTRL_INS      (WITH_CTRL(KEY_INS))
 
-
+#define KEY_SHIFT_TAB     (WITH_SHIFT(KEY_TAB))
 
 #endif // RP_TTY_H
