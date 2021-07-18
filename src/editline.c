@@ -227,10 +227,10 @@ static bool edit_refresh_rows_iter(
     }
     term_write(term, "\r\n");
   }
-  return true; // (row >= info->last_row);  // keep going so we get the total rows
+  return (row >= info->last_row);  
 }
 
-static ssize_t edit_refresh_rows(rp_env_t* env, editor_t* eb, 
+static void edit_refresh_rows(rp_env_t* env, editor_t* eb, 
                                   ssize_t termw, ssize_t promptw, 
                                   bool in_extra, ssize_t first_row, ssize_t last_row) 
 {
@@ -240,7 +240,7 @@ static ssize_t edit_refresh_rows(rp_env_t* env, editor_t* eb,
   info.in_extra = in_extra;
   info.first_row  = first_row;
   info.last_row   = last_row;
-  return sbuf_for_each_row( (in_extra ? eb->extra : eb->input), termw, promptw,
+  sbuf_for_each_row( (in_extra ? eb->extra : eb->input), termw, promptw,
                             &edit_refresh_rows_iter, &info, NULL );
 }
 
@@ -274,7 +274,7 @@ static void edit_refresh(rp_env_t* env, editor_t* eb)
   
   // render rows
   edit_refresh_rows( env, eb, termw, promptw, false, first_row, last_row );
-  if (rows_extra > 0) edit_refresh_rows( env, eb, termw, promptw, false, first_row + rows_input, last_row );
+  if (rows_extra > 0) edit_refresh_rows( env, eb, termw, promptw, true, first_row + rows_input, last_row );
 
   // overwrite trailing rows we do not use anymore
   ssize_t rrows = last_row - first_row + 1;  // rendered rows
@@ -291,7 +291,7 @@ static void edit_refresh(rp_env_t* env, editor_t* eb)
   // move cursor back to edit position
   term_start_of_line(&env->term);
   term_up(&env->term, first_row + rrows - 1 - rc.row );
-  term_right(&env->term, rc.col);
+  term_right(&env->term, rc.col + promptw);
   term_end_buffered(&env->term);
 
   // update previous
@@ -341,7 +341,7 @@ static void edit_redo_restore(rp_env_t* env, editor_t* eb) {
 
 static void edit_cursor_left(rp_env_t* env, editor_t* eb) {
   ssize_t prev = sbuf_prev(eb->input,eb->pos);
-  if (prev <= 0) return;
+  if (prev < 0) return;
   rowcol_t rc;
   edit_get_rowcol( env, eb, &rc);
   ssize_t w = eb->pos - prev;
@@ -357,7 +357,7 @@ static void edit_cursor_left(rp_env_t* env, editor_t* eb) {
 
 static void edit_cursor_right(rp_env_t* env, editor_t* eb) {
   ssize_t next = sbuf_next(eb->input,eb->pos);
-  if (next <= 0) return;
+  if (next <  0) return;
   rowcol_t rc;
   edit_get_rowcol( env, eb, &rc);
   ssize_t w = next - eb->pos;
@@ -1013,7 +1013,7 @@ again:
   // read here; if not a valid key, push it back and return to main event loop
   code_t c = tty_read(&env->tty);
   sbuf_clear(eb->extra);      
-  if (c >= '1' && c <= '9' && c - '1' < count) {
+  if (c >= '1' && c <= '9' && (ssize_t)(c - '1') < count) {
     selected = (c - '1');
     c = KEY_SPACE;
   }   

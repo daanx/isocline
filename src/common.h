@@ -92,6 +92,7 @@ static inline bool rp_strncpy( char* dest, ssize_t dest_size /* including 0 */, 
   if (dest == NULL || dest_size <= 0) return false;
   if (n >= dest_size) return false;
   strncpy(dest,src,to_size_t(n));
+  dest[n] = 0;
   return true;
 }
 

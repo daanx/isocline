@@ -4,7 +4,6 @@
   under the terms of the MIT License. A copy of the license can be
   found in the "LICENSE" file at the root of this distribution.
 -----------------------------------------------------------------------------*/
-#define _CRT_SECURE_NO_WARNINGS  // for msvc
 
 //-------------------------------------------------------------
 // Usually we include all sources one file so no internal 
@@ -14,6 +13,7 @@
 // $ gcc -c src/repline.c
 //-------------------------------------------------------------
 #if !defined(RP_SEPARATE_OBJS)
+# define _CRT_SECURE_NO_WARNINGS  // for msvc
 # include "editline.c"
 # include "history.c"
 # include "completions.c"
@@ -39,6 +39,7 @@
 #include "env.h"
 
 #if defined(_WIN32)
+#define STDIN_FILENO 0
 #else
 #include <unistd.h>
 #endif

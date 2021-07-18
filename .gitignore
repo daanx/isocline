@@ -1,4 +1,6 @@
 out/
 build/
+.vs/
 .DS_Store
 history.txt
+*.user

@@ -12,7 +12,7 @@
 #include "common.h"
 #include "tty.h"
 #include "term.h"
-
+#include "stringbuf.h" // str_next_ofs
 #if defined(_WIN32)
 #include <windows.h>
 #define STDOUT_FILENO 1
@@ -444,7 +444,7 @@ static bool term_write_direct(term_t* term, const char* s, ssize_t len ) {
     // handle non-control in bulk
     ssize_t nonctrl = 0;
     ssize_t next;
-    while( (next = skip_next_code( s, len, pos+nonctrl, true )) > 0 && (uint8_t)s[pos + nonctrl] >= ' ') {
+    while( (next = str_next_ofs( s, len, pos+nonctrl, true, NULL )) > 0 && (uint8_t)s[pos + nonctrl] >= ' ') {
       nonctrl += next;
     }
     if (nonctrl > 0) {

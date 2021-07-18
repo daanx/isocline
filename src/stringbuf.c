@@ -259,6 +259,7 @@ static ssize_t str_find_ws_word_end( const char* s, ssize_t len, ssize_t pos, bo
 static ssize_t str_for_each_row( const char* s, ssize_t len, ssize_t termw, ssize_t promptw, 
                                  row_fun_t* fun, bool is_utf8, const void* arg, void* res ) 
 {
+  if (s == NULL) s = "";
   ssize_t i;
   ssize_t rcount = 0;
   ssize_t rcol = 0;
@@ -449,8 +450,8 @@ internal ssize_t sbuf_insert_at_n(stringbuf_t* sbuf, const char* s, ssize_t n, s
   if (pos < 0 || pos > sbuf->count || s == NULL) return pos;
   n = str_limit_to_length(s,n);
   if (n <= 0 || !sbuf_ensure_extra(sbuf,n)) return pos;
-  rp_memmove(sbuf + pos + n, sbuf + pos, sbuf->count - pos);
-  rp_memcpy(sbuf + pos, s, n);
+  rp_memmove(sbuf->buf + pos + n, sbuf->buf + pos, sbuf->count - pos);
+  rp_memcpy(sbuf->buf + pos, s, n);
   sbuf->count += n;
   sbuf->buf[sbuf->count] = 0;
   return (pos + n);
@@ -463,7 +464,7 @@ internal ssize_t sbuf_insert_at(stringbuf_t* sbuf, const char* s, ssize_t pos ) 
 internal void sbuf_delete_at( stringbuf_t* sbuf, ssize_t pos, ssize_t count ) {
   if (pos < 0 || pos >= sbuf->count) return;
   if (pos + count > sbuf->count) count = sbuf->count - pos;
-  rp_memmove(sbuf + pos, sbuf + pos + count, sbuf->count - pos - count);
+  rp_memmove(sbuf->buf + pos, sbuf->buf + pos + count, sbuf->count - pos - count);
   sbuf->count -= count;
   sbuf->buf[sbuf->count] = 0;
 }
