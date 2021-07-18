@@ -119,4 +119,5 @@ internal char* mem_strndup( alloc_t* mem, const char* s, ssize_t n);
 #define mem_zalloc_tp(mem,tp)     (tp*)mem_zalloc(mem,ssizeof(tp))
 #define mem_malloc_tp_n(mem,tp,n) (tp*)mem_malloc(mem,(n)*ssizeof(tp))
 
+
 #endif // RP_COMMON_H

@@ -30,6 +30,7 @@ if(RP_SEPARATE_OBJS)
               src/completions.c
               src/editline.c
               src/history.c
+              src/stringbuf.c
               src/term.c
               src/tty_esc.c
               src/tty.c

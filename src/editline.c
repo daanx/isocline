@@ -12,6 +12,7 @@
 #include "term.h"
 #include "tty.h"
 #include "env.h"
+#include "stringbuf.h"
 
 #if defined(_WIN32)
 #else
@@ -114,7 +115,7 @@ static ssize_t editbuf_cwidth( editbuf_t* eb, const char* s, ssize_t n ) {
   if (s == NULL || n <= 0) return 0;
   else if ((uint8_t)(*s) < ' ') return 0;  
   else if (!eb->is_utf8) return 1;
-  else return utf8_width(s,n); // todo: use wcwidth
+  else return utf8_char_width(s,n); 
 }
 
 static ssize_t editbuf_previous_ofs( editbuf_t* eb, const char* s, ssize_t pos, ssize_t* width ) {
@@ -133,34 +134,6 @@ static ssize_t editbuf_previous_ofs( editbuf_t* eb, const char* s, ssize_t pos, 
   return n;
 }
 
-internal bool skip_csi_esc( const char* s, ssize_t len, ssize_t* esclen ) {
-  if (esclen != NULL) *esclen = 0;
-  if (s == NULL || len < 2|| s[0] != '\x1B' || s[1] != '[') return false;
-  ssize_t n = 2;
-  bool intermediate = false;
-  while( len > n ) {
-    //char buf[32]; strncpy(buf,s,(31 > len ? len : 31));
-    //debug_msg("skip esc: len %zd, n %zd, %s\n", len, n, buf );
-    char c = s[n];
-    if (c >= 0x30 && c <= 0x3F) {       // parameter bytes: 0–9:;<=>?
-      if (intermediate) break;          // cannot follow intermediate bytes
-      n++;
-    }
-    else if (c >= 0x20 && c <= 0x2F) {  // intermediate bytes: ' ',!"#$%&'()*+,-./
-      intermediate = true;
-      n++;
-    }
-    else if (c >= 0x40 && c <= 0x7E) {  // terminating byte: @A–Z[\]^_`a–z{|}~
-      n++;
-      if (esclen != NULL) *esclen = n;
-      return true;
-    }
-    else {
-      break; // illegal character for an escape sequence.
-    }
-  }
-  return false;
-}
 
 internal ssize_t skip_next_code( const char* s, ssize_t len, ssize_t pos, bool utf8 ) {
   ssize_t n = 0;

@@ -354,16 +354,16 @@ static void tty_waitc_console(tty_t* tty);
 
 static bool tty_readc(tty_t* tty, char* c) {
   if (tty_cpop(tty,c)) return true;
-
   // The following does not work as one cannot paste unicode characters this way :-(
   //   DWORD nread;
   //   ReadConsole(tty->hcon, c, 1, &nread, NULL);
   //   if (nread != 1) return false;
-  // so instead we read directly from the console input events and cpush into the tty   
+  // so instead we read directly from the console input events and cpush into the tty:
   tty_waitc_console(tty); 
   return tty_cpop(tty,c);
 }
 
+// Read from the console input events and push escape codes into the tty cbuffer.
 static void tty_waitc_console(tty_t* tty) 
 {
   //  wait for a key down event

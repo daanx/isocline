@@ -20,6 +20,7 @@
 # include "term.c"
 # include "tty_esc.c"
 # include "tty.c"
+# include "stringbuf.c"
 # include "wcwidth.c"
 #endif
 
