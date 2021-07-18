@@ -1022,6 +1022,8 @@ again:
     c = 0;
     editbuf_replace_input( &env->alloc, eb, hentry, 0 );
     eb->pos = editbuf_input_len(eb);
+    eb->modified = false;
+    eb->history_idx = hidx;
   }
   else if (c == KEY_UP) {
     const char* next = history_get(env,hidx+1);
@@ -1035,10 +1037,31 @@ again:
     if (hidx > 0) hidx--;
     goto again;
   }
+  else if (c == KEY_BACKSP) {
+    edit_backspace(env,eb);
+    goto again;
+  }
   else {
+    int tofollow;
     char chr;
     if (code_is_char(&env->tty,c,&chr)) {
       edit_insert_char(env,eb,chr, false /* refresh */);
+      goto again;
+    }
+    else if (code_is_extended(&env->tty,c,&chr,&tofollow)) {
+      edit_insert_char(env,eb,chr,false);
+      while (tofollow-- > 0) {
+        c = tty_read(&env->tty);
+        if (code_is_follower(&env->tty,c,&chr)) {
+          edit_insert_char(env,eb,chr, false);
+        }
+        else {
+          // recover bad utf8
+          tty_code_pushback(&env->tty,c);
+          break;
+        }
+      }
+      edit_refresh(env,eb);
       goto again;
     }
     term_beep(&env->term);

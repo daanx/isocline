@@ -82,6 +82,25 @@ internal const char* history_get( rp_env_t* env, ssize_t n ) {
   return h->elems[h->count - n - 1];
 }
 
+internal ssize_t history_search( history_t* h, ssize_t from /*excluding*/, const char* search, bool backward, ssize_t* pos) {
+  const char* p;
+  ssize_t i;
+  if (backward) {
+    for( i = from-1; i >= 0; i-- ) {
+      p = strstr(h->elems[i], search);
+      if (p != NULL) break;
+    }
+  }
+  else {
+    for( i = from+1; i < h->count; i++ ) {
+      p = strstr(h->elems[i], search);
+      if (p != NULL) break;
+    }
+  }
+  if (p == NULL) return -1;
+  if (pos != NULL) *pos = (p - h->elems[i]);
+  return i;
+}
 
 //-------------------------------------------------------------
 // 

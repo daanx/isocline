@@ -77,6 +77,7 @@ internal void     history_save( rp_env_t* env );
 internal bool     history_push( rp_env_t* env, const char* entry );
 internal bool     history_update( rp_env_t* env, const char* entry );
 internal const char* history_get( rp_env_t* env, ssize_t n );
+internal ssize_t history_search( history_t* h, ssize_t from /*excluding*/, const char* search, bool backward, ssize_t* pos);
 
 internal void     completions_done( rp_env_t* env );
 internal void     completions_clear( rp_env_t* env );

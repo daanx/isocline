@@ -35,6 +35,7 @@ where:
   final        ::= [\x40-\x7F]               # @A–Z[\]^_`a–z{|}~
   ESC          ::= '\x1B'
   CSI          ::= ESC '['
+  SS3          ::= ESC 'O'
 
 In ECMA48 `special? (number (';' modifiers)?)?` is the more liberal `[\x30-\x3F]*` 
 but that seems never used for key codes. If the number (vtcode or unicode) or the 
@@ -358,7 +359,6 @@ static code_t tty_read_csi(tty_t* tty, char c1, char peek) {
 }
 
 internal code_t tty_read_esc(tty_t* tty) {
-  // <https://en.wikipedia.org/wiki/ANSI_escape_code#Terminal_input_sequences>
   char peek = 0;
   if (!tty_readc_noblock(tty,&peek)) return KEY_ESC; // ESC
   if (peek == '[') {
