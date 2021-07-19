@@ -11,7 +11,6 @@
 #include "common.h"
 #include "stringbuf.h"
 
-
 struct stringbuf_s {
   char*     buf;
   ssize_t   buflen;
@@ -22,10 +21,48 @@ struct stringbuf_s {
 
 
 //-------------------------------------------------------------
-// String navigation 
+// String column width
 //-------------------------------------------------------------
 
-// The column with of a codepoint (0, 1, or 2)
+// get `mk_wcwidth` for the column width of unicode characters
+#include "wcwidth.c"
+
+// column width of a utf8 single character sequence.
+static ssize_t utf8_char_width( const char* s, ssize_t n ) {
+  if (n <= 0) return 0;
+
+  uint8_t b = (uint8_t)s[0];
+  int32_t c;
+  if (b < ' ') {
+    return 0;
+  }
+  else if (b <= 0x7F) {
+    return 1;
+  }
+  else if (b <= 0xC1) { // invalid continuation byte or invalid 0xC0, 0xC1 (check is strictly not necessary as we don't validate..)
+    return 1;
+  }
+  else if (b <= 0xDF && n >= 2) { // b >= 0xC2  // 2 bytes
+    c = (((b & 0x1F) << 6) | (s[1] & 0x3F));
+    assert(c < 0xD800 || c > 0xDFFF);
+    return mk_wcwidth(c);
+  }
+  else if (b <= 0xEF && n >= 3) { // b >= 0xE0  // 3 bytes 
+    c = (((b & 0x0F) << 12) | ((s[1] & 0x3F) << 6) | (s[2] & 0x3F));
+    return mk_wcwidth(c);    
+  }
+  else if (b <= 0xF4 && n >= 4) { // b >= 0xF0  // 4 bytes 
+    c = (((b & 0x07) << 18) | ((s[1] & 0x3F) << 12) | ((s[2] & 0x3F) << 6) | (s[3] & 0x3F));
+    return mk_wcwidth(c);
+  }
+  else {
+    // failed
+    return 1;
+  }
+}
+
+
+// The column width of a codepoint (0, 1, or 2)
 static ssize_t char_column_width( const char* s, ssize_t n, bool is_utf8 ) {
   if (s == NULL || n <= 0) return 0;
   else if ((uint8_t)(*s) < ' ') return 0;   // also for CSI escape sequences
@@ -39,6 +76,42 @@ static ssize_t char_column_width( const char* s, ssize_t n, bool is_utf8 ) {
     #endif
   }
 }
+
+static ssize_t str_column_width_n( const char* s, ssize_t len, bool is_utf8 ) {
+  if (s == NULL || len <= 0) return 0;
+  ssize_t pos = 0;
+  ssize_t cwidth = 0;
+  ssize_t cw;
+  ssize_t ofs;
+  while (s[pos] != 0 && (ofs = str_next_ofs(s, len, pos, is_utf8, &cw)) > 0) {
+    cwidth += cw;
+    pos += ofs;
+  }  
+  return cwidth;
+}
+
+rp_private ssize_t str_column_width( const char* s, bool is_utf8 ) {
+  return str_column_width_n( s, rp_strlen(s), is_utf8 );
+}
+
+rp_private const char* str_skip_until_fit( const char* s, ssize_t max_width, bool is_utf8) {
+  if (s == NULL) return s;
+  ssize_t cwidth = str_column_width(s, is_utf8);
+  ssize_t len    = rp_strlen(s);
+  ssize_t pos = 0;
+  ssize_t next;
+  ssize_t cw;
+  while (cwidth > max_width && (next = str_next_ofs(s, len, pos, is_utf8, &cw)) > 0) {
+    cwidth -= cw;
+    pos += next;
+  }
+  return (s + pos);
+}
+
+
+//-------------------------------------------------------------
+// String navigation 
+//-------------------------------------------------------------
 
 // get offset of the previous codepoint. does not skip back over CSI sequences.
 static ssize_t str_prev_ofs( const char* s, ssize_t pos, bool is_utf8, ssize_t* width ) {
@@ -107,41 +180,6 @@ rp_private ssize_t str_next_ofs( const char* s, ssize_t len, ssize_t pos, bool i
   }
   if (cwidth != NULL) *cwidth = char_column_width( s+pos, ofs, is_utf8 );
   return ofs;
-}
-
-//-------------------------------------------------------------
-// String column width
-//-------------------------------------------------------------
-
-static ssize_t str_column_width_n( const char* s, ssize_t len, bool is_utf8 ) {
-  if (s == NULL || len <= 0) return 0;
-  ssize_t pos = 0;
-  ssize_t cwidth = 0;
-  ssize_t cw;
-  ssize_t ofs;
-  while (s[pos] != 0 && (ofs = str_next_ofs(s, len, pos, is_utf8, &cw)) > 0) {
-    cwidth += cw;
-    pos += ofs;
-  }  
-  return cwidth;
-}
-
-rp_private ssize_t str_column_width( const char* s, bool is_utf8 ) {
-  return str_column_width_n( s, rp_strlen(s), is_utf8 );
-}
-
-rp_private const char* str_skip_until_fit( const char* s, ssize_t max_width, bool is_utf8) {
-  if (s == NULL) return s;
-  ssize_t cwidth = str_column_width(s, is_utf8);
-  ssize_t len    = rp_strlen(s);
-  ssize_t pos = 0;
-  ssize_t next;
-  ssize_t cw;
-  while (cwidth > max_width && (next = str_next_ofs(s, len, pos, is_utf8, &cw)) > 0) {
-    cwidth -= cw;
-    pos += next;
-  }
-  return (s + pos);
 }
 
 static ssize_t str_limit_to_length( const char* s, ssize_t n ) {

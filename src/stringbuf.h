@@ -96,7 +96,5 @@ rp_private ssize_t str_column_width( const char* s, bool is_utf8 );
 rp_private ssize_t str_next_ofs( const char* s, ssize_t len, ssize_t pos, bool is_utf8, ssize_t* cwidth );
 rp_private const char* str_skip_until_fit( const char* s, ssize_t max_width, bool is_utf8);
 
-// column width of a one utf8 character sequence (of length `n`)
-rp_private ssize_t utf8_char_width( const char* s, ssize_t n );
 
 #endif // RP_STRINGBUF_H

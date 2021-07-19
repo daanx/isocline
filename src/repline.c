@@ -22,7 +22,6 @@
 # include "tty.c"
 # include "stringbuf.c"
 # include "common.c"
-# include "wcwidth.c"
 #endif
 
 //-------------------------------------------------------------
