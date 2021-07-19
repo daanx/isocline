@@ -17,7 +17,7 @@
 #include <io.h>
 #define isatty(fd)     _isatty(fd)
 #define read(fd,s,n)   _read(fd,s,n)
-#define STDIN_FILENO 0
+#define STDIN_FILENO   0
 #else
 #include <termios.h>
 #include <unistd.h>
@@ -310,7 +310,7 @@ rp_private tty_t* tty_new(alloc_t* mem, int fin)
   tty_t* tty = mem_zalloc_tp(mem, tty_t);
   tty->mem = mem;
   tty->fin = (fin < 0 ? STDIN_FILENO : fin);
-  if (!(isatty(fin) && tty_init_raw(tty) && tty_init_utf8(tty))) {
+  if (!(isatty(tty->fin) && tty_init_raw(tty) && tty_init_utf8(tty))) {
     tty_free(tty);
     return NULL;
   }
