@@ -79,7 +79,7 @@ static char* rp_getline(alloc_t* mem)
       break;
     }
     else {
-      sbuf_append_char(sb, c);
+      sbuf_append_char(sb, (char)c);
     }
   }
   return sbuf_free_dup(sb);

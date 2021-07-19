@@ -6,6 +6,8 @@
 -----------------------------------------------------------------------------*/
 
 #include <string.h>
+#include <stdio.h>
+#include <stdarg.h>
 #include "common.h"
 
 
