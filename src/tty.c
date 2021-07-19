@@ -114,18 +114,18 @@ internal code_t tty_read(tty_t* tty) {
     code = KEY_BACKSP | mods;
   }
   // treat ctrl/shift + enter always as KEY_LINEFEED for portability
-  else if (code == WITH_CTRL(KEY_ENTER) || code == WITH_SHIFT(KEY_ENTER)) {
+  else if (key == KEY_ENTER && (mods == MOD_SHIFT || mods == MOD_ALT || mods == MOD_CTRL)) {
     code = KEY_LINEFEED;
   }
   // treat ctrl+tab always as shift+tab for portability
   else if (code == WITH_CTRL(KEY_TAB)) {
     code = KEY_SHIFT_TAB;
   }
-  // treat ctrl+end/alt+> and ctrl+home/alt+< always as pagedown/pageup for portability
-  else if (code == WITH_ALT('>') || code == WITH_CTRL(KEY_END)) {
+  // treat ctrl+end/alt+>/alt-down and ctrl+home/alt+</alt-up always as pagedown/pageup for portability
+  else if (code == WITH_ALT(KEY_DOWN) || code == WITH_ALT('>') || code == WITH_CTRL(KEY_END)) {
     code = KEY_PAGEDOWN;
   }
-  else if (code == WITH_ALT('<') || code == WITH_CTRL(KEY_HOME)) {
+  else if (code == WITH_ALT(KEY_UP) || code == WITH_ALT('<') || code == WITH_CTRL(KEY_HOME)) {
     code = KEY_PAGEUP;
   }
   
