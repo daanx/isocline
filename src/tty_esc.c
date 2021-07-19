@@ -367,7 +367,7 @@ rp_private code_t tty_read_esc(tty_t* tty) {
     return tty_read_csi(tty,c1,peek,0);  // ESC [Oo?] ...
   }
   else if (peek == KEY_ESC) {
-    // macOS returns ESC ESC [ A for alt-up
+    // macOS returns ESC ESC [ [A-D] for alt-<cursor>
     if (!tty_readc_noblock(tty,&peek)) {
       tty_cpush_char(tty,'\x1B'); 
       return KEY_ESC; // ESC

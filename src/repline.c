@@ -37,24 +37,27 @@
 #include "env.h"
 
 
-
 //-------------------------------------------------------------
 // Readline
 //-------------------------------------------------------------
 
 static char*  rp_getline( alloc_t* mem );
 
-rp_public char* rp_readline(rp_env_t* env, const char* prompt_text) {
+rp_public char* rp_readline(rp_env_t* env, const char* prompt_text) 
+{
   if (env == NULL) return NULL;
   if (!env->noedit) {
     // terminal editing enabled
-    return rp_editline(env, prompt_text);
+    return rp_editline(env, prompt_text);   // in editline.c
   } 
   else {
     // no editing capability (pipe, dumb terminal, etc)
-    // display prompt and read directly from the standard input
-    if (prompt_text != NULL) term_write(env->term, prompt_text);
-    term_write(env->term, (env->prompt_marker != NULL ? env->prompt_marker : "> "));    
+    if (env->tty != NULL) {
+      // if the terminal is not interactive, but we are reading from the tty (keyboard), we display a prompt
+      if (prompt_text != NULL) term_write(env->term, prompt_text);
+      term_write(env->term, (env->prompt_marker != NULL ? env->prompt_marker : "> "));    
+    }
+    // read directly from stdin
     return rp_getline(env->mem);
   }
 }
@@ -82,6 +85,57 @@ static char* rp_getline(alloc_t* mem)
   return sbuf_free_dup(sb);
 }
 
+
+//-------------------------------------------------------------
+// Interface
+//-------------------------------------------------------------
+
+rp_public void rp_set_prompt_marker( rp_env_t* env, const char* prompt_marker ) {
+  if (prompt_marker == NULL) prompt_marker = "> ";
+  mem_free(env->mem, env->prompt_marker);
+  env->prompt_marker = mem_strdup(env->mem,prompt_marker);  
+}
+
+rp_public void rp_set_prompt_color( rp_env_t* env, rp_color_t color ) {
+  env->prompt_color = color;
+}
+
+rp_public void rp_enable_multiline( rp_env_t* env, bool enable ) {
+  env->singleline_only = !enable;
+}
+
+rp_public void rp_enable_beep( rp_env_t* env, bool enable ) {
+  term_enable_beep(env->term, enable);
+}
+
+rp_public void rp_enable_color( rp_env_t* env, bool enable ) {
+  term_enable_color( env->term, enable );
+}
+
+rp_public void rp_enable_history_duplicates( rp_env_t* env, bool enable ) {
+  history_enable_duplicates(env->history, enable);
+}
+
+
+rp_public void rp_set_history(rp_env_t* env, const char* fname, long max_entries ) {
+  history_load_from(env->history, fname, max_entries );
+}
+
+rp_public void rp_history_remove_last(rp_env_t* env) {
+  history_remove_last(env->history);
+}
+
+rp_public void rp_history_clear(rp_env_t* env) {
+  history_clear(env->history);
+}
+
+rp_public bool rp_add_completion(rp_env_t* env, const char* display, const char* replacement, long delete_before, long delete_after) {
+  return completions_add(env->completions, display, replacement, delete_before, delete_after);
+}
+
+rp_public void rp_set_completer(rp_env_t* env, rp_completion_fun_t* completer, void* arg) {
+  completions_set_completer(env->completions, completer, arg);
+}
 
 
 //-------------------------------------------------------------
@@ -170,50 +224,4 @@ rp_public rp_env_t* rp_init(void) {
   return rp_init_custom_alloc( &malloc, &realloc, &free );
 }
 
-rp_public void rp_set_prompt_marker( rp_env_t* env, const char* prompt_marker ) {
-  if (prompt_marker == NULL) prompt_marker = "> ";
-  mem_free(env->mem, env->prompt_marker);
-  env->prompt_marker = mem_strdup(env->mem,prompt_marker);  
-}
-
-rp_public void rp_set_prompt_color( rp_env_t* env, rp_color_t color ) {
-  env->prompt_color = color;
-}
-
-rp_public void rp_enable_multiline( rp_env_t* env, bool enable ) {
-  env->singleline_only = !enable;
-}
-
-rp_public void rp_enable_beep( rp_env_t* env, bool enable ) {
-  term_enable_beep(env->term, enable);
-}
-
-rp_public void rp_enable_color( rp_env_t* env, bool enable ) {
-  term_enable_color( env->term, enable );
-}
-
-rp_public void rp_enable_history_duplicates( rp_env_t* env, bool enable ) {
-  history_enable_duplicates(env->history, enable);
-}
-
-
-rp_public void rp_set_history(rp_env_t* env, const char* fname, long max_entries ) {
-  history_load_from(env->history, fname, max_entries );
-}
-
-rp_public void rp_history_remove_last(rp_env_t* env) {
-  history_remove_last(env->history);
-}
-
-rp_public void rp_history_clear(rp_env_t* env) {
-  history_clear(env->history);
-}
-
-rp_public bool rp_add_completion(rp_env_t* env, const char* display, const char* replacement, long delete_before, long delete_after) {
-  return completions_add(env->completions, display, replacement, delete_before, delete_after);
-}
-
-rp_public void rp_set_completer(rp_env_t* env, rp_completion_fun_t* completer, void* arg) {
-  completions_set_completer(env->completions, completer, arg);
-}
 
