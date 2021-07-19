@@ -14,6 +14,7 @@
 
 #if defined(_WIN32)
 #include <windows.h>
+#include <io.h>
 #define isatty(fd)     _isatty(fd)
 #define read(fd,s,n)   _read(fd,s,n)
 #define STDIN_FILENO 0
@@ -125,10 +126,10 @@ internal code_t tty_read(tty_t* tty) {
     code = KEY_CHAR(c);
   }
 
-  code_t key  = KEY_NOMODS(code);
+  code_t key  = KEY_NO_MODS(code);
   code_t mods = KEY_MODS(code);
   debug_msg( "tty: readc %s%s%s 0x%03x ('%c')\n", 
-              mods&MOD_SHIFT ? "shift+" : "",  mods&MOD_CTRL  ? "ctrl+" : "", mods&MOD_ALT   ? "alt+" : "",
+              mods&KEY_MOD_SHIFT ? "shift+" : "",  mods&KEY_MOD_CTRL  ? "ctrl+" : "", mods&KEY_MOD_ALT   ? "alt+" : "",
               key, (key >= ' ' && key <= '~' ? key : ' '));
 
   // treat KEY_RUBOUT (0x7F) as KEY_BACKSP
@@ -136,7 +137,7 @@ internal code_t tty_read(tty_t* tty) {
     code = KEY_BACKSP | mods;
   }
   // treat ctrl/shift + enter always as KEY_LINEFEED for portability
-  else if (key == KEY_ENTER && (mods == MOD_SHIFT || mods == MOD_ALT || mods == MOD_CTRL)) {
+  else if (key == KEY_ENTER && (mods == KEY_MOD_SHIFT || mods == KEY_MOD_ALT || mods == KEY_MOD_CTRL)) {
     code = KEY_LINEFEED;
   }
   // treat ctrl+tab always as shift+tab for portability
@@ -151,9 +152,9 @@ internal code_t tty_read(tty_t* tty) {
     code = KEY_PAGEUP;
   }
   
-  // treat C0 codes without MOD_CTRL
-  if (key < ' ' && (mods&MOD_CTRL) != 0) {
-    code &= ~MOD_CTRL; 
+  // treat C0 codes without KEY_MOD_CTRL
+  if (key < ' ' && (mods&KEY_MOD_CTRL) != 0) {
+    code &= ~KEY_MOD_CTRL; 
   }
   
   return code;
@@ -258,9 +259,9 @@ internal void tty_cpush_unicode(tty_t* tty, uint32_t c) {
 
 static unsigned csi_mods(code_t mods) {
   unsigned m = 1;
-  if (mods&MOD_SHIFT) m += 1;
-  if (mods&MOD_ALT)   m += 2;
-  if (mods&MOD_CTRL)  m += 4;
+  if (mods&KEY_MOD_SHIFT) m += 1;
+  if (mods&KEY_MOD_ALT)   m += 2;
+  if (mods&KEY_MOD_CTRL)  m += 4;
   return m;
 }
 
@@ -277,9 +278,9 @@ static void tty_cpush_csi_xterm( tty_t* tty, code_t mods, char xcode ) {
 // push ESC [ <unicode> ; <mods> u
 static void tty_cpush_csi_unicode( tty_t* tty, code_t mods, uint32_t unicode ) {
   if ((unicode < 0x80 && mods == 0) || 
-      (mods == MOD_CTRL && unicode < ' ' && unicode != KEY_TAB && unicode != KEY_ENTER 
+      (mods == KEY_MOD_CTRL && unicode < ' ' && unicode != KEY_TAB && unicode != KEY_ENTER 
                         && unicode != KEY_LINEFEED && unicode != KEY_BACKSP) ||
-      (mods == MOD_SHIFT && unicode >= ' ' && unicode <= KEY_RUBOUT)) {
+      (mods == KEY_MOD_SHIFT && unicode >= ' ' && unicode <= KEY_RUBOUT)) {
     tty_cpush_char(tty,(char)unicode);
   }
   else {
@@ -423,14 +424,14 @@ static void tty_waitc_console(tty_t* tty)
     
     // get modifiers
     code_t mods = 0;
-    if ((modstate & ( RIGHT_CTRL_PRESSED | LEFT_CTRL_PRESSED )) != 0) mods |= MOD_CTRL;
-    if ((modstate & ( RIGHT_ALT_PRESSED | LEFT_ALT_PRESSED )) != 0)   mods |= MOD_ALT;
-    if ((modstate & SHIFT_PRESSED) != 0)                              mods |= MOD_SHIFT;
+    if ((modstate & ( RIGHT_CTRL_PRESSED | LEFT_CTRL_PRESSED )) != 0) mods |= KEY_MOD_CTRL;
+    if ((modstate & ( RIGHT_ALT_PRESSED | LEFT_ALT_PRESSED )) != 0)   mods |= KEY_MOD_ALT;
+    if ((modstate & SHIFT_PRESSED) != 0)                              mods |= KEY_MOD_SHIFT;
 
     // virtual keys
     uint32_t chr = (uint32_t)inp.Event.KeyEvent.uChar.UnicodeChar;
     WORD     virt = inp.Event.KeyEvent.wVirtualKeyCode;
-    debug_msg("tty: console %s: %s%s%s virt 0x%04x, chr 0x%04x ('%c')\n", inp.Event.KeyEvent.bKeyDown ? "down" : "up", mods&MOD_CTRL ? "ctrl-" : "", mods&MOD_ALT ? "alt-" : "", mods&MOD_SHIFT ? "shift-" : "", virt, chr, chr);
+    debug_msg("tty: console %s: %s%s%s virt 0x%04x, chr 0x%04x ('%c')\n", inp.Event.KeyEvent.bKeyDown ? "down" : "up", mods&KEY_MOD_CTRL ? "ctrl-" : "", mods&KEY_MOD_ALT ? "alt-" : "", mods&KEY_MOD_SHIFT ? "shift-" : "", virt, chr, chr);
 
     // only process keydown events (except for Alt-up which is used for unicode pasting...)
     if (!inp.Event.KeyEvent.bKeyDown && virt != VK_MENU) {

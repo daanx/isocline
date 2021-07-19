@@ -160,7 +160,7 @@ static code_t esc_decode_xterm( char xcode ) {
     case 'E': return '5';          // numpad 5
     case 'F': return KEY_END;
     case 'H': return KEY_HOME;
-    case 'Z': return KEY_TAB | MOD_SHIFT;
+    case 'Z': return KEY_TAB | KEY_MOD_SHIFT;
     // Freebsd:
     case 'I': return KEY_PAGEUP;  
     case 'L': return KEY_INS;   
@@ -192,7 +192,7 @@ static code_t esc_decode_ss3( char ss3_code ) {
     case 'F': return KEY_END;
     case 'H': return KEY_HOME;
     case 'I': return KEY_TAB;
-    case 'Z': return KEY_TAB | MOD_SHIFT;
+    case 'Z': return KEY_TAB | KEY_MOD_SHIFT;
     case 'M': return KEY_LINEFEED; 
     case 'P': return KEY_F1;
     case 'Q': return KEY_F2;
@@ -253,7 +253,7 @@ static code_t tty_read_csi(tty_t* tty, char c1, char peek, code_t mods0) {
     special = peek;
     if (!tty_readc_noblock(tty,&peek)) {  
       tty_cpush_char(tty,special); // recover
-      return (KEY_CHAR(c1) | MOD_ALT);       // Alt+any
+      return (KEY_CHAR(c1) | KEY_MOD_ALT);       // Alt+any
     }
   }
 
@@ -301,9 +301,9 @@ static code_t tty_read_csi(tty_t* tty, char c1, char peek, code_t mods0) {
   }
   else if (final == '^' || final == '$' || final == '@') {  
     // Eterm/rxvt/urxt  
-    if (final=='^') modifiers |= MOD_CTRL;
-    if (final=='$') modifiers |= MOD_SHIFT;
-    if (final=='@') modifiers |= MOD_SHIFT | MOD_CTRL;
+    if (final=='^') modifiers |= KEY_MOD_CTRL;
+    if (final=='$') modifiers |= KEY_MOD_SHIFT;
+    if (final=='@') modifiers |= KEY_MOD_SHIFT | KEY_MOD_CTRL;
     final = '~';
   }
   if (c1 == '[' && special == '[' && (final >= 'A' && final <= 'E')) {
@@ -312,13 +312,13 @@ static code_t tty_read_csi(tty_t* tty, char c1, char peek, code_t mods0) {
   }
   else if (c1 == '[' && final >= 'a' && final <= 'd') {
     // ESC [ [a-d]  : on Eterm for shift+ cursor
-    modifiers |= MOD_SHIFT;
+    modifiers |= KEY_MOD_SHIFT;
     final = 'A' + (final - 'a');
   }
   else if (c1 == 'o' && final >= 'a' && final <= 'd') {
     // ESC o [a-d]  : on Eterm these are ctrl+cursor
     c1 = '[';
-    modifiers |= MOD_CTRL;
+    modifiers |= KEY_MOD_CTRL;
     final = 'A' + (final - 'a');  // to uppercase A - D.
   }
   else if (c1 == 'O' && num2 == 1 && num1 > 1 && num1 <= 8) {
@@ -331,9 +331,9 @@ static code_t tty_read_csi(tty_t* tty, char c1, char peek, code_t mods0) {
   if (num2 > 1 && num2 <= 9) {
     if (num2 == 9) num2 = 3; // iTerm2 in xterm mode
     num2--;
-    if (num2 & 0x1) modifiers |= MOD_SHIFT;
-    if (num2 & 0x2) modifiers |= MOD_ALT;
-    if (num2 & 0x4) modifiers |= MOD_CTRL;
+    if (num2 & 0x1) modifiers |= KEY_MOD_SHIFT;
+    if (num2 & 0x2) modifiers |= KEY_MOD_ALT;
+    if (num2 & 0x4) modifiers |= KEY_MOD_CTRL;
   }
 
   // and translate
@@ -362,13 +362,13 @@ internal code_t tty_read_esc(tty_t* tty) {
   char peek = 0;
   if (!tty_readc_noblock(tty,&peek)) return KEY_ESC; // ESC
   if (peek == '[') {
-    if (!tty_readc_noblock(tty,&peek)) return ('[' | MOD_ALT);  // ESC [
+    if (!tty_readc_noblock(tty,&peek)) return ('[' | KEY_MOD_ALT);  // ESC [
     return tty_read_csi(tty,'[',peek,0);  // ESC [ ...
   }
   else if (peek == 'O' || peek == 'o' || peek == '?' /*vt52*/) {
     // SS3 ?
     char c1 = peek;
-    if (!tty_readc_noblock(tty,&peek)) return (KEY_CHAR(c1) | MOD_ALT);  // ESC [Oo?]
+    if (!tty_readc_noblock(tty,&peek)) return (KEY_CHAR(c1) | KEY_MOD_ALT);  // ESC [Oo?]
     return tty_read_csi(tty,c1,peek,0);  // ESC [Oo?] ...
   }
   else if (peek == KEY_ESC) {
@@ -382,9 +382,9 @@ internal code_t tty_read_esc(tty_t* tty) {
       tty_cpush_char(tty,'\x1B'); 
       return KEY_ESC;
     }
-    return tty_read_csi(tty,'[',peek,MOD_ALT);
+    return tty_read_csi(tty,'[',peek,KEY_MOD_ALT);
   }
   else {
-    return (KEY_CHAR(peek) | MOD_ALT);  // ESC any    
+    return (KEY_CHAR(peek) | KEY_MOD_ALT);  // ESC any    
   }  
 }

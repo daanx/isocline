@@ -49,16 +49,16 @@ internal code_t tty_read_esc(tty_t* tty); // in tty_esc.c
 
 #define KEY_CHAR(c)       ((code_t)c)
 
-#define MOD_SHIFT         0x1000U
-#define MOD_ALT           0x2000U
-#define MOD_CTRL          0x4000U
+#define KEY_MOD_SHIFT     0x1000U
+#define KEY_MOD_ALT       0x2000U
+#define KEY_MOD_CTRL      0x4000U
 
-#define KEY_NOMODS(k)     (k & 0x0FFFU)
+#define KEY_NO_MODS(k)    (k & 0x0FFFU)
 #define KEY_MODS(k)       (k & 0xF000U)
 
-#define WITH_SHIFT(x)     (x | MOD_SHIFT)
-#define WITH_ALT(x)       (x | MOD_ALT)
-#define WITH_CTRL(x)      (x | MOD_CTRL)
+#define WITH_SHIFT(x)     (x | KEY_MOD_SHIFT)
+#define WITH_ALT(x)       (x | KEY_MOD_ALT)
+#define WITH_CTRL(x)      (x | KEY_MOD_CTRL)
 
 #define KEY_NONE          (0)
 #define KEY_CTRL_A        (1)
@@ -115,7 +115,7 @@ internal code_t tty_read_esc(tty_t* tty); // in tty_esc.c
 #define KEY_F10           (KEY_VIRT+20)
 #define KEY_F11           (KEY_VIRT+21)
 #define KEY_F12           (KEY_VIRT+22)
-#define KEY_F(n)          (KEY_F1 + n - 1)
+#define KEY_F(n)          (KEY_F1 + (n) - 1)
 
 #define KEY_EVENT_BASE    (0x200)
 #define KEY_EVENT_RESIZE  (KEY_EVENT_BASE+0)  // not use for now
