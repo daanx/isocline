@@ -129,7 +129,7 @@ exported void rp_done( rp_env_t* env ) {
   history_done(env);
   completions_done(env);
   term_done(&env->term);
-  tty_done(&env->tty);
+  tty_free(env->tty);
   env_free(env,env->prompt_marker); env->prompt_marker = NULL;
   
   // remove from list
@@ -161,10 +161,11 @@ exported rp_env_t* rp_init_custom_alloc( rp_malloc_fun_t* _malloc, rp_realloc_fu
   env->alloc.realloc = _realloc;
   env->alloc.free    = _free;
   int fin = STDIN_FILENO;
+  env->tty = tty_new(&env->alloc, fin);
   
   // initialize term & tty
-  if (!tty_init(&env->tty, fin) || 
-      !term_init(&env->term,&env->tty,&env->alloc,false,false,-1))
+  if (env->tty == NULL ||
+      !term_init(&env->term,env->tty,&env->alloc,false,false,-1))
   {
     env->noedit = true;
   }
@@ -219,8 +220,8 @@ exported void rp_enable_history_duplicates( rp_env_t* env, bool enable ) {
 //-------------------------------------------------------------
 
 static char* rp_getline( rp_env_t* env, const char* prompt_text ) {
-  ssize_t buflen = 32;
-  char*  buf = (char*)env_zalloc(env,buflen);
+  ssize_t buflen = 128;
+  char*  buf = mem_malloc_tp_n(&env->alloc,char,buflen);
   if (buf==NULL) return NULL;
   ssize_t len = 0;
 

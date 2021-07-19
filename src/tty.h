@@ -10,45 +10,22 @@
 
 #include "common.h"
 
-#if defined(_WIN32)
-#include <windows.h>
-#undef MOD_SHIFT
-#undef MOD_ALT
-#include <io.h>
-#else
-#include <termios.h>
-#endif
-
 //-------------------------------------------------------------
 // TTY/Keyboard input 
 //-------------------------------------------------------------
-
-#define TTY_PUSH_MAX (32)
 
 // Key code
 typedef uint32_t  code_t;
 
 // TTY interface
-typedef struct tty_s {
-  int     fin;  
-  bool    raw_enabled;
-  bool    is_utf8;
-  code_t  pushbuf[TTY_PUSH_MAX];
-  ssize_t pushed;
-  char    cpushbuf[TTY_PUSH_MAX];
-  ssize_t cpushed;
-  #if defined(_WIN32)
-  HANDLE  hcon;
-  DWORD   hcon_orig_mode;
-  #else
-  struct termios default_ios;
-  struct termios raw_ios;
-  #endif
-} tty_t;
+struct tty_s;
+typedef struct tty_s tty_t;
 
 
-internal bool   tty_init(tty_t* tty, int fin);
-internal void   tty_done(tty_t* tty);
+internal tty_t* tty_new(alloc_t* mem, int fin);
+internal void   tty_free(tty_t* tty);
+
+internal bool   tty_is_utf8(tty_t* tty);
 internal void   tty_start_raw(tty_t* tty);
 internal void   tty_end_raw(tty_t* tty);
 internal code_t tty_read(tty_t* tty);

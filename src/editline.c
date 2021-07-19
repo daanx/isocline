@@ -95,11 +95,11 @@ static char* edit_line( rp_env_t* env, const char* prompt_text );
 static void edit_refresh(rp_env_t* env, editor_t* eb);
 
 internal char* rp_editline(rp_env_t* env, const char* prompt_text) {
-  tty_start_raw(&env->tty);
+  tty_start_raw(env->tty);
   term_start_raw(&env->term);
   char* line = edit_line(env,prompt_text);
   term_end_raw(&env->term);
-  tty_end_raw(&env->tty);
+  tty_end_raw(env->tty);
   term_write(&env->term,"\r\n");
   return line;
 }
@@ -440,7 +440,7 @@ static void edit_cursor_row_down(rp_env_t* env, editor_t* eb) {
 static void edit_backspace(rp_env_t* env, editor_t* eb) {
   if (eb->pos <= 0) return;
   editor_start_modify(eb);
-  eb->pos -= sbuf_delete_char_before(eb->input,eb->pos);
+  eb->pos = sbuf_delete_char_before(eb->input,eb->pos);
   edit_refresh(env,eb);
 }
 
@@ -528,7 +528,7 @@ static void edit_delete_word(rp_env_t* env, editor_t* eb) {
 static void edit_swap_char( rp_env_t* env, editor_t* eb ) { 
   if (eb->pos <= 0 || eb->pos == sbuf_len(eb->input)) return;
   editor_start_modify(eb);
-  eb->pos -= sbuf_swap_char(eb->input,eb->pos);
+  eb->pos = sbuf_swap_char(eb->input,eb->pos);
   edit_refresh(env,eb);
 }
 
@@ -807,7 +807,7 @@ again:
   edit_refresh(env, eb);
 
   // Process commands
-  code_t c = tty_read(&env->tty);
+  code_t c = tty_read(env->tty);
   sbuf_clear(eb->extra);
   if (c == KEY_ESC || c == KEY_BELL /* ^G */ || c == KEY_CTRL_C) {
     c = 0;  
@@ -855,21 +855,21 @@ again:
     // insert character and search further backward
     int tofollow;
     char chr;
-    if (code_is_char(&env->tty,c,&chr)) {
+    if (code_is_char(env->tty,c,&chr)) {
       hsearch_push(&env->alloc, &hs, hidx, match_pos, match_len, true);
       edit_insert_char(env,eb,chr, false /* refresh */);      
     }
-    else if (code_is_extended(&env->tty,c,&chr,&tofollow)) {
+    else if (code_is_extended(env->tty,c,&chr,&tofollow)) {
       hsearch_push(&env->alloc, &hs, hidx, match_pos, match_len, true);
       edit_insert_char(env,eb,chr,false);
       while (tofollow-- > 0) {
-        c = tty_read(&env->tty);
-        if (code_is_follower(&env->tty,c,&chr)) {
+        c = tty_read(env->tty);
+        if (code_is_follower(env->tty,c,&chr)) {
           edit_insert_char(env,eb,chr, false);
         }
         else {
           // recover bad utf8
-          tty_code_pushback(&env->tty,c);
+          tty_code_pushback(env->tty,c);
           break;
         }
       }
@@ -894,7 +894,7 @@ again:
   hsearch_done(&env->alloc,hs);
   eb->prompt_text = prompt_text;
   edit_refresh(env,eb);
-  if (c != 0) tty_code_pushback(&env->tty, c);
+  if (c != 0) tty_code_pushback(env->tty, c);
 }
 
 // Start an incremental search with the current word 
@@ -1031,7 +1031,7 @@ again:
   edit_refresh(env, eb);
 
   // read here; if not a valid key, push it back and return to main event loop
-  code_t c = tty_read(&env->tty);
+  code_t c = tty_read(env->tty);
   sbuf_clear(eb->extra);
   if (c >= '1' && c <= '9' && (ssize_t)(c - '1') < count) {
     selected = (c - '1');
@@ -1109,7 +1109,7 @@ again:
   }
   // done
   completions_clear(env);      
-  if (c != 0) tty_code_pushback(&env->tty,c);
+  if (c != 0) tty_code_pushback(env->tty,c);
 }
 
 static void edit_generate_completions(rp_env_t* env, editor_t* eb) {
@@ -1139,13 +1139,13 @@ static char* edit_line( rp_env_t* env, const char* prompt_text )
   // set up an edit buffer
   editor_t eb;
   eb.mem      = &env->alloc;
-  eb.input    = sbuf_alloc(eb.mem, env->tty.is_utf8);
-  eb.extra    = sbuf_alloc(eb.mem, env->tty.is_utf8);
+  eb.input    = sbuf_alloc(eb.mem, tty_is_utf8(env->tty));
+  eb.extra    = sbuf_alloc(eb.mem, tty_is_utf8(env->tty));
   eb.pos      = 0;
   eb.cur_rows = 1; 
   eb.cur_row  = 0; 
   eb.modified = false;
-  eb.is_utf8  = env->tty.is_utf8;
+  eb.is_utf8  = tty_is_utf8(env->tty);
   eb.prompt_text   = (prompt_text != NULL ? prompt_text : "");
   eb.history_idx   = 0;
   editstate_init(&eb.undo);
@@ -1162,11 +1162,11 @@ static char* edit_line( rp_env_t* env, const char* prompt_text )
   int tofollow = 0;  // utf8 extended characters to still follow (to delay refresh)
   while(true) {    
     // read a character
-    c = tty_read(&env->tty);
+    c = tty_read(env->tty);
     
     // update width as late as possible so a user can resize even if the prompt is already visible
     //if (eb.len == 1) 
-    if (term_update_dim(&env->term,&env->tty)) {
+    if (term_update_dim(&env->term,env->tty)) {
       // eb.cur_rows = env->term.height;
       edit_refresh(env,&eb);   
     }
@@ -1174,7 +1174,7 @@ static char* edit_line( rp_env_t* env, const char* prompt_text )
     // followers (for utf8)
     if (tofollow > 0) {
       char chr;
-      if (code_is_follower(&env->tty, c, &chr)) {
+      if (code_is_follower(env->tty, c, &chr)) {
         tofollow--;
         edit_insert_char( env, &eb, chr, tofollow == 0);
         continue;
@@ -1315,10 +1315,10 @@ static char* edit_line( rp_env_t* env, const char* prompt_text )
         break;
       default: {
         char chr;
-        if (code_is_char(&env->tty,c,&chr)) {
+        if (code_is_char(env->tty,c,&chr)) {
           edit_insert_char(env,&eb,chr, true /* refresh */);
         }
-        else if (code_is_extended(&env->tty,c,&chr,&tofollow)) {
+        else if (code_is_extended(env->tty,c,&chr,&tofollow)) {
           edit_insert_char(env,&eb,chr, (tofollow > 0));
         }
         else {
