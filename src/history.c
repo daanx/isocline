@@ -153,6 +153,8 @@ static char to_xdigit( uint8_t c ) {
   return '0';
 }
 
+#define RP_MAX_LINE 1024
+
 static bool history_read_entry( rp_env_t* env, FILE* f ) {
   char buf[RP_MAX_LINE + 1];
   int count = 0;

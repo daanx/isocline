@@ -96,11 +96,11 @@ static void edit_refresh(rp_env_t* env, editor_t* eb);
 
 internal char* rp_editline(rp_env_t* env, const char* prompt_text) {
   tty_start_raw(env->tty);
-  term_start_raw(&env->term);
+  term_start_raw(env->term);
   char* line = edit_line(env,prompt_text);
-  term_end_raw(&env->term);
+  term_end_raw(env->term);
   tty_end_raw(env->tty);
-  term_write(&env->term,"\r\n");
+  term_write(env->term,"\r\n");
   return line;
 }
 
@@ -145,7 +145,7 @@ static bool editor_pos_is_at_end(editor_t* eb ) {
 
 
 static ssize_t edit_get_prompt_width( rp_env_t* env, editor_t* eb, bool in_extra, ssize_t* termw ) {
-  if (termw!=NULL) *termw = term_get_width( &env->term );
+  if (termw!=NULL) *termw = term_get_width( env->term );
   return (in_extra ? 0 : str_column_width(eb->prompt_text,eb->is_utf8) + 
                          (env->prompt_marker == NULL ? 2 : str_column_width(env->prompt_marker,eb->is_utf8)));
 }
@@ -177,17 +177,17 @@ static bool edit_pos_is_at_row_end( rp_env_t* env, editor_t* eb ) {
 
 static void edit_write_prompt( rp_env_t* env, editor_t* eb, ssize_t row, bool in_extra ) {
   if (!in_extra) { 
-    if (env->prompt_color != RP_DEFAULT_COLOR) term_color( &env->term, env->prompt_color );
+    if (env->prompt_color != RP_DEFAULT_COLOR) term_color( env->term, env->prompt_color );
     if (row==0) {
-      term_write(&env->term, eb->prompt_text);
+      term_write(env->term, eb->prompt_text);
     }
     else {
-      term_writef(&env->term, "%*c", str_column_width(eb->prompt_text,eb->is_utf8), ' ' );
+      term_writef(env->term, "%*c", str_column_width(eb->prompt_text,eb->is_utf8), ' ' );
     }
-    term_attr_reset( &env->term );
-    if (env->prompt_color != RP_DEFAULT_COLOR) term_color( &env->term, env->prompt_color );
-    term_write( &env->term, (env->prompt_marker == NULL ? "> " : env->prompt_marker )); 
-    term_attr_reset( &env->term );
+    term_attr_reset( env->term );
+    if (env->prompt_color != RP_DEFAULT_COLOR) term_color( env->term, env->prompt_color );
+    term_write( env->term, (env->prompt_marker == NULL ? "> " : env->prompt_marker )); 
+    term_attr_reset( env->term );
   }
 }
 
@@ -206,7 +206,7 @@ static bool edit_refresh_rows_iter(
 {
   unused(is_utf8); unused(res);
   const refresh_info_t* info = (const refresh_info_t*)(arg);
-  term_t* term = &info->env->term;
+  term_t* term = info->env->term;
 
   // debug_msg("edit: line refresh: row %zd, len: %zd\n", row, row_len);
   if (row < info->first_row) return false;
@@ -261,7 +261,7 @@ static void edit_refresh(rp_env_t* env, editor_t* eb)
   debug_msg("edit: start refresh: rows %zd, pos: %zd,%zd (previous rows %zd, row %zd)\n", rows, rc.row, rc.col, eb->cur_rows, eb->cur_row);
   
   // only render at most terminal height rows
-  ssize_t termh = term_get_height(&env->term);
+  ssize_t termh = term_get_height(env->term);
   ssize_t first_row = 0;
   ssize_t last_row = rows - 1;
   if (rows > termh) {
@@ -270,8 +270,8 @@ static void edit_refresh(rp_env_t* env, editor_t* eb)
     last_row = first_row + termh - 1;
   }
  
-  term_start_buffered(&env->term);        // reduce flicker
-  term_up(&env->term, eb->cur_row);
+  term_start_buffered(env->term);        // reduce flicker
+  term_up(env->term, eb->cur_row);
   
   // render rows
   edit_refresh_rows( env, eb, termw, promptw, false, first_row, last_row );
@@ -288,16 +288,16 @@ static void edit_refresh(rp_env_t* env, editor_t* eb)
     while (rrows < termh && clear > 0) {
       clear--;
       rrows++;
-      term_write(&env->term, "\r\n");
-      term_clear_line(&env->term);
+      term_write(env->term, "\r\n");
+      term_clear_line(env->term);
     }
   }
   
   // move cursor back to edit position
-  term_start_of_line(&env->term);
-  term_up(&env->term, first_row + rrows - 1 - rc.row );
-  term_right(&env->term, rc.col + promptw);
-  term_end_buffered(&env->term);
+  term_start_of_line(env->term);
+  term_up(env->term, first_row + rrows - 1 - rc.row );
+  term_right(env->term, rc.col + promptw);
+  term_end_buffered(env->term);
 
   // update previous
   eb->cur_rows = rows;
@@ -306,22 +306,22 @@ static void edit_refresh(rp_env_t* env, editor_t* eb)
 
 
 static void edit_clear(rp_env_t* env, editor_t* eb ) {
-  term_attr_reset(&env->term);  
-  term_up(&env->term, eb->cur_row);
+  term_attr_reset(env->term);  
+  term_up(env->term, eb->cur_row);
   
   // overwrite all rows
   for( ssize_t i = 0; i < eb->cur_rows; i++) {
-    term_clear_line(&env->term);
-    term_write(&env->term, "\r\n");    
+    term_clear_line(env->term);
+    term_write(env->term, "\r\n");    
   }
   
   // move cursor back 
-  term_up(&env->term, eb->cur_rows );  
+  term_up(env->term, eb->cur_rows );  
 }
 
 static void edit_clear_screen(rp_env_t* env, editor_t* eb ) {
   ssize_t cur_rows = eb->cur_rows;
-  eb->cur_rows = term_get_height(&env->term) - 1;
+  eb->cur_rows = term_get_height(env->term) - 1;
   edit_clear(env,eb);
   eb->cur_rows = cur_rows;
   edit_refresh(env,eb);
@@ -353,7 +353,7 @@ static void edit_cursor_left(rp_env_t* env, editor_t* eb) {
   eb->pos = prev;  
   if (!rc.first_on_row) {
     // if we were not at a start column we do not need a full refresh
-    term_left(&env->term,cwidth);
+    term_left(env->term,cwidth);
   }
   else {
     edit_refresh(env,eb);
@@ -369,7 +369,7 @@ static void edit_cursor_right(rp_env_t* env, editor_t* eb) {
   eb->pos = next;  
   if (!rc.last_on_row) {
     // if we were not at the end column we do not need a full refresh
-    term_right(&env->term,cwidth);
+    term_right(env->term,cwidth);
   }
   else {
     edit_refresh(env,eb);
@@ -660,10 +660,10 @@ static void edit_show_help(rp_env_t* env, editor_t* eb) {
   edit_clear(env, eb);
   for (ssize_t i = 0; help[i] != NULL && help[i+1] != NULL; i += 2) {
     if (help[i][0] == 0) {
-      term_writef(&env->term, "\x1B[90m%s\x1B[0m\r\n", help[i+1]);
+      term_writef(env->term, "\x1B[90m%s\x1B[0m\r\n", help[i+1]);
     }
     else {
-      term_writef(&env->term, "  \x1B[97m%-13s\x1B[0m%s%s\r\n", help[i], (help[i+1][0] == 0 ? "" : ": "), help[i+1]);
+      term_writef(env->term, "  \x1B[97m%-13s\x1B[0m%s%s\r\n", help[i], (help[i+1][0] == 0 ? "" : ": "), help[i+1]);
     }
   }
   eb->cur_rows = 0;
@@ -686,7 +686,7 @@ static void edit_history_at(rp_env_t* env, editor_t* eb, int ofs )
   const char* entry = history_get(&env->history,eb->history_idx + ofs);
   debug_msg( "edit: history: at: %d + %d, found: %s\n", eb->history_idx, ofs, entry);
   if (entry == NULL) {
-    term_beep(&env->term);
+    term_beep(env->term);
   }
   else {
     eb->history_idx += ofs;
@@ -778,7 +778,7 @@ static void edit_history_search(rp_env_t* env, editor_t* eb, char* initial ) {
         match_len = ipos + next;
       }      
       else if (ipos + next >= initial_len) {
-        term_beep(&env->term);
+        term_beep(env->term);
       }
       initial[ipos + next] = c;       // restore
       ipos += next;
@@ -834,7 +834,7 @@ again:
     hsearch_push(&env->alloc, &hs, hidx, match_pos, match_len, false);
     if (!history_search( &env->history, hidx+1, sbuf_string(eb->input), true, &hidx, &match_pos )) {
       hsearch_pop(&env->alloc,&hs,NULL,NULL,NULL,NULL);
-      term_beep(&env->term);
+      term_beep(env->term);
     };
     goto again;
   }  
@@ -843,7 +843,7 @@ again:
     hsearch_push(&env->alloc, &hs, hidx, match_pos, match_len, false);
     if (!history_search( &env->history, hidx-1, sbuf_string(eb->input), false, &hidx, &match_pos )) {
       hsearch_pop(&env->alloc, &hs,NULL,NULL,NULL,NULL);
-      term_beep(&env->term);
+      term_beep(env->term);
     };
     goto again;
   }
@@ -877,7 +877,7 @@ again:
     }
     else {
       // ignore command
-      term_beep(&env->term);
+      term_beep(env->term);
       goto again;
     }
     // search for the new input
@@ -885,7 +885,7 @@ again:
       match_len = sbuf_len(eb->input);
     }
     else {
-      term_beep(&env->term);
+      term_beep(env->term);
     };
     goto again;
   }
@@ -994,7 +994,7 @@ static void edit_completion_menu(rp_env_t* env, editor_t* eb, bool more_availabl
 again:
   // show first 9 (or 8) completions
   sbuf_clear(eb->extra);
-  ssize_t twidth = term_get_width(&env->term);
+  ssize_t twidth = term_get_width(env->term);
   if (count > 3 && twidth > RP_DISPLAY3_WIDTH && edit_completions_max_width(env, eb, 9) <= RP_DISPLAY3_MAX) {
     // display as a 3 column block
     count_displayed = (count > 9 ? 9 : count);
@@ -1089,20 +1089,20 @@ again:
     edit_get_rowcol(env,eb,&rc);
     edit_clear(env,eb);
     edit_write_prompt(env,eb,0,false);
-    term_write(&env->term, "\r\n");
+    term_write(env->term, "\r\n");
     for(ssize_t i = 0; i < count; i++) {
       completion_t* cm = completions_get(env,i);
       if (cm != NULL) {
-        // term_writef(&env->term, "\x1B[90m%3d \x1B[0m%s\r\n", i+1, (cm->display != NULL ? cm->display : cm->replacement ));          
-        term_write(&env->term, (cm->display != NULL ? cm->display : cm->replacement ));         
-        term_write(&env->term, "\r\n"); 
+        // term_writef(env->term, "\x1B[90m%3d \x1B[0m%s\r\n", i+1, (cm->display != NULL ? cm->display : cm->replacement ));          
+        term_write(env->term, (cm->display != NULL ? cm->display : cm->replacement ));         
+        term_write(env->term, "\r\n"); 
       }
     }
     if (count >= RP_MAX_COMPLETIONS_TO_SHOW) {
-      term_write(&env->term, "\x1B[90m... and more.\x1B[0m\r\n");
+      term_write(env->term, "\x1B[90m... and more.\x1B[0m\r\n");
     }
     for(ssize_t i = 0; i < rc.row+1; i++) {
-      term_write(&env->term, " \r\n");
+      term_write(env->term, " \r\n");
     }
     eb->cur_rows = 0;
     edit_refresh(env,eb);      
@@ -1118,7 +1118,7 @@ static void edit_generate_completions(rp_env_t* env, editor_t* eb) {
   ssize_t count = completions_generate(env, sbuf_string(eb->input), eb->pos, 10);
   if (count <= 0) {
     // no completions
-    term_beep(&env->term); 
+    term_beep(env->term); 
   }
   else if (count == 1) {
     // complete if only one match    
@@ -1166,7 +1166,7 @@ static char* edit_line( rp_env_t* env, const char* prompt_text )
     
     // update width as late as possible so a user can resize even if the prompt is already visible
     //if (eb.len == 1) 
-    if (term_update_dim(&env->term,env->tty)) {
+    if (term_update_dim(env->term,env->tty)) {
       // eb.cur_rows = env->term.height;
       edit_refresh(env,&eb);   
     }

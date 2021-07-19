@@ -13,6 +13,7 @@
 #include "tty.h"
 #include "term.h"
 #include "stringbuf.h" // str_next_ofs
+
 #if defined(_WIN32)
 #include <windows.h>
 #define STDOUT_FILENO 1
@@ -21,8 +22,32 @@
 #include <sys/ioctl.h>
 #endif
 
+#ifndef RP_MAX_LINE
+#define RP_MAX_LINE 4096
+#endif
+
 #define RP_CSI      "\x1B["
 
+struct term_s {
+  int     fout;
+  ssize_t width;
+  ssize_t height;
+  bool    monochrome;
+  bool    silent;
+  bool    raw_enabled;
+  bool    buffered;
+  char*   buf;
+  ssize_t bufcount;
+  ssize_t buflen;
+  alloc_t* mem;  
+  #ifdef _WIN32
+  HANDLE  hcon;
+  WORD    hcon_default_attr;  
+  WORD    hcon_orig_attr;
+  DWORD   hcon_orig_mode;
+  UINT    hcon_orig_cp;  
+  #endif
+};
 
 static bool term_write_direct(term_t* term, const char* s, ssize_t n );
 static bool term_vwritef(term_t* term, const char* fmt, va_list args );
@@ -220,8 +245,9 @@ internal bool term_end_buffered(term_t* term) {
 
 static void term_init_raw(term_t* term);
 
-internal bool term_init(term_t* term, tty_t* tty, alloc_t* mem, bool monochrome, bool silent, int fout ) 
+internal term_t* term_new(alloc_t* mem, tty_t* tty, bool monochrome, bool silent, int fout ) 
 {
+  term_t* term = mem_zalloc_tp(mem, term_t);
   term->fout   = (fout < 0 ? STDOUT_FILENO : fout);
   term->monochrome = monochrome;
   term->silent = silent;  
@@ -238,7 +264,10 @@ internal bool term_init(term_t* term, tty_t* tty, alloc_t* mem, bool monochrome,
   // initialize raw terminal output and terminal dimensions
   term_init_raw(term);
   term_update_dim(term,tty);
+  return term;
+}
 
+internal bool term_is_interactive(const term_t* term) {
   // check dimensions (0 is used for debuggers)
   if (term->width <= 0) return false; 
   
@@ -253,12 +282,21 @@ internal bool term_init(term_t* term, tty_t* tty, alloc_t* mem, bool monochrome,
   return true;
 }
 
-internal void term_done(term_t* term) {
+internal void term_enable_beep(term_t* term, bool enable) {
+  term->silent = !enable;
+}
+
+internal void term_enable_color(term_t* term, bool enable) {
+  term->monochrome = !enable;
+}
+
+
+internal void term_free(term_t* term) {
+  if (term == NULL) return;
   term_end_buffered(term);
   term_end_raw(term);
-
-  mem_free(term->mem, term->buf);
-  // nothing to do
+  mem_free(term->mem, term->buf);  
+  mem_free(term->mem, term);
 }
 
 

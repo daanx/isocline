@@ -56,7 +56,7 @@ typedef struct history_s {
 
 struct rp_env_s {
   rp_env_t*     next;
-  term_t        term;
+  term_t*       term;
   tty_t*        tty;
   alloc_t       alloc;
   completions_t completions;
