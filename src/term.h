@@ -34,7 +34,7 @@ internal ssize_t term_get_width(term_t* term);
 internal ssize_t term_get_height(term_t* term);
 
 // Helpers
-internal bool term_writef(term_t* term, const char* fmt, ...);
+internal bool term_writef(term_t* term, ssize_t max_needed, const char* fmt, ...);
 internal void term_left(term_t* term, ssize_t n);
 internal void term_right(term_t* term, ssize_t n);
 internal void term_up(term_t* term, ssize_t n);

@@ -36,6 +36,7 @@ internal void    sbuf_delete_from_to( stringbuf_t* sbuf, ssize_t pos, ssize_t en
 internal void    sbuf_clear( stringbuf_t* sbuf );
 internal void    sbuf_append_n( stringbuf_t* sbuf, const char* s, ssize_t n );
 internal void    sbuf_append( stringbuf_t* sbuf, const char* s );
+internal void    sbuf_append_char( stringbuf_t* sbuf, char c );
 internal void    sbuf_replace(stringbuf_t* sbuf, const char* s);
 
 // high level edit operations (return the new position)

@@ -5,75 +5,108 @@
   found in the "LICENSE" file at the root of this distribution.
 -----------------------------------------------------------------------------*/
 #include <stdio.h>
-#include <ctype.h>
 #include <string.h>  
 #include <sys/stat.h>
+
 #include "../include/repline.h"
 #include "common.h"
-#include "env.h"
+#include "history.h"
+#include "stringbuf.h"
+
+#define RP_MAX_HISTORY (200)
+
+struct history_s {
+  ssize_t  count;              // current number of entries in use
+  ssize_t  len;                // size of elems 
+  const char** elems;         // history items (up to count)
+  const char*  fname;         // history file
+  alloc_t* mem;
+  bool     allow_duplicates;   // allow duplicate entries?
+};
+
+internal history_t* history_new(alloc_t* mem) {
+  history_t* h = mem_zalloc_tp(mem,history_t);
+  h->mem = mem;
+  return h;
+}
+
+internal void history_free(history_t* h) {
+  if (h == NULL) return;
+  history_clear(h);
+  if (h->len > 0) {
+    mem_free( h->mem, h->elems );
+    h->elems = NULL;
+    h->len = 0;
+  }
+  mem_free(h->mem, h->fname);
+  h->fname = NULL;
+  mem_free(h->mem, h); // free ourselves
+}
+
+internal void history_enable_duplicates( history_t* h, bool enable ) {
+  h->allow_duplicates = enable;
+}
 
 
 //-------------------------------------------------------------
 // push/clear
 //-------------------------------------------------------------
 
-internal bool history_update( rp_env_t* env, const char* entry ) {
+internal bool history_update( history_t* h, const char* entry ) {
   if (entry==NULL) return false;
-  rp_history_remove_last(env);
-  history_push(env,entry);
-  debug_msg("history: update: with %s; now at %s\n", entry, history_get(&env->history,0));
+  history_remove_last(h);
+  history_push(h,entry);
+  debug_msg("history: update: with %s; now at %s\n", entry, history_get(h,0));
   return true;
 }
 
-static void history_delete_at( rp_env_t* env, history_t* h, int idx ) {
+static void history_delete_at( history_t* h, int idx ) {
   if (idx < 0 || idx >= h->count) return;
-  env_free(env, h->elems[idx]);
+  mem_free(h->mem, h->elems[idx]);
   for(ssize_t i = idx+1; i < h->count; i++) {
     h->elems[i-1] = h->elems[i];
   }
   h->count--;
 }
 
-internal bool history_push( rp_env_t* env, const char* entry ) {
-  history_t* h = &env->history; 
+internal bool history_push( history_t* h, const char* entry ) {
   if (h->len <= 0 || entry==NULL)  return false;
   // remove any older duplicate
   if (!h->allow_duplicates) {
     for( int i = 0; i < h->count; i++) {
       if (strcmp(h->elems[i],entry) == 0) {
-        history_delete_at(env,h,i);
+        history_delete_at(h,i);
       }
     }
   }
   // insert at front
   if (h->count == h->len) {
     // delete oldest entry
-    history_delete_at(env,h,0);    
+    history_delete_at(h,0);    
   }
   assert(h->count < h->len);
-  h->elems[h->count] = env_strdup(env,entry);
+  h->elems[h->count] = mem_strdup(h->mem,entry);
   h->count++;
   return true;
 }
 
 
-static void history_remove_last_n( rp_env_t* env, ssize_t n ) {
-  history_t* h = &env->history;
+static void history_remove_last_n( history_t* h, ssize_t n ) {
   if (n <= 0) return;
   if (n > h->count) n = h->count;
   for( ssize_t i = h->count - n; i < h->count; i++) {
-    env_free( env, h->elems[i] );
+    mem_free( h->mem, h->elems[i] );
   }
   h->count -= n;
   assert(h->count >= 0);    
 }
 
-exported void rp_history_remove_last(rp_env_t* env) {
-  history_remove_last_n(env,1);
+internal void history_remove_last(history_t* h) {
+  history_remove_last_n(h,1);
 }
 
-exported void rp_history_clear(rp_env_t* env) {
-  history_remove_last_n( env, env->history.count );
+internal void history_clear(history_t* h) {
+  history_remove_last_n( h, h->count );
 }
 
 internal const char* history_get( const history_t* h, ssize_t n ) {
@@ -106,31 +139,18 @@ internal bool history_search( const history_t* h, ssize_t from /*including*/, co
 // 
 //-------------------------------------------------------------
 
-internal void history_done(rp_env_t* env) {
-  rp_history_clear(env);
-  history_t* h = &env->history;
-  if (h->len > 0) {
-    env_free( env, h->elems );
-    h->elems = NULL;
-    h->len = 0;
-  }
-  env_free(env, h->fname);
-  h->fname = NULL;
-}
-
-exported void rp_set_history(rp_env_t* env, const char* fname, long max_entries ) {
-  history_done(env);
-  history_t* h = &env->history;
-  h->fname = env_strdup(env,fname);
+internal void history_load_from(history_t* h, const char* fname, long max_entries ) {
+  history_clear(h);
+  h->fname = mem_strdup(h->mem,fname);
   if (max_entries == 0) {
     assert(h->elems == NULL);
     return;
   }
   if (max_entries < 0 || max_entries > RP_MAX_HISTORY) max_entries = RP_MAX_HISTORY;
-  h->elems = (const char**)env_zalloc(env, max_entries * ssizeof(h->elems[0]) );
+  h->elems = (const char**)mem_zalloc_tp_n(h->mem, char*, max_entries );
   if (h->elems == NULL) return;
   h->len = max_entries;
-  history_load(env);
+  history_load(h);
 }
 
 
@@ -153,86 +173,92 @@ static char to_xdigit( uint8_t c ) {
   return '0';
 }
 
-#define RP_MAX_LINE 1024
+static bool isxdigit( int c ) {
+  return ((c >= 'a' && c <= 'f') || (c >= 'A' && c <= 'F') || (c >= '0' && c <= '9'));
+}
 
-static bool history_read_entry( rp_env_t* env, FILE* f ) {
-  char buf[RP_MAX_LINE + 1];
-  int count = 0;
-  while( !feof(f) && count < RP_MAX_LINE) {
+static bool history_read_entry( history_t* h, FILE* f, stringbuf_t* sbuf ) {
+  sbuf_clear(sbuf);
+  while( !feof(f)) {
     int c = fgetc(f);
     if (c == EOF || c == '\n') break;
     if (c == '\\') {
       c = fgetc(f);
-      if (c == 'n')       buf[count++] = '\n';
-      else if (c == 'r')  buf[count++] = '\r';
-      else if (c == 't')  buf[count++] = '\t';
-      else if (c == '\\') buf[count++] = '\\';
+      if (c == 'n')       sbuf_append(sbuf,"\n");
+      else if (c == 'r')  sbuf_append(sbuf,"\r");
+      else if (c == 't')  sbuf_append(sbuf,"\t");
+      else if (c == '\\') sbuf_append(sbuf,"\\");
       else if (c == 'x') {
         int c1 = fgetc(f);         
         int c2 = fgetc(f);
         if (isxdigit(c1) && isxdigit(c2)) {
           char chr = from_xdigit(c1)*16 + from_xdigit(c2);
-          buf[count++] = chr;
+          sbuf_append_char(sbuf,chr);
         }
         else return false;
       }
       else return false;
     }
-    else buf[count++] = (char)c;
+    else sbuf_append_char(sbuf,(char)c);
   }
-  assert(count <= RP_MAX_LINE);
-  buf[count] = 0;
-  if (count == 0 || buf[0] == '#') return true;
-  return history_push(env,buf);
+  if (sbuf_len(sbuf)==0 || sbuf_string(sbuf)[0] == '#') return true;
+  return history_push(h, sbuf_string(sbuf));
 }
 
-static bool history_write_entry( const char* entry, FILE* f ) {
-  char buf[RP_MAX_LINE + 5];
-  int count = 0;
-  while( entry != NULL && *entry != 0 && count < RP_MAX_LINE ) {
+static bool history_write_entry( const char* entry, FILE* f, stringbuf_t* sbuf ) {
+  sbuf_clear(sbuf);
+  debug_msg("history: write: %s\n", entry);
+  while( entry != NULL && *entry != 0 ) {
     char c = *entry++;
-    if (c == '\\')      { buf[count++] = '\\'; buf[count++] = '\\'; }
-    else if (c == '\n') { buf[count++] = '\\'; buf[count++] = 'n'; }
-    else if (c == '\r') { buf[count++] = '\\'; buf[count++] = 'r'; }
-    else if (c == '\t') { buf[count++] = '\\'; buf[count++] = 't'; }    
+    if (c == '\\')      { sbuf_append(sbuf,"\\\\"); }
+    else if (c == '\n') { sbuf_append(sbuf,"\\n"); }
+    else if (c == '\r') { sbuf_append(sbuf,"\\r"); }
+    else if (c == '\t') { sbuf_append(sbuf,"\\t"); }
     else if (c < ' ' || c > '~' || c == '#') {
       char c1 = to_xdigit( (uint8_t)c / 16 );
       char c2 = to_xdigit( (uint8_t)c % 16 );
-      buf[count++] = '\\'; buf[count++] = 'x';
-      buf[count++] = c1; buf[count++] = c2;  
+      sbuf_append(sbuf,"\\x"); 
+      sbuf_append_char(sbuf,c1); 
+      sbuf_append_char(sbuf,c2);            
     }
-    else buf[count++] = (char)c;
+    else sbuf_append_char(sbuf,c);
   }
-  assert( count < RP_MAX_LINE + 5 );
-  buf[count] = 0;
-  if (count > 0) {
-    fputs(buf,f);
-    fputc('\n',f);
+  debug_msg("history: write buf: %s\n", sbuf_string(sbuf));
+  
+  if (sbuf_len(sbuf) > 0) {
+    sbuf_append(sbuf,"\n");
+    fputs(sbuf_string(sbuf),f);
   }
   return true;
 }
 
-internal void history_load( rp_env_t* env ) {
-  history_t* h = &env->history;
+internal void history_load( history_t* h ) {
   if (h->fname == NULL) return;
   FILE* f = fopen(h->fname, "r");
   if (f == NULL) return;
-  while (!feof(f)) {
-    if (!history_read_entry(env,f)) break; // error
+  stringbuf_t* sbuf = sbuf_alloc(h->mem,true);
+  if (sbuf != NULL) {
+    while (!feof(f)) {
+      if (!history_read_entry(h,f,sbuf)) break; // error
+    }
+    sbuf_free(sbuf);
   }
   fclose(f);
 }
 
-internal void history_save( rp_env_t* env ) {
-  history_t* h = &env->history;
+internal void history_save( const history_t* h ) {
   if (h->fname == NULL) return;
   FILE* f = fopen(h->fname, "w");
   if (f == NULL) return;
   #ifndef _WIN32
   chmod(h->fname,S_IRUSR|S_IWUSR);
   #endif
-  for( int i = 0; i < h->count; i++ )  {
-    if (!history_write_entry(h->elems[i],f)) break;  // error
+  stringbuf_t* sbuf = sbuf_alloc(h->mem,true);
+  if (sbuf != NULL) {
+    for( int i = 0; i < h->count; i++ )  {
+      if (!history_write_entry(h->elems[i],f,sbuf)) break;  // error
+    }
+    sbuf_free(sbuf);
   }
   fclose(f);  
 }

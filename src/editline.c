@@ -13,6 +13,7 @@
 #include "tty.h"
 #include "env.h"
 #include "stringbuf.h"
+#include "history.h"
 
 #if defined(_WIN32)
 #else
@@ -182,7 +183,8 @@ static void edit_write_prompt( rp_env_t* env, editor_t* eb, ssize_t row, bool in
       term_write(env->term, eb->prompt_text);
     }
     else {
-      term_writef(env->term, "%*c", str_column_width(eb->prompt_text,eb->is_utf8), ' ' );
+      ssize_t w = str_column_width(eb->prompt_text,eb->is_utf8);
+      term_writef(env->term, w, "%*c", w, ' ' );
     }
     term_attr_reset( env->term );
     if (env->prompt_color != RP_DEFAULT_COLOR) term_color( env->term, env->prompt_color );
@@ -659,11 +661,11 @@ static const char* help[] = {
 static void edit_show_help(rp_env_t* env, editor_t* eb) {
   edit_clear(env, eb);
   for (ssize_t i = 0; help[i] != NULL && help[i+1] != NULL; i += 2) {
-    if (help[i][0] == 0) {
-      term_writef(env->term, "\x1B[90m%s\x1B[0m\r\n", help[i+1]);
+    if (help[i][0] == 0) {      
+      term_writef(env->term, 256, "\x1B[90m%s\x1B[0m\r\n", help[i+1]);
     }
     else {
-      term_writef(env->term, "  \x1B[97m%-13s\x1B[0m%s%s\r\n", help[i], (help[i+1][0] == 0 ? "" : ": "), help[i+1]);
+      term_writef(env->term, 256, "  \x1B[97m%-13s\x1B[0m%s%s\r\n", help[i], (help[i+1][0] == 0 ? "" : ": "), help[i+1]);
     }
   }
   eb->cur_rows = 0;
@@ -679,11 +681,11 @@ static void edit_show_help(rp_env_t* env, editor_t* eb) {
 static void edit_history_at(rp_env_t* env, editor_t* eb, int ofs ) 
 {
   if (eb->modified) { 
-    history_update(env, sbuf_string(eb->input)); // update first entry if modified
+    history_update(env->history, sbuf_string(eb->input)); // update first entry if modified
     eb->history_idx = 0;          // and start again 
     eb->modified = false;    
   }
-  const char* entry = history_get(&env->history,eb->history_idx + ofs);
+  const char* entry = history_get(env->history,eb->history_idx + ofs);
   debug_msg( "edit: history: at: %d + %d, found: %s\n", eb->history_idx, ofs, entry);
   if (entry == NULL) {
     term_beep(env->term);
@@ -746,7 +748,7 @@ static void hsearch_done( alloc_t* mem, hsearch_t* hs ) {
 static void edit_history_search(rp_env_t* env, editor_t* eb, char* initial ) {
   // update history
   if (eb->modified) { 
-    history_update(env, sbuf_string(eb->input)); // update first entry if modified
+    history_update(env->history, sbuf_string(eb->input)); // update first entry if modified
     eb->history_idx = 0;               // and start again 
     eb->modified = false;
   }
@@ -774,7 +776,7 @@ static void edit_history_search(rp_env_t* env, editor_t* eb, char* initial ) {
       hsearch_push( eb->mem, &hs, hidx, match_pos, match_len, true);
       char c = initial[ipos + next];  // terminate temporarily
       initial[ipos + next] = 0;
-      if (history_search( &env->history, hidx, initial, true, &hidx, &match_pos )) {
+      if (history_search( env->history, hidx, initial, true, &hidx, &match_pos )) {
         match_len = ipos + next;
       }      
       else if (ipos + next >= initial_len) {
@@ -793,7 +795,7 @@ static void edit_history_search(rp_env_t* env, editor_t* eb, char* initial ) {
 
   // Incremental search
 again:
-  hentry = history_get(&env->history,hidx);
+  hentry = history_get(env->history,hidx);
   snprintf(buf,32,"\x1B[97m%zd. ", hidx);
   sbuf_append(eb->extra, buf );
   sbuf_append(eb->extra, "\x1B[90m" );         // dark gray
@@ -811,7 +813,7 @@ again:
   sbuf_clear(eb->extra);
   if (c == KEY_ESC || c == KEY_BELL /* ^G */ || c == KEY_CTRL_C) {
     c = 0;  
-    sbuf_replace( eb->input, history_get(&env->history,0) );
+    sbuf_replace( eb->input, history_get(env->history,0) );
     eb->pos = old_pos;
   } 
   else if (c == KEY_ENTER) {
@@ -832,7 +834,7 @@ again:
   else if (c == KEY_CTRL_R || c == KEY_TAB || c == KEY_UP) {    
     // search backward
     hsearch_push(&env->alloc, &hs, hidx, match_pos, match_len, false);
-    if (!history_search( &env->history, hidx+1, sbuf_string(eb->input), true, &hidx, &match_pos )) {
+    if (!history_search( env->history, hidx+1, sbuf_string(eb->input), true, &hidx, &match_pos )) {
       hsearch_pop(&env->alloc,&hs,NULL,NULL,NULL,NULL);
       term_beep(env->term);
     };
@@ -841,7 +843,7 @@ again:
   else if (c == KEY_CTRL_S || c == KEY_SHIFT_TAB || c == KEY_DOWN) {    
     // search forward
     hsearch_push(&env->alloc, &hs, hidx, match_pos, match_len, false);
-    if (!history_search( &env->history, hidx-1, sbuf_string(eb->input), false, &hidx, &match_pos )) {
+    if (!history_search( env->history, hidx-1, sbuf_string(eb->input), false, &hidx, &match_pos )) {
       hsearch_pop(&env->alloc, &hs,NULL,NULL,NULL,NULL);
       term_beep(env->term);
     };
@@ -881,7 +883,7 @@ again:
       goto again;
     }
     // search for the new input
-    if (history_search( &env->history, hidx, sbuf_string(eb->input), true, &hidx, &match_pos )) {
+    if (history_search( env->history, hidx, sbuf_string(eb->input), true, &hidx, &match_pos )) {
       match_len = sbuf_len(eb->input);
     }
     else {
@@ -1155,7 +1157,7 @@ static char* edit_line( rp_env_t* env, const char* prompt_text )
   edit_write_prompt(env, &eb, 0, false); 
 
   // always a history entry for the current input
-  history_push(env, "");
+  history_push(env->history, "");
 
   // process keys
   code_t c;          // current key code
@@ -1343,9 +1345,9 @@ static char* edit_line( rp_env_t* env, const char* prompt_text )
   sbuf_free(eb.extra);
   
   // update history
-  history_update(env,res);
+  history_update(env->history, res);
   if (res != NULL && (res[0] == 0 || res[1] == 0)) rp_history_remove_last(env);  // no empty or single-char entries
-  history_save(env);
+  history_save(env->history);
   return res;
 }
 

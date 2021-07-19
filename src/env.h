@@ -13,6 +13,7 @@
 #include "term.h"
 #include "tty.h"
 #include "stringbuf.h"
+#include "history.h"
 
 #define RP_MAX_HISTORY              (200)
 #define RP_MAX_COMPLETIONS_TO_SHOW  (1000)
@@ -38,17 +39,6 @@ typedef struct completions_s {
   completion_t* elems;  
 } completions_t;
 
-//-------------------------------------------------------------
-// History
-//-------------------------------------------------------------
-
-typedef struct history_s {
-  ssize_t count;              // current number of entries in use
-  ssize_t len;                // size of elems (realloc'd on demand)
-  const char** elems;         // history items (up to count)
-  const char*  fname;         // history file
-  bool    allow_duplicates;   // allow duplicate entries?
-} history_t;
 
 //-------------------------------------------------------------
 // Environment
@@ -60,7 +50,7 @@ struct rp_env_s {
   tty_t*        tty;
   alloc_t       alloc;
   completions_t completions;
-  history_t     history;
+  history_t*    history;
   const char*   prompt_marker;
   rp_color_t    prompt_color;
   char          multiline_eol;  
@@ -70,14 +60,6 @@ struct rp_env_s {
 };
 
 internal char*    rp_editline(rp_env_t* env, const char* prompt_text);
-
-internal void     history_done( rp_env_t* env );
-internal void     history_load( rp_env_t* env );
-internal void     history_save( rp_env_t* env );
-internal bool     history_push( rp_env_t* env, const char* entry );
-internal bool     history_update( rp_env_t* env, const char* entry );
-internal const char* history_get( const history_t* env, ssize_t n );
-internal bool     history_search( const history_t* h, ssize_t from, const char* search, bool backward, ssize_t* hidx, ssize_t* hpos);
 
 internal void     completions_done( rp_env_t* env );
 internal void     completions_clear( rp_env_t* env );

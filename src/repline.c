@@ -125,8 +125,8 @@ static void rp_atexit(void) {
 
 exported void rp_done( rp_env_t* env ) {
   if (env == NULL) return;
-  history_save(env);
-  history_done(env);
+  history_save(env->history);
+  history_free(env->history);
   completions_done(env);
   term_free(env->term);
   tty_free(env->tty);
@@ -163,6 +163,7 @@ exported rp_env_t* rp_init_custom_alloc( rp_malloc_fun_t* _malloc, rp_realloc_fu
   int fin = STDIN_FILENO;
   env->tty = tty_new(&env->alloc, fin);
   env->term = term_new(&env->alloc, env->tty, false, false, -1 );  
+  env->history = history_new(&env->alloc);
   
   if (env->tty == NULL || env->term == NULL || !term_is_interactive(env->term)) {
     env->noedit = true;
@@ -176,8 +177,7 @@ exported rp_env_t* rp_init_custom_alloc( rp_malloc_fun_t* _malloc, rp_realloc_fu
   
   // push on env list
   env->next = envs;
-  envs = env;
-  rp_set_history(env, NULL, -1);  
+  envs = env; 
   return env;
 }
 
@@ -208,7 +208,20 @@ exported void rp_enable_color( rp_env_t* env, bool enable ) {
 }
 
 exported void rp_enable_history_duplicates( rp_env_t* env, bool enable ) {
-  env->history.allow_duplicates = enable;
+  history_enable_duplicates(env->history, enable);
+}
+
+
+exported void rp_set_history(rp_env_t* env, const char* fname, long max_entries ) {
+  history_load_from(env->history, fname, max_entries );
+}
+
+exported void rp_history_remove_last(rp_env_t* env) {
+  history_remove_last(env->history);
+}
+
+exported void rp_history_clear(rp_env_t* env) {
+  history_clear(env->history);
 }
 
 

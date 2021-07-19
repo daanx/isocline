@@ -487,6 +487,13 @@ internal void sbuf_append( stringbuf_t* sbuf, const char* s ) {
   sbuf_insert_at( sbuf, s, sbuf_len(sbuf));
 }
 
+internal void sbuf_append_char( stringbuf_t* sbuf, char c ) {
+  char buf[2];
+  buf[0] = c;
+  buf[1] = 0;
+  sbuf_append( sbuf, buf );
+}
+
 internal void sbuf_replace(stringbuf_t* sbuf, const char* s) {
   sbuf_clear(sbuf);
   sbuf_append(sbuf,s);

@@ -22,10 +22,6 @@
 #include <sys/ioctl.h>
 #endif
 
-#ifndef RP_MAX_LINE
-#define RP_MAX_LINE 4096
-#endif
-
 #define RP_CSI      "\x1B["
 
 struct term_s {
@@ -50,7 +46,7 @@ struct term_s {
 };
 
 static bool term_write_direct(term_t* term, const char* s, ssize_t n );
-static bool term_vwritef(term_t* term, const char* fmt, va_list args );
+static bool term_vwritef(term_t* term, ssize_t max_needed, const char* fmt, va_list args );
 static bool term_buffered_ensure( term_t* term, ssize_t extra );
 
 
@@ -60,22 +56,22 @@ static bool term_buffered_ensure( term_t* term, ssize_t extra );
 
 internal void term_left(term_t* term, ssize_t n) {
   if (n <= 0) return;
-  term_writef( term, RP_CSI "%zdD", n );
+  term_writef( term, 64, RP_CSI "%zdD", n );
 }
 
 internal void term_right(term_t* term, ssize_t n) {
   if (n <= 0) return;
-  term_writef( term, RP_CSI "%zdC", n );
+  term_writef( term, 64, RP_CSI "%zdC", n );
 }
 
 internal void term_up(term_t* term, ssize_t n) {
   if (n <= 0) return;
-  term_writef( term, RP_CSI "%zdA", n );
+  term_writef( term, 64, RP_CSI "%zdA", n );
 }
 
 internal void term_down(term_t* term, ssize_t n) {
   if (n <= 0) return;
-  term_writef( term, RP_CSI "%zdB", n );
+  term_writef( term, 64, RP_CSI "%zdB", n );
 }
 
 internal void term_clear_line(term_t* term) {
@@ -103,7 +99,7 @@ internal void term_underline(term_t* term, bool on) {
 }
 
 internal void term_color(term_t* term, rp_color_t color) {
-  term_writef(term, RP_CSI "%dm", color );
+  term_writef(term, 64, RP_CSI "%dm", color );
 }
 
 
@@ -148,16 +144,19 @@ internal void term_clear(term_t* term, ssize_t n) {
 // Formatted output
 //-------------------------------------------------------------
 
-internal bool term_writef(term_t* term, const char* fmt, ...) {
+internal bool term_writef(term_t* term, ssize_t max_needed, const char* fmt, ...) {
   va_list ap;
   va_start(ap, fmt);
-  int err = term_vwritef(term,fmt,ap);
+  int err = term_vwritef(term,max_needed,fmt,ap);
   va_end(ap);
   return err;
 }
 
-internal bool term_vwritef(term_t* term, const char* fmt, va_list args ) {
-  if (!term_buffered_ensure(term, RP_MAX_LINE)) return false;
+static bool term_vwritef(term_t* term, ssize_t max_needed, const char* fmt, va_list args ) {
+  ssize_t extra = max_needed - (term->buflen - term->bufcount); 
+  if (extra > 0) {
+    if (!term_buffered_ensure(term, extra)) return false;
+  }
   bool buffering = term->buffered;
   term_start_buffered(term);
   vsnprintf( term->buf + term->bufcount, to_size_t(term->buflen - term->bufcount), fmt, args );
@@ -616,7 +615,7 @@ static bool term_get_cursor_pos( term_t* term, tty_t* tty, int* row, int* col)
 }
 
 static void term_set_cursor_pos( term_t* term, int row, int col ) {
-  term_writef( term, RP_CSI "%d;%dH", row, col );
+  term_writef( term, 128, RP_CSI "%d;%dH", row, col );
 }
 
 internal bool term_update_dim(term_t* term, tty_t* tty) {
