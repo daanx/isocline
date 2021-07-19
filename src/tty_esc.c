@@ -243,7 +243,7 @@ static void tty_read_csi_num(tty_t* tty, char* ppeek, uint32_t* num) {
   if (count > 0) *num = i;
 }
 
-static code_t tty_read_csi(tty_t* tty, char c1, char peek) {
+static code_t tty_read_csi(tty_t* tty, char c1, char peek, code_t mods0) {
   // CSI starts with 0x9b (c1=='[') | ESC [ (c1=='[')
   // also process SS3 which starts with ESC O, ESC o, or ESC ? (on a vt52)  (c1=='O' or 'o' or '?')
   
@@ -288,7 +288,7 @@ static code_t tty_read_csi(tty_t* tty, char c1, char peek) {
 
   // the final character (we do not allow 'intermediate characters')
   char   final = peek;
-  code_t modifiers = 0;
+  code_t modifiers = mods0;
 
   debug_msg("tty: escape sequence: ESC %c %c %d;%d %c\n", c1, (special == 0 ? '_' : special), num1, num2, final);
   
@@ -363,13 +363,26 @@ internal code_t tty_read_esc(tty_t* tty) {
   if (!tty_readc_noblock(tty,&peek)) return KEY_ESC; // ESC
   if (peek == '[') {
     if (!tty_readc_noblock(tty,&peek)) return ('[' | MOD_ALT);  // ESC [
-    return tty_read_csi(tty,'[',peek);  // ESC [ ...
+    return tty_read_csi(tty,'[',peek,0);  // ESC [ ...
   }
   else if (peek == 'O' || peek == 'o' || peek == '?' /*vt52*/) {
     // SS3 ?
     char c1 = peek;
     if (!tty_readc_noblock(tty,&peek)) return (KEY_CHAR(c1) | MOD_ALT);  // ESC [Oo?]
-    return tty_read_csi(tty,c1,peek);  // ESC [Oo?] ...
+    return tty_read_csi(tty,c1,peek,0);  // ESC [Oo?] ...
+  }
+  else if (peek == KEY_ESC) {
+    // macOS returns ESC ESC [ A for alt-up
+    if (!tty_readc_noblock(tty,&peek)) {
+      tty_cpush_char(tty,'\x1B'); 
+      return KEY_ESC; // ESC
+    }
+    if (peek != '[' || !tty_readc_noblock(tty,&peek)) {
+      tty_cpush_char(tty,peek);
+      tty_cpush_char(tty,'\x1B'); 
+      return KEY_ESC;
+    }
+    return tty_read_csi(tty,'[',peek,MOD_ALT);
   }
   else {
     return (KEY_CHAR(peek) | MOD_ALT);  // ESC any    

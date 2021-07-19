@@ -125,11 +125,11 @@ static void rp_atexit(void) {
 
 exported void rp_done( rp_env_t* env ) {
   if (env == NULL) return;
-  history_save(env);
-  history_done(env);
+  history_save(env->history);
+  history_free(env->history);
   completions_done(env);
-  term_done(&env->term);
-  tty_done(&env->tty);
+  term_free(env->term);
+  tty_free(env->tty);
   env_free(env,env->prompt_marker); env->prompt_marker = NULL;
   
   // remove from list
@@ -161,11 +161,11 @@ exported rp_env_t* rp_init_custom_alloc( rp_malloc_fun_t* _malloc, rp_realloc_fu
   env->alloc.realloc = _realloc;
   env->alloc.free    = _free;
   int fin = STDIN_FILENO;
+  env->tty = tty_new(&env->alloc, fin);
+  env->term = term_new(&env->alloc, env->tty, false, false, -1 );  
+  env->history = history_new(&env->alloc);
   
-  // initialize term & tty
-  if (!tty_init(&env->tty, fin) || 
-      !term_init(&env->term,&env->tty,&env->alloc,false,false,-1))
-  {
+  if (env->tty == NULL || env->term == NULL || !term_is_interactive(env->term)) {
     env->noedit = true;
   }
   env->prompt_marker = NULL;
@@ -177,8 +177,7 @@ exported rp_env_t* rp_init_custom_alloc( rp_malloc_fun_t* _malloc, rp_realloc_fu
   
   // push on env list
   env->next = envs;
-  envs = env;
-  rp_set_history(env, NULL, -1);  
+  envs = env; 
   return env;
 }
 
@@ -201,15 +200,28 @@ exported void rp_enable_multiline( rp_env_t* env, bool enable ) {
 }
 
 exported void rp_enable_beep( rp_env_t* env, bool enable ) {
-  env->term.silent = !enable;
+  term_enable_beep(env->term, enable);
 }
 
 exported void rp_enable_color( rp_env_t* env, bool enable ) {
-  env->term.monochrome = !enable;
+  term_enable_color( env->term, enable );
 }
 
 exported void rp_enable_history_duplicates( rp_env_t* env, bool enable ) {
-  env->history.allow_duplicates = enable;
+  history_enable_duplicates(env->history, enable);
+}
+
+
+exported void rp_set_history(rp_env_t* env, const char* fname, long max_entries ) {
+  history_load_from(env->history, fname, max_entries );
+}
+
+exported void rp_history_remove_last(rp_env_t* env) {
+  history_remove_last(env->history);
+}
+
+exported void rp_history_clear(rp_env_t* env) {
+  history_clear(env->history);
 }
 
 
@@ -219,14 +231,14 @@ exported void rp_enable_history_duplicates( rp_env_t* env, bool enable ) {
 //-------------------------------------------------------------
 
 static char* rp_getline( rp_env_t* env, const char* prompt_text ) {
-  ssize_t buflen = 32;
-  char*  buf = (char*)env_zalloc(env,buflen);
+  ssize_t buflen = 128;
+  char*  buf = mem_malloc_tp_n(&env->alloc,char,buflen);
   if (buf==NULL) return NULL;
   ssize_t len = 0;
 
   // display prompt
-  if (prompt_text != NULL) term_write(&env->term, prompt_text);
-  term_write( &env->term, (env->prompt_marker != NULL ? env->prompt_marker : "> ") );
+  if (prompt_text != NULL) term_write(env->term, prompt_text);
+  term_write( env->term, (env->prompt_marker != NULL ? env->prompt_marker : "> ") );
 
   // read until eof or newline
   int c;

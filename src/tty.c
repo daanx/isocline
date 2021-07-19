@@ -18,9 +18,31 @@
 #define read(fd,s,n)   _read(fd,s,n)
 #define STDIN_FILENO 0
 #else
+#include <termios.h>
 #include <unistd.h>
 #include <sys/ioctl.h>
 #endif
+
+#define TTY_PUSH_MAX (64)
+
+struct tty_s {
+  int     fin;  
+  bool    raw_enabled;
+  bool    is_utf8;
+  code_t  pushbuf[TTY_PUSH_MAX];
+  ssize_t pushed;
+  char    cpushbuf[TTY_PUSH_MAX];
+  ssize_t cpushed;
+  #if defined(_WIN32)
+  HANDLE  hcon;
+  DWORD   hcon_orig_mode;
+  #else
+  struct termios default_ios;
+  struct termios raw_ios;
+  #endif
+  alloc_t* mem;
+};
+
 
 //-------------------------------------------------------------
 // Forward declarations of platform dependent primitives below
@@ -114,18 +136,18 @@ internal code_t tty_read(tty_t* tty) {
     code = KEY_BACKSP | mods;
   }
   // treat ctrl/shift + enter always as KEY_LINEFEED for portability
-  else if (code == WITH_CTRL(KEY_ENTER) || code == WITH_SHIFT(KEY_ENTER)) {
+  else if (key == KEY_ENTER && (mods == MOD_SHIFT || mods == MOD_ALT || mods == MOD_CTRL)) {
     code = KEY_LINEFEED;
   }
   // treat ctrl+tab always as shift+tab for portability
   else if (code == WITH_CTRL(KEY_TAB)) {
     code = KEY_SHIFT_TAB;
   }
-  // treat ctrl+end/alt+> and ctrl+home/alt+< always as pagedown/pageup for portability
-  else if (code == WITH_ALT('>') || code == WITH_CTRL(KEY_END)) {
+  // treat ctrl+end/alt+>/alt-down and ctrl+home/alt+</alt-up always as pagedown/pageup for portability
+  else if (code == WITH_ALT(KEY_DOWN) || code == WITH_ALT('>') || code == WITH_CTRL(KEY_END)) {
     code = KEY_PAGEDOWN;
   }
-  else if (code == WITH_ALT('<') || code == WITH_CTRL(KEY_HOME)) {
+  else if (code == WITH_ALT(KEY_UP) || code == WITH_ALT('<') || code == WITH_CTRL(KEY_HOME)) {
     code = KEY_PAGEUP;
   }
   
@@ -282,17 +304,27 @@ static bool tty_init_utf8(tty_t* tty) {
   return true;
 }
 
-internal bool tty_init(tty_t* tty, int fin) 
+internal tty_t* tty_new(alloc_t* mem, int fin) 
 {
+  tty_t* tty = mem_zalloc_tp(mem, tty_t);
+  tty->mem = mem;
   tty->fin = (fin < 0 ? STDIN_FILENO : fin);
-  return (isatty(fin) && tty_init_raw(tty) && tty_init_utf8(tty));
+  if (!(isatty(fin) && tty_init_raw(tty) && tty_init_utf8(tty))) {
+    tty_free(tty);
+    return NULL;
+  }
+  return tty;
 }
 
-internal void tty_done(tty_t* tty) {
+internal void tty_free(tty_t* tty) {
+  if (tty==NULL) return;
   tty_end_raw(tty);
+  mem_free(tty->mem,tty);
 }
 
-
+internal bool tty_is_utf8(tty_t* tty) {
+  return tty->is_utf8;
+}
 //-------------------------------------------------------------
 // Unix
 //-------------------------------------------------------------

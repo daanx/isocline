@@ -487,6 +487,13 @@ internal void sbuf_append( stringbuf_t* sbuf, const char* s ) {
   sbuf_insert_at( sbuf, s, sbuf_len(sbuf));
 }
 
+internal void sbuf_append_char( stringbuf_t* sbuf, char c ) {
+  char buf[2];
+  buf[0] = c;
+  buf[1] = 0;
+  sbuf_append( sbuf, buf );
+}
+
 internal void sbuf_replace(stringbuf_t* sbuf, const char* s) {
   sbuf_clear(sbuf);
   sbuf_append(sbuf,s);
@@ -519,15 +526,15 @@ internal ssize_t sbuf_delete_char_before( stringbuf_t* sbuf, ssize_t pos ) {
   if (n <= 0) return 0;  
   assert( pos - n >= 0 );
   sbuf_delete_at(sbuf, pos - n, n);
-  return n;
+  return pos - n;
 }
 
-internal ssize_t sbuf_delete_char_at( stringbuf_t* sbuf, ssize_t pos ) {
+internal void sbuf_delete_char_at( stringbuf_t* sbuf, ssize_t pos ) {
   ssize_t n = sbuf_next_ofs(sbuf, pos, NULL);
-  if (n <= 0) return 0;  
+  if (n <= 0) return;  
   assert( pos + n <= sbuf->count );
   sbuf_delete_at(sbuf, pos, n);
-  return n;
+  return;
 }
 
 internal ssize_t sbuf_swap_char( stringbuf_t* sbuf, ssize_t pos ) {
@@ -540,7 +547,7 @@ internal ssize_t sbuf_swap_char( stringbuf_t* sbuf, ssize_t pos ) {
   rp_memcpy(buf, sbuf->buf + pos - prev, prev );
   rp_memmove(sbuf->buf + pos - prev, sbuf->buf + pos, next);
   rp_memmove(sbuf->buf + pos - prev + next, buf, prev);
-  return prev;
+  return pos - prev;
 }
 
 internal ssize_t sbuf_find_line_start( stringbuf_t* sbuf, ssize_t pos ) {

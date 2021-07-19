@@ -12,38 +12,20 @@
 #include "common.h"
 #include "tty.h"
 
-#define RP_MAX_LINE 4096
-
-#ifdef _WIN32
-#include <windows.h>
-#endif
-
-typedef struct term_s {
-  int     fout;
-  ssize_t width;
-  ssize_t height;
-  bool    monochrome;
-  bool    silent;
-  bool    raw_enabled;
-  bool    buffered;
-  char*   buf;
-  ssize_t bufcount;
-  ssize_t buflen;
-  alloc_t* mem;  
-  #ifdef _WIN32
-  HANDLE  hcon;
-  WORD    hcon_default_attr;  
-  WORD    hcon_orig_attr;
-  DWORD   hcon_orig_mode;
-  UINT    hcon_orig_cp;  
-  #endif
-} term_t;
+struct term_s;
+typedef struct term_s term_t;
 
 // Primitives
-internal bool term_init(term_t* term, tty_t* tty, alloc_t* mem, bool monochrome, bool silent, int fout);
-internal void term_done(term_t* term);
+internal term_t* term_new(alloc_t* mem, tty_t* tty, bool monochrome, bool silent, int fout);
+internal void term_free(term_t* term);
+
+internal bool term_is_interactive(const term_t* term);
 internal void term_start_raw(term_t* term);
 internal void term_end_raw(term_t* term);
+
+internal void term_enable_beep(term_t* term, bool enable);
+internal void term_enable_color(term_t* term, bool enable);
+
 internal bool term_write_n(term_t* term, const char* s, ssize_t n);
 internal bool term_write(term_t* term, const char* s);
 internal void term_beep(term_t* term);
@@ -52,7 +34,7 @@ internal ssize_t term_get_width(term_t* term);
 internal ssize_t term_get_height(term_t* term);
 
 // Helpers
-internal bool term_writef(term_t* term, const char* fmt, ...);
+internal bool term_writef(term_t* term, ssize_t max_needed, const char* fmt, ...);
 internal void term_left(term_t* term, ssize_t n);
 internal void term_right(term_t* term, ssize_t n);
 internal void term_up(term_t* term, ssize_t n);

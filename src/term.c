@@ -13,6 +13,7 @@
 #include "tty.h"
 #include "term.h"
 #include "stringbuf.h" // str_next_ofs
+
 #if defined(_WIN32)
 #include <windows.h>
 #define STDOUT_FILENO 1
@@ -23,9 +24,29 @@
 
 #define RP_CSI      "\x1B["
 
+struct term_s {
+  int     fout;
+  ssize_t width;
+  ssize_t height;
+  bool    monochrome;
+  bool    silent;
+  bool    raw_enabled;
+  bool    buffered;
+  char*   buf;
+  ssize_t bufcount;
+  ssize_t buflen;
+  alloc_t* mem;  
+  #ifdef _WIN32
+  HANDLE  hcon;
+  WORD    hcon_default_attr;  
+  WORD    hcon_orig_attr;
+  DWORD   hcon_orig_mode;
+  UINT    hcon_orig_cp;  
+  #endif
+};
 
 static bool term_write_direct(term_t* term, const char* s, ssize_t n );
-static bool term_vwritef(term_t* term, const char* fmt, va_list args );
+static bool term_vwritef(term_t* term, ssize_t max_needed, const char* fmt, va_list args );
 static bool term_buffered_ensure( term_t* term, ssize_t extra );
 
 
@@ -35,22 +56,22 @@ static bool term_buffered_ensure( term_t* term, ssize_t extra );
 
 internal void term_left(term_t* term, ssize_t n) {
   if (n <= 0) return;
-  term_writef( term, RP_CSI "%zdD", n );
+  term_writef( term, 64, RP_CSI "%zdD", n );
 }
 
 internal void term_right(term_t* term, ssize_t n) {
   if (n <= 0) return;
-  term_writef( term, RP_CSI "%zdC", n );
+  term_writef( term, 64, RP_CSI "%zdC", n );
 }
 
 internal void term_up(term_t* term, ssize_t n) {
   if (n <= 0) return;
-  term_writef( term, RP_CSI "%zdA", n );
+  term_writef( term, 64, RP_CSI "%zdA", n );
 }
 
 internal void term_down(term_t* term, ssize_t n) {
   if (n <= 0) return;
-  term_writef( term, RP_CSI "%zdB", n );
+  term_writef( term, 64, RP_CSI "%zdB", n );
 }
 
 internal void term_clear_line(term_t* term) {
@@ -78,7 +99,7 @@ internal void term_underline(term_t* term, bool on) {
 }
 
 internal void term_color(term_t* term, rp_color_t color) {
-  term_writef(term, RP_CSI "%dm", color );
+  term_writef(term, 64, RP_CSI "%dm", color );
 }
 
 
@@ -123,16 +144,19 @@ internal void term_clear(term_t* term, ssize_t n) {
 // Formatted output
 //-------------------------------------------------------------
 
-internal bool term_writef(term_t* term, const char* fmt, ...) {
+internal bool term_writef(term_t* term, ssize_t max_needed, const char* fmt, ...) {
   va_list ap;
   va_start(ap, fmt);
-  int err = term_vwritef(term,fmt,ap);
+  int err = term_vwritef(term,max_needed,fmt,ap);
   va_end(ap);
   return err;
 }
 
-internal bool term_vwritef(term_t* term, const char* fmt, va_list args ) {
-  if (!term_buffered_ensure(term, RP_MAX_LINE)) return false;
+static bool term_vwritef(term_t* term, ssize_t max_needed, const char* fmt, va_list args ) {
+  ssize_t extra = max_needed - (term->buflen - term->bufcount); 
+  if (extra > 0) {
+    if (!term_buffered_ensure(term, extra)) return false;
+  }
   bool buffering = term->buffered;
   term_start_buffered(term);
   vsnprintf( term->buf + term->bufcount, to_size_t(term->buflen - term->bufcount), fmt, args );
@@ -220,8 +244,9 @@ internal bool term_end_buffered(term_t* term) {
 
 static void term_init_raw(term_t* term);
 
-internal bool term_init(term_t* term, tty_t* tty, alloc_t* mem, bool monochrome, bool silent, int fout ) 
+internal term_t* term_new(alloc_t* mem, tty_t* tty, bool monochrome, bool silent, int fout ) 
 {
+  term_t* term = mem_zalloc_tp(mem, term_t);
   term->fout   = (fout < 0 ? STDOUT_FILENO : fout);
   term->monochrome = monochrome;
   term->silent = silent;  
@@ -238,7 +263,10 @@ internal bool term_init(term_t* term, tty_t* tty, alloc_t* mem, bool monochrome,
   // initialize raw terminal output and terminal dimensions
   term_init_raw(term);
   term_update_dim(term,tty);
+  return term;
+}
 
+internal bool term_is_interactive(const term_t* term) {
   // check dimensions (0 is used for debuggers)
   if (term->width <= 0) return false; 
   
@@ -253,12 +281,21 @@ internal bool term_init(term_t* term, tty_t* tty, alloc_t* mem, bool monochrome,
   return true;
 }
 
-internal void term_done(term_t* term) {
+internal void term_enable_beep(term_t* term, bool enable) {
+  term->silent = !enable;
+}
+
+internal void term_enable_color(term_t* term, bool enable) {
+  term->monochrome = !enable;
+}
+
+
+internal void term_free(term_t* term) {
+  if (term == NULL) return;
   term_end_buffered(term);
   term_end_raw(term);
-
-  mem_free(term->mem, term->buf);
-  // nothing to do
+  mem_free(term->mem, term->buf);  
+  mem_free(term->mem, term);
 }
 
 
@@ -578,7 +615,7 @@ static bool term_get_cursor_pos( term_t* term, tty_t* tty, int* row, int* col)
 }
 
 static void term_set_cursor_pos( term_t* term, int row, int col ) {
-  term_writef( term, RP_CSI "%d;%dH", row, col );
+  term_writef( term, 128, RP_CSI "%d;%dH", row, col );
 }
 
 internal bool term_update_dim(term_t* term, tty_t* tty) {
