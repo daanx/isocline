@@ -32,7 +32,11 @@ static ssize_t char_column_width( const char* s, ssize_t n, bool is_utf8 ) {
   else if (!is_utf8) return 1;
   else {
     ssize_t w = utf8_char_width(s, n);
-    return (w <= 0 ? 1 : w); // consoles seem to use at least one column
+    #ifdef _WIN32
+    return (w <= 0 ? 1 : w); // windows console seems to use at least one column
+    #else
+    return w;
+    #endif
   }
 }
 
