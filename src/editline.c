@@ -275,7 +275,11 @@ static void edit_refresh(rp_env_t* env, editor_t* eb)
   
   // render rows
   edit_refresh_rows( env, eb, termw, promptw, false, first_row, last_row );
-  if (rows_extra > 0) edit_refresh_rows( env, eb, termw, 0, true, first_row + rows_input, last_row );
+  if (rows_extra > 0) {
+    ssize_t first_rowx = (first_row > rows_input ? first_row - rows_input : 0);
+    ssize_t last_rowx = last_row - rows_input; assert(last_rowx >= 0);
+    edit_refresh_rows(env, eb, termw, 0, true, first_rowx, last_rowx);
+  }
 
   // overwrite trailing rows we do not use anymore
   ssize_t rrows = last_row - first_row + 1;  // rendered rows
@@ -988,7 +992,7 @@ again:
     columns = 3;
     percolumn = 3;
     for( ssize_t rw = 0; rw < percolumn; rw++ ) {
-      sbuf_append( eb->extra, "\n");
+      if (rw > 0) sbuf_append( eb->extra, "\n");
       editor_append_completion3( env, eb, rw, percolumn+rw, (2*percolumn)+rw, selected );
     }
   }
@@ -998,7 +1002,7 @@ again:
     columns = 2;
     percolumn = (count_displayed <= 6 ? 3 : 4);
     for( ssize_t rw = 0; rw < percolumn; rw++ ) {
-      sbuf_append( eb->extra, "\n");
+      if (rw > 0) sbuf_append( eb->extra, "\n");
       editor_append_completion2( env, eb, rw, percolumn+rw, selected );
     }
   }
@@ -1008,7 +1012,7 @@ again:
     columns = 1;
     percolumn = count_displayed;
     for(ssize_t i = 0; i < count_displayed; i++) {
-      sbuf_append( eb->extra, "\n");
+      if (i > 0) sbuf_append( eb->extra, "\n");
       editor_append_completion(eb, completions_get(env,i), i, -1, true /* numbered */, selected == i );        
     }
   }

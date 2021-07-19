@@ -320,7 +320,7 @@ static void term_erase_line( term_t* term, ssize_t mode ) {
   DWORD length;
   if (mode == 2) {
     // to end of line    
-    length = info.srWindow.Right - info.dwCursorPosition.X;
+    length = info.srWindow.Right - info.dwCursorPosition.X + 1;
     start  = info.dwCursorPosition;
   }
   else if (mode == 1) {
@@ -421,12 +421,13 @@ static void term_write_esc( term_t* term, const char* s, ssize_t len ) {
     case 'D': 
       term_move_cursor( term, 0, -1, esc_param( s+2, len, 1 ) ); 
       break;
-    case 'H': 
+    case 'H': {
       ssize_t row;
       ssize_t col;
-      esc_param2( s+2, len, &row, &col, 1 );
-      term_move_cursor_to( term, row, col ); 
+      esc_param2(s+2, len, &row, &col, 1);
+      term_move_cursor_to(term, row, col);
       break;
+    }
     case 'K':
       term_erase_line( term, esc_param( s+2, len, 0 ) );
       break;
