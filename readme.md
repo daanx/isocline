@@ -42,8 +42,8 @@ Clone the repository and run cmake:
 ```
 $ git clone https://github.com/daanx/repline
 $ cd repline
-$ mkdir -p out/release
-$ cd out/release
+$ mkdir -p build/release
+$ cd build/release
 $ cmake ../..
 $ cmake --build .
 ```
@@ -80,3 +80,10 @@ Some other libraries that we considered:
 [koka]: http://www.koka-lang.org
 [submodule]: https://git-scm.com/book/en/v2/Git-Tools-Submodules
 
+<!--
+## Potential Future Extensions
+
+- Syntax highlighting
+- Parenthesis matching
+- Vi mode
+-->
