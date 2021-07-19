@@ -354,7 +354,7 @@ static code_t tty_read_csi(tty_t* tty, char c1, char peek) {
     // xterm 
     code = esc_decode_xterm(final);
   }
-  if (code == KEY_NONE) debug_msg("tty: ignore escape sequence: ESC %c1 %d;%d %c\n", c1, num1, num2, final);
+  if (code == KEY_NONE) { debug_msg("tty: ignore escape sequence: ESC %c1 %d;%d %c\n", c1, num1, num2, final); }
   return (code != KEY_NONE ? (code | modifiers) : KEY_NONE);
 }
 
