@@ -8,6 +8,7 @@
 #ifndef RP_STRINGBUF_H
 #define RP_STRINGBUF_H
 
+#include <stdarg.h>
 #include "common.h"
 
 //-------------------------------------------------------------
@@ -30,6 +31,8 @@ internal const char* sbuf_string( stringbuf_t* sbuf );
 internal char    sbuf_char_at(stringbuf_t* sbuf, ssize_t pos);
 internal char*   sbuf_strdup_at( stringbuf_t* sbuf, ssize_t pos );
 internal char*   sbuf_strdup( stringbuf_t* sbuf );
+
+internal ssize_t sbuf_append_vprintf(stringbuf_t* sb, const char* fmt, va_list args);
 
 // primitive edit operations (inserts return the new position)
 internal void    sbuf_clear(stringbuf_t* sbuf);

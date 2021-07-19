@@ -16,8 +16,6 @@
 #include "history.h"
 #include "completions.h"
 
-#define RP_MAX_COMPLETIONS_TO_SHOW  (1000)
-
 //-------------------------------------------------------------
 // Environment
 //-------------------------------------------------------------

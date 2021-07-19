@@ -32,9 +32,7 @@ struct term_s {
   bool    silent;
   bool    raw_enabled;
   bool    buffered;
-  char*   buf;
-  ssize_t bufcount;
-  ssize_t buflen;
+  stringbuf_t* buf;
   alloc_t* mem;  
   #ifdef _WIN32
   HANDLE  hcon;
@@ -153,16 +151,10 @@ internal bool term_writef(term_t* term, ssize_t max_needed, const char* fmt, ...
 }
 
 static bool term_vwritef(term_t* term, ssize_t max_needed, const char* fmt, va_list args ) {
-  ssize_t extra = max_needed - (term->buflen - term->bufcount); 
-  if (extra > 0) {
-    if (!term_buffered_ensure(term, extra)) return false;
-  }
+  unused(max_needed);
   bool buffering = term->buffered;
   term_start_buffered(term);
-  vsnprintf( term->buf + term->bufcount, to_size_t(term->buflen - term->bufcount), fmt, args );
-  ssize_t written = rp_strlen(term->buf + term->bufcount);
-  term->bufcount += written;
-  assert(term->bufcount <= term->buflen);
+  sbuf_append_vprintf(term->buf, fmt, args);
   if (!buffering) term_end_buffered(term);
   return true;
 }
@@ -180,21 +172,6 @@ internal void term_beep(term_t* term) {
   fflush(stderr);
 }
 
-static bool term_buffered_ensure( term_t* term, ssize_t extra ) {
-  // note: should work whether buffering or not.  
-  ssize_t avail = term->buflen - term->bufcount;
-  if (avail < extra) {
-    ssize_t newlen = (term->buflen > 0 ? 2*term->buflen : 1024);
-    if (newlen < term->bufcount + extra) newlen = term->bufcount + extra;
-    term->buf = (char*)mem_realloc( term->mem, term->buf, newlen + 1 /* termination 0 */);
-    if (term->buf == NULL) return false;
-    term->buf[newlen] = 0;
-    term->buf[term->bufcount] = 0;
-    term->buflen = newlen;
-  }
-  assert(term->buflen - term->bufcount >= extra);
-  return true;
-}
 
 internal bool term_write(term_t* term, const char* s) {
   // todo: strip colors on monochrome
@@ -208,30 +185,29 @@ internal bool term_write_n(term_t* term, const char* s, ssize_t n) {
   }
   else {
     // write to buffer to reduce flicker
-    if (!term_buffered_ensure(term, n)) return false;
-    if (!rp_strncpy( term->buf + term->bufcount, term->buflen - term->bufcount, s, n)) {
-      assert(false);
-      return false;
-    };
-    term->bufcount += n;
-    assert(term->buf[term->bufcount] == 0);
+    sbuf_append_n(term->buf, s, n);
     return true;
   }
 }
 
 
 internal void term_start_buffered(term_t* term) {
+  if (term->buf == NULL) {
+    term->buf = sbuf_new(term->mem, true);
+    if (term->buf == NULL) {
+      term->buffered = false;
+      return;
+    }
+  }
   term->buffered = true;
 }
 
 internal bool term_end_buffered(term_t* term) {
   if (!term->buffered) return true;
   term->buffered = false;
-  if (term->buf != NULL && term->bufcount > 0) {
-    assert(term->buf[term->bufcount] == 0);
-    bool ok = term_write_direct(term, term->buf, term->bufcount);
-    term->bufcount = 0;
-    term->buf[0] = 0;
+  if (term->buf != NULL && sbuf_len(term->buf) > 0) {
+    bool ok = term_write_direct(term, sbuf_string(term->buf), sbuf_len(term->buf));
+    sbuf_clear(term->buf);
     if (!ok) return false;
   }
   return true;
@@ -292,9 +268,9 @@ internal void term_enable_color(term_t* term, bool enable) {
 
 internal void term_free(term_t* term) {
   if (term == NULL) return;
-  term_end_buffered(term);
+  term_end_buffered(term);  
   term_end_raw(term);
-  mem_free(term->mem, term->buf);  
+  sbuf_free(term->buf); term->buf = NULL;
   mem_free(term->mem, term);
 }
 

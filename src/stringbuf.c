@@ -410,7 +410,7 @@ internal void sbuf_free( stringbuf_t* sbuf ) {
 
 internal char* sbuf_free_dup(stringbuf_t* sbuf) {
   if (sbuf == NULL) return NULL;
-  char* s = (char*)mem_realloc(sbuf->mem, sbuf->buf, sbuf_len(sbuf)+1);
+  char* s = mem_realloc_tp(sbuf->mem, char, sbuf->buf, sbuf_len(sbuf)+1);
   mem_free(sbuf->mem, sbuf);
   return s;
 }
@@ -445,7 +445,7 @@ static bool sbuf_ensure_extra(stringbuf_t* s, ssize_t extra)
   ssize_t newlen = (s->buflen == 0 ? 124 : 2*s->buflen);
   if (newlen <= s->count + extra) newlen = s->count + extra;
   debug_msg("stringbuf: reallocate: old %zd, new %zd\n", s->buflen, newlen);
-  char* newbuf = (char*)mem_realloc(s->mem, s->buf, newlen+1);
+  char* newbuf = mem_realloc_tp(s->mem, char, s->buf, newlen+1);
   if (newbuf == NULL) {
     assert(false);
     return false;
@@ -459,6 +459,16 @@ static bool sbuf_ensure_extra(stringbuf_t* s, ssize_t extra)
 
 internal ssize_t sbuf_len(const stringbuf_t* s) {
   return s->count;
+}
+
+internal ssize_t sbuf_append_vprintf(stringbuf_t* sb, const char* fmt, va_list args) {
+  ssize_t extra = vsnprintf(NULL, 0, fmt, args);
+  if (!sbuf_ensure_extra(sb, extra)) return sb->count;
+  vsnprintf(sb->buf + sb->count, to_size_t(sb->buflen - sb->count), fmt, args);
+  sb->count += extra;
+  sb->buf[sb->count] = 0;
+  assert(sb->count <= sb->buflen);
+  return sb->count;
 }
 
 internal ssize_t sbuf_insert_at_n(stringbuf_t* sbuf, const char* s, ssize_t n, ssize_t pos ) {

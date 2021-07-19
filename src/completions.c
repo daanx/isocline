@@ -70,7 +70,7 @@ static void completions_push(completions_t* cms, const char* display, const char
 {
   if (cms->count >= cms->len) {
     ssize_t newlen = (cms->len <= 0 ? 32 : cms->len*2);
-    completion_t* newelems = (completion_t*)mem_realloc( cms->mem, cms->elems, newlen*ssizeof(completion_t) );
+    completion_t* newelems = mem_realloc_tp(cms->mem, completion_t, cms->elems, newlen );
     if (newelems == NULL) return;
     cms->elems = newelems;
     cms->len   = newlen;
