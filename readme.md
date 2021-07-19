@@ -59,14 +59,15 @@ Copy the sources (in `include` and `src`) into your project, or add the library 
 ```
 $ git submodule add https://github.com/daanx/repline
 ```
-and add `repline/src/repline.c` to your build rules -- no configuration is needed, for example:
+and add `repline/src/repline.c` to your build rules -- no configuration is needed. 
+For example, we can build the example program directly as:
 ```
-$ gcc -c repline/src/repline.c
+$ gcc -Iinclude -o example src/repline.c test/example.c
 ```
 
 ## Motivation
 
-Repline was created for use in the [Koka] interative compiler. 
+Repline was created for use in the [Koka] interactive compiler. 
 This required: pure C (no dependency on a C++ runtime or other libraries), 
 portable (across Linux, macOS, and Windows), unicode support, 
 a BSD-style license, and good functionality for completion and multi-line editing.
