@@ -22,9 +22,9 @@ internal void     history_free(history_t* h);
 internal void     history_clear(history_t* h);
 internal void     history_enable_duplicates( history_t* h, bool enable );
 
+internal void     history_load_from(history_t* h, const char* fname, long max_entries);
 internal void     history_load( history_t* h );
 internal void     history_save( const history_t* h );
-internal void     history_load_from(history_t* h, const char* fname, long max_entries );
 
 internal bool     history_push( history_t* h, const char* entry );
 internal bool     history_update( history_t* h, const char* entry );

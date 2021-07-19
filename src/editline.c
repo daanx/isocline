@@ -14,6 +14,7 @@
 #include "env.h"
 #include "stringbuf.h"
 #include "history.h"
+#include "completions.h"
 
 #if defined(_WIN32)
 #else
@@ -826,25 +827,25 @@ again:
   else if (c == KEY_BACKSP || c == KEY_CTRL_Z) {
     // undo last search action
     bool cinsert;
-    if (hsearch_pop(&env->alloc,&hs, &hidx, &match_pos, &match_len, &cinsert)) {
+    if (hsearch_pop(env->mem,&hs, &hidx, &match_pos, &match_len, &cinsert)) {
       if (cinsert) edit_backspace(env,eb);
     }
     goto again;
   }
   else if (c == KEY_CTRL_R || c == KEY_TAB || c == KEY_UP) {    
     // search backward
-    hsearch_push(&env->alloc, &hs, hidx, match_pos, match_len, false);
+    hsearch_push(env->mem, &hs, hidx, match_pos, match_len, false);
     if (!history_search( env->history, hidx+1, sbuf_string(eb->input), true, &hidx, &match_pos )) {
-      hsearch_pop(&env->alloc,&hs,NULL,NULL,NULL,NULL);
+      hsearch_pop(env->mem,&hs,NULL,NULL,NULL,NULL);
       term_beep(env->term);
     };
     goto again;
   }  
   else if (c == KEY_CTRL_S || c == KEY_SHIFT_TAB || c == KEY_DOWN) {    
     // search forward
-    hsearch_push(&env->alloc, &hs, hidx, match_pos, match_len, false);
+    hsearch_push(env->mem, &hs, hidx, match_pos, match_len, false);
     if (!history_search( env->history, hidx-1, sbuf_string(eb->input), false, &hidx, &match_pos )) {
-      hsearch_pop(&env->alloc, &hs,NULL,NULL,NULL,NULL);
+      hsearch_pop(env->mem, &hs,NULL,NULL,NULL,NULL);
       term_beep(env->term);
     };
     goto again;
@@ -858,11 +859,11 @@ again:
     int tofollow;
     char chr;
     if (code_is_char(env->tty,c,&chr)) {
-      hsearch_push(&env->alloc, &hs, hidx, match_pos, match_len, true);
+      hsearch_push(env->mem, &hs, hidx, match_pos, match_len, true);
       edit_insert_char(env,eb,chr, false /* refresh */);      
     }
     else if (code_is_extended(env->tty,c,&chr,&tofollow)) {
-      hsearch_push(&env->alloc, &hs, hidx, match_pos, match_len, true);
+      hsearch_push(env->mem, &hs, hidx, match_pos, match_len, true);
       edit_insert_char(env,eb,chr,false);
       while (tofollow-- > 0) {
         c = tty_read(env->tty);
@@ -893,7 +894,7 @@ again:
   }
 
   // done
-  hsearch_done(&env->alloc,hs);
+  hsearch_done(env->mem,hs);
   eb->prompt_text = prompt_text;
   edit_refresh(env,eb);
   if (c != 0) tty_code_pushback(env->tty, c);
@@ -907,7 +908,7 @@ static void edit_history_search_with_current_word(rp_env_t* env, editor_t* eb) {
     initial = mem_strndup( eb->mem, sbuf_string(eb->input) + start, eb->pos - start);
   }
   edit_history_search( env, eb, initial);
-  mem_free(&env->alloc, initial);
+  mem_free(env->mem, initial);
 }
 
 
@@ -916,32 +917,31 @@ static void edit_history_search_with_current_word(rp_env_t* env, editor_t* eb) {
 //-------------------------------------------------------------
 
 static void edit_complete(rp_env_t* env, editor_t* eb, ssize_t idx) {
-  completion_t* cm = completions_get(env,idx);
-  if (cm == NULL) return;
   editor_start_modify(eb);
 
-  eb->pos = completion_apply(cm, eb->input, eb->pos);
+  eb->pos = completions_apply(env->completions, idx, eb->input, eb->pos);
   edit_refresh(env,eb);
 }
 
-static void editor_append_completion(editor_t* eb, completion_t* cm, ssize_t idx, ssize_t width, bool numbered, bool selected ) {
-  if (cm == NULL) return;
+static void editor_append_completion(rp_env_t* env, editor_t* eb, ssize_t idx, ssize_t width, bool numbered, bool selected ) {
+  const char* display = completions_get_display(env->completions, idx);
+  if (display == NULL) return;
   if (numbered) {
     char buf[32];
     snprintf(buf, 32, "\x1B[90m%s%zd \x1B[0m", (selected ? (eb->is_utf8 ? "\xE2\x86\x92" : "*") : " "), 1 + idx);
     sbuf_append(eb->extra, buf);
     width -= 3;
   }
-  const char* s = (cm->display==NULL ? cm->replacement : cm->display);
+
   if (width <= 0) {
-    sbuf_append(eb->extra, s);
+    sbuf_append(eb->extra, display);
   }
   else {
     // fit to width
-    const char* sc = str_skip_until_fit( s, width, eb->is_utf8);
-    if (sc != s) {
+    const char* sc = str_skip_until_fit( display, width, eb->is_utf8);
+    if (sc != display) {
       sbuf_append( eb->extra, "...");
-      sc = str_skip_until_fit( s, width - 3, eb->is_utf8);
+      sc = str_skip_until_fit( display, width - 3, eb->is_utf8);
     }
     sbuf_append( eb->extra, sc);
     // fill out with spaces
@@ -960,25 +960,25 @@ static void editor_append_completion(editor_t* eb, completion_t* cm, ssize_t idx
 #define RP_DISPLAY3_WIDTH  (3*RP_DISPLAY3_COL + 2*2)  // 79
 
 static void editor_append_completion2(rp_env_t* env, editor_t* eb, ssize_t idx1, ssize_t idx2, ssize_t selected ) {  
-  editor_append_completion(eb, completions_get(env,idx1), idx1, RP_DISPLAY2_COL, true, (idx1 == selected) );
+  editor_append_completion(env, eb, idx1, RP_DISPLAY2_COL, true, (idx1 == selected) );
   sbuf_append( eb->extra, "  ");
-  editor_append_completion(eb, completions_get(env,idx2), idx2, RP_DISPLAY2_COL, true, (idx2 == selected) );
+  editor_append_completion(env, eb, idx2, RP_DISPLAY2_COL, true, (idx2 == selected) );
 }
 
 static void editor_append_completion3(rp_env_t* env, editor_t* eb, ssize_t idx1, ssize_t idx2, ssize_t idx3, ssize_t selected ) {  
-  editor_append_completion(eb, completions_get(env,idx1), idx1, RP_DISPLAY3_COL, true, (idx1 == selected) );
+  editor_append_completion(env, eb, idx1, RP_DISPLAY3_COL, true, (idx1 == selected) );
   sbuf_append( eb->extra, "  ");
-  editor_append_completion(eb, completions_get(env,idx2), idx2, RP_DISPLAY3_COL, true, (idx2 == selected) );
+  editor_append_completion(env, eb, idx2, RP_DISPLAY3_COL, true, (idx2 == selected));
   sbuf_append( eb->extra, "  ");
-  editor_append_completion(eb, completions_get(env,idx3), idx3, RP_DISPLAY3_COL, true, (idx3 == selected) );
+  editor_append_completion(env, eb, idx3, RP_DISPLAY3_COL, true, (idx3 == selected) );
 }
 
 static ssize_t edit_completions_max_width( rp_env_t* env, editor_t* eb, ssize_t count ) {
   ssize_t max_width = 0;
   for( ssize_t i = 0; i < count; i++) {
-    completion_t* cm = completions_get(env,i);
-    if (cm != NULL) {
-      ssize_t w = str_column_width( (cm->display != NULL ? cm->display : cm->replacement), eb->is_utf8);
+    const char* display = completions_get_display(env->completions,i);
+    if (display != NULL) {
+      ssize_t w = str_column_width( display, eb->is_utf8);
       if (w > max_width) max_width = w;
     }
   }
@@ -986,7 +986,7 @@ static ssize_t edit_completions_max_width( rp_env_t* env, editor_t* eb, ssize_t 
 }
 
 static void edit_completion_menu(rp_env_t* env, editor_t* eb, bool more_available) {
-  ssize_t count = completions_count(env);
+  ssize_t count = completions_count(env->completions);
   ssize_t count_displayed = count;
   assert(count > 1);
   ssize_t selected = 0;
@@ -1024,7 +1024,7 @@ again:
     percolumn = count_displayed;
     for (ssize_t i = 0; i < count_displayed; i++) {
       if (i > 0) sbuf_append(eb->extra, "\n");
-      editor_append_completion(eb, completions_get(env, i), i, -1, true /* numbered */, selected == i);
+      editor_append_completion(env, eb, i, -1, true /* numbered */, selected == i);
     }
   }
   if (count > count_displayed) {
@@ -1070,7 +1070,7 @@ again:
     goto again;
   }
   else if (c == KEY_ESC) {
-    completions_clear(env);
+    completions_clear(env->completions);
     edit_refresh(env,eb);
     c = 0; // ignore and return
   }
@@ -1085,7 +1085,7 @@ again:
     c = 0;
     if (more_available) {
       // generate all entries (up to the max (= 1000))
-      count = completions_generate(env, sbuf_string(eb->input), eb->pos, RP_MAX_COMPLETIONS_TO_SHOW);
+      count = completions_generate(env, env->completions, sbuf_string(eb->input), eb->pos, RP_MAX_COMPLETIONS_TO_SHOW);
     }
     rowcol_t rc;
     edit_get_rowcol(env,eb,&rc);
@@ -1093,10 +1093,10 @@ again:
     edit_write_prompt(env,eb,0,false);
     term_write(env->term, "\r\n");
     for(ssize_t i = 0; i < count; i++) {
-      completion_t* cm = completions_get(env,i);
-      if (cm != NULL) {
+      const char* display = completions_get_display(env->completions, i);
+      if (display != NULL) {
         // term_writef(env->term, "\x1B[90m%3d \x1B[0m%s\r\n", i+1, (cm->display != NULL ? cm->display : cm->replacement ));          
-        term_write(env->term, (cm->display != NULL ? cm->display : cm->replacement ));         
+        term_write(env->term, display);         
         term_write(env->term, "\r\n"); 
       }
     }
@@ -1110,14 +1110,14 @@ again:
     edit_refresh(env,eb);      
   }
   // done
-  completions_clear(env);      
+  completions_clear(env->completions);      
   if (c != 0) tty_code_pushback(env->tty,c);
 }
 
 static void edit_generate_completions(rp_env_t* env, editor_t* eb) {
   debug_msg( "edit: complete: %zd: %s\n", eb->pos, sbuf_string(eb->input) );
   if (eb->pos <= 0) return;
-  ssize_t count = completions_generate(env, sbuf_string(eb->input), eb->pos, 10);
+  ssize_t count = completions_generate(env, env->completions, sbuf_string(eb->input), eb->pos, 10);
   if (count <= 0) {
     // no completions
     term_beep(env->term); 
@@ -1140,9 +1140,9 @@ static char* edit_line( rp_env_t* env, const char* prompt_text )
 {
   // set up an edit buffer
   editor_t eb;
-  eb.mem      = &env->alloc;
-  eb.input    = sbuf_alloc(eb.mem, tty_is_utf8(env->tty));
-  eb.extra    = sbuf_alloc(eb.mem, tty_is_utf8(env->tty));
+  eb.mem      = env->mem;
+  eb.input    = sbuf_new(eb.mem, tty_is_utf8(env->tty));
+  eb.extra    = sbuf_new(eb.mem, tty_is_utf8(env->tty));
   eb.pos      = 0;
   eb.cur_rows = 1; 
   eb.cur_row  = 0; 
@@ -1339,8 +1339,8 @@ static char* edit_line( rp_env_t* env, const char* prompt_text )
   char* res = ((c == KEY_CTRL_D && sbuf_len(eb.input) == 0) || c == KEY_CTRL_C) ? NULL : sbuf_strdup(eb.input);
 
   // free resources 
-  editstate_done(&env->alloc, &eb.undo);
-  editstate_done(&env->alloc, &eb.redo);
+  editstate_done(env->mem, &eb.undo);
+  editstate_done(env->mem, &eb.redo);
   sbuf_free(eb.input);
   sbuf_free(eb.extra);
   

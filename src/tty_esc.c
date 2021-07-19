@@ -5,11 +5,6 @@
   found in the "LICENSE" file at the root of this distribution.
 -----------------------------------------------------------------------------*/
 #include <string.h>
-#include <stdbool.h>
-#include <stdio.h>
-#include <stdarg.h>
-#include <locale.h>
-
 #include "tty.h"
 
 /*-------------------------------------------------------------

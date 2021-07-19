@@ -12,32 +12,35 @@
 
 //-------------------------------------------------------------
 // string buffer
-// in-place modified buffer with edit operations that grows
-// on demand.
+// in-place modified buffer with edit operations 
+// that grows on demand.
 //-------------------------------------------------------------
 
 // abstract string buffer
 struct stringbuf_s;
 typedef struct stringbuf_s stringbuf_t;
 
-internal stringbuf_t*  sbuf_alloc( alloc_t* mem, bool is_utf8 );
+internal stringbuf_t*  sbuf_new( alloc_t* mem, bool is_utf8 );
 internal void    sbuf_free( stringbuf_t* sbuf );
+internal char*   sbuf_free_dup(stringbuf_t* sbuf);
 internal ssize_t sbuf_len(const stringbuf_t* s);
 
 internal const char* sbuf_string_at( stringbuf_t* sbuf, ssize_t pos );
 internal const char* sbuf_string( stringbuf_t* sbuf );
+internal char    sbuf_char_at(stringbuf_t* sbuf, ssize_t pos);
 internal char*   sbuf_strdup_at( stringbuf_t* sbuf, ssize_t pos );
 internal char*   sbuf_strdup( stringbuf_t* sbuf );
 
+// primitive edit operations (inserts return the new position)
+internal void    sbuf_clear(stringbuf_t* sbuf);
+internal void    sbuf_replace(stringbuf_t* sbuf, const char* s);
+internal void    sbuf_delete_at(stringbuf_t* sbuf, ssize_t pos, ssize_t count);
+internal void    sbuf_delete_from_to(stringbuf_t* sbuf, ssize_t pos, ssize_t end);
 internal ssize_t sbuf_insert_at_n(stringbuf_t* sbuf, const char* s, ssize_t n, ssize_t pos );
 internal ssize_t sbuf_insert_at(stringbuf_t* sbuf, const char* s, ssize_t pos );
-internal void    sbuf_delete_at( stringbuf_t* sbuf, ssize_t pos, ssize_t count );
-internal void    sbuf_delete_from_to( stringbuf_t* sbuf, ssize_t pos, ssize_t end );
-internal void    sbuf_clear( stringbuf_t* sbuf );
-internal void    sbuf_append_n( stringbuf_t* sbuf, const char* s, ssize_t n );
-internal void    sbuf_append( stringbuf_t* sbuf, const char* s );
-internal void    sbuf_append_char( stringbuf_t* sbuf, char c );
-internal void    sbuf_replace(stringbuf_t* sbuf, const char* s);
+internal ssize_t sbuf_append_n(stringbuf_t* sbuf, const char* s, ssize_t n);
+internal ssize_t sbuf_append(stringbuf_t* sbuf, const char* s);
+internal ssize_t sbuf_append_char(stringbuf_t* sbuf, char c);
 
 // high level edit operations (return the new position)
 internal ssize_t sbuf_next( stringbuf_t* sbuf, ssize_t pos, ssize_t* cwidth );

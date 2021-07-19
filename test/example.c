@@ -76,7 +76,7 @@ static void completer(rp_env_t* env, const char* input, long cur, void* arg )
     rp_add_completion(env,NULL,"〈pear〉with brackets", 1, 0); 
     rp_add_completion(env,NULL,"猕猴桃 wide", 1, 0);
     rp_add_completion(env,NULL,"apples 🍎", 1, 0);
-    rp_add_completion(env,NULL,"with a zero‍width", 1, 0);
+    rp_add_completion(env, NULL, "zero\xE2\x80\x8Dwidth-joiner",1,0);    
   }
   else if (len >= 2 && strncmp( input+cur-2, "id", 2) == 0) {
     // rp_add_completion(env,"C++ - [](auto x){ return x; }", "c++", 2, 0);

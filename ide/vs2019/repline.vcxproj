@@ -160,6 +160,7 @@
   <ItemGroup>
     <ClInclude Include="..\..\include\repline.h" />
     <ClInclude Include="..\..\src\common.h" />
+    <ClInclude Include="..\..\src\completions.h" />
     <ClInclude Include="..\..\src\env.h" />
     <ClInclude Include="..\..\src\history.h" />
     <ClInclude Include="..\..\src\stringbuf.h" />

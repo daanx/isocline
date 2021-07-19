@@ -14,71 +14,31 @@
 #include "tty.h"
 #include "stringbuf.h"
 #include "history.h"
+#include "completions.h"
 
-#define RP_MAX_HISTORY              (200)
 #define RP_MAX_COMPLETIONS_TO_SHOW  (1000)
-
-
-//-------------------------------------------------------------
-// Completions
-//-------------------------------------------------------------
-
-typedef struct completion_s {
-  const char* display;
-  const char* replacement;
-  ssize_t     delete_before;
-  ssize_t     delete_after;
-} completion_t;
-
-typedef struct completions_s {
-  rp_completion_fun_t* completer;
-  void*   completer_arg;
-  ssize_t completer_max;
-  ssize_t count;
-  ssize_t len;
-  completion_t* elems;  
-} completions_t;
-
 
 //-------------------------------------------------------------
 // Environment
 //-------------------------------------------------------------
 
 struct rp_env_s {
-  rp_env_t*     next;
-  term_t*       term;
-  tty_t*        tty;
-  alloc_t       alloc;
-  completions_t completions;
-  history_t*    history;
-  const char*   prompt_marker;
-  rp_color_t    prompt_color;
-  char          multiline_eol;  
-  bool          initialized;
-  bool          noedit;
-  bool          singleline_only;
+  alloc_t*        mem;
+  rp_env_t*       next;
+  term_t*         term;
+  tty_t*          tty;
+  completions_t*  completions;
+  history_t*      history;  
+  const char*     prompt_marker;
+  rp_color_t      prompt_color;
+  char            multiline_eol;  
+  bool            initialized;
+  bool            noedit;
+  bool            singleline_only;
 };
 
 internal char*    rp_editline(rp_env_t* env, const char* prompt_text);
 
-internal void     completions_done( rp_env_t* env );
-internal void     completions_clear( rp_env_t* env );
-internal void     completions_push(rp_env_t* env, const char* display, const char* replacement, ssize_t delete_before, ssize_t delete_after);
-internal ssize_t  completions_count(rp_env_t* env);
-internal ssize_t  completions_generate(rp_env_t* env, const char* input, ssize_t pos, ssize_t max);
-
-internal completion_t* completions_get( rp_env_t* env, ssize_t index );
-internal ssize_t completion_apply( completion_t* cm, stringbuf_t* sbuf, ssize_t pos );
-
-internal ssize_t  skip_next_code( const char* s, ssize_t len, ssize_t pos, bool utf8 );
-
-#define env_malloc(env,sz)        mem_malloc(&(env)->alloc,sz)
-#define env_zalloc(env,sz)        mem_zalloc(&(env)->alloc,sz)
-#define env_realloc(env,p,sz)     mem_realloc(&(env)->alloc,p,sz)
-#define env_free(env,p)           mem_free(&(env)->alloc,p)
-#define env_strdup(env,s)         mem_strdup(&(env)->alloc,s)
-#define env_zalloc_tp(env,tp)     mem_zalloc_tp(&(env)->alloc,tp)
-#define env_malloc_tp_n(env,tp,n) mem_malloc_tp_n(&(env)->alloc,tp,n)
 
 
 #endif // RP_ENV_H

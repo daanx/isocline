@@ -319,7 +319,7 @@ internal ssize_t utf8_char_width( const char* s, ssize_t n ) {
   }
   else if (b <= 0xEF && n >= 3) { // b >= 0xE0  // 3 bytes 
     c = (((b & 0x0F) << 12) | ((s[1] & 0x3F) << 6) | (s[2] & 0x3F));
-    return mk_wcwidth(c);
+    return mk_wcwidth(c);    
   }
   else if (b <= 0xF4 && n >= 4) { // b >= 0xF0  // 4 bytes 
     c = (((b & 0x07) << 18) | ((s[1] & 0x3F) << 12) | ((s[2] & 0x3F) << 6) | (s[3] & 0x3F));

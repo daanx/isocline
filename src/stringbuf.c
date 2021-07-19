@@ -30,7 +30,10 @@ static ssize_t char_column_width( const char* s, ssize_t n, bool is_utf8 ) {
   if (s == NULL || n <= 0) return 0;
   else if ((uint8_t)(*s) < ' ') return 0;   // also for CSI escape sequences
   else if (!is_utf8) return 1;
-  else return utf8_char_width(s,n); 
+  else {
+    ssize_t w = utf8_char_width(s, n);
+    return (w <= 0 ? 1 : w); // consoles seem to use at least one column
+  }
 }
 
 // get offset of the previous codepoint. does not skip back over CSI sequences.
@@ -392,7 +395,7 @@ static void sbuf_done( stringbuf_t* sbuf ) {
   sbuf->count = 0;
 }
 
-internal stringbuf_t*  sbuf_alloc( alloc_t* mem, bool is_utf8 ) {
+internal stringbuf_t*  sbuf_new( alloc_t* mem, bool is_utf8 ) {
   stringbuf_t* sbuf = mem_zalloc_tp(mem,stringbuf_t);
   if (sbuf == NULL) return NULL;
   sbuf_init(sbuf,mem,is_utf8);
@@ -405,6 +408,13 @@ internal void sbuf_free( stringbuf_t* sbuf ) {
   mem_free(sbuf->mem, sbuf);
 }
 
+internal char* sbuf_free_dup(stringbuf_t* sbuf) {
+  if (sbuf == NULL) return NULL;
+  char* s = (char*)mem_realloc(sbuf->mem, sbuf->buf, sbuf_len(sbuf)+1);
+  mem_free(sbuf->mem, sbuf);
+  return s;
+}
+
 internal const char* sbuf_string_at( stringbuf_t* sbuf, ssize_t pos ) {
   if (sbuf->buf == NULL || pos < 0 || sbuf->count < pos) return NULL;
   assert(sbuf->buf[sbuf->count] == 0);
@@ -413,6 +423,11 @@ internal const char* sbuf_string_at( stringbuf_t* sbuf, ssize_t pos ) {
 
 internal const char* sbuf_string( stringbuf_t* sbuf ) {
   return sbuf_string_at( sbuf, 0 );
+}
+
+internal char sbuf_char_at(stringbuf_t* sbuf, ssize_t pos) {
+  if (sbuf->buf == NULL || pos < 0 || sbuf->count < pos) return 0;
+  return sbuf->buf[pos];
 }
 
 internal char* sbuf_strdup_at( stringbuf_t* sbuf, ssize_t pos ) {
@@ -479,19 +494,19 @@ internal void sbuf_clear( stringbuf_t* sbuf ) {
   sbuf_delete_at(sbuf, 0, sbuf_len(sbuf));
 }
 
-internal void sbuf_append_n( stringbuf_t* sbuf, const char* s, ssize_t n ) {
-  sbuf_insert_at_n( sbuf, s, n, sbuf_len(sbuf));
+internal ssize_t sbuf_append_n( stringbuf_t* sbuf, const char* s, ssize_t n ) {
+  return sbuf_insert_at_n( sbuf, s, n, sbuf_len(sbuf));
 }
 
-internal void sbuf_append( stringbuf_t* sbuf, const char* s ) {
-  sbuf_insert_at( sbuf, s, sbuf_len(sbuf));
+internal ssize_t sbuf_append( stringbuf_t* sbuf, const char* s ) {
+  return sbuf_insert_at( sbuf, s, sbuf_len(sbuf));
 }
 
-internal void sbuf_append_char( stringbuf_t* sbuf, char c ) {
+internal ssize_t sbuf_append_char( stringbuf_t* sbuf, char c ) {
   char buf[2];
   buf[0] = c;
   buf[1] = 0;
-  sbuf_append( sbuf, buf );
+  return sbuf_append( sbuf, buf );
 }
 
 internal void sbuf_replace(stringbuf_t* sbuf, const char* s) {

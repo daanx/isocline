@@ -127,10 +127,11 @@ exported void rp_done( rp_env_t* env ) {
   if (env == NULL) return;
   history_save(env->history);
   history_free(env->history);
-  completions_done(env);
+  completions_free(env->completions);
   term_free(env->term);
   tty_free(env->tty);
-  env_free(env,env->prompt_marker); env->prompt_marker = NULL;
+  mem_free(env->mem,env->prompt_marker); 
+  env->prompt_marker = NULL;
   
   // remove from list
   rp_env_t* prev = NULL;
@@ -148,28 +149,37 @@ exported void rp_done( rp_env_t* env ) {
   }
 
   // and deallocate ourselves
-  env_free(env,env);
+  alloc_t* mem = env->mem;  
+  mem_free(mem, env);
+  mem_free(mem, mem);
 }
 
 exported rp_env_t* rp_init_custom_alloc( rp_malloc_fun_t* _malloc, rp_realloc_fun_t* _realloc, rp_free_fun_t* _free )  
 {
   // allocate
-  rp_env_t* env = (rp_env_t*)malloc(sizeof(rp_env_t));
-  if (env==NULL) return NULL;
-  memset(env,0,sizeof(*env));
-  env->alloc.malloc  = _malloc;
-  env->alloc.realloc = _realloc;
-  env->alloc.free    = _free;
-  int fin = STDIN_FILENO;
-  env->tty = tty_new(&env->alloc, fin);
-  env->term = term_new(&env->alloc, env->tty, false, false, -1 );  
-  env->history = history_new(&env->alloc);
+  alloc_t* mem = (alloc_t*)_malloc(sizeof(alloc_t));
+  if (mem == NULL) return NULL;
+  mem->malloc = _malloc;
+  mem->realloc = _realloc;
+  mem->free = _free;
+  rp_env_t* env = mem_zalloc_tp(mem, rp_env_t);
+  if (env==NULL) {
+    _free(mem);
+    return NULL;
+  }
+  env->mem = mem;
+
+  // Initialize
+  env->tty         = tty_new(env->mem, STDIN_FILENO);
+  env->term        = term_new(env->mem, env->tty, false, false, -1 );  
+  env->history     = history_new(env->mem);
+  env->completions = completions_new(env->mem);
   
   if (env->tty == NULL || env->term == NULL || !term_is_interactive(env->term)) {
     env->noedit = true;
   }
   env->prompt_marker = NULL;
-  env->prompt_color = RP_DEFAULT_COLOR;
+  env->prompt_color  = RP_DEFAULT_COLOR;
   env->multiline_eol = '\\';
   
   // install atexit handler
@@ -187,8 +197,8 @@ exported rp_env_t* rp_init(void) {
 
 exported void rp_set_prompt_marker( rp_env_t* env, const char* prompt_marker ) {
   if (prompt_marker == NULL) prompt_marker = "> ";
-  env_free(env, env->prompt_marker);
-  env->prompt_marker = env_strdup(env,prompt_marker);  
+  mem_free(env->mem, env->prompt_marker);
+  env->prompt_marker = mem_strdup(env->mem,prompt_marker);  
 }
 
 exported void rp_set_prompt_color( rp_env_t* env, rp_color_t color ) {
@@ -224,54 +234,38 @@ exported void rp_history_clear(rp_env_t* env) {
   history_clear(env->history);
 }
 
+exported bool rp_add_completion(rp_env_t* env, const char* display, const char* replacement, long delete_before, long delete_after) {
+  return completions_add(env->completions, display, replacement, delete_before, delete_after);
+}
+
+exported void rp_set_completer(rp_env_t* env, rp_completion_fun_t* completer, void* arg) {
+  completions_set_completer(env->completions, completer, arg);
+}
 
 //-------------------------------------------------------------
 // Read a line from stdin if there is no editing support 
 // (like from a pipe, file, or dumb terminal).
 //-------------------------------------------------------------
 
-static char* rp_getline( rp_env_t* env, const char* prompt_text ) {
-  ssize_t buflen = 128;
-  char*  buf = mem_malloc_tp_n(&env->alloc,char,buflen);
-  if (buf==NULL) return NULL;
-  ssize_t len = 0;
-
+static char* rp_getline( rp_env_t* env, const char* prompt_text ) 
+{  
   // display prompt
   if (prompt_text != NULL) term_write(env->term, prompt_text);
   term_write( env->term, (env->prompt_marker != NULL ? env->prompt_marker : "> ") );
 
   // read until eof or newline
+  stringbuf_t* sb = sbuf_new(env->mem, tty_is_utf8(env->tty));
   int c;
-  while(true) {
+  while (true) {
     c = fgetc(stdin);
     if (c==EOF || c=='\n') {
       break;
     }
     else {
-      buf[len] = (char)c;
-      len++;
-      if (len >= buflen) {
-        buflen *= 2;
-        char* newbuf = (char*)env_realloc( env, buf, buflen );
-        if (newbuf == NULL) {
-          len = -1;
-          break;
-        }
-        buf = newbuf;
-      }
+      sbuf_append_char(sb, c);
     }
   }
-
-  // zero-terminate and return
-  if (len<=0) {
-    env_free(env, buf);
-    return NULL;
-  }
-  else {
-    assert(len < buflen);
-    buf[len] = 0;
-    return buf;
-  }
+  return sbuf_free_dup(sb);
 }
 
 #ifdef RP_DEBUG_MSG

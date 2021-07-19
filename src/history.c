@@ -173,7 +173,7 @@ static char to_xdigit( uint8_t c ) {
   return '0';
 }
 
-static bool isxdigit( int c ) {
+static bool rp_isxdigit( int c ) {
   return ((c >= 'a' && c <= 'f') || (c >= 'A' && c <= 'F') || (c >= '0' && c <= '9'));
 }
 
@@ -191,7 +191,7 @@ static bool history_read_entry( history_t* h, FILE* f, stringbuf_t* sbuf ) {
       else if (c == 'x') {
         int c1 = fgetc(f);         
         int c2 = fgetc(f);
-        if (isxdigit(c1) && isxdigit(c2)) {
+        if (rp_isxdigit(c1) && rp_isxdigit(c2)) {
           char chr = from_xdigit(c1)*16 + from_xdigit(c2);
           sbuf_append_char(sbuf,chr);
         }
@@ -236,7 +236,7 @@ internal void history_load( history_t* h ) {
   if (h->fname == NULL) return;
   FILE* f = fopen(h->fname, "r");
   if (f == NULL) return;
-  stringbuf_t* sbuf = sbuf_alloc(h->mem,true);
+  stringbuf_t* sbuf = sbuf_new(h->mem,true);
   if (sbuf != NULL) {
     while (!feof(f)) {
       if (!history_read_entry(h,f,sbuf)) break; // error
@@ -253,7 +253,7 @@ internal void history_save( const history_t* h ) {
   #ifndef _WIN32
   chmod(h->fname,S_IRUSR|S_IWUSR);
   #endif
-  stringbuf_t* sbuf = sbuf_alloc(h->mem,true);
+  stringbuf_t* sbuf = sbuf_new(h->mem,true);
   if (sbuf != NULL) {
     for( int i = 0; i < h->count; i++ )  {
       if (!history_write_entry(h->elems[i],f,sbuf)) break;  // error

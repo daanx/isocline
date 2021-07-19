@@ -11,75 +11,115 @@
 #include "common.h"
 #include "env.h"
 #include "stringbuf.h"
+#include "completions.h"
 
-internal void completions_clear(rp_env_t* env) {
-  completions_t* cms = &env->completions;
+//-------------------------------------------------------------
+// Completions
+//-------------------------------------------------------------
+
+typedef struct completion_s {
+  const char* display;
+  const char* replacement;
+  ssize_t     delete_before;
+  ssize_t     delete_after;
+} completion_t;
+
+struct completions_s {
+  rp_completion_fun_t* completer;
+  void* completer_arg;
+  ssize_t completer_max;
+  ssize_t count;
+  ssize_t len;
+  completion_t* elems;
+  alloc_t* mem;
+};
+
+
+
+internal completions_t* completions_new(alloc_t* mem) {
+  completions_t* cms = mem_zalloc_tp(mem, completions_t);
+  if (cms == NULL) return NULL;
+  cms->mem = mem;
+  return cms;
+}
+
+internal void completions_free(completions_t* cms) {
+  if (cms == NULL) return;
+  completions_clear(cms);  
+  if (cms->elems != NULL) {
+    mem_free(cms->mem, cms->elems);
+    cms->elems = NULL;
+    cms->count = 0;
+    cms->len = 0;
+  }
+  mem_free(cms->mem, cms); // free ourselves
+}
+
+
+internal void completions_clear(completions_t* cms) {  
   while (cms->count > 0) {
     completion_t* cm = cms->elems + cms->count - 1;
-    env_free( env, cm->display);
-    env_free( env, cm->replacement);
+    mem_free( cms->mem, cm->display);
+    mem_free( cms->mem, cm->replacement);
     memset(cm,0,sizeof(*cm));
     cms->count--;    
   }
 }
 
-internal void completions_done(rp_env_t* env) {
-  completions_clear(env);
-  completions_t* cms = &env->completions;
-  if (cms->elems != NULL) {
-    env_free( env, cms->elems );
-    cms->elems = NULL;
-    cms->count = 0;
-    cms->len   = 0;
-  }
-}
-
-internal void completions_push(rp_env_t* env, const char* display, const char* replacement, ssize_t delete_before, ssize_t delete_after) 
+static void completions_push(completions_t* cms, const char* display, const char* replacement, ssize_t delete_before, ssize_t delete_after) 
 {
-  completions_t* cms = &env->completions;
   if (cms->count >= cms->len) {
     ssize_t newlen = (cms->len <= 0 ? 32 : cms->len*2);
-    completion_t* newelems = (completion_t*)env_realloc( env, cms->elems, newlen*ssizeof(completion_t) );
+    completion_t* newelems = (completion_t*)mem_realloc( cms->mem, cms->elems, newlen*ssizeof(completion_t) );
     if (newelems == NULL) return;
     cms->elems = newelems;
     cms->len   = newlen;
   }
   assert(cms->count < cms->len);
-  completion_t* cm = &cms->elems[cms->count];
-  cm->display       = env_strdup(env,display);
-  cm->replacement   = env_strdup(env,replacement);
+  completion_t* cm  = cms->elems + cms->count;
+  cm->display       = mem_strdup(cms->mem,display);
+  cm->replacement   = mem_strdup(cms->mem,replacement);
   cm->delete_before = delete_before;
   cm->delete_after  = delete_after;
   cms->count++;
 }
 
-internal ssize_t completions_count(rp_env_t* env) {
-  return env->completions.count;
+internal ssize_t completions_count(completions_t* cms) {
+  return cms->count;
 }
 
-internal ssize_t completions_generate(rp_env_t* env, const char* input, ssize_t pos, ssize_t max) {
-  completions_clear(env);
-  if (env->completions.completer == NULL || input == NULL || input[0] == 0 || rp_strlen(input) < pos) return 0;
-  env->completions.completer_max = max;
-  env->completions.completer(env,input,(long)pos,env->completions.completer_arg);
-  return completions_count(env);
+internal ssize_t completions_generate(struct rp_env_s* env, completions_t* cms, const char* input, ssize_t pos, ssize_t max) {
+  completions_clear(cms);
+  if (cms->completer == NULL || input == NULL || input[0] == 0 || rp_strlen(input) < pos) return 0;
+  cms->completer_max = max;
+  cms->completer(env,input,(long)pos,cms->completer_arg);
+  return completions_count(cms);
 }
 
-exported bool rp_add_completion( rp_env_t* env, const char* display, const char* replacement, long delete_before, long delete_after ) {
-  if (env->completions.completer_max <= 0) return false;
-  env->completions.completer_max--;
+
+internal bool completions_add(completions_t* cms, const char* display, const char* replacement, ssize_t delete_before, ssize_t delete_after) {
+  if (cms->completer_max <= 0) return false;
+  cms->completer_max--;
   //debug_msg("completion: add: %d,%d, %s\n", delete_before, delete_after, replacement);
-  completions_push( env, display, replacement, delete_before, delete_after );
+  completions_push(cms, display, replacement, delete_before, delete_after);
   return true;
 }
 
-internal completion_t* completions_get( rp_env_t* env, ssize_t index ) {
-  if (index < 0 || env->completions.count <= 0 || index >= env->completions.count ) return NULL;
-  return &env->completions.elems[index];
+static completion_t* completions_get(completions_t* cms, ssize_t index) {
+  if (index < 0 || cms->count <= 0 || index >= cms->count) return NULL;
+  return &cms->elems[index];
+}
+
+internal const char* completions_get_display( completions_t* cms, ssize_t index ) {
+  completion_t* cm = completions_get(cms, index);
+  if (cm == NULL) return NULL;
+  return (cm->display != NULL ? cm->display : cm->replacement);
 }
 
 
-internal ssize_t completion_apply( completion_t* cm, stringbuf_t* sbuf, ssize_t pos ) {
+internal ssize_t completions_apply( completions_t* cms, ssize_t index, stringbuf_t* sbuf, ssize_t pos ) {
+  completion_t* cm = completions_get(cms, index);
+  if (cm == NULL) return -1;
   debug_msg( "completion: apply: %s at %zd\n", cm->replacement, pos);
   ssize_t start = pos - cm->delete_before;
   if (start < 0) start = 0;
@@ -87,8 +127,9 @@ internal ssize_t completion_apply( completion_t* cm, stringbuf_t* sbuf, ssize_t 
   return sbuf_insert_at(sbuf, cm->replacement, start); 
 }
 
-exported void rp_set_completer( rp_env_t* env, rp_completion_fun_t* completer, void* arg) {
-  env->completions.completer = completer;
-  env->completions.completer_arg = arg;
+internal void completions_set_completer(completions_t* cms, rp_completion_fun_t* completer, void* arg) {
+  cms->completer = completer;
+  cms->completer_arg = arg;
 }
+
 
