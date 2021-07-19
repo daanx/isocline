@@ -238,7 +238,7 @@ static void tty_read_csi_num(tty_t* tty, char* ppeek, uint32_t* num) {
     char digit = *ppeek - '0';
     if (!tty_readc_noblock(tty,ppeek)) break;  // peek is not modified in this case 
     count++;
-    i = 10*i + (uint32_t)digit;
+    i = 10*i + (uint8_t)digit; 
   }
   if (count > 0) *num = i;
 }

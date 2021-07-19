@@ -219,7 +219,7 @@ static bool edit_refresh_rows_iter(
   if (row < info->last_row) {
     if (is_wrap && info->eb->is_utf8) { 
       term_color( term, RP_DARKGRAY );
-      #ifdef _WIN32
+      #ifndef __APPLE__
       term_write( term, "\xE2\x86\x90");  // left arrow 
       #else
       term_write( term, "\xE2\x86\xB5" ); // return symbol
@@ -558,6 +558,120 @@ static void edit_insert_char(rp_env_t* env, editor_t* eb, char c, bool refresh) 
   }
 }
 
+
+
+//-------------------------------------------------------------
+// Help
+//-------------------------------------------------------------
+
+static const char* help[] = {
+  "","",
+  "","Repline v1.0, copyright (c) 2021 Daan Leijen.",
+  "","This is free software; you can redistribute it and/or",
+  "","modify it under the terms of the MIT License.",
+  "","See <https://github.com/daanx/repline> for further information.",
+  "","We use ^<key> as a shorthand for ctrl-<key>.",
+  "","",
+  "","Navigation:",
+  "left,"
+  "^b",         "go one character to the left",
+  "right,"
+  "^f",         "go one character to the right",
+  "up",         "go one row up, or back in the history",
+  "down",       "go one row down, or forward in the history",
+  #ifdef __APPLE__
+  "shift-left",
+  #else
+  "^left",
+  #endif
+                "go to the start of the previous word",
+  #ifdef __APPLE__
+  "shift-right",
+  #else
+  "^right",
+  #endif
+                "go to the end the current word",
+  "home,"
+  "^a",         "go to the start of the current line",
+  "end,"
+  "^e",         "go to the end of the current line",
+  "pgup,"
+  "^home",       "go to the start of the current input",
+  "pgdn,"
+  "^end",       "go to the end of the current input",
+  "^p",         "go back in the history",
+  "^n",         "go forward in the history",
+  "^r,^s",      "search the history starting with the current word",
+  "","",
+
+  "", "Deletion:",
+  "del,^d",     "delete the current character",
+  "backsp,^h",  "delete the previous character",
+  "^w",         "delete to preceding white space",
+  "alt-backsp", "delete to the start of the current word",
+  "alt-d",      "delete to the end of the current word",
+  "^u",         "delete to the start of the current line",
+  "^k",         "delete to the end of the current line",
+  "esc",        "delete the current line, or done with empty input",
+  "","",
+
+  "", "Editing:",
+  "enter",      "accept current input",
+  #ifndef __APPLE__
+  "^enter, ^j", "",
+  "shift-tab",
+  #else
+  "shift-tab,^j",
+  #endif
+                "create a new line for multi-line input",
+  //" ",          "(or type '\\' followed by enter)",
+  "^l",         "clear screen",
+  "^t",         "swap with previous character (move character backward)",
+  "^z,^_",      "undo",
+  "^y",         "redo",
+  //"^C",         "done with empty input",
+  //"F1",         "show this help",
+  "tab",        "try to complete the current input",
+  "","",
+  "","In the completion menu:",
+  "enter,"
+  "space",      "use the currently selected completion",
+  "1 - 9",      "use completion N from the menu",
+  "tab",        "select the next completion",
+  "cursor keys","select completion N in the menu",
+  "esc",        "exit menu without completing",
+  "pgdn,", "",
+  "shift-tab",  "show all further possible completions",
+  "","",
+  "","In incremental history search:",
+  "enter",      "use the currently found history entry",
+  "backsp,"
+  "^z",         "go back to the previous match (undo)",
+  "tab,"
+  "^r",         "find the next match",
+  "shift-tab,"
+  "^s",         "find an earlier match",
+  "esc",        "exit search",
+  " ","",
+  NULL, NULL
+};
+
+static void edit_show_help(rp_env_t* env, editor_t* eb) {
+  edit_clear(env, eb);
+  for (ssize_t i = 0; help[i] != NULL && help[i+1] != NULL; i += 2) {
+    if (help[i][0] == 0) {
+      term_writef(&env->term, "\x1B[90m%s\x1B[0m\r\n", help[i+1]);
+    }
+    else {
+      term_writef(&env->term, "  \x1B[97m%-13s\x1B[0m%s%s\r\n", help[i], (help[i+1][0] == 0 ? "" : ": "), help[i+1]);
+    }
+  }
+  eb->cur_rows = 0;
+  eb->cur_row = 0;
+  edit_refresh(env, eb);
+}
+
+
 //-------------------------------------------------------------
 // History
 //-------------------------------------------------------------
@@ -609,7 +723,7 @@ static void hsearch_push( alloc_t* mem, hsearch_t** hs, ssize_t hidx, ssize_t mp
   *hs = h;
 }
 
-static bool hsearch_pop( hsearch_t** hs, ssize_t* hidx, ssize_t* match_pos, ssize_t* match_len, bool* cinsert ) {
+static bool hsearch_pop( alloc_t* mem, hsearch_t** hs, ssize_t* hidx, ssize_t* match_pos, ssize_t* match_len, bool* cinsert ) {
   hsearch_t* h = *hs;
   if (h == NULL) return false;
   *hs = h->next;
@@ -617,6 +731,7 @@ static bool hsearch_pop( hsearch_t** hs, ssize_t* hidx, ssize_t* match_pos, ssiz
   if (match_pos != NULL) *match_pos = h->match_pos;
   if (match_len != NULL) *match_len = h->match_len;
   if (cinsert != NULL)   *cinsert = h->cinsert;
+  mem_free(mem, h);
   return true;
 }
 
@@ -679,7 +794,7 @@ static void edit_history_search(rp_env_t* env, editor_t* eb, char* initial ) {
   // Incremental search
 again:
   hentry = history_get(&env->history,hidx);
-  snprintf(buf,32,"\n\x1B[97m%zd. ", hidx);
+  snprintf(buf,32,"\x1B[97m%zd. ", hidx);
   sbuf_append(eb->extra, buf );
   sbuf_append(eb->extra, "\x1B[90m" );         // dark gray
   sbuf_append_n( eb->extra, hentry, match_pos );  
@@ -709,7 +824,7 @@ again:
   else if (c == KEY_BACKSP || c == KEY_CTRL_Z) {
     // undo last search action
     bool cinsert;
-    if (hsearch_pop(&hs, &hidx, &match_pos, &match_len, &cinsert)) {
+    if (hsearch_pop(&env->alloc,&hs, &hidx, &match_pos, &match_len, &cinsert)) {
       if (cinsert) edit_backspace(env,eb);
     }
     goto again;
@@ -718,7 +833,7 @@ again:
     // search backward
     hsearch_push(&env->alloc, &hs, hidx, match_pos, match_len, false);
     if (!history_search( &env->history, hidx+1, sbuf_string(eb->input), true, &hidx, &match_pos )) {
-      hsearch_pop(&hs,NULL,NULL,NULL,NULL);
+      hsearch_pop(&env->alloc,&hs,NULL,NULL,NULL,NULL);
       term_beep(&env->term);
     };
     goto again;
@@ -727,11 +842,15 @@ again:
     // search forward
     hsearch_push(&env->alloc, &hs, hidx, match_pos, match_len, false);
     if (!history_search( &env->history, hidx-1, sbuf_string(eb->input), false, &hidx, &match_pos )) {
-      hsearch_pop(&hs,NULL,NULL,NULL,NULL);
+      hsearch_pop(&env->alloc, &hs,NULL,NULL,NULL,NULL);
       term_beep(&env->term);
     };
     goto again;
-  }  
+  }
+  else if (c == KEY_F1) {
+    edit_show_help(env, eb);
+    goto again;
+  }
   else {
     // insert character and search further backward
     int tofollow;
@@ -789,116 +908,6 @@ static void edit_history_search_with_current_word(rp_env_t* env, editor_t* eb) {
   mem_free(&env->alloc, initial);
 }
 
-
-//-------------------------------------------------------------
-// Help
-//-------------------------------------------------------------
-
-static const char* help[] = {
-  "","",
-  "","Repline v1.0, copyright (c) 2021 Daan Leijen.", 
-  "","This is free software; you can redistribute it and/or",
-  "","modify it under the terms of the MIT License.",
-  "","See <https://github.com/daanx/repline> for further information.",
-  "","We use ^<key> as a shorthand for ctrl-<key>.",
-  "","",
-  "","Navigation:",
-  "left,"
-  "^b",         "go one character to the left",
-  "right,"
-  "^f",         "go one character to the right",
-  "up",         "go one row up, or back in the history",
-  "down",       "go one row down, or forward in the history",  
-  #ifdef __APPLE__
-  "shift-left",
-  #else
-  "^left",     
-  #endif
-                "go to the start of the previous word",
-  #ifdef __APPLE__
-  "shift-right",
-  #else
-  "^right",
-  #endif
-                "go to the end the current word",
-  "home,"
-  "^a",         "go to the start of the current line",  
-  "end,"
-  "^e",         "go to the end of the current line",
-  "pgup,"
-  "^home",       "go to the start of the current input",
-  "pgdn,"
-  "^end",       "go to the end of the current input",
-  "^p",         "go back in the history",
-  "^n",         "go forward in the history",
-  "^r,^s",      "search the history starting with the current word",
-  "","",
-  
-  "", "Deletion:",
-  "del,^d",     "delete the current character",
-  "backsp,^h",  "delete the previous character",
-  "^w",         "delete to preceding white space",
-  "alt-backsp", "delete to the start of the current word",
-  "alt-d",      "delete to the end of the current word",
-  "^u",         "delete to the start of the current line",
-  "^k",         "delete to the end of the current line",
-  "esc",        "delete the current line, or done with empty input",  
-  "","",
-  
-  "", "Editing:",
-  "enter",      "accept current input",
-  #ifndef __APPLE__
-  "^enter, ^j", "", 
-  "shift-tab",
-  #else
-  "shift-tab,^j",
-  #endif
-                "create a new line for multi-line input",
-  //" ",          "(or type '\\' followed by enter)",
-  "^l",         "clear screen",
-  "^t",         "swap with previous character (move character backward)",
-  "^z,^_",      "undo",
-  "^y",         "redo",
-  //"^C",         "done with empty input",
-  //"F1",         "show this help",
-  "tab",        "try to complete the current input",
-  "","",
-  "","In the completion menu:",
-  "enter,"
-  "space",      "use the currently selected completion",
-  "1 - 9",      "use completion N from the menu",
-  "tab",        "select the next completion",
-  "cursor keys","select completion N in the menu",
-  "esc",        "exit menu without completing",
-  "pgdn,", "",
-  "shift-tab",  "show all further possible completions",
-  "","",
-  "","In incremental history search:",
-  "enter",      "use the currently found history entry",
-  "backsp,"
-  "^z",         "go back to the previous match (undo)",
-  "tab,"
-  "^r",         "find the next match",
-  "shift-tab,"
-  "^s",         "find an earlier match",
-  "esc",        "exit search",
-  " ","",
-  NULL, NULL
-};
- 
-static void edit_show_help( rp_env_t* env, editor_t* eb ) {
-  for (ssize_t i = 0; help[i] != NULL && help[i+1] != NULL; i+=2) {
-    if (help[i][0] == 0) {
-      term_writef(&env->term, "\x1B[90m%s\x1B[0m\r\n", help[i+1]);
-    }
-    else {
-      term_writef(&env->term, "  \x1B[97m%-13s\x1B[0m%s%s\r\n", help[i], (help[i+1][0] == 0 ? "" : ": "), help[i+1]);
-    }
-  }
-  eb->cur_rows = 0;
-  eb->cur_row = 0;
-  edit_refresh(env,eb);   
-}
 
 //-------------------------------------------------------------
 // Completion
@@ -975,59 +984,59 @@ static ssize_t edit_completions_max_width( rp_env_t* env, editor_t* eb, ssize_t 
 }
 
 static void edit_completion_menu(rp_env_t* env, editor_t* eb, bool more_available) {
-  ssize_t count  = completions_count( env );
+  ssize_t count = completions_count(env);
   ssize_t count_displayed = count;
   assert(count > 1);
   ssize_t selected = 0;
-  ssize_t columns  = 1;
-  ssize_t percolumn= count;
-  
-again: 
+  ssize_t columns = 1;
+  ssize_t percolumn = count;
+
+again:
   // show first 9 (or 8) completions
   sbuf_clear(eb->extra);
-  ssize_t twidth = term_get_width(&env->term);   
-  if (count > 3 && twidth > RP_DISPLAY3_WIDTH && edit_completions_max_width(env,eb,9) <= RP_DISPLAY3_MAX) {
+  ssize_t twidth = term_get_width(&env->term);
+  if (count > 3 && twidth > RP_DISPLAY3_WIDTH && edit_completions_max_width(env, eb, 9) <= RP_DISPLAY3_MAX) {
     // display as a 3 column block
     count_displayed = (count > 9 ? 9 : count);
     columns = 3;
     percolumn = 3;
-    for( ssize_t rw = 0; rw < percolumn; rw++ ) {
-      if (rw > 0) sbuf_append( eb->extra, "\n");
-      editor_append_completion3( env, eb, rw, percolumn+rw, (2*percolumn)+rw, selected );
+    for (ssize_t rw = 0; rw < percolumn; rw++) {
+      if (rw > 0) sbuf_append(eb->extra, "\n");
+      editor_append_completion3(env, eb, rw, percolumn+rw, (2*percolumn)+rw, selected);
     }
   }
-  else if (count > 4 && twidth > RP_DISPLAY2_WIDTH && edit_completions_max_width(env,eb,8) <= RP_DISPLAY2_MAX) {
+  else if (count > 4 && twidth > RP_DISPLAY2_WIDTH && edit_completions_max_width(env, eb, 8) <= RP_DISPLAY2_MAX) {
     // display as a 2 column block if some entries are too wide for three columns
     count_displayed = (count > 8 ? 8 : count);
     columns = 2;
     percolumn = (count_displayed <= 6 ? 3 : 4);
-    for( ssize_t rw = 0; rw < percolumn; rw++ ) {
-      if (rw > 0) sbuf_append( eb->extra, "\n");
-      editor_append_completion2( env, eb, rw, percolumn+rw, selected );
+    for (ssize_t rw = 0; rw < percolumn; rw++) {
+      if (rw > 0) sbuf_append(eb->extra, "\n");
+      editor_append_completion2(env, eb, rw, percolumn+rw, selected);
     }
   }
   else {
     // display as a list
-    count_displayed = (count > 9 ? 9 : count);    
+    count_displayed = (count > 9 ? 9 : count);
     columns = 1;
     percolumn = count_displayed;
-    for(ssize_t i = 0; i < count_displayed; i++) {
-      if (i > 0) sbuf_append( eb->extra, "\n");
-      editor_append_completion(eb, completions_get(env,i), i, -1, true /* numbered */, selected == i );        
+    for (ssize_t i = 0; i < count_displayed; i++) {
+      if (i > 0) sbuf_append(eb->extra, "\n");
+      editor_append_completion(eb, completions_get(env, i), i, -1, true /* numbered */, selected == i);
     }
   }
   if (count > count_displayed) {
     sbuf_append(eb->extra, "\n\x1B[90m(press shift-tab to see all further completions)\x1B[0m");
-  }   
-  edit_refresh(env,eb);
-  
+  }
+  edit_refresh(env, eb);
+
   // read here; if not a valid key, push it back and return to main event loop
   code_t c = tty_read(&env->tty);
-  sbuf_clear(eb->extra);      
+  sbuf_clear(eb->extra);
   if (c >= '1' && c <= '9' && (ssize_t)(c - '1') < count) {
     selected = (c - '1');
     c = KEY_SPACE;
-  }   
+  }
   else if (c == KEY_TAB || c == KEY_DOWN) {
     selected++;
     if (selected >= count_displayed) selected = 0;
@@ -1052,6 +1061,10 @@ again:
   }
   else if (c == KEY_HOME) {
     selected = 0;
+    goto again;
+  }
+  else if (c == KEY_F1) {
+    edit_show_help(env, eb);
     goto again;
   }
   else if (c == KEY_ESC) {
@@ -1150,8 +1163,7 @@ static char* edit_line( rp_env_t* env, const char* prompt_text )
   while(true) {    
     // read a character
     c = tty_read(&env->tty);
-    if (c < 0) break;
-
+    
     // update width as late as possible so a user can resize even if the prompt is already visible
     //if (eb.len == 1) 
     if (term_update_dim(&env->term,&env->tty)) {
@@ -1331,8 +1343,8 @@ static char* edit_line( rp_env_t* env, const char* prompt_text )
   sbuf_free(eb.extra);
   
   // update history
-  if (res == NULL || res[0] == 0 || res[1] == 0) rp_history_remove_last(env);  // no empty or single-char entries
   history_update(env,res);
+  if (res != NULL && (res[0] == 0 || res[1] == 0)) rp_history_remove_last(env);  // no empty or single-char entries
   history_save(env);
   return res;
 }
