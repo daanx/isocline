@@ -54,7 +54,7 @@ static ssize_t str_prev_ofs( const char* s, ssize_t pos, bool is_utf8, ssize_t* 
 }
 
 // skip a CSI sequence
-internal bool skip_csi_esc( const char* s, ssize_t len, ssize_t* esclen ) {  
+rp_private bool skip_csi_esc( const char* s, ssize_t len, ssize_t* esclen ) {  
   // <https://en.wikipedia.org/wiki/ANSI_escape_code#CSI_(Control_Sequence_Introducer)_sequences>
   if (esclen != NULL) *esclen = 0;
   if (s == NULL || len < 2|| s[0] != '\x1B' || s[1] != '[') return false;
@@ -83,7 +83,7 @@ internal bool skip_csi_esc( const char* s, ssize_t len, ssize_t* esclen ) {
 }
 
 // Offset to the next codepoint, treats CSI escape sequences as a single code point.
-internal ssize_t str_next_ofs( const char* s, ssize_t len, ssize_t pos, bool is_utf8, ssize_t* cwidth ) {
+rp_private ssize_t str_next_ofs( const char* s, ssize_t len, ssize_t pos, bool is_utf8, ssize_t* cwidth ) {
   ssize_t ofs = 0;
   if (s != NULL && len > pos) {
     if (skip_csi_esc(s+pos,len-pos,&ofs)) {
@@ -122,11 +122,11 @@ static ssize_t str_column_width_n( const char* s, ssize_t len, bool is_utf8 ) {
   return cwidth;
 }
 
-internal ssize_t str_column_width( const char* s, bool is_utf8 ) {
+rp_private ssize_t str_column_width( const char* s, bool is_utf8 ) {
   return str_column_width_n( s, rp_strlen(s), is_utf8 );
 }
 
-internal const char* str_skip_until_fit( const char* s, ssize_t max_width, bool is_utf8) {
+rp_private const char* str_skip_until_fit( const char* s, ssize_t max_width, bool is_utf8) {
   if (s == NULL) return s;
   ssize_t cwidth = str_column_width(s, is_utf8);
   ssize_t len    = rp_strlen(s);
@@ -313,7 +313,7 @@ static bool str_get_current_pos_iter(
     ssize_t row, ssize_t row_start, ssize_t row_len, 
     bool is_wrap, bool is_utf8, const void* arg, void* res)
 {
-  unused(is_wrap);
+  rp_unused(is_wrap);
   rowcol_t* rc = (rowcol_t*)res;
   ssize_t pos = *((ssize_t*)arg);
 
@@ -347,7 +347,7 @@ static bool str_set_pos_iter(
     ssize_t row, ssize_t row_start, ssize_t row_len, 
     bool is_wrap, bool is_utf8, const void* arg, void* res)
 {
-  unused(arg); unused(is_wrap);
+  rp_unused(arg); rp_unused(is_wrap);
   rowcol_t* rc = (rowcol_t*)arg;
   if (rc->row != row) return false; // keep searching
   // we found our row
@@ -395,46 +395,46 @@ static void sbuf_done( stringbuf_t* sbuf ) {
   sbuf->count = 0;
 }
 
-internal stringbuf_t*  sbuf_new( alloc_t* mem, bool is_utf8 ) {
+rp_private stringbuf_t*  sbuf_new( alloc_t* mem, bool is_utf8 ) {
   stringbuf_t* sbuf = mem_zalloc_tp(mem,stringbuf_t);
   if (sbuf == NULL) return NULL;
   sbuf_init(sbuf,mem,is_utf8);
   return sbuf;
 }
 
-internal void sbuf_free( stringbuf_t* sbuf ) {
+rp_private void sbuf_free( stringbuf_t* sbuf ) {
   if (sbuf==NULL) return;
   sbuf_done(sbuf);
   mem_free(sbuf->mem, sbuf);
 }
 
-internal char* sbuf_free_dup(stringbuf_t* sbuf) {
+rp_private char* sbuf_free_dup(stringbuf_t* sbuf) {
   if (sbuf == NULL) return NULL;
   char* s = mem_realloc_tp(sbuf->mem, char, sbuf->buf, sbuf_len(sbuf)+1);
   mem_free(sbuf->mem, sbuf);
   return s;
 }
 
-internal const char* sbuf_string_at( stringbuf_t* sbuf, ssize_t pos ) {
+rp_private const char* sbuf_string_at( stringbuf_t* sbuf, ssize_t pos ) {
   if (sbuf->buf == NULL || pos < 0 || sbuf->count < pos) return NULL;
   assert(sbuf->buf[sbuf->count] == 0);
   return sbuf->buf + pos;
 }
 
-internal const char* sbuf_string( stringbuf_t* sbuf ) {
+rp_private const char* sbuf_string( stringbuf_t* sbuf ) {
   return sbuf_string_at( sbuf, 0 );
 }
 
-internal char sbuf_char_at(stringbuf_t* sbuf, ssize_t pos) {
+rp_private char sbuf_char_at(stringbuf_t* sbuf, ssize_t pos) {
   if (sbuf->buf == NULL || pos < 0 || sbuf->count < pos) return 0;
   return sbuf->buf[pos];
 }
 
-internal char* sbuf_strdup_at( stringbuf_t* sbuf, ssize_t pos ) {
+rp_private char* sbuf_strdup_at( stringbuf_t* sbuf, ssize_t pos ) {
   return mem_strdup(sbuf->mem, sbuf_string_at(sbuf,pos));
 }
 
-internal char* sbuf_strdup( stringbuf_t* sbuf ) {
+rp_private char* sbuf_strdup( stringbuf_t* sbuf ) {
   return mem_strdup(sbuf->mem, sbuf_string(sbuf));
 }
 
@@ -457,21 +457,22 @@ static bool sbuf_ensure_extra(stringbuf_t* s, ssize_t extra)
   return true;
 }
 
-internal ssize_t sbuf_len(const stringbuf_t* s) {
+rp_private ssize_t sbuf_len(const stringbuf_t* s) {
   return s->count;
 }
 
-internal ssize_t sbuf_append_vprintf(stringbuf_t* sb, const char* fmt, va_list args) {
-  ssize_t extra = vsnprintf(NULL, 0, fmt, args);
+rp_private ssize_t sbuf_append_vprintf(stringbuf_t* sb, ssize_t max_needed, const char* fmt, va_list args) {
+  ssize_t extra = max_needed;
   if (!sbuf_ensure_extra(sb, extra)) return sb->count;
-  vsnprintf(sb->buf + sb->count, to_size_t(sb->buflen - sb->count), fmt, args);
-  sb->count += extra;
-  sb->buf[sb->count] = 0;
+  ssize_t avail = sb->buflen - sb->count;
+  ssize_t needed = vsnprintf(sb->buf + sb->count, to_size_t(avail), fmt, args);
+  sb->count += (needed > avail ? avail : (needed >= 0 ? needed : 0));
   assert(sb->count <= sb->buflen);
+  sb->buf[sb->count] = 0;
   return sb->count;
 }
 
-internal ssize_t sbuf_insert_at_n(stringbuf_t* sbuf, const char* s, ssize_t n, ssize_t pos ) {
+rp_private ssize_t sbuf_insert_at_n(stringbuf_t* sbuf, const char* s, ssize_t n, ssize_t pos ) {
   if (pos < 0 || pos > sbuf->count || s == NULL) return pos;
   n = str_limit_to_length(s,n);
   if (n <= 0 || !sbuf_ensure_extra(sbuf,n)) return pos;
@@ -482,11 +483,11 @@ internal ssize_t sbuf_insert_at_n(stringbuf_t* sbuf, const char* s, ssize_t n, s
   return (pos + n);
 }
 
-internal ssize_t sbuf_insert_at(stringbuf_t* sbuf, const char* s, ssize_t pos ) {
+rp_private ssize_t sbuf_insert_at(stringbuf_t* sbuf, const char* s, ssize_t pos ) {
   return sbuf_insert_at_n( sbuf, s, rp_strlen(s), pos );
 }
 
-internal void sbuf_delete_at( stringbuf_t* sbuf, ssize_t pos, ssize_t count ) {
+rp_private void sbuf_delete_at( stringbuf_t* sbuf, ssize_t pos, ssize_t count ) {
   if (pos < 0 || pos >= sbuf->count) return;
   if (pos + count > sbuf->count) count = sbuf->count - pos;
   rp_memmove(sbuf->buf + pos, sbuf->buf + pos + count, sbuf->count - pos - count);
@@ -494,32 +495,32 @@ internal void sbuf_delete_at( stringbuf_t* sbuf, ssize_t pos, ssize_t count ) {
   sbuf->buf[sbuf->count] = 0;
 }
 
-internal void sbuf_delete_from_to( stringbuf_t* sbuf, ssize_t pos, ssize_t end ) {
+rp_private void sbuf_delete_from_to( stringbuf_t* sbuf, ssize_t pos, ssize_t end ) {
   if (end <= pos) return;
   sbuf_delete_at( sbuf, pos, end - pos);
 }
 
 
-internal void sbuf_clear( stringbuf_t* sbuf ) {
+rp_private void sbuf_clear( stringbuf_t* sbuf ) {
   sbuf_delete_at(sbuf, 0, sbuf_len(sbuf));
 }
 
-internal ssize_t sbuf_append_n( stringbuf_t* sbuf, const char* s, ssize_t n ) {
+rp_private ssize_t sbuf_append_n( stringbuf_t* sbuf, const char* s, ssize_t n ) {
   return sbuf_insert_at_n( sbuf, s, n, sbuf_len(sbuf));
 }
 
-internal ssize_t sbuf_append( stringbuf_t* sbuf, const char* s ) {
+rp_private ssize_t sbuf_append( stringbuf_t* sbuf, const char* s ) {
   return sbuf_insert_at( sbuf, s, sbuf_len(sbuf));
 }
 
-internal ssize_t sbuf_append_char( stringbuf_t* sbuf, char c ) {
+rp_private ssize_t sbuf_append_char( stringbuf_t* sbuf, char c ) {
   char buf[2];
   buf[0] = c;
   buf[1] = 0;
   return sbuf_append( sbuf, buf );
 }
 
-internal void sbuf_replace(stringbuf_t* sbuf, const char* s) {
+rp_private void sbuf_replace(stringbuf_t* sbuf, const char* s) {
   sbuf_clear(sbuf);
   sbuf_append(sbuf,s);
 }
@@ -532,21 +533,21 @@ static ssize_t sbuf_prev_ofs( stringbuf_t* sbuf, ssize_t pos, ssize_t* cwidth ) 
   return str_prev_ofs( sbuf->buf, pos, sbuf->is_utf8, cwidth);
 }
 
-internal ssize_t sbuf_next( stringbuf_t* sbuf, ssize_t pos, ssize_t* cwidth) {
+rp_private ssize_t sbuf_next( stringbuf_t* sbuf, ssize_t pos, ssize_t* cwidth) {
   ssize_t ofs = sbuf_next_ofs(sbuf,pos,cwidth);
   if (ofs <= 0) return -1;
   assert(pos + ofs <= sbuf->count);
   return pos + ofs; 
 }
 
-internal ssize_t sbuf_prev( stringbuf_t* sbuf, ssize_t pos, ssize_t* cwidth) {
+rp_private ssize_t sbuf_prev( stringbuf_t* sbuf, ssize_t pos, ssize_t* cwidth) {
   ssize_t ofs = sbuf_prev_ofs(sbuf,pos,cwidth);
   if (ofs <= 0) return -1;
   assert(pos - ofs >= 0);
   return pos - ofs;
 }
 
-internal ssize_t sbuf_delete_char_before( stringbuf_t* sbuf, ssize_t pos ) {
+rp_private ssize_t sbuf_delete_char_before( stringbuf_t* sbuf, ssize_t pos ) {
   ssize_t n = sbuf_prev_ofs(sbuf, pos, NULL);
   if (n <= 0) return 0;  
   assert( pos - n >= 0 );
@@ -554,7 +555,7 @@ internal ssize_t sbuf_delete_char_before( stringbuf_t* sbuf, ssize_t pos ) {
   return pos - n;
 }
 
-internal void sbuf_delete_char_at( stringbuf_t* sbuf, ssize_t pos ) {
+rp_private void sbuf_delete_char_at( stringbuf_t* sbuf, ssize_t pos ) {
   ssize_t n = sbuf_next_ofs(sbuf, pos, NULL);
   if (n <= 0) return;  
   assert( pos + n <= sbuf->count );
@@ -562,7 +563,7 @@ internal void sbuf_delete_char_at( stringbuf_t* sbuf, ssize_t pos ) {
   return;
 }
 
-internal ssize_t sbuf_swap_char( stringbuf_t* sbuf, ssize_t pos ) {
+rp_private ssize_t sbuf_swap_char( stringbuf_t* sbuf, ssize_t pos ) {
   ssize_t next = sbuf_next_ofs(sbuf, pos, NULL);
   if (next <= 0) return 0;  
   ssize_t prev = sbuf_prev_ofs(sbuf, pos, NULL);
@@ -575,40 +576,40 @@ internal ssize_t sbuf_swap_char( stringbuf_t* sbuf, ssize_t pos ) {
   return pos - prev;
 }
 
-internal ssize_t sbuf_find_line_start( stringbuf_t* sbuf, ssize_t pos ) {
+rp_private ssize_t sbuf_find_line_start( stringbuf_t* sbuf, ssize_t pos ) {
   return str_find_line_start( sbuf->buf, sbuf->count, pos, sbuf->is_utf8);
 }
 
-internal ssize_t sbuf_find_line_end( stringbuf_t* sbuf, ssize_t pos ) {
+rp_private ssize_t sbuf_find_line_end( stringbuf_t* sbuf, ssize_t pos ) {
   return str_find_line_end( sbuf->buf, sbuf->count, pos, sbuf->is_utf8);
 }
 
-internal ssize_t sbuf_find_word_start( stringbuf_t* sbuf, ssize_t pos ) {
+rp_private ssize_t sbuf_find_word_start( stringbuf_t* sbuf, ssize_t pos ) {
   return str_find_word_start( sbuf->buf, sbuf->count, pos, sbuf->is_utf8);
 }
 
-internal ssize_t sbuf_find_word_end( stringbuf_t* sbuf, ssize_t pos ) {
+rp_private ssize_t sbuf_find_word_end( stringbuf_t* sbuf, ssize_t pos ) {
   return str_find_word_end( sbuf->buf, sbuf->count, pos, sbuf->is_utf8);
 }
 
-internal ssize_t sbuf_find_ws_word_start( stringbuf_t* sbuf, ssize_t pos ) {
+rp_private ssize_t sbuf_find_ws_word_start( stringbuf_t* sbuf, ssize_t pos ) {
   return str_find_ws_word_start( sbuf->buf, sbuf->count, pos, sbuf->is_utf8);
 }
 
-internal ssize_t sbuf_find_ws_word_end( stringbuf_t* sbuf, ssize_t pos ) {
+rp_private ssize_t sbuf_find_ws_word_end( stringbuf_t* sbuf, ssize_t pos ) {
   return str_find_ws_word_end( sbuf->buf, sbuf->count, pos, sbuf->is_utf8);
 }
 
 // find row/col position
-internal ssize_t sbuf_get_pos_at_rc( stringbuf_t* sbuf, ssize_t termw, ssize_t promptw, ssize_t row, ssize_t col ) {
+rp_private ssize_t sbuf_get_pos_at_rc( stringbuf_t* sbuf, ssize_t termw, ssize_t promptw, ssize_t row, ssize_t col ) {
   return str_get_pos_at_rc( sbuf->buf, sbuf->count, termw, promptw, row, col, sbuf->is_utf8);
 }
 
 // get row/col for a given position
-internal ssize_t sbuf_get_rc_at_pos( stringbuf_t* sbuf, ssize_t termw, ssize_t promptw, ssize_t pos, rowcol_t* rc ) {
+rp_private ssize_t sbuf_get_rc_at_pos( stringbuf_t* sbuf, ssize_t termw, ssize_t promptw, ssize_t pos, rowcol_t* rc ) {
   return str_get_rc_at_pos( sbuf->buf, sbuf->count, termw, promptw, pos, sbuf->is_utf8, rc);
 }
 
-internal ssize_t sbuf_for_each_row( stringbuf_t* sbuf, ssize_t termw, ssize_t promptw, row_fun_t* fun, void* arg, void* res ) {
+rp_private ssize_t sbuf_for_each_row( stringbuf_t* sbuf, ssize_t termw, ssize_t promptw, row_fun_t* fun, void* arg, void* res ) {
   return str_for_each_row( sbuf->buf, sbuf->count, termw, promptw, fun, sbuf->is_utf8, arg, res);
 }

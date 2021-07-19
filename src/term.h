@@ -16,34 +16,34 @@ struct term_s;
 typedef struct term_s term_t;
 
 // Primitives
-internal term_t* term_new(alloc_t* mem, tty_t* tty, bool monochrome, bool silent, int fout);
-internal void term_free(term_t* term);
+rp_private term_t* term_new(alloc_t* mem, tty_t* tty, bool monochrome, bool silent, int fout);
+rp_private void term_free(term_t* term);
 
-internal bool term_is_interactive(const term_t* term);
-internal void term_start_raw(term_t* term);
-internal void term_end_raw(term_t* term);
+rp_private bool term_is_interactive(const term_t* term);
+rp_private void term_start_raw(term_t* term);
+rp_private void term_end_raw(term_t* term);
 
-internal void term_enable_beep(term_t* term, bool enable);
-internal void term_enable_color(term_t* term, bool enable);
+rp_private void term_enable_beep(term_t* term, bool enable);
+rp_private void term_enable_color(term_t* term, bool enable);
 
-internal bool term_write_n(term_t* term, const char* s, ssize_t n);
-internal bool term_write(term_t* term, const char* s);
-internal void term_beep(term_t* term);
-internal bool term_update_dim(term_t* term, tty_t* tty);
-internal ssize_t term_get_width(term_t* term);
-internal ssize_t term_get_height(term_t* term);
+rp_private bool term_write_n(term_t* term, const char* s, ssize_t n);
+rp_private bool term_write(term_t* term, const char* s);
+rp_private void term_beep(term_t* term);
+rp_private bool term_update_dim(term_t* term, tty_t* tty);
+rp_private ssize_t term_get_width(term_t* term);
+rp_private ssize_t term_get_height(term_t* term);
 
 // Helpers
-internal bool term_writef(term_t* term, ssize_t max_needed, const char* fmt, ...);
-internal void term_left(term_t* term, ssize_t n);
-internal void term_right(term_t* term, ssize_t n);
-internal void term_up(term_t* term, ssize_t n);
-internal void term_down(term_t* term, ssize_t n);
-internal void term_start_of_line(term_t* term );
-internal void term_clear_line(term_t* term);
+rp_private bool term_writef(term_t* term, ssize_t max_needed, const char* fmt, ...);
+rp_private void term_left(term_t* term, ssize_t n);
+rp_private void term_right(term_t* term, ssize_t n);
+rp_private void term_up(term_t* term, ssize_t n);
+rp_private void term_down(term_t* term, ssize_t n);
+rp_private void term_start_of_line(term_t* term );
+rp_private void term_clear_line(term_t* term);
 
-internal void term_start_buffered(term_t* term);
-internal bool term_end_buffered(term_t* term);
+rp_private void term_start_buffered(term_t* term);
+rp_private bool term_end_buffered(term_t* term);
 
 /*
 internal void term_end_of_line(term_t* term );
@@ -55,8 +55,8 @@ internal void term_italic(term_t* term);
 internal void term_bgcolor(term_t* term, rp_color_t color);
 */
 
-internal void term_attr_reset(term_t* term);
-internal void term_underline(term_t* term, bool on);
-internal void term_color(term_t* term, rp_color_t color);
+rp_private void term_attr_reset(term_t* term);
+rp_private void term_underline(term_t* term, bool on);
+rp_private void term_color(term_t* term, rp_color_t color);
 
 #endif // RP_TERM_H

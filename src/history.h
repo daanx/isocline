@@ -17,21 +17,21 @@
 struct history_s;
 typedef struct history_s history_t;
 
-internal history_t* history_new(alloc_t* mem);
-internal void     history_free(history_t* h);
-internal void     history_clear(history_t* h);
-internal void     history_enable_duplicates( history_t* h, bool enable );
+rp_private history_t* history_new(alloc_t* mem);
+rp_private void     history_free(history_t* h);
+rp_private void     history_clear(history_t* h);
+rp_private void     history_enable_duplicates( history_t* h, bool enable );
 
-internal void     history_load_from(history_t* h, const char* fname, long max_entries);
-internal void     history_load( history_t* h );
-internal void     history_save( const history_t* h );
+rp_private void     history_load_from(history_t* h, const char* fname, long max_entries);
+rp_private void     history_load( history_t* h );
+rp_private void     history_save( const history_t* h );
 
-internal bool     history_push( history_t* h, const char* entry );
-internal bool     history_update( history_t* h, const char* entry );
-internal const char* history_get( const history_t* h, ssize_t n );
-internal void     history_remove_last(history_t* h);
+rp_private bool     history_push( history_t* h, const char* entry );
+rp_private bool     history_update( history_t* h, const char* entry );
+rp_private const char* history_get( const history_t* h, ssize_t n );
+rp_private void     history_remove_last(history_t* h);
 
-internal bool     history_search( const history_t* h, ssize_t from, const char* search, bool backward, ssize_t* hidx, ssize_t* hpos);
+rp_private bool     history_search( const history_t* h, ssize_t from, const char* search, bool backward, ssize_t* hidx, ssize_t* hpos);
 
 
 #endif // RP_HISTORY_H

@@ -36,14 +36,14 @@ struct completions_s {
 
 
 
-internal completions_t* completions_new(alloc_t* mem) {
+rp_private completions_t* completions_new(alloc_t* mem) {
   completions_t* cms = mem_zalloc_tp(mem, completions_t);
   if (cms == NULL) return NULL;
   cms->mem = mem;
   return cms;
 }
 
-internal void completions_free(completions_t* cms) {
+rp_private void completions_free(completions_t* cms) {
   if (cms == NULL) return;
   completions_clear(cms);  
   if (cms->elems != NULL) {
@@ -56,7 +56,7 @@ internal void completions_free(completions_t* cms) {
 }
 
 
-internal void completions_clear(completions_t* cms) {  
+rp_private void completions_clear(completions_t* cms) {  
   while (cms->count > 0) {
     completion_t* cm = cms->elems + cms->count - 1;
     mem_free( cms->mem, cm->display);
@@ -84,11 +84,11 @@ static void completions_push(completions_t* cms, const char* display, const char
   cms->count++;
 }
 
-internal ssize_t completions_count(completions_t* cms) {
+rp_private ssize_t completions_count(completions_t* cms) {
   return cms->count;
 }
 
-internal ssize_t completions_generate(struct rp_env_s* env, completions_t* cms, const char* input, ssize_t pos, ssize_t max) {
+rp_private ssize_t completions_generate(struct rp_env_s* env, completions_t* cms, const char* input, ssize_t pos, ssize_t max) {
   completions_clear(cms);
   if (cms->completer == NULL || input == NULL || input[0] == 0 || rp_strlen(input) < pos) return 0;
   cms->completer_max = max;
@@ -97,7 +97,7 @@ internal ssize_t completions_generate(struct rp_env_s* env, completions_t* cms, 
 }
 
 
-internal bool completions_add(completions_t* cms, const char* display, const char* replacement, ssize_t delete_before, ssize_t delete_after) {
+rp_private bool completions_add(completions_t* cms, const char* display, const char* replacement, ssize_t delete_before, ssize_t delete_after) {
   if (cms->completer_max <= 0) return false;
   cms->completer_max--;
   //debug_msg("completion: add: %d,%d, %s\n", delete_before, delete_after, replacement);
@@ -110,14 +110,14 @@ static completion_t* completions_get(completions_t* cms, ssize_t index) {
   return &cms->elems[index];
 }
 
-internal const char* completions_get_display( completions_t* cms, ssize_t index ) {
+rp_private const char* completions_get_display( completions_t* cms, ssize_t index ) {
   completion_t* cm = completions_get(cms, index);
   if (cm == NULL) return NULL;
   return (cm->display != NULL ? cm->display : cm->replacement);
 }
 
 
-internal ssize_t completions_apply( completions_t* cms, ssize_t index, stringbuf_t* sbuf, ssize_t pos ) {
+rp_private ssize_t completions_apply( completions_t* cms, ssize_t index, stringbuf_t* sbuf, ssize_t pos ) {
   completion_t* cm = completions_get(cms, index);
   if (cm == NULL) return -1;
   debug_msg( "completion: apply: %s at %zd\n", cm->replacement, pos);
@@ -127,7 +127,7 @@ internal ssize_t completions_apply( completions_t* cms, ssize_t index, stringbuf
   return sbuf_insert_at(sbuf, cm->replacement, start); 
 }
 
-internal void completions_set_completer(completions_t* cms, rp_completion_fun_t* completer, void* arg) {
+rp_private void completions_set_completer(completions_t* cms, rp_completion_fun_t* completer, void* arg) {
   cms->completer = completer;
   cms->completer_arg = arg;
 }

@@ -298,7 +298,7 @@ static int mk_wcwidth(int32_t ucs) {
 #include "common.h"
 #include "stringbuf.h"
 
-internal ssize_t utf8_char_width( const char* s, ssize_t n ) {
+rp_private ssize_t utf8_char_width( const char* s, ssize_t n ) {
   if (n <= 0) return 0;
 
   uint8_t b = (uint8_t)s[0];

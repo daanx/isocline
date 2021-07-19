@@ -353,7 +353,7 @@ static code_t tty_read_csi(tty_t* tty, char c1, char peek, code_t mods0) {
   return (code != KEY_NONE ? (code | modifiers) : KEY_NONE);
 }
 
-internal code_t tty_read_esc(tty_t* tty) {
+rp_private code_t tty_read_esc(tty_t* tty) {
   char peek = 0;
   if (!tty_readc_noblock(tty,&peek)) return KEY_ESC; // ESC
   if (peek == '[') {

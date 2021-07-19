@@ -57,7 +57,7 @@ static bool tty_code_pop( tty_t* tty, code_t* code );
 // Key code helpers
 //-------------------------------------------------------------
 
-internal bool code_is_char(tty_t* tty, code_t c, char* chr ) {
+rp_private bool code_is_char(tty_t* tty, code_t c, char* chr ) {
   if (c >= 0x20 && c <= (tty->is_utf8 ? 0x7FU : 0xFFU)) {
     if (chr != NULL) *chr = (char)c;
     return true;
@@ -68,7 +68,7 @@ internal bool code_is_char(tty_t* tty, code_t c, char* chr ) {
   }
 }
 
-internal bool code_is_extended( tty_t* tty, code_t c, char* chr, int* tofollow) {
+rp_private bool code_is_extended( tty_t* tty, code_t c, char* chr, int* tofollow) {
   if (tty->is_utf8 && c >= 0x80 && c <= 0xFF) {
     if (chr != NULL) *chr = (char)c;
     if (tofollow != NULL) {
@@ -86,7 +86,7 @@ internal bool code_is_extended( tty_t* tty, code_t c, char* chr, int* tofollow) 
   }
 }
 
-internal bool code_is_follower( tty_t* tty, code_t c, char* chr) {
+rp_private bool code_is_follower( tty_t* tty, code_t c, char* chr) {
   if (tty->is_utf8 && c >= 0x80 && c <= 0xBF) {
     if (chr != NULL) *chr = (char)c;
     return true;
@@ -101,13 +101,13 @@ internal bool code_is_follower( tty_t* tty, code_t c, char* chr) {
 // Read a key code
 //-------------------------------------------------------------
 
-internal bool tty_readc_noblock(tty_t* tty, char* c) {
+rp_private bool tty_readc_noblock(tty_t* tty, char* c) {
   if (!tty_has_available(tty)) return false;  // do not modify c if nothing available (see `tty_readc_csi_num`)  
   return tty_readc(tty,c);
 }
 
 // read a single char/key
-internal code_t tty_read(tty_t* tty) {
+rp_private code_t tty_read(tty_t* tty) {
   // is there a pushed back code?
   code_t code;
   if (tty_code_pop(tty,&code)) {
@@ -173,7 +173,7 @@ static bool tty_code_pop( tty_t* tty, code_t* code ) {
   return true;
 }
 
-internal void tty_code_pushback( tty_t* tty, code_t c ) {
+rp_private void tty_code_pushback( tty_t* tty, code_t c ) {
   if (tty->pushed >= TTY_PUSH_MAX) return;
   tty->pushbuf[tty->pushed] = c;
   tty->pushed++;
@@ -184,7 +184,7 @@ internal void tty_code_pushback( tty_t* tty, code_t c ) {
 // low-level character pushback (for escape sequences and windows)
 //-------------------------------------------------------------
 
-internal bool tty_cpop(tty_t* tty, char* c) {  
+rp_private bool tty_cpop(tty_t* tty, char* c) {  
   if (tty->cpushed <= 0) {  // do not modify c on failure (see `tty_decode_unicode`)
     return false;
   }
@@ -221,7 +221,7 @@ static void tty_cpushf(tty_t* tty, const char* fmt, ...) {
   return;
 }
 
-internal void tty_cpush_char(tty_t* tty, char c) {  
+rp_private void tty_cpush_char(tty_t* tty, char c) {  
   char buf[2];
   buf[0] = c;
   buf[1] = 0;
@@ -229,7 +229,7 @@ internal void tty_cpush_char(tty_t* tty, char c) {
 }
 
 
-internal void tty_cpush_unicode(tty_t* tty, uint32_t c) {
+rp_private void tty_cpush_unicode(tty_t* tty, uint32_t c) {
   uint8_t buf[5];
   memset(buf,0,5);
   if (c <= 0x7F) {
@@ -305,7 +305,7 @@ static bool tty_init_utf8(tty_t* tty) {
   return true;
 }
 
-internal tty_t* tty_new(alloc_t* mem, int fin) 
+rp_private tty_t* tty_new(alloc_t* mem, int fin) 
 {
   tty_t* tty = mem_zalloc_tp(mem, tty_t);
   tty->mem = mem;
@@ -317,13 +317,13 @@ internal tty_t* tty_new(alloc_t* mem, int fin)
   return tty;
 }
 
-internal void tty_free(tty_t* tty) {
+rp_private void tty_free(tty_t* tty) {
   if (tty==NULL) return;
   tty_end_raw(tty);
   mem_free(tty->mem,tty);
 }
 
-internal bool tty_is_utf8(tty_t* tty) {
+rp_private bool tty_is_utf8(tty_t* tty) {
   return tty->is_utf8;
 }
 //-------------------------------------------------------------
@@ -343,13 +343,13 @@ static bool tty_has_available(tty_t* tty) {
   return (ioctl(0, FIONREAD, &n) == 0 && n > 0);
 }
 
-internal void tty_start_raw(tty_t* tty) {
+rp_private void tty_start_raw(tty_t* tty) {
   if (tty->raw_enabled) return;
   if (tcsetattr(tty->fin,TCSAFLUSH,&tty->raw_ios) < 0) return;
   tty->raw_enabled = true;
 }
 
-internal void tty_end_raw(tty_t* tty) {
+rp_private void tty_end_raw(tty_t* tty) {
   if (!tty->raw_enabled) return;
   tty->cpushed = 0;
   if (tcsetattr(tty->fin,TCSAFLUSH,&tty->default_ios) < 0) return;
@@ -490,7 +490,7 @@ static void tty_waitc_console(tty_t* tty)
   }
 }  
 
-internal void tty_start_raw(tty_t* tty) {
+rp_private void tty_start_raw(tty_t* tty) {
   if (tty->raw_enabled) return;
   GetConsoleMode(tty->hcon,&tty->hcon_orig_mode);
   DWORD mode =  ENABLE_QUICK_EDIT_MODE; // | ENABLE_VIRTUAL_TERMINAL_INPUT ; // | ENABLE_PROCESSED_INPUT ;
@@ -498,7 +498,7 @@ internal void tty_start_raw(tty_t* tty) {
   tty->raw_enabled = true;
 }
 
-internal void tty_end_raw(tty_t* tty) {
+rp_private void tty_end_raw(tty_t* tty) {
   if (!tty->raw_enabled) return;
   SetConsoleMode(tty->hcon, tty->hcon_orig_mode );
   tty->raw_enabled = false;

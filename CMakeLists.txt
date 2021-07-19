@@ -27,6 +27,7 @@ set(rp_install_dir)
 if(RP_SEPARATE_OBJS)
   list(APPEND rp_cdefs RP_SEPARATE_OBJS)
   list(APPEND rp_sources  
+              src/common.c
               src/completions.c
               src/editline.c
               src/history.c

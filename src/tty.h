@@ -22,26 +22,26 @@ struct tty_s;
 typedef struct tty_s tty_t;
 
 
-internal tty_t* tty_new(alloc_t* mem, int fin);
-internal void   tty_free(tty_t* tty);
+rp_private tty_t* tty_new(alloc_t* mem, int fin);
+rp_private void   tty_free(tty_t* tty);
 
-internal bool   tty_is_utf8(tty_t* tty);
-internal void   tty_start_raw(tty_t* tty);
-internal void   tty_end_raw(tty_t* tty);
-internal code_t tty_read(tty_t* tty);
-internal bool   tty_readc_noblock(tty_t* tty, char* c);   // used in term.c
-internal void   tty_code_pushback( tty_t* tty, code_t c );
+rp_private bool   tty_is_utf8(tty_t* tty);
+rp_private void   tty_start_raw(tty_t* tty);
+rp_private void   tty_end_raw(tty_t* tty);
+rp_private code_t tty_read(tty_t* tty);
+rp_private bool   tty_readc_noblock(tty_t* tty, char* c);   // used in term.c
+rp_private void   tty_code_pushback( tty_t* tty, code_t c );
 
-internal bool   code_is_char(tty_t*, code_t c, char* chr );
-internal bool   code_is_follower( tty_t*, code_t c, char* chr);
-internal bool   code_is_extended( tty_t*, code_t c, char* chr, int* tofollow);
+rp_private bool   code_is_char(tty_t*, code_t c, char* chr );
+rp_private bool   code_is_follower( tty_t*, code_t c, char* chr);
+rp_private bool   code_is_extended( tty_t*, code_t c, char* chr, int* tofollow);
 
 
 // shared between tty.c and tty_esc.c
-internal void   tty_cpush_char(tty_t* tty, char c);
-internal void   tty_cpush_unicode(tty_t* tty, uint32_t c);
-internal bool   tty_cpop(tty_t* tty, char* c);
-internal code_t tty_read_esc(tty_t* tty); // in tty_esc.c
+rp_private void   tty_cpush_char(tty_t* tty, char c);
+rp_private void   tty_cpush_unicode(tty_t* tty, uint32_t c);
+rp_private bool   tty_cpop(tty_t* tty, char* c);
+rp_private code_t tty_read_esc(tty_t* tty); // in tty_esc.c
 
 //-------------------------------------------------------------
 // Key codes

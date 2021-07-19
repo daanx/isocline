@@ -147,6 +147,7 @@
     </Link>
   </ItemDefinitionGroup>
   <ItemGroup>
+    <ClCompile Include="..\..\src\common.c" />
     <ClCompile Include="..\..\src\completions.c" />
     <ClCompile Include="..\..\src\editline.c" />
     <ClCompile Include="..\..\src\history.c" />

@@ -21,6 +21,7 @@
 #include <unistd.h>
 #endif
 
+
 // Undo buffer
 typedef struct editstate_s {
   struct editstate_s* next;
@@ -43,7 +44,7 @@ static void editstate_done( alloc_t* mem, editstate_t** es ) {
   *es = NULL;
 }
 
-internal void editstate_capture( alloc_t* mem, editstate_t** es, const char* input, ssize_t pos) {
+rp_private void editstate_capture( alloc_t* mem, editstate_t** es, const char* input, ssize_t pos) {
   if (input==NULL) input = "";
   // alloc
   editstate_t* entry = mem_zalloc_tp(mem, editstate_t);
@@ -58,7 +59,7 @@ internal void editstate_capture( alloc_t* mem, editstate_t** es, const char* inp
 }
 
 // caller should free *input
-internal bool editstate_restore( alloc_t* mem, editstate_t** es, const char** input, ssize_t* pos ) {
+rp_private bool editstate_restore( alloc_t* mem, editstate_t** es, const char** input, ssize_t* pos ) {
   if (*es == NULL) return false;
   // pop 
   editstate_t* entry = *es;
@@ -96,7 +97,7 @@ typedef struct editor_s {
 static char* edit_line( rp_env_t* env, const char* prompt_text );
 static void edit_refresh(rp_env_t* env, editor_t* eb);
 
-internal char* rp_editline(rp_env_t* env, const char* prompt_text) {
+rp_private char* rp_editline(rp_env_t* env, const char* prompt_text) {
   tty_start_raw(env->tty);
   term_start_raw(env->term);
   char* line = edit_line(env,prompt_text);
@@ -207,7 +208,7 @@ static bool edit_refresh_rows_iter(
     ssize_t row, ssize_t row_start, ssize_t row_len, 
     bool is_wrap, bool is_utf8, const void* arg, void* res)
 {
-  unused(is_utf8); unused(res);
+  rp_unused(is_utf8); rp_unused(res);
   const refresh_info_t* info = (const refresh_info_t*)(arg);
   term_t* term = info->env->term;
 

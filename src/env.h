@@ -35,7 +35,7 @@ struct rp_env_s {
   bool            singleline_only;
 };
 
-internal char*    rp_editline(rp_env_t* env, const char* prompt_text);
+rp_private char*    rp_editline(rp_env_t* env, const char* prompt_text);
 
 
 

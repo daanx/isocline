@@ -24,13 +24,13 @@ struct history_s {
   bool     allow_duplicates;   // allow duplicate entries?
 };
 
-internal history_t* history_new(alloc_t* mem) {
+rp_private history_t* history_new(alloc_t* mem) {
   history_t* h = mem_zalloc_tp(mem,history_t);
   h->mem = mem;
   return h;
 }
 
-internal void history_free(history_t* h) {
+rp_private void history_free(history_t* h) {
   if (h == NULL) return;
   history_clear(h);
   if (h->len > 0) {
@@ -43,7 +43,7 @@ internal void history_free(history_t* h) {
   mem_free(h->mem, h); // free ourselves
 }
 
-internal void history_enable_duplicates( history_t* h, bool enable ) {
+rp_private void history_enable_duplicates( history_t* h, bool enable ) {
   h->allow_duplicates = enable;
 }
 
@@ -52,7 +52,7 @@ internal void history_enable_duplicates( history_t* h, bool enable ) {
 // push/clear
 //-------------------------------------------------------------
 
-internal bool history_update( history_t* h, const char* entry ) {
+rp_private bool history_update( history_t* h, const char* entry ) {
   if (entry==NULL) return false;
   history_remove_last(h);
   history_push(h,entry);
@@ -69,7 +69,7 @@ static void history_delete_at( history_t* h, int idx ) {
   h->count--;
 }
 
-internal bool history_push( history_t* h, const char* entry ) {
+rp_private bool history_push( history_t* h, const char* entry ) {
   if (h->len <= 0 || entry==NULL)  return false;
   // remove any older duplicate
   if (!h->allow_duplicates) {
@@ -101,20 +101,20 @@ static void history_remove_last_n( history_t* h, ssize_t n ) {
   assert(h->count >= 0);    
 }
 
-internal void history_remove_last(history_t* h) {
+rp_private void history_remove_last(history_t* h) {
   history_remove_last_n(h,1);
 }
 
-internal void history_clear(history_t* h) {
+rp_private void history_clear(history_t* h) {
   history_remove_last_n( h, h->count );
 }
 
-internal const char* history_get( const history_t* h, ssize_t n ) {
+rp_private const char* history_get( const history_t* h, ssize_t n ) {
   if (n < 0 || n >= h->count) return NULL;
   return h->elems[h->count - n - 1];
 }
 
-internal bool history_search( const history_t* h, ssize_t from /*including*/, const char* search, bool backward, ssize_t* hidx, ssize_t* hpos ) {
+rp_private bool history_search( const history_t* h, ssize_t from /*including*/, const char* search, bool backward, ssize_t* hidx, ssize_t* hpos ) {
   const char* p = NULL;
   ssize_t i;
   if (backward) {
@@ -139,7 +139,7 @@ internal bool history_search( const history_t* h, ssize_t from /*including*/, co
 // 
 //-------------------------------------------------------------
 
-internal void history_load_from(history_t* h, const char* fname, long max_entries ) {
+rp_private void history_load_from(history_t* h, const char* fname, long max_entries ) {
   history_clear(h);
   h->fname = mem_strdup(h->mem,fname);
   if (max_entries == 0) {
@@ -232,7 +232,7 @@ static bool history_write_entry( const char* entry, FILE* f, stringbuf_t* sbuf )
   return true;
 }
 
-internal void history_load( history_t* h ) {
+rp_private void history_load( history_t* h ) {
   if (h->fname == NULL) return;
   FILE* f = fopen(h->fname, "r");
   if (f == NULL) return;
@@ -246,7 +246,7 @@ internal void history_load( history_t* h ) {
   fclose(f);
 }
 
-internal void history_save( const history_t* h ) {
+rp_private void history_save( const history_t* h ) {
   if (h->fname == NULL) return;
   FILE* f = fopen(h->fname, "w");
   if (f == NULL) return;
