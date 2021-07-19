@@ -38,8 +38,8 @@ internal void sbuf_append_n( stringbuf_t* sbuf, const char* s, ssize_t n );
 internal void sbuf_append( stringbuf_t* sbuf, const char* s );
 internal void sbuf_replace(stringbuf_t* sbuf, const char* s);
 
-internal ssize_t sbuf_next( stringbuf_t* sbuf, ssize_t pos );
-internal ssize_t sbuf_prev( stringbuf_t* sbuf, ssize_t pos );
+internal ssize_t sbuf_next( stringbuf_t* sbuf, ssize_t pos, ssize_t* cwidth );
+internal ssize_t sbuf_prev( stringbuf_t* sbuf, ssize_t pos, ssize_t* cwidth );
 
 internal ssize_t sbuf_delete_char_before( stringbuf_t* sbuf, ssize_t pos );
 internal ssize_t sbuf_delete_char_at( stringbuf_t* sbuf, ssize_t pos );

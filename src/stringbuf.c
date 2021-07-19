@@ -500,15 +500,15 @@ static ssize_t sbuf_prev_ofs( stringbuf_t* sbuf, ssize_t pos, ssize_t* cwidth ) 
   return str_prev_ofs( sbuf->buf, pos, sbuf->is_utf8, cwidth);
 }
 
-internal ssize_t sbuf_next( stringbuf_t* sbuf, ssize_t pos ) {
-  ssize_t ofs = sbuf_next_ofs(sbuf,pos,NULL);
+internal ssize_t sbuf_next( stringbuf_t* sbuf, ssize_t pos, ssize_t* cwidth) {
+  ssize_t ofs = sbuf_next_ofs(sbuf,pos,cwidth);
   if (ofs <= 0) return -1;
   assert(pos + ofs <= sbuf->count);
   return pos + ofs; 
 }
 
-internal ssize_t sbuf_prev( stringbuf_t* sbuf, ssize_t pos) {
-  ssize_t ofs = sbuf_prev_ofs(sbuf,pos,NULL);
+internal ssize_t sbuf_prev( stringbuf_t* sbuf, ssize_t pos, ssize_t* cwidth) {
+  ssize_t ofs = sbuf_prev_ofs(sbuf,pos,cwidth);
   if (ofs <= 0) return -1;
   assert(pos - ofs >= 0);
   return pos - ofs;

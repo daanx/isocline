@@ -162,6 +162,7 @@ static void edit_set_pos_at_rowcol( rp_env_t* env, editor_t* eb, ssize_t row, ss
   ssize_t pos = sbuf_get_pos_at_rc( eb->input, termw, promptw, row, col );
   if (pos < 0) return;
   eb->pos = pos;
+  edit_refresh(env, eb);
 }
 
 static bool edit_pos_is_at_row_end( rp_env_t* env, editor_t* eb ) {
@@ -274,7 +275,7 @@ static void edit_refresh(rp_env_t* env, editor_t* eb)
   
   // render rows
   edit_refresh_rows( env, eb, termw, promptw, false, first_row, last_row );
-  if (rows_extra > 0) edit_refresh_rows( env, eb, termw, promptw, true, first_row + rows_input, last_row );
+  if (rows_extra > 0) edit_refresh_rows( env, eb, termw, 0, true, first_row + rows_input, last_row );
 
   // overwrite trailing rows we do not use anymore
   ssize_t rrows = last_row - first_row + 1;  // rendered rows
@@ -340,15 +341,15 @@ static void edit_redo_restore(rp_env_t* env, editor_t* eb) {
 }
 
 static void edit_cursor_left(rp_env_t* env, editor_t* eb) {
-  ssize_t prev = sbuf_prev(eb->input,eb->pos);
+  ssize_t cwidth = 1;
+  ssize_t prev = sbuf_prev(eb->input,eb->pos,&cwidth);
   if (prev < 0) return;
   rowcol_t rc;
-  edit_get_rowcol( env, eb, &rc);
-  ssize_t w = eb->pos - prev;
+  edit_get_rowcol( env, eb, &rc);  
   eb->pos = prev;  
   if (!rc.first_on_row) {
     // if we were not at a start column we do not need a full refresh
-    term_left(&env->term,w);
+    term_left(&env->term,cwidth);
   }
   else {
     edit_refresh(env,eb);
@@ -356,15 +357,15 @@ static void edit_cursor_left(rp_env_t* env, editor_t* eb) {
 }
 
 static void edit_cursor_right(rp_env_t* env, editor_t* eb) {
-  ssize_t next = sbuf_next(eb->input,eb->pos);
-  if (next <  0) return;
+  ssize_t cwidth = 1;
+  ssize_t next = sbuf_next(eb->input,eb->pos,&cwidth);
+  if (next < 0) return;
   rowcol_t rc;
-  edit_get_rowcol( env, eb, &rc);
-  ssize_t w = next - eb->pos;
+  edit_get_rowcol( env, eb, &rc);  
   eb->pos = next;  
   if (!rc.last_on_row) {
     // if we were not at the end column we do not need a full refresh
-    term_right(&env->term,w);
+    term_right(&env->term,cwidth);
   }
   else {
     edit_refresh(env,eb);
@@ -442,7 +443,7 @@ static void edit_backspace(rp_env_t* env, editor_t* eb) {
 static void edit_delete_char(rp_env_t* env, editor_t* eb) {
   if (eb->pos >= sbuf_len(eb->input)) return;
   editor_start_modify(eb);
-  eb->pos -= sbuf_delete_char_at(eb->input,eb->pos);
+  sbuf_delete_char_at(eb->input,eb->pos);
   edit_refresh(env,eb);
 }
 
@@ -566,10 +567,15 @@ static void edit_history_at(rp_env_t* env, editor_t* eb, int ofs )
   }
   const char* entry = history_get(&env->history,eb->history_idx + ofs);
   debug_msg( "edit: history: at: %d + %d, found: %s\n", eb->history_idx, ofs, entry);
-  if (entry == NULL) return;
-  sbuf_replace( eb->input, entry);
-  eb->pos = sbuf_len(eb->input);
-  edit_refresh(env,eb);
+  if (entry == NULL) {
+    term_beep(&env->term);
+  }
+  else {
+    eb->history_idx += ofs;
+    sbuf_replace(eb->input, entry);
+    eb->pos = sbuf_len(eb->input);
+    edit_refresh(env, eb);
+  }
 }
 
 static void edit_history_prev(rp_env_t* env, editor_t* eb) {
@@ -838,7 +844,8 @@ static const char* help[] = {
   "", "Editing:",
   "enter",      "accept current input",
   #ifndef __APPLE__
-  "^enter, ^j", "", "shift-tab"
+  "^enter, ^j", "", 
+  "shift-tab",
   #else
   "shift-tab,^j",
   #endif

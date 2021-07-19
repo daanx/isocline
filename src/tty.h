@@ -138,7 +138,7 @@ internal code_t tty_read_esc(tty_t* tty); // in tty_esc.c
 #define KEY_F10           (KEY_VIRT+20)
 #define KEY_F11           (KEY_VIRT+21)
 #define KEY_F12           (KEY_VIRT+22)
-#define KEY_F(n)          (KEY_F1 + n)
+#define KEY_F(n)          (KEY_F1 + n - 1)
 
 #define KEY_EVENT_BASE    (0x200)
 #define KEY_EVENT_RESIZE  (KEY_EVENT_BASE+0)  // not use for now
