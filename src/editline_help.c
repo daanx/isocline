@@ -9,14 +9,9 @@
 // Help: this is included into editline.c
 //-------------------------------------------------------------
 
+
+
 static const char* help[] = {
-  "","",
-  "","Repline v1.0, copyright (c) 2021 Daan Leijen.",
-  "","This is free software; you can redistribute it and/or",
-  "","modify it under the terms of the MIT License.",
-  "","See <https://github.com/daanx/repline> for further information.",
-  "","We use ^<key> as a shorthand for ctrl-<key>.",
-  "","",
   "","Navigation:",
   "left,"
   "^b",         "go one character to the left",
@@ -101,8 +96,41 @@ static const char* help[] = {
   NULL, NULL
 };
 
+static const char* help_initial[] = {
+  "\x1B[97m"
+  "Repline v1.0, copyright (c) 2021 Daan Leijen.",
+  "\x1B[90m"
+  "This is free software; you can redistribute it and/or",
+  "modify it under the terms of the MIT License.",
+  "See <\x1B[4mhttps://github.com/daanx/repline\x1B[24m> for further information.",
+  "We use ^<key> as a shorthand for ctrl-<key>.",
+  "",
+  "Overview:",
+  "",
+  "       home/ctrl-a      cursor     end/ctrl-e",
+  "         ┌────────────────┼───────────────┐    (navigate)",
+  //"       │                │               │",
+  "         │    ctrl-left   │  ctrl-right   │",
+  "         │        ┌───────┼──────┐        │    ctrl+r   : search history",
+  "         ▼        ▼       ▼      ▼        ▼    tab      : complete word",
+  "  \x1B[90mprompt> \x1B[97mit's the quintessential language" "\x1B[90m" "     shift-tab: insert new line",
+  "         ▲        ▲              ▲        ▲    esc      : delete line, done",
+  "         │        └──────────────┘        │    ctrl+z   : undo",
+  "         │   alt-backsp        alt-d      │",
+  //"       │                │               │",
+  "         └────────────────────────────────┘    (delete)",
+  "       ctrl-u                          ctrl-k",
+  "\x1B[0m",
+  NULL
+};
+
+
 static void edit_show_help(rp_env_t* env, editor_t* eb) {
   edit_clear(env, eb);
+  for( ssize_t i = 0; help_initial[i] != NULL; i++ ) {
+    term_write(env->term, help_initial[i]);
+    term_write(env->term,"\r\n");
+  }
   for (ssize_t i = 0; help[i] != NULL && help[i+1] != NULL; i += 2) {
     if (help[i][0] == 0) {      
       term_writef(env->term, 256, "\x1B[90m%s\x1B[0m\r\n", help[i+1]);
@@ -111,8 +139,8 @@ static void edit_show_help(rp_env_t* env, editor_t* eb) {
       term_writef(env->term, 256, "  \x1B[97m%-13s\x1B[0m%s%s\r\n", help[i], (help[i+1][0] == 0 ? "" : ": "), help[i+1]);
     }
   }
+  
   eb->cur_rows = 0;
   eb->cur_row = 0;
   edit_refresh(env, eb);
 }
-

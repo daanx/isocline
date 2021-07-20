@@ -6,7 +6,7 @@
 -----------------------------------------------------------------------------*/
 
 //-------------------------------------------------------------
-// Completions: this file is included in editline.c
+// Completion menu: this file is included in editline.c
 //-------------------------------------------------------------
 
 static void edit_complete(rp_env_t* env, editor_t* eb, ssize_t idx) {

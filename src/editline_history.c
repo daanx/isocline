@@ -6,7 +6,7 @@
 -----------------------------------------------------------------------------*/
 
 //-------------------------------------------------------------
-// History: this file is included in editline.c
+// History search: this file is included in editline.c
 //-------------------------------------------------------------
 
 static void edit_history_at(rp_env_t* env, editor_t* eb, int ofs ) 
