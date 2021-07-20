@@ -9,8 +9,6 @@
 // Help: this is included into editline.c
 //-------------------------------------------------------------
 
-
-
 static const char* help[] = {
   "","Navigation:",
   "left,"
@@ -97,9 +95,8 @@ static const char* help[] = {
 };
 
 static const char* help_initial[] = {
-  "\x1B[97m"
-  "Repline v1.0, copyright (c) 2021 Daan Leijen.",
   "\x1B[90m"
+  "Repline v1.0, copyright (c) 2021 Daan Leijen.",
   "This is free software; you can redistribute it and/or",
   "modify it under the terms of the MIT License.",
   "See <\x1B[4mhttps://github.com/daanx/repline\x1B[24m> for further information.",
@@ -110,7 +107,11 @@ static const char* help_initial[] = {
   "       home/ctrl-a      cursor     end/ctrl-e",
   "         ┌────────────────┼───────────────┐    (navigate)",
   //"       │                │               │",
+  #ifndef __APPLE__
   "         │    ctrl-left   │  ctrl-right   │",
+  #else
+  "         │     alt-left   │   alt-right   │",
+  #endif
   "         │        ┌───────┼──────┐        │    ctrl+r   : search history",
   "         ▼        ▼       ▼      ▼        ▼    tab      : complete word",
   "  \x1B[90mprompt> \x1B[97mit's the quintessential language" "\x1B[90m" "     shift-tab: insert new line",
