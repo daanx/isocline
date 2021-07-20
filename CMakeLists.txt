@@ -34,7 +34,8 @@ if(RP_SEPARATE_OBJS)
               src/stringbuf.c
               src/term.c
               src/tty_esc.c
-              src/tty.c)
+              src/tty.c
+              src/undo.c)
 endif()
 
 if(RP_USE_CXX)

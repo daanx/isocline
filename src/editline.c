@@ -15,6 +15,7 @@
 #include "stringbuf.h"
 #include "history.h"
 #include "completions.h"
+#include "undo.h"
 
 #if defined(_WIN32)
 #else
@@ -22,69 +23,23 @@
 #endif
 
 
-// Undo buffer
-typedef struct editstate_s {
-  struct editstate_s* next;
-  const char* input;          // input
-  ssize_t     pos;            // cursor position
-} editstate_t;
 
+//-------------------------------------------------------------
+// The editor state
+//-------------------------------------------------------------
 
-static void editstate_init( editstate_t** es ) {
-  *es = NULL;
-}
-
-static void editstate_done( alloc_t* mem, editstate_t** es ) {
-  while (*es != NULL) {
-    editstate_t* next = (*es)->next;
-    mem_free(mem, (*es)->input);
-    mem_free(mem, *es );
-    *es = next;
-  }
-  *es = NULL;
-}
-
-rp_private void editstate_capture( alloc_t* mem, editstate_t** es, const char* input, ssize_t pos) {
-  if (input==NULL) input = "";
-  // alloc
-  editstate_t* entry = mem_zalloc_tp(mem, editstate_t);
-  if (entry == NULL) return;
-  // initialize
-  entry->input = mem_strdup( mem, input);
-  entry->pos   = pos;
-  if (entry->input == NULL) { mem_free(mem, entry); return; }
-  // and push
-  entry->next = *es;
-  *es = entry;
-}
-
-// caller should free *input
-rp_private bool editstate_restore( alloc_t* mem, editstate_t** es, const char** input, ssize_t* pos ) {
-  if (*es == NULL) return false;
-  // pop 
-  editstate_t* entry = *es;
-  *es = entry->next;
-  *input = entry->input;
-  *pos = entry->pos;
-  mem_free(mem, entry);
-  return true;
-}
-
-
-
-// The edit buffer
 typedef struct editor_s {
-  stringbuf_t* input;    // current user input
-  stringbuf_t* extra;    // extra displayed info (for completion menu etc)
-  ssize_t pos;          // current cursor position in the input
-  ssize_t cur_rows;     // current used rows to display our content (including extra content)
-  ssize_t cur_row;      // current row that has the cursor (0 based, relative to the prompt)
-  bool    modified;     // has a modification happened? (used for history navigation for example)  
-  bool    is_utf8;      // terminal is utf8
-  int     history_idx;  // current index in the history 
-  editstate_t* undo;    // undo buffer  
-  editstate_t* redo;    // redo buffer
-  const char*  prompt_text;   // text of the prompt before the prompt marker  
+  stringbuf_t*  input;        // current user input
+  stringbuf_t*  extra;        // extra displayed info (for completion menu etc)
+  ssize_t       pos;          // current cursor position in the input
+  ssize_t       cur_rows;     // current used rows to display our content (including extra content)
+  ssize_t       cur_row;      // current row that has the cursor (0 based, relative to the prompt)
+  bool          modified;     // has a modification happened? (used for history navigation for example)  
+  bool          is_utf8;      // terminal is utf8
+  int           history_idx;  // current index in the history 
+  editstate_t*  undo;         // undo buffer  
+  editstate_t*  redo;         // redo buffer
+  const char*   prompt_text;  // text of the prompt before the prompt marker  
   alloc_t* mem;
 } editor_t;
 
@@ -94,7 +49,7 @@ typedef struct editor_s {
 //-------------------------------------------------------------
 // Main edit line 
 //-------------------------------------------------------------
-static char* edit_line( rp_env_t* env, const char* prompt_text );
+static char* edit_line( rp_env_t* env, const char* prompt_text );  // defined at bottom
 static void edit_refresh(rp_env_t* env, editor_t* eb);
 
 rp_private char* rp_editline(rp_env_t* env, const char* prompt_text) {
@@ -108,6 +63,11 @@ rp_private char* rp_editline(rp_env_t* env, const char* prompt_text) {
 }
 
 
+//-------------------------------------------------------------
+// Undo/Redo
+//-------------------------------------------------------------
+
+// capture the current edit state
 static void editor_capture(editor_t* eb, editstate_t** es ) {
   editstate_capture( eb->mem, es, sbuf_string(eb->input), eb->pos );
 }
@@ -141,10 +101,15 @@ static void editor_start_modify(editor_t* eb ) {
   eb->modified = true;
 }
 
+
+
 static bool editor_pos_is_at_end(editor_t* eb ) {
   return (eb->pos == sbuf_len(eb->input));  
 }
 
+//-------------------------------------------------------------
+// Row/Column width and positioning
+//-------------------------------------------------------------
 
 
 static ssize_t edit_get_prompt_width( rp_env_t* env, editor_t* eb, bool in_extra, ssize_t* termw ) {
@@ -174,10 +139,6 @@ static bool edit_pos_is_at_row_end( rp_env_t* env, editor_t* eb ) {
   return rc.last_on_row;
 }
 
-//-------------------------------------------------------------
-// Refresh
-//-------------------------------------------------------------
-
 static void edit_write_prompt( rp_env_t* env, editor_t* eb, ssize_t row, bool in_extra ) {
   if (!in_extra) { 
     if (env->prompt_color != RP_DEFAULT_COLOR) term_color( env->term, env->prompt_color );
@@ -194,6 +155,10 @@ static void edit_write_prompt( rp_env_t* env, editor_t* eb, ssize_t row, bool in
     term_attr_reset( env->term );
   }
 }
+
+//-------------------------------------------------------------
+// Refresh
+//-------------------------------------------------------------
 
 typedef struct refresh_info_s {
   rp_env_t* env;
@@ -309,6 +274,7 @@ static void edit_refresh(rp_env_t* env, editor_t* eb)
 }
 
 
+// clear current output
 static void edit_clear(rp_env_t* env, editor_t* eb ) {
   term_attr_reset(env->term);  
   term_up(env->term, eb->cur_row);
@@ -323,6 +289,7 @@ static void edit_clear(rp_env_t* env, editor_t* eb ) {
   term_up(env->term, eb->cur_rows );  
 }
 
+
 static void edit_clear_screen(rp_env_t* env, editor_t* eb ) {
   ssize_t cur_rows = eb->cur_rows;
   eb->cur_rows = term_get_height(env->term) - 1;
@@ -335,6 +302,7 @@ static void edit_clear_screen(rp_env_t* env, editor_t* eb ) {
 //-------------------------------------------------------------
 // Edit operations
 //-------------------------------------------------------------
+
 static void edit_history_prev(rp_env_t* env, editor_t* eb);
 static void edit_history_next(rp_env_t* env, editor_t* eb);
 
@@ -562,579 +530,27 @@ static void edit_insert_char(rp_env_t* env, editor_t* eb, char c, bool refresh) 
   }
 }
 
-
-
 //-------------------------------------------------------------
 // Help
 //-------------------------------------------------------------
 
-static const char* help[] = {
-  "","",
-  "","Repline v1.0, copyright (c) 2021 Daan Leijen.",
-  "","This is free software; you can redistribute it and/or",
-  "","modify it under the terms of the MIT License.",
-  "","See <https://github.com/daanx/repline> for further information.",
-  "","We use ^<key> as a shorthand for ctrl-<key>.",
-  "","",
-  "","Navigation:",
-  "left,"
-  "^b",         "go one character to the left",
-  "right,"
-  "^f",         "go one character to the right",
-  "up",         "go one row up, or back in the history",
-  "down",       "go one row down, or forward in the history",
-  #ifdef __APPLE__
-  "shift-left",
-  #else
-  "^left",
-  #endif
-                "go to the start of the previous word",
-  #ifdef __APPLE__
-  "shift-right",
-  #else
-  "^right",
-  #endif
-                "go to the end the current word",
-  "home,"
-  "^a",         "go to the start of the current line",
-  "end,"
-  "^e",         "go to the end of the current line",
-  "pgup,"
-  "^home",       "go to the start of the current input",
-  "pgdn,"
-  "^end",       "go to the end of the current input",
-  "^p",         "go back in the history",
-  "^n",         "go forward in the history",
-  "^r,^s",      "search the history starting with the current word",
-  "","",
-
-  "", "Deletion:",
-  "del,^d",     "delete the current character",
-  "backsp,^h",  "delete the previous character",
-  "^w",         "delete to preceding white space",
-  "alt-backsp", "delete to the start of the current word",
-  "alt-d",      "delete to the end of the current word",
-  "^u",         "delete to the start of the current line",
-  "^k",         "delete to the end of the current line",
-  "esc",        "delete the current line, or done with empty input",
-  "","",
-
-  "", "Editing:",
-  "enter",      "accept current input",
-  #ifndef __APPLE__
-  "^enter, ^j", "",
-  "shift-tab",
-  #else
-  "shift-tab,^j",
-  #endif
-                "create a new line for multi-line input",
-  //" ",          "(or type '\\' followed by enter)",
-  "^l",         "clear screen",
-  "^t",         "swap with previous character (move character backward)",
-  "^z,^_",      "undo",
-  "^y",         "redo",
-  //"^C",         "done with empty input",
-  //"F1",         "show this help",
-  "tab",        "try to complete the current input",
-  "","",
-  "","In the completion menu:",
-  "enter,"
-  "space",      "use the currently selected completion",
-  "1 - 9",      "use completion N from the menu",
-  "tab",        "select the next completion",
-  "cursor keys","select completion N in the menu",
-  "esc",        "exit menu without completing",
-  "pgdn,", "",
-  "shift-tab",  "show all further possible completions",
-  "","",
-  "","In incremental history search:",
-  "enter",      "use the currently found history entry",
-  "backsp,"
-  "^z",         "go back to the previous match (undo)",
-  "tab,"
-  "^r",         "find the next match",
-  "shift-tab,"
-  "^s",         "find an earlier match",
-  "esc",        "exit search",
-  " ","",
-  NULL, NULL
-};
-
-static void edit_show_help(rp_env_t* env, editor_t* eb) {
-  edit_clear(env, eb);
-  for (ssize_t i = 0; help[i] != NULL && help[i+1] != NULL; i += 2) {
-    if (help[i][0] == 0) {      
-      term_writef(env->term, 256, "\x1B[90m%s\x1B[0m\r\n", help[i+1]);
-    }
-    else {
-      term_writef(env->term, 256, "  \x1B[97m%-13s\x1B[0m%s%s\r\n", help[i], (help[i+1][0] == 0 ? "" : ": "), help[i+1]);
-    }
-  }
-  eb->cur_rows = 0;
-  eb->cur_row = 0;
-  edit_refresh(env, eb);
-}
-
+#include "editline_help.c"
 
 //-------------------------------------------------------------
 // History
 //-------------------------------------------------------------
 
-static void edit_history_at(rp_env_t* env, editor_t* eb, int ofs ) 
-{
-  if (eb->modified) { 
-    history_update(env->history, sbuf_string(eb->input)); // update first entry if modified
-    eb->history_idx = 0;          // and start again 
-    eb->modified = false;    
-  }
-  const char* entry = history_get(env->history,eb->history_idx + ofs);
-  debug_msg( "edit: history: at: %d + %d, found: %s\n", eb->history_idx, ofs, entry);
-  if (entry == NULL) {
-    term_beep(env->term);
-  }
-  else {
-    eb->history_idx += ofs;
-    sbuf_replace(eb->input, entry);
-    eb->pos = sbuf_len(eb->input);
-    edit_refresh(env, eb);
-  }
-}
-
-static void edit_history_prev(rp_env_t* env, editor_t* eb) {
-  edit_history_at(env,eb, 1 );
-}
-
-static void edit_history_next(rp_env_t* env, editor_t* eb) {
-  edit_history_at(env,eb, -1 );
-}
-
-typedef struct hsearch_s {
-  struct hsearch_s* next;
-  ssize_t hidx;
-  ssize_t match_pos;
-  ssize_t match_len;
-  bool cinsert;
-} hsearch_t;
-
-static void hsearch_push( alloc_t* mem, hsearch_t** hs, ssize_t hidx, ssize_t mpos, ssize_t mlen, bool cinsert ) {
-  hsearch_t* h = mem_zalloc_tp( mem, hsearch_t );
-  if (h == NULL) return;
-  h->hidx = hidx;
-  h->match_pos = mpos;
-  h->match_len = mlen;
-  h->cinsert = cinsert;
-  h->next = *hs;
-  *hs = h;
-}
-
-static bool hsearch_pop( alloc_t* mem, hsearch_t** hs, ssize_t* hidx, ssize_t* match_pos, ssize_t* match_len, bool* cinsert ) {
-  hsearch_t* h = *hs;
-  if (h == NULL) return false;
-  *hs = h->next;
-  if (hidx != NULL)      *hidx = h->hidx;
-  if (match_pos != NULL) *match_pos = h->match_pos;
-  if (match_len != NULL) *match_len = h->match_len;
-  if (cinsert != NULL)   *cinsert = h->cinsert;
-  mem_free(mem, h);
-  return true;
-}
-
-static void hsearch_done( alloc_t* mem, hsearch_t* hs ) {
-  while (hs != NULL) {
-    hsearch_t* next = hs->next;
-    mem_free(mem, hs);
-    hs = next;
-  }
-}
-
-static void edit_history_search(rp_env_t* env, editor_t* eb, char* initial ) {
-  // update history
-  if (eb->modified) { 
-    history_update(env->history, sbuf_string(eb->input)); // update first entry if modified
-    eb->history_idx = 0;               // and start again 
-    eb->modified = false;
-  }
-
-  // set a search prompt
-  ssize_t old_pos = eb->pos;
-  const char* prompt_text = eb->prompt_text;
-  eb->prompt_text = "history search";
-  
-  // search state
-  hsearch_t* hs = NULL;        // search undo 
-  ssize_t hidx = 1;            // current history entry
-  ssize_t match_pos = 0;       // current matched position
-  ssize_t match_len = 0;       // length of the match
-  const char* hentry = NULL;   // current history entry
-  char buf[32];                // for formatting the index number
-
-  // Simulate per character searches for each letter in `initial` (so backspace works)
-  if (initial != NULL) {
-    const ssize_t initial_len = rp_strlen(initial);
-    ssize_t ipos = 0;
-    while( ipos < initial_len ) {
-      ssize_t next = str_next_ofs( initial, initial_len, ipos, eb->is_utf8, NULL );
-      if (next < 0) break;
-      hsearch_push( eb->mem, &hs, hidx, match_pos, match_len, true);
-      char c = initial[ipos + next];  // terminate temporarily
-      initial[ipos + next] = 0;
-      if (history_search( env->history, hidx, initial, true, &hidx, &match_pos )) {
-        match_len = ipos + next;
-      }      
-      else if (ipos + next >= initial_len) {
-        term_beep(env->term);
-      }
-      initial[ipos + next] = c;       // restore
-      ipos += next;
-    }
-    sbuf_replace( eb->input, initial);
-    eb->pos = ipos;
-  }
-  else {
-    sbuf_clear( eb->input );
-    eb->pos = 0;
-  }
-
-  // Incremental search
-again:
-  hentry = history_get(env->history,hidx);
-  snprintf(buf,32,"\x1B[97m%zd. ", hidx);
-  sbuf_append(eb->extra, buf );
-  sbuf_append(eb->extra, "\x1B[90m" );         // dark gray
-  sbuf_append_n( eb->extra, hentry, match_pos );  
-  sbuf_append(eb->extra, "\x1B[4m\x1B[97m" );  // underline bright white
-  sbuf_append_n( eb->extra, hentry + match_pos, match_len );
-  sbuf_append(eb->extra, "\x1B[90m\x1B[24m" ); // no underline dark gray
-  sbuf_append(eb->extra, hentry + match_pos + match_len );
-  sbuf_append(eb->extra, "\n\n(use tab for the next match and backspace to go back)" );
-  sbuf_append(eb->extra, "\x1B[0m\n" );
-  edit_refresh(env, eb);
-
-  // Process commands
-  code_t c = tty_read(env->tty);
-  sbuf_clear(eb->extra);
-  if (c == KEY_ESC || c == KEY_BELL /* ^G */ || c == KEY_CTRL_C) {
-    c = 0;  
-    sbuf_replace( eb->input, history_get(env->history,0) );
-    eb->pos = old_pos;
-  } 
-  else if (c == KEY_ENTER) {
-    c = 0;
-    sbuf_replace( eb->input, hentry );
-    eb->pos = sbuf_len(eb->input);
-    eb->modified = false;
-    eb->history_idx = hidx;
-  }  
-  else if (c == KEY_BACKSP || c == KEY_CTRL_Z) {
-    // undo last search action
-    bool cinsert;
-    if (hsearch_pop(env->mem,&hs, &hidx, &match_pos, &match_len, &cinsert)) {
-      if (cinsert) edit_backspace(env,eb);
-    }
-    goto again;
-  }
-  else if (c == KEY_CTRL_R || c == KEY_TAB || c == KEY_UP) {    
-    // search backward
-    hsearch_push(env->mem, &hs, hidx, match_pos, match_len, false);
-    if (!history_search( env->history, hidx+1, sbuf_string(eb->input), true, &hidx, &match_pos )) {
-      hsearch_pop(env->mem,&hs,NULL,NULL,NULL,NULL);
-      term_beep(env->term);
-    };
-    goto again;
-  }  
-  else if (c == KEY_CTRL_S || c == KEY_SHIFT_TAB || c == KEY_DOWN) {    
-    // search forward
-    hsearch_push(env->mem, &hs, hidx, match_pos, match_len, false);
-    if (!history_search( env->history, hidx-1, sbuf_string(eb->input), false, &hidx, &match_pos )) {
-      hsearch_pop(env->mem, &hs,NULL,NULL,NULL,NULL);
-      term_beep(env->term);
-    };
-    goto again;
-  }
-  else if (c == KEY_F1) {
-    edit_show_help(env, eb);
-    goto again;
-  }
-  else {
-    // insert character and search further backward
-    int tofollow;
-    char chr;
-    if (code_is_char(env->tty,c,&chr)) {
-      hsearch_push(env->mem, &hs, hidx, match_pos, match_len, true);
-      edit_insert_char(env,eb,chr, false /* refresh */);      
-    }
-    else if (code_is_extended(env->tty,c,&chr,&tofollow)) {
-      hsearch_push(env->mem, &hs, hidx, match_pos, match_len, true);
-      edit_insert_char(env,eb,chr,false);
-      while (tofollow-- > 0) {
-        c = tty_read(env->tty);
-        if (code_is_follower(env->tty,c,&chr)) {
-          edit_insert_char(env,eb,chr, false);
-        }
-        else {
-          // recover bad utf8
-          tty_code_pushback(env->tty,c);
-          break;
-        }
-      }
-      edit_refresh(env,eb);
-    }
-    else {
-      // ignore command
-      term_beep(env->term);
-      goto again;
-    }
-    // search for the new input
-    if (history_search( env->history, hidx, sbuf_string(eb->input), true, &hidx, &match_pos )) {
-      match_len = sbuf_len(eb->input);
-    }
-    else {
-      term_beep(env->term);
-    };
-    goto again;
-  }
-
-  // done
-  hsearch_done(env->mem,hs);
-  eb->prompt_text = prompt_text;
-  edit_refresh(env,eb);
-  if (c != 0) tty_code_pushback(env->tty, c);
-}
-
-// Start an incremental search with the current word 
-static void edit_history_search_with_current_word(rp_env_t* env, editor_t* eb) {
-  char* initial = NULL;
-  ssize_t start = sbuf_find_word_start( eb->input, eb->pos );
-  if (start >= 0) {
-    initial = mem_strndup( eb->mem, sbuf_string(eb->input) + start, eb->pos - start);
-  }
-  edit_history_search( env, eb, initial);
-  mem_free(env->mem, initial);
-}
-
+#include "editline_history.c"
 
 //-------------------------------------------------------------
 // Completion
 //-------------------------------------------------------------
 
-static void edit_complete(rp_env_t* env, editor_t* eb, ssize_t idx) {
-  editor_start_modify(eb);
-
-  eb->pos = completions_apply(env->completions, idx, eb->input, eb->pos);
-  edit_refresh(env,eb);
-}
-
-static void editor_append_completion(rp_env_t* env, editor_t* eb, ssize_t idx, ssize_t width, bool numbered, bool selected ) {
-  const char* display = completions_get_display(env->completions, idx);
-  if (display == NULL) return;
-  if (numbered) {
-    char buf[32];
-    snprintf(buf, 32, "\x1B[90m%s%zd \x1B[0m", (selected ? (eb->is_utf8 ? "\xE2\x86\x92" : "*") : " "), 1 + idx);
-    sbuf_append(eb->extra, buf);
-    width -= 3;
-  }
-
-  if (width <= 0) {
-    sbuf_append(eb->extra, display);
-  }
-  else {
-    // fit to width
-    const char* sc = str_skip_until_fit( display, width, eb->is_utf8);
-    if (sc != display) {
-      sbuf_append( eb->extra, "...");
-      sc = str_skip_until_fit( display, width - 3, eb->is_utf8);
-    }
-    sbuf_append( eb->extra, sc);
-    // fill out with spaces
-    ssize_t n = width - str_column_width(sc, eb->is_utf8);
-    while( n-- > 0 ) { sbuf_append( eb->extra," "); }  
-  }
-}
-
-// 2 and 3 column output up to 80 wide
-#define RP_DISPLAY2_MAX    35
-#define RP_DISPLAY2_COL    (3+RP_DISPLAY2_MAX)
-#define RP_DISPLAY2_WIDTH  (2*RP_DISPLAY2_COL + 2)    // 78
-
-#define RP_DISPLAY3_MAX    22
-#define RP_DISPLAY3_COL    (3+RP_DISPLAY3_MAX)
-#define RP_DISPLAY3_WIDTH  (3*RP_DISPLAY3_COL + 2*2)  // 79
-
-static void editor_append_completion2(rp_env_t* env, editor_t* eb, ssize_t idx1, ssize_t idx2, ssize_t selected ) {  
-  editor_append_completion(env, eb, idx1, RP_DISPLAY2_COL, true, (idx1 == selected) );
-  sbuf_append( eb->extra, "  ");
-  editor_append_completion(env, eb, idx2, RP_DISPLAY2_COL, true, (idx2 == selected) );
-}
-
-static void editor_append_completion3(rp_env_t* env, editor_t* eb, ssize_t idx1, ssize_t idx2, ssize_t idx3, ssize_t selected ) {  
-  editor_append_completion(env, eb, idx1, RP_DISPLAY3_COL, true, (idx1 == selected) );
-  sbuf_append( eb->extra, "  ");
-  editor_append_completion(env, eb, idx2, RP_DISPLAY3_COL, true, (idx2 == selected));
-  sbuf_append( eb->extra, "  ");
-  editor_append_completion(env, eb, idx3, RP_DISPLAY3_COL, true, (idx3 == selected) );
-}
-
-static ssize_t edit_completions_max_width( rp_env_t* env, editor_t* eb, ssize_t count ) {
-  ssize_t max_width = 0;
-  for( ssize_t i = 0; i < count; i++) {
-    const char* display = completions_get_display(env->completions,i);
-    if (display != NULL) {
-      ssize_t w = str_column_width( display, eb->is_utf8);
-      if (w > max_width) max_width = w;
-    }
-  }
-  return max_width;
-}
-
-static void edit_completion_menu(rp_env_t* env, editor_t* eb, bool more_available) {
-  ssize_t count = completions_count(env->completions);
-  ssize_t count_displayed = count;
-  assert(count > 1);
-  ssize_t selected = 0;
-  ssize_t columns = 1;
-  ssize_t percolumn = count;
-
-again:
-  // show first 9 (or 8) completions
-  sbuf_clear(eb->extra);
-  ssize_t twidth = term_get_width(env->term);
-  if (count > 3 && twidth > RP_DISPLAY3_WIDTH && edit_completions_max_width(env, eb, 9) <= RP_DISPLAY3_MAX) {
-    // display as a 3 column block
-    count_displayed = (count > 9 ? 9 : count);
-    columns = 3;
-    percolumn = 3;
-    for (ssize_t rw = 0; rw < percolumn; rw++) {
-      if (rw > 0) sbuf_append(eb->extra, "\n");
-      editor_append_completion3(env, eb, rw, percolumn+rw, (2*percolumn)+rw, selected);
-    }
-  }
-  else if (count > 4 && twidth > RP_DISPLAY2_WIDTH && edit_completions_max_width(env, eb, 8) <= RP_DISPLAY2_MAX) {
-    // display as a 2 column block if some entries are too wide for three columns
-    count_displayed = (count > 8 ? 8 : count);
-    columns = 2;
-    percolumn = (count_displayed <= 6 ? 3 : 4);
-    for (ssize_t rw = 0; rw < percolumn; rw++) {
-      if (rw > 0) sbuf_append(eb->extra, "\n");
-      editor_append_completion2(env, eb, rw, percolumn+rw, selected);
-    }
-  }
-  else {
-    // display as a list
-    count_displayed = (count > 9 ? 9 : count);
-    columns = 1;
-    percolumn = count_displayed;
-    for (ssize_t i = 0; i < count_displayed; i++) {
-      if (i > 0) sbuf_append(eb->extra, "\n");
-      editor_append_completion(env, eb, i, -1, true /* numbered */, selected == i);
-    }
-  }
-  if (count > count_displayed) {
-    sbuf_append(eb->extra, "\n\x1B[90m(press shift-tab to see all further completions)\x1B[0m");
-  }
-  edit_refresh(env, eb);
-
-  // read here; if not a valid key, push it back and return to main event loop
-  code_t c = tty_read(env->tty);
-  sbuf_clear(eb->extra);
-  if (c >= '1' && c <= '9' && (ssize_t)(c - '1') < count) {
-    selected = (c - '1');
-    c = KEY_SPACE;
-  }
-  else if (c == KEY_TAB || c == KEY_DOWN) {
-    selected++;
-    if (selected >= count_displayed) selected = 0;
-    goto again;
-  }
-  else if (c == KEY_UP) {
-    selected--;
-    if (selected < 0) selected = count_displayed - 1;
-    goto again;
-  }
-  if (c == KEY_RIGHT) {
-    if (columns > 1 && selected + percolumn < count_displayed) selected += percolumn;
-    goto again;
-  }
-  if (c == KEY_LEFT) {
-    if (columns > 1 && selected - percolumn >= 0) selected -= percolumn;
-    goto again;
-  }
-  else if (c == KEY_END) {
-    selected = count_displayed - 1;
-    goto again;
-  }
-  else if (c == KEY_HOME) {
-    selected = 0;
-    goto again;
-  }
-  else if (c == KEY_F1) {
-    edit_show_help(env, eb);
-    goto again;
-  }
-  else if (c == KEY_ESC) {
-    completions_clear(env->completions);
-    edit_refresh(env,eb);
-    c = 0; // ignore and return
-  }
-  else if (c == KEY_ENTER || c == KEY_SPACE) {  
-    // select the current entry
-    assert(selected < count);
-    c = 0;      
-    edit_complete(env, eb, selected);
-  }
-  else if ((c == KEY_PAGEDOWN || c == KEY_SHIFT_TAB || c == KEY_LINEFEED) && count > 9) {
-    // show all completions
-    c = 0;
-    if (more_available) {
-      // generate all entries (up to the max (= 1000))
-      count = completions_generate(env, env->completions, sbuf_string(eb->input), eb->pos, RP_MAX_COMPLETIONS_TO_SHOW);
-    }
-    rowcol_t rc;
-    edit_get_rowcol(env,eb,&rc);
-    edit_clear(env,eb);
-    edit_write_prompt(env,eb,0,false);
-    term_write(env->term, "\r\n");
-    for(ssize_t i = 0; i < count; i++) {
-      const char* display = completions_get_display(env->completions, i);
-      if (display != NULL) {
-        // term_writef(env->term, "\x1B[90m%3d \x1B[0m%s\r\n", i+1, (cm->display != NULL ? cm->display : cm->replacement ));          
-        term_write(env->term, display);         
-        term_write(env->term, "\r\n"); 
-      }
-    }
-    if (count >= RP_MAX_COMPLETIONS_TO_SHOW) {
-      term_write(env->term, "\x1B[90m... and more.\x1B[0m\r\n");
-    }
-    for(ssize_t i = 0; i < rc.row+1; i++) {
-      term_write(env->term, " \r\n");
-    }
-    eb->cur_rows = 0;
-    edit_refresh(env,eb);      
-  }
-  // done
-  completions_clear(env->completions);      
-  if (c != 0) tty_code_pushback(env->tty,c);
-}
-
-static void edit_generate_completions(rp_env_t* env, editor_t* eb) {
-  debug_msg( "edit: complete: %zd: %s\n", eb->pos, sbuf_string(eb->input) );
-  if (eb->pos <= 0) return;
-  ssize_t count = completions_generate(env, env->completions, sbuf_string(eb->input), eb->pos, 10);
-  if (count <= 0) {
-    // no completions
-    term_beep(env->term); 
-  }
-  else if (count == 1) {
-    // complete if only one match    
-    edit_complete(env,eb,0);
-  }
-  else {
-    edit_completion_menu( env, eb, count>=10 /* possibly more available? */);    
-  }
-}
+#include "editline_completion.c"
 
 
 //-------------------------------------------------------------
-// Edit line
+// Edit line: main edit loop
 //-------------------------------------------------------------
 
 static char* edit_line( rp_env_t* env, const char* prompt_text )
