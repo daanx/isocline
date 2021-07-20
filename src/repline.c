@@ -159,6 +159,8 @@ rp_public void rp_done( rp_env_t* env ) {
   completions_free(env->completions);
   term_free(env->term);
   tty_free(env->tty);
+  sbuf_free(env->input);
+  sbuf_free(env->extra);
   mem_free(env->mem,env->prompt_marker); 
   env->prompt_marker = NULL;
   
@@ -203,8 +205,12 @@ rp_public rp_env_t* rp_init_custom_alloc( rp_malloc_fun_t* _malloc, rp_realloc_f
   env->term        = term_new(env->mem, env->tty, false, false, -1 );  
   env->history     = history_new(env->mem);
   env->completions = completions_new(env->mem);
-  
-  if (env->tty == NULL || env->term == NULL || !term_is_interactive(env->term)) {
+  env->input       = sbuf_new(env->mem,tty_is_utf8(env->tty));
+  env->extra       = sbuf_new(env->mem,tty_is_utf8(env->tty));
+
+  if (env->extra == NULL || env->input == NULL || env->completions == NULL || env->history == NULL || env->term==NULL
+      || !term_is_interactive(env->term)) 
+  {
     env->noedit = true;
   }
   env->prompt_marker = NULL;

@@ -164,8 +164,8 @@ typedef struct refresh_info_s {
   rp_env_t* env;
   editor_t* eb;
   bool      in_extra;
-  ssize_t first_row;
-  ssize_t last_row;
+  ssize_t   first_row;
+  ssize_t   last_row;
 } refresh_info_t;
 
 static bool edit_refresh_rows_iter(
@@ -558,8 +558,8 @@ static char* edit_line( rp_env_t* env, const char* prompt_text )
   // set up an edit buffer
   editor_t eb;
   eb.mem      = env->mem;
-  eb.input    = sbuf_new(eb.mem, tty_is_utf8(env->tty));
-  eb.extra    = sbuf_new(eb.mem, tty_is_utf8(env->tty));
+  eb.input    = env->input;  // borrow to avoid reallocation
+  eb.extra    = env->extra;
   eb.pos      = 0;
   eb.cur_rows = 1; 
   eb.cur_row  = 0; 
@@ -569,6 +569,8 @@ static char* edit_line( rp_env_t* env, const char* prompt_text )
   eb.history_idx   = 0;
   editstate_init(&eb.undo);
   editstate_init(&eb.redo);
+  sbuf_clear(eb.input);
+  sbuf_clear(eb.extra);
 
   // show prompt
   edit_write_prompt(env, &eb, 0, false); 
@@ -758,8 +760,6 @@ static char* edit_line( rp_env_t* env, const char* prompt_text )
   // free resources 
   editstate_done(env->mem, &eb.undo);
   editstate_done(env->mem, &eb.redo);
-  sbuf_free(eb.input);
-  sbuf_free(eb.extra);
   
   // update history
   history_update(env->history, res);

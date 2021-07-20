@@ -21,18 +21,20 @@
 //-------------------------------------------------------------
 
 struct rp_env_s {
-  alloc_t*        mem;
-  rp_env_t*       next;
-  term_t*         term;
-  tty_t*          tty;
-  completions_t*  completions;
-  history_t*      history;  
-  const char*     prompt_marker;
-  rp_color_t      prompt_color;
-  char            multiline_eol;  
-  bool            initialized;
-  bool            noedit;
-  bool            singleline_only;
+  alloc_t*        mem;              // potential custom allocator
+  rp_env_t*       next;             // next environment (used for proper deallocation)
+  term_t*         term;             // terminal
+  tty_t*          tty;              // keyboard (NULL if stdin is a pipe, file, etc)
+  completions_t*  completions;      // current completions
+  history_t*      history;          // edit history
+  stringbuf_t*    input;            // keep a current input buffer to avoid reallocation
+  stringbuf_t*    extra;            // keep a current extra buffer to avoid reallocation
+  const char*     prompt_marker;    // the prompt marker (NULL is default "> ")
+  rp_color_t      prompt_color;     // color used to display the prompt
+  char            multiline_eol;    // character used for multiline input ("\")
+  bool            initialized;      // are we initialized?
+  bool            noedit;           // is rich editing possible (tty != NULL)
+  bool            singleline_only;  // allow only single line editing?
 };
 
 rp_private char*    rp_editline(rp_env_t* env, const char* prompt_text);
