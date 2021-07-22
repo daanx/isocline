@@ -52,7 +52,7 @@ int main()
   return 0;
 }
 
-// A completer function is called by repline to complete on input.
+// A custom completer function.
 // Use `rp_add_completion( env, display, replacement)` to add actual completions.
 static void word_completer(rp_completion_env_t* cenv, const char* prefix ) {
   if (rp_starts_with("hello repline",prefix)) {
@@ -86,7 +86,7 @@ static void word_completer(rp_completion_env_t* cenv, const char* prefix ) {
 // We use `rp_complete_word` to handle escape characters and quoted words.
 static void completer(rp_completion_env_t* cenv, const char* prefix ) 
 {
-  rp_complete_filename( cenv, prefix, ".;/Users/daan" );
-  rp_complete_word( cenv, prefix, &word_completer );
+  rp_complete_filename( cenv, prefix, '/', ".;/usr/local" );   // try to complete file names
+  rp_complete_word( cenv, prefix, &word_completer );           // and also use our custom completer
 }
   

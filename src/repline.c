@@ -17,6 +17,7 @@
 # include "editline.c"
 # include "undo.c"
 # include "history.c"
+# include "completers.c"
 # include "completions.c"
 # include "term.c"
 # include "tty_esc.c"

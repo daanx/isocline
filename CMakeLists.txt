@@ -29,6 +29,7 @@ if(RP_SEPARATE_OBJS)
   list(APPEND rp_sources  
               src/common.c
               src/completions.c
+              src/completers.c
               src/editline.c
               src/history.c
               src/stringbuf.c

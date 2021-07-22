@@ -196,6 +196,9 @@ again:
     if (count >= RP_MAX_COMPLETIONS_TO_SHOW) {
       term_write(env->term, "\x1B[90m... and more.\x1B[0m\r\n");
     }
+    else {
+      term_writef(env->term, 256, "\x1B[90m(%d possible completions)\x1B[0m\r\n", count );
+    }
     for(ssize_t i = 0; i < rc.row+1; i++) {
       term_write(env->term, " \r\n");
     }

@@ -458,7 +458,8 @@ rp_private char* sbuf_free_dup(stringbuf_t* sbuf) {
 }
 
 rp_private const char* sbuf_string_at( stringbuf_t* sbuf, ssize_t pos ) {
-  if (sbuf->buf == NULL || pos < 0 || sbuf->count < pos) return NULL;
+  if (pos < 0 || sbuf->count < pos) return NULL;
+  if (sbuf->buf == NULL) return "";
   assert(sbuf->buf[sbuf->count] == 0);
   return sbuf->buf + pos;
 }
@@ -665,4 +666,53 @@ rp_private ssize_t sbuf_get_rc_at_pos( stringbuf_t* sbuf, ssize_t termw, ssize_t
 
 rp_private ssize_t sbuf_for_each_row( stringbuf_t* sbuf, ssize_t termw, ssize_t promptw, row_fun_t* fun, void* arg, void* res ) {
   return str_for_each_row( sbuf->buf, sbuf->count, termw, promptw, fun, sbuf->is_utf8, arg, res);
+}
+
+
+//-------------------------------------------------------------
+// String helpers
+//-------------------------------------------------------------
+
+rp_public long rp_prev_char( const char* s, long pos ) {
+  ssize_t len = rp_strlen(s);
+  if (pos < 0 || pos > len) return -1;
+  ssize_t ofs = str_prev_ofs( s, pos, true, NULL );
+  if (ofs <= 0) return -1;
+  return (long)(pos - ofs);
+}
+
+rp_public long rp_next_char( const char* s, long pos ) {
+  ssize_t len = rp_strlen(s);
+  if (pos < 0 || pos > len) return -1;
+  ssize_t ofs = str_next_ofs( s, len, pos, true, NULL );
+  if (ofs <= 0) return -1;
+  return (long)(pos + ofs);
+}
+
+rp_public bool rp_starts_with( const char* s, const char* prefix ) {
+  if (s==prefix) return true;
+  if (prefix==NULL) return true;
+  if (s==NULL) return false;
+
+  ssize_t i;
+  for( i = 0; s[i] != 0 && prefix[i] != 0; i++) {
+    if (s[i] != prefix[i]) return false;
+  }
+  return (prefix[i] == 0);
+}
+
+static bool rp_tolower( char c ) {
+  return (c >= 'A' && c <= 'Z'  ?  c - 'A' + 'a' : c);
+}
+
+rp_public bool rp_istarts_with( const char* s, const char* prefix ) {
+  if (s==prefix) return true;
+  if (prefix==NULL) return true;
+  if (s==NULL) return false;
+
+  ssize_t i;
+  for( i = 0; s[i] != 0 && prefix[i] != 0; i++) {
+    if (rp_tolower(s[i]) != rp_tolower(prefix[i])) return false;
+  }
+  return (prefix[i] == 0);
 }

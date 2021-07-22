@@ -32,4 +32,18 @@ rp_private const char* completions_get_display(completions_t* cms , ssize_t inde
 rp_private ssize_t     completions_apply(completions_t* cms, ssize_t index, stringbuf_t* sbuf, ssize_t pos);
 
 
+//-------------------------------------------------------------
+// Completion environment
+//-------------------------------------------------------------
+typedef bool (rp_completion_fun_t)( rp_env_t* env, void* funenv, const char* display, const char* replacement, long delete_before, long delete_after );
+
+struct rp_completion_env_s {
+  rp_env_t*   env;       // the repline environment
+  const char* input;     // current full input
+  long        cursor;    // current cursor position
+  void*       arg;       // argument given to `rp_set_completer`
+  void*       closure;   // free variables for function composition
+  rp_completion_fun_t* complete;  // function that adds a completion
+};
+
 #endif // RP_COMPLETIONS_H

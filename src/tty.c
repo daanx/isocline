@@ -366,6 +366,7 @@ static bool tty_init_raw(tty_t* tty)
   tty->raw_ios.c_lflag &= ~(unsigned long)(ECHO | ICANON | IEXTEN | ISIG);
   tty->raw_ios.c_cc[VTIME] = 0;
   tty->raw_ios.c_cc[VMIN] = 1;   
+  
   return true;
 }
 
