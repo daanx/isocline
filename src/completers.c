@@ -117,7 +117,7 @@ rp_public void rp_complete_quoted_word( rp_completion_env_t* cenv, const char* p
   }
 
   // stop if empty word
-  if (len == pos) return;
+  // if (len == pos) return;
 
   // allocate new unescaped word prefix
   char* word = mem_strdup( cenv->env->mem, prefix + pos );

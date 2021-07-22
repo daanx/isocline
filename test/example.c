@@ -55,7 +55,7 @@ int main()
 // A custom completer function.
 // Use `rp_add_completion( env, display, replacement)` to add actual completions.
 static void word_completer(rp_completion_env_t* cenv, const char* prefix ) {
-  if (rp_starts_with("hello repline",prefix)) {
+  if (prefix[0] != 0 && rp_starts_with("hello repline",prefix)) {
     for(int i = 0; i < 100000; i++) {
       char buf[32];
       snprintf(buf,32,"hello repline (%d)", i+1);
@@ -86,7 +86,7 @@ static void word_completer(rp_completion_env_t* cenv, const char* prefix ) {
 // We use `rp_complete_word` to handle escape characters and quoted words.
 static void completer(rp_completion_env_t* cenv, const char* prefix ) 
 {
-  rp_complete_filename( cenv, prefix, '/', ".;/usr/local" );   // try to complete file names
-  rp_complete_word( cenv, prefix, &word_completer );           // and also use our custom completer
+  rp_complete_filename( cenv, prefix, '/', ".;/usr/local" );   // try to complete file names from the roots "." and "/usr/local"
+  rp_complete_word( cenv, prefix, &word_completer );           // and also use our custom completer  
 }
   

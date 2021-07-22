@@ -16,6 +16,7 @@
 // Completions
 //-------------------------------------------------------------
 #define RP_MAX_COMPLETIONS_TO_SHOW  (1000)
+#define RP_MAX_COMPLETIONS_TO_TRY   (RP_MAX_COMPLETIONS_TO_SHOW/4)
 
 struct rp_env_s;
 typedef struct completions_s completions_t;
@@ -29,8 +30,9 @@ rp_private ssize_t     completions_generate(struct rp_env_s* env, completions_t*
 rp_private void        completions_set_completer(completions_t* cms, rp_completer_fun_t* completer, void* arg);
 
 rp_private const char* completions_get_display(completions_t* cms , ssize_t index);
-rp_private ssize_t     completions_apply(completions_t* cms, ssize_t index, stringbuf_t* sbuf, ssize_t pos);
 
+rp_private ssize_t     completions_apply(completions_t* cms, ssize_t index, stringbuf_t* sbuf, ssize_t pos);
+rp_private ssize_t     completions_apply_longest_prefix(completions_t* cms, stringbuf_t* sbuf, ssize_t pos);
 
 //-------------------------------------------------------------
 // Completion environment

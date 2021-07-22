@@ -11,9 +11,19 @@
 
 static void edit_complete(rp_env_t* env, editor_t* eb, ssize_t idx) {
   editor_start_modify(eb);
+  ssize_t newpos = completions_apply(env->completions, idx, eb->input, eb->pos);
+  if (newpos < 0) return;
+  eb->pos = newpos;
+  edit_refresh(env,eb);  
+}
 
-  eb->pos = completions_apply(env->completions, idx, eb->input, eb->pos);
+static bool edit_complete_longest_prefix(rp_env_t* env, editor_t* eb ) {
+  editor_start_modify(eb);
+  ssize_t newpos = completions_apply_longest_prefix( env->completions, eb->input, eb->pos );
+  if (newpos < 0) return false;
+  eb->pos = newpos;
   edit_refresh(env,eb);
+  return true;
 }
 
 static void editor_append_completion(rp_env_t* env, editor_t* eb, ssize_t idx, ssize_t width, bool numbered, bool selected ) {
@@ -121,9 +131,20 @@ again:
     }
   }
   if (count > count_displayed) {
-    sbuf_append(eb->extra, "\n\x1B[90m(press shift-tab to see all further completions)\x1B[0m");
+    if (more_available) {
+      sbuf_append(eb->extra, "\n\x1B[90m(press shift-tab to see all further completions)\x1B[0m");
+    }
+    else {
+      sbuf_appendf(eb->extra, 256, "\n\x1B[90m(press shift-tab to see all %d completions)\x1B[0m", count );
+    }
   }
-  edit_refresh(env, eb);
+  //if (count <= count_displayed) {
+  edit_complete(env,eb,selected);
+  editor_undo_restore(eb);
+  //}
+  //else {
+  //  edit_refresh(env, eb);
+  //}
 
   // read here; if not a valid key, push it back and return to main event loop
   code_t c = tty_read(env->tty);
@@ -132,21 +153,28 @@ again:
     selected = (c - '1');
     c = KEY_SPACE;
   }
-  else if (c == KEY_TAB || c == KEY_DOWN) {
+  
+  if (c == KEY_DOWN || c == KEY_TAB) {
     selected++;
-    if (selected >= count_displayed) selected = 0;
+    if (selected >= count_displayed) {
+      term_beep(env->term);
+      selected = 0;
+    }
     goto again;
   }
   else if (c == KEY_UP) {
     selected--;
-    if (selected < 0) selected = count_displayed - 1;
+    if (selected < 0) {
+      selected = count_displayed - 1;
+      term_beep(env->term);
+    }
     goto again;
   }
-  if (c == KEY_RIGHT) {
+  else if (c == KEY_RIGHT) {
     if (columns > 1 && selected + percolumn < count_displayed) selected += percolumn;
     goto again;
   }
-  if (c == KEY_LEFT) {
+  else if (c == KEY_LEFT) {
     if (columns > 1 && selected - percolumn >= 0) selected -= percolumn;
     goto again;
   }
@@ -167,7 +195,7 @@ again:
     edit_refresh(env,eb);
     c = 0; // ignore and return
   }
-  else if (c == KEY_ENTER || c == KEY_SPACE) {  
+  else if (c == KEY_ENTER || c == KEY_SPACE /* || c == KEY_TAB */) {  
     // select the current entry
     assert(selected < count);
     c = 0;      
@@ -212,17 +240,22 @@ again:
 
 static void edit_generate_completions(rp_env_t* env, editor_t* eb) {
   debug_msg( "edit: complete: %zd: %s\n", eb->pos, sbuf_string(eb->input) );
-  if (eb->pos <= 0) return;
-  ssize_t count = completions_generate(env, env->completions, sbuf_string(eb->input), eb->pos, 10);
+  if (eb->pos < 0) return;
+  ssize_t count = completions_generate(env, env->completions, sbuf_string(eb->input), eb->pos, RP_MAX_COMPLETIONS_TO_TRY);
+  bool more_available = (count >= RP_MAX_COMPLETIONS_TO_TRY);
   if (count <= 0) {
     // no completions
     term_beep(env->term); 
   }
   else if (count == 1) {
     // complete if only one match    
-    edit_complete(env,eb,0);
+    edit_complete(env,eb,0 /*idx*/);
   }
   else {
-    edit_completion_menu( env, eb, count>=10 /* possibly more available? */);    
+    term_beep(env->term); 
+    if (!more_available) { 
+      edit_complete_longest_prefix(env,eb);
+    }    
+    edit_completion_menu( env, eb, more_available);    
   }
 }

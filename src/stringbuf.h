@@ -32,6 +32,8 @@ rp_private char    sbuf_char_at(stringbuf_t* sbuf, ssize_t pos);
 rp_private char*   sbuf_strdup_at( stringbuf_t* sbuf, ssize_t pos );
 rp_private char*   sbuf_strdup( stringbuf_t* sbuf );
 
+
+rp_private ssize_t sbuf_appendf(stringbuf_t* sb, ssize_t max_needed, const char* fmt, ...);
 rp_private ssize_t sbuf_append_vprintf(stringbuf_t* sb, ssize_t max_needed, const char* fmt, va_list args);
 
 // primitive edit operations (inserts return the new position)

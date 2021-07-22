@@ -110,17 +110,6 @@ rp_private const char* completions_get_display( completions_t* cms, ssize_t inde
   return (cm->display != NULL ? cm->display : cm->replacement);
 }
 
-
-rp_private ssize_t completions_apply( completions_t* cms, ssize_t index, stringbuf_t* sbuf, ssize_t pos ) {
-  completion_t* cm = completions_get(cms, index);
-  if (cm == NULL) return -1;
-  debug_msg( "completion: apply: %s at %zd\n", cm->replacement, pos);
-  ssize_t start = pos - cm->delete_before;
-  if (start < 0) start = 0;
-  sbuf_delete_from_to( sbuf, start, pos + cm->delete_after );
-  return sbuf_insert_at(sbuf, cm->replacement, start); 
-}
-
 rp_private void completions_set_completer(completions_t* cms, rp_completer_fun_t* completer, void* arg) {
   cms->completer = completer;
   cms->completer_arg = arg;
@@ -128,6 +117,79 @@ rp_private void completions_set_completer(completions_t* cms, rp_completer_fun_t
 
 rp_public bool rp_has_completions( rp_completion_env_t* cenv ) {
   return (cenv->env->completions->count > 0);
+}
+
+
+static ssize_t completion_apply( completion_t* cm, stringbuf_t* sbuf, ssize_t pos ) {
+  if (cm == NULL) return -1;  
+  debug_msg( "completion: apply: %s at %zd\n", cm->replacement, pos);
+  ssize_t start = pos - cm->delete_before;
+  if (start < 0) start = 0;
+  sbuf_delete_from_to( sbuf, start, pos + cm->delete_after );
+  return sbuf_insert_at(sbuf, cm->replacement, start); 
+}
+
+rp_private ssize_t completions_apply( completions_t* cms, ssize_t index, stringbuf_t* sbuf, ssize_t pos ) {
+  completion_t* cm = completions_get(cms, index);
+  return completion_apply( cm, sbuf, pos );
+}
+
+
+
+#define RP_MAX_PREFIX  (256)
+
+// find longest common prefix and complete with that.
+rp_private ssize_t completions_apply_longest_prefix(completions_t* cms, stringbuf_t* sbuf, ssize_t pos) {
+  if (cms->count <= 1) {
+    return completions_apply(cms,0,sbuf,pos);
+  }
+
+  // set initial prefix to the first entry
+  completion_t* cm = completions_get(cms, 0);
+  if (cm == NULL) return -1;
+
+  char prefix[RP_MAX_PREFIX+1];
+  ssize_t delete_before = cm->delete_before;
+  rp_strncpy( prefix, RP_MAX_PREFIX+1, cm->replacement, RP_MAX_PREFIX );
+  prefix[RP_MAX_PREFIX] = 0;
+  
+  // and visit all others to find the longest common prefix
+  for(ssize_t i = 1; i < cms->count; i++) {
+    cm = completions_get(cms,i);
+    if (cm->delete_before != delete_before) {  // deletions must match delete_before
+      prefix[0] = 0;
+      break;
+    }
+    // check if it is still a prefix
+    const char* r = cm->replacement;    
+    ssize_t j;
+    for(j = 0; prefix[j] != 0 && r[j] != 0; j++) {
+      if (prefix[j] != r[j]) break;
+    }
+    prefix[j] = 0;
+    if (j <= 0) break;
+  }
+
+  // check the length
+  ssize_t len = rp_strlen(prefix);
+  if (len <= 0) return -1;
+
+  // we found a prefix :-)
+  completion_t cprefix;
+  cprefix.delete_after = 0;
+  cprefix.delete_before = delete_before;
+  cprefix.display = NULL;
+  cprefix.replacement = prefix;
+  ssize_t newpos = completion_apply( &cprefix, sbuf, pos);
+  if (newpos < 0) return newpos;  
+
+  // adjust all delete_before for the new replacement
+  for( ssize_t i = 0; i < cms->count; i++) {
+    cm = completions_get(cms,i);
+    cm->delete_before += len;
+  }
+
+  return newpos;
 }
 
 
@@ -155,7 +217,7 @@ rp_public void rp_set_completer(rp_env_t* env, rp_completer_fun_t* completer, vo
 
 rp_private ssize_t completions_generate(struct rp_env_s* env, completions_t* cms, const char* input, ssize_t pos, ssize_t max) {
   completions_clear(cms);
-  if (cms->completer == NULL || input == NULL || input[0] == 0 || rp_strlen(input) < pos) return 0;
+  if (cms->completer == NULL || input == NULL || rp_strlen(input) < pos) return 0;
 
   // set up env
   rp_completion_env_t cenv;

@@ -515,6 +515,15 @@ rp_private ssize_t sbuf_append_vprintf(stringbuf_t* sb, ssize_t max_needed, cons
   return sb->count;
 }
 
+rp_private ssize_t sbuf_appendf(stringbuf_t* sb, ssize_t max_needed, const char* fmt, ...) {
+  va_list args;
+  va_start( args, fmt);
+  ssize_t res = sbuf_append_vprintf( sb, max_needed, fmt, args );
+  va_end(args);
+  return res;
+}
+
+
 rp_private ssize_t sbuf_insert_at_n(stringbuf_t* sbuf, const char* s, ssize_t n, ssize_t pos ) {
   if (pos < 0 || pos > sbuf->count || s == NULL) return pos;
   n = str_limit_to_length(s,n);
