@@ -262,27 +262,39 @@ rp_public bool rp_complete_quoted_word( rp_completion_env_t* cenv, const char* p
   if (quote_chars == NULL) quote_chars = "'\"";
 
   ssize_t len = rp_strlen(prefix);
-  ssize_t pos = len;
+  ssize_t pos; // will be start of the 'word' (excluding a potential start quote)
   char quote = 0;
   
   // 1. look for a starting quote
   if (quote_chars[0] != 0) {
-    while(pos > 0) {
-      // go back one code point
-      ssize_t ofs = str_prev_ofs(prefix, pos, true, NULL );
-      if (ofs <= 0) break;
-      if (strchr(quote_chars, prefix[pos - ofs]) != NULL) {
-        // quote char, break if it is not escaped
-        if (pos <= ofs || prefix[pos - ofs - 1] != escape_char) {
-          // found a quote
-          quote = prefix[pos - ofs];
-          break;
-        }
-        // otherwise go on
+    // we go forward and count all quotes; if it is uneven, we need to complete quoted.
+    ssize_t qpos = -1;
+    ssize_t qcount = 0;
+    pos = 0; 
+    while(pos < len) {
+      if (prefix[pos] == escape_char) {
+        pos++; // skip next char
       }
-      pos -= ofs;
+      else if (strchr(quote_chars, prefix[pos]) != NULL) {
+        // quote char
+        if (qcount % 2 == 1) { // closing quote
+          qpos = -1;          
+        }
+        else {
+          qpos = pos;
+        }
+        qcount++;
+      }
+      ssize_t ofs = str_next_ofs( prefix, len, pos, true, NULL );
+      if (ofs <= 0) break;
+      pos += ofs;
     }
-    // pos points to the word start just after the quote.
+    if (qcount % 2 == 1) {
+      // found it
+      assert(qpos >= 0);
+      quote = prefix[qpos];
+      pos = qpos + 1;  // pos points to the word start just after the quote.
+    }    
   }
 
   // 2. if we did not find a quoted word, look for non-word-chars
@@ -346,3 +358,173 @@ rp_public bool rp_complete_quoted_word( rp_completion_env_t* cenv, const char* p
 }
 
 
+
+
+//-------------------------------------------------------------
+// File listing
+//-------------------------------------------------------------
+
+#if defined(WIN32)
+#include <io.h>
+#include <sys/stat.h>
+
+static bool os_is_dir(const char* cpath) {  
+  struct _stat64 st = { 0 };
+  _stat64(cpath, &st);
+  return ((st.st_mode & S_IFDIR) != 0);  // true for symbolic link as well
+}
+
+#define dir_cursor intptr_t
+#define dir_entry  struct _wfinddata64_t
+
+static bool os_findfirst(alloc_t* mem, const char* path, dir_cursor* d, dir_entry* entry) {
+  stringbuf_t spath = sbuf_new(mem,true);
+  if (spath == NULL) return false;
+  sbuf_append(spath, path);
+  sbuf_append(spath, "\\*");
+  *d = _findfirsti64(sbuf_string(spath), entry);
+  mem_free(mem,spath);
+  return (*d != -1);
+}
+
+static bool os_findnext(dir_cursor d, dir_entry* entry) {
+  return (_findnexti64(d, entry) == 0);  
+}
+
+static void os_findclose(dir_cursor d) {
+  _findclose(d);
+}
+
+static const char* os_direntry_name(dir_entry* entry) {
+  const char* dname = entry->name;
+  if (dname == NULL || strcmp(dname, ".") == 0 || strcmp(dname, "..") == 0) {
+    return NULL;
+  }
+  else {
+    return dname;
+  }
+}
+
+#else
+
+#include <sys/types.h>
+#include <sys/stat.h>
+#include <dirent.h>
+#include <errno.h>
+
+static bool os_is_dir(const char* cpath) {
+  struct stat st = { 0 };
+  stat(cpath, &st);
+  return ((st.st_mode & S_IFDIR) != 0);
+}
+
+#define dir_cursor DIR*
+#define dir_entry  struct dirent*
+
+static bool os_findnext(dir_cursor d, dir_entry* entry) {
+  *entry = readdir(d);
+  return (*entry != NULL);
+}
+
+static bool os_findfirst(alloc_t* mem, const char* cpath, dir_cursor* d, dir_entry* entry) {
+  rp_unused(mem);
+  *d = opendir(cpath);
+  if (*d == NULL) {
+    return false;
+  }
+  else {
+    return os_findnext(*d, entry);
+  }
+}
+static void os_findclose(dir_cursor d) {
+  closedir(d);
+}
+static const char* os_direntry_name(dir_entry* entry) {
+  const char* dname = (*entry)->d_name;
+  if (dname == NULL || strcmp(dname, ".") == 0 || strcmp(dname, "..") == 0) {
+    return NULL;
+  }
+  else {
+    return dname;
+  }
+}
+#endif
+
+
+//-------------------------------------------------------------
+// File completion 
+//-------------------------------------------------------------
+
+static bool filename_complete_indir( rp_completion_env_t* cenv, const char* dir, stringbuf_t* dir_prefix, const char* base_prefix ) {
+  dir_cursor d = 0;
+  dir_entry entry;
+  bool cont = true;
+  if (os_findfirst(cenv->env->mem, dir, &d, &entry)) {
+    do {
+      const char* name = os_direntry_name(&entry);
+      if (name != NULL && rp_starts_with(name, base_prefix)) {
+        ssize_t plen = sbuf_len(dir_prefix);
+        sbuf_append(dir_prefix, name);
+        if (os_is_dir(sbuf_string(dir_prefix))) sbuf_append(dir_prefix,"/"); // TODO: parameterize separator
+        cont = rp_add_completion(cenv, NULL, sbuf_string(dir_prefix) );
+        sbuf_delete_from( dir_prefix, plen );
+      }
+    } while (cont && os_findnext(d, &entry));
+    os_findclose(d);
+  }
+  return cont;
+}
+
+static void filename_completer( rp_completion_env_t* cenv, const char* prefix ) {
+  const char* roots = (const char*)cenv->arg;
+  stringbuf_t* root_dir = sbuf_new(cenv->env->mem,true);
+  stringbuf_t* dir_prefix = sbuf_new(cenv->env->mem,true);
+  if (root_dir!=NULL && dir_prefix != NULL) 
+  {
+    const char* base = strrchr(prefix,'/');
+    #ifdef _WIN32
+    if (base == NULL) base = strrchr(prefix,'\\');
+    #endif
+    if (base != NULL) {
+      base++; 
+      sbuf_append_n(dir_prefix, prefix, base - prefix ); // includes dir separator
+    }
+    
+    // For each root
+    const char* next;
+    const char* root = roots;
+    while ( root != NULL ) {
+      sbuf_clear(root_dir);
+      next = strchr(root,';');
+      if (next == NULL) {
+        sbuf_append( root_dir, root );
+        root = NULL;
+      }
+      else {
+        sbuf_append_n( root_dir, root, next - root );
+        root = next + 1;
+      }
+      
+      sbuf_append_char( root_dir, '/');
+        
+      // list completions for this root
+      if (base != NULL) {
+        sbuf_append_n( root_dir, prefix, (base - prefix) - 1);
+      }
+
+      // and complete in this directory    
+      filename_complete_indir( cenv, sbuf_string(root_dir), dir_prefix, (base != NULL ? base : prefix) );          
+    }
+  }
+
+  mem_free(cenv->env->mem, root_dir);
+  mem_free(cenv->env->mem, dir_prefix);
+}
+
+rp_public bool rp_complete_filename( rp_completion_env_t* cenv, const char* prefix, const char* roots ) {
+  if (roots == NULL) roots = ".";
+  cenv->arg = (void*)roots;
+  ssize_t count = cenv->env->completions->count;
+  rp_complete_quoted_word( cenv, prefix, &filename_completer, " \t\r\n`@$><=;|&{(", '\\', "'\"");
+  return (cenv->env->completions->count > count);  
+}

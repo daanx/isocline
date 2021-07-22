@@ -549,6 +549,10 @@ rp_private void sbuf_delete_from_to( stringbuf_t* sbuf, ssize_t pos, ssize_t end
   sbuf_delete_at( sbuf, pos, end - pos);
 }
 
+rp_private void  sbuf_delete_from(stringbuf_t* sbuf, ssize_t pos ) {
+  sbuf_delete_at(sbuf, pos, sbuf_len(sbuf) - pos );
+}
+
 
 rp_private void sbuf_clear( stringbuf_t* sbuf ) {
   sbuf_delete_at(sbuf, 0, sbuf_len(sbuf));

@@ -107,7 +107,7 @@ bool rp_add_completion( rp_completion_env_t* cenv, const char* display, const ch
 bool rp_add_completion_ex( rp_completion_env_t* cenv, const char* display, const char* completion, long delete_before, long delete_after);
 
 
-bool rp_complete_filename( rp_completion_env_t* cenv, const char* prefix );
+bool rp_complete_filename( rp_completion_env_t* cenv, const char* prefix, const char* roots );
 bool rp_complete_quoted_word( rp_completion_env_t* cenv, const char* prefix, rp_completer_fun_t fun, const char* non_word_chars, char escape_char, const char* quote_chars );
 bool rp_complete_word( rp_completion_env_t* cenv, const char* prefix, rp_completer_fun_t* fun );
 

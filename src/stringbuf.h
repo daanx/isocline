@@ -39,6 +39,7 @@ rp_private void    sbuf_clear(stringbuf_t* sbuf);
 rp_private void    sbuf_replace(stringbuf_t* sbuf, const char* s);
 rp_private void    sbuf_delete_at(stringbuf_t* sbuf, ssize_t pos, ssize_t count);
 rp_private void    sbuf_delete_from_to(stringbuf_t* sbuf, ssize_t pos, ssize_t end);
+rp_private void    sbuf_delete_from(stringbuf_t* sbuf, ssize_t pos );
 rp_private ssize_t sbuf_insert_at_n(stringbuf_t* sbuf, const char* s, ssize_t n, ssize_t pos );
 rp_private ssize_t sbuf_insert_at(stringbuf_t* sbuf, const char* s, ssize_t pos );
 rp_private ssize_t sbuf_insert_char_at(stringbuf_t* sbuf, char c, ssize_t pos );
