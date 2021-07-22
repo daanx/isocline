@@ -109,10 +109,11 @@ bool rp_add_completion_ex( rp_completion_env_t* cenv, const char* display, const
 
 bool rp_complete_filename( rp_completion_env_t* cenv, const char* prefix );
 bool rp_complete_quoted_word( rp_completion_env_t* cenv, const char* prefix, rp_completer_fun_t fun, const char* non_word_chars, char escape_char, const char* quote_chars );
-bool rp_complete_word( rp_completion_env_t* cenv, const char* prefix, rp_completer_fun_t* fun, const char* non_word_chars, char escape_char );
+bool rp_complete_word( rp_completion_env_t* cenv, const char* prefix, rp_completer_fun_t* fun );
 
-
-
+long rp_prev_char( const char* s, long pos );
+long rp_next_char( const char* s, long pos );
+bool rp_starts_with( const char* s, const char* prefix );
 
 //--------------------------------------------------------------
 // Customization

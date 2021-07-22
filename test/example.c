@@ -53,36 +53,39 @@ int main()
 }
 
 // A completer function is called by repline to complete on input.
-// Use `rp_add_completion( env, display, replacement, delete_before, delete_after )` to
-// add actual completions.
-static void completer(rp_completion_env_t* cenv, const char* prefix ) 
-{
-  size_t len = strlen(prefix);
-  if (len <= 0) return;
-
-  if (len >= 1 && prefix[len-1] == 'h') {
+// Use `rp_add_completion( env, display, replacement)` to add actual completions.
+static void word_completer(rp_completion_env_t* cenv, const char* prefix ) {
+  if (rp_starts_with("hello repline",prefix)) {
     for(int i = 0; i < 100000; i++) {
       char buf[32];
       snprintf(buf,32,"hello repline (%d)", i+1);
-      if (!rp_add_completion_ex(cenv, NULL, buf, 1, 0)) break;  // break early if not all completions are needed (for better latency)
+      if (!rp_add_completion(cenv, NULL, buf)) break;  // break early if not all completions are needed (for better latency)
     }
   }
-  else if (len >= 1 && prefix[len-1] == 'f') {  
-    rp_add_completion_ex(cenv,NULL,"banana 🍌 etc.", 1, 0);
-    rp_add_completion_ex(cenv,NULL,"〈pear〉with brackets", 1, 0); 
-    rp_add_completion_ex(cenv,NULL,"猕猴桃 wide", 1, 0);
-    rp_add_completion_ex(cenv,NULL,"apples 🍎", 1, 0);
-    rp_add_completion_ex(cenv, NULL, "zero\xE2\x80\x8Dwidth-joiner",1,0);    
+  else if (strcmp(prefix,"f") == 0) {  
+    rp_add_completion(cenv,NULL,"banana 🍌 etc.");
+    rp_add_completion(cenv,NULL,"〈pear〉with brackets"); 
+    rp_add_completion(cenv,NULL,"猕猴桃 wide");
+    rp_add_completion(cenv,NULL,"apples 🍎");
+    rp_add_completion(cenv, NULL, "zero\xE2\x80\x8Dwidth-joiner");    
   }
-  else if (len >= 2 && strncmp( prefix+len-2, "id", 2) == 0) {
-    // rp_add_completion_ex(cenv,"C++ - [](auto x){ return x; }", "c++", 2, 0);
-    rp_add_completion_ex(cenv,"D — (x) => x", "d", 2, 0);                
-    rp_add_completion_ex(cenv,"Haskell — \\x -> x", "haskell", 2, 0);
-    rp_add_completion_ex(cenv,"Idris — \\x => x", "ris", 0, 0);          // keep the initial "id" :-)
-    rp_add_completion_ex(cenv,"Koka — fn(x){ x }", "koka", 2, 0);    
-    rp_add_completion_ex(cenv,"Ocaml — fun x -> x", "ocaml", 2, 0);
+  else if (strcmp(prefix,"id") == 0) {
+    // rp_add_completion(cenv,"C++ - [](auto x){ return x; }", "c++", 2, 0);
+    rp_add_completion(cenv,"D — (x) => x", "d");                
+    rp_add_completion(cenv,"Haskell — \\x -> x", "haskell");
+    rp_add_completion(cenv,"Idris — \\x => x", "idris");
+    rp_add_completion(cenv,"Koka — fn(x){ x }", "koka");    
+    rp_add_completion(cenv,"Ocaml — fun x -> x", "ocaml");
   }
-  else if (len >= 2 && strncmp( prefix+len-2, "ex", 2) == 0) {
-    rp_add_completion_ex(cenv, NULL, "excellent", 2, 0);
+  else if (strcmp(prefix,"ex") == 0) {
+    rp_add_completion(cenv, NULL, "excellent");
   }
 }
+
+// A completer function is called by repline to complete on input.
+// We use `rp_complete_word` to handle escape characters and quoted words.
+static void completer(rp_completion_env_t* cenv, const char* prefix ) 
+{
+  rp_complete_word( cenv, prefix, &word_completer );
+}
+  

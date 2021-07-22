@@ -127,13 +127,14 @@ rp_private void completions_set_completer(completions_t* cms, rp_completer_fun_t
 //-------------------------------------------------------------
 // Completer functions
 //-------------------------------------------------------------
-typedef bool (rp_completion_fun_t)( rp_completion_env_t* cenv, const char* display, const char* replacement, long delete_before, long delete_after );
+typedef bool (rp_completion_fun_t)( rp_env_t* env, void* funenv, const char* display, const char* replacement, long delete_before, long delete_after );
 
 struct rp_completion_env_s {
   rp_env_t*   env;
   const char* input;
   long        cursor;
   void*       arg;
+  void*       funenv;
   rp_completion_fun_t* complete;
 };
 
@@ -142,7 +143,12 @@ rp_public bool rp_add_completion( rp_completion_env_t* cenv, const char* display
 }
 
 rp_public bool rp_add_completion_ex(rp_completion_env_t* cenv, const char* display, const char* replacement, long delete_before, long delete_after) {
-  return completions_add(cenv->env->completions, display, replacement, delete_before, delete_after);
+  return (*cenv->complete)(cenv->env, cenv->funenv, display, replacement, delete_before, delete_after );
+}
+
+static bool rpenv_add_completion(rp_env_t* env, void* funenv, const char* display, const char* replacement, long delete_before, long delete_after) {
+  rp_unused(funenv);
+  return completions_add(env->completions, display, replacement, delete_before, delete_after);
 }
 
 rp_public void rp_set_completer(rp_env_t* env, rp_completer_fun_t* completer, void* arg) {
@@ -160,7 +166,8 @@ rp_private ssize_t completions_generate(struct rp_env_s* env, completions_t* cms
   cenv.input = input,
   cenv.cursor = (long)pos;
   cenv.arg = cms->completer_arg;
-  cenv.complete = &rp_add_completion_ex;
+  cenv.complete = &rpenv_add_completion;
+  cenv.funenv = NULL;
   const char* prefix = mem_strndup(cms->mem, input, pos);
   cms->completer_max = max;
   
@@ -173,5 +180,169 @@ rp_private ssize_t completions_generate(struct rp_env_s* env, completions_t* cms
 }
 
 
+//-------------------------------------------------------------
+// Completion transformers
+//-------------------------------------------------------------
+
+rp_public long rp_prev_char( const char* s, long pos ) {
+  ssize_t len = rp_strlen(s);
+  if (pos < 0 || pos > len) return -1;
+  ssize_t ofs = str_prev_ofs( s, pos, true, NULL );
+  if (ofs <= 0) return -1;
+  return (long)(pos - ofs);
+}
+
+rp_public long rp_next_char( const char* s, long pos ) {
+  ssize_t len = rp_strlen(s);
+  if (pos < 0 || pos > len) return -1;
+  ssize_t ofs = str_next_ofs( s, len, pos, true, NULL );
+  if (ofs <= 0) return -1;
+  return (long)(pos + ofs);
+}
+
+rp_public bool rp_starts_with( const char* s, const char* prefix ) {
+  if (s==prefix) return true;
+  if (prefix==NULL) return true;
+  if (s==NULL) return false;
+
+  ssize_t i;
+  for( i = 0; s[i] != 0 && prefix[i] != 0; i++) {
+    if (s[i] != prefix[i]) return false;
+  }
+  return (prefix[i] == 0);
+}
+
+
+//-------------------------------------------------------------
+// Word completion (quoted and with escape characters)
+//-------------------------------------------------------------
+
+// free variables for word completion
+typedef struct complete_word_env_s {
+  const char* non_word_chars;
+  char        escape_char;
+  char        quote;
+  long        delete_before_adjust;
+  rp_completion_fun_t* prev_complete;
+  stringbuf_t* sbuf;
+  void*        prev_env;
+} complete_word_env_t;
+
+// word completion callback
+rp_private bool word_add_completion_ex(rp_env_t* env, void* funenv, const char* display, const char* replacement, long delete_before, long delete_after) {
+  complete_word_env_t* wenv = (complete_word_env_t*)(funenv);
+  sbuf_replace( wenv->sbuf, replacement );   
+  if (wenv->quote != 0) {
+    // add end quote
+    sbuf_append_char( wenv->sbuf, wenv->quote);
+  }
+  else {
+    // escape white space if it was not quoted
+    ssize_t len = sbuf_len(wenv->sbuf);
+    ssize_t pos = 0;
+    while( pos < len ) {
+      if (strchr(wenv->non_word_chars, sbuf_char_at( wenv->sbuf, pos )) != NULL) {
+        sbuf_insert_char_at( wenv->sbuf, wenv->escape_char, pos);
+        pos++;
+      }
+      pos = sbuf_next( wenv->sbuf, pos, NULL );
+      if (pos <= 0) break;
+    }
+  }
+  // and call the previous completion function
+  return (*wenv->prev_complete)( env, funenv, (display!=NULL ? display : replacement), sbuf_string(wenv->sbuf), wenv->delete_before_adjust + delete_before, delete_after );  
+}
+
+rp_public bool rp_complete_word( rp_completion_env_t* cenv, const char* prefix, rp_completer_fun_t* fun ) {
+  return rp_complete_quoted_word( cenv, prefix, fun, NULL, '\\', NULL);
+}
+
+rp_public bool rp_complete_quoted_word( rp_completion_env_t* cenv, const char* prefix, rp_completer_fun_t* fun, const char* non_word_chars, char escape_char, const char* quote_chars ) {
+  if (non_word_chars == NULL) non_word_chars = " \t\r\n";  
+  if (quote_chars == NULL) quote_chars = "'\"";
+
+  ssize_t len = rp_strlen(prefix);
+  ssize_t pos = len;
+  char quote = 0;
+  
+  // 1. look for a starting quote
+  if (quote_chars[0] != 0) {
+    while(pos > 0) {
+      // go back one code point
+      ssize_t ofs = str_prev_ofs(prefix, pos, true, NULL );
+      if (ofs <= 0) break;
+      if (strchr(quote_chars, prefix[pos - ofs]) != NULL) {
+        // quote char, break if it is not escaped
+        if (pos <= ofs || prefix[pos - ofs - 1] != escape_char) {
+          // found a quote
+          quote = prefix[pos - ofs];
+          break;
+        }
+        // otherwise go on
+      }
+      pos -= ofs;
+    }
+    // pos points to the word start just after the quote.
+  }
+
+  // 2. if we did not find a quoted word, look for non-word-chars
+  if (quote == 0) {
+    pos = len;
+    while(pos > 0) {
+      // go back one code point
+      ssize_t ofs = str_prev_ofs(prefix, pos, true, NULL );
+      if (ofs <= 0) break;
+      if (strchr(non_word_chars, prefix[pos - ofs]) != NULL) {
+        // non word char, break if it is not escaped
+        if (pos <= ofs || prefix[pos - ofs - 1] != escape_char) break; 
+        // otherwise go on
+      }
+      pos -= ofs;
+    }
+  }
+
+  // stop if empty word
+  if (len == pos) return false;
+
+  // allocate new unescaped word prefix
+  char* word = mem_strdup( cenv->env->mem, prefix + pos );
+  if (word == NULL) return false;
+
+  // unescape prefix
+  if (quote == 0) {
+    ssize_t wlen = len - pos;
+    ssize_t wpos = 0;
+    while( wpos < wlen ) {
+      ssize_t ofs = str_next_ofs(word, wlen, wpos, true, NULL);
+      if (ofs <= 0) break;
+      if (word[wpos] == escape_char && strchr(non_word_chars, word[wpos+1]) != NULL) {
+        rp_memmove( word + wpos, word + wpos + 1, wlen - wpos /* including 0 */ );
+      }
+      wpos += ofs;
+    }
+  }
+
+  complete_word_env_t wenv;
+  wenv.quote          = quote;
+  wenv.non_word_chars = non_word_chars;
+  wenv.escape_char    = escape_char;
+  wenv.delete_before_adjust = (len - pos);
+  wenv.prev_complete  = cenv->complete;
+  wenv.prev_env       =  cenv->env;
+  wenv.sbuf = sbuf_new(cenv->env->mem, true);
+  if (wenv.sbuf == NULL) { mem_free(cenv->env->mem, word); return false; }
+  cenv->complete = &word_add_completion_ex;
+  cenv->funenv = &wenv;
+
+  ssize_t count = cenv->env->completions->count;
+  (*fun)( cenv, word );
+
+  cenv->complete = wenv.prev_complete;
+  cenv->funenv = wenv.prev_env;
+
+  sbuf_free(wenv.sbuf);
+  mem_free(cenv->env->mem, word);
+  return (cenv->env->completions->count > count);
+}
 
 

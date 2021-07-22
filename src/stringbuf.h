@@ -41,6 +41,7 @@ rp_private void    sbuf_delete_at(stringbuf_t* sbuf, ssize_t pos, ssize_t count)
 rp_private void    sbuf_delete_from_to(stringbuf_t* sbuf, ssize_t pos, ssize_t end);
 rp_private ssize_t sbuf_insert_at_n(stringbuf_t* sbuf, const char* s, ssize_t n, ssize_t pos );
 rp_private ssize_t sbuf_insert_at(stringbuf_t* sbuf, const char* s, ssize_t pos );
+rp_private ssize_t sbuf_insert_char_at(stringbuf_t* sbuf, char c, ssize_t pos );
 rp_private ssize_t sbuf_append_n(stringbuf_t* sbuf, const char* s, ssize_t n);
 rp_private ssize_t sbuf_append(stringbuf_t* sbuf, const char* s);
 rp_private ssize_t sbuf_append_char(stringbuf_t* sbuf, char c);
@@ -93,6 +94,7 @@ rp_private ssize_t sbuf_for_each_row( stringbuf_t* sbuf, ssize_t termw, ssize_t 
 rp_private bool    skip_csi_esc( const char* s, ssize_t len, ssize_t* esclen ); // used in term.c
 
 rp_private ssize_t str_column_width( const char* s, bool is_utf8 );
+rp_private ssize_t str_prev_ofs( const char* s, ssize_t pos, bool is_utf8, ssize_t* cwidth );
 rp_private ssize_t str_next_ofs( const char* s, ssize_t len, ssize_t pos, bool is_utf8, ssize_t* cwidth );
 rp_private const char* str_skip_until_fit( const char* s, ssize_t max_width, bool is_utf8);
 
