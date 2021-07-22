@@ -67,37 +67,46 @@ rp_public void rp_complete_quoted_word( rp_completion_env_t* cenv, const char* p
   ssize_t len = rp_strlen(prefix);
   ssize_t pos; // will be start of the 'word' (excluding a potential start quote)
   char quote = 0;
+  ssize_t quote_len = 0;
   
   // 1. look for a starting quote
   if (quote_chars[0] != 0) {
     // we go forward and count all quotes; if it is uneven, we need to complete quoted.
-    ssize_t qpos = -1;
+    ssize_t qpos_open = -1;
+    ssize_t qpos_close = -1;
     ssize_t qcount = 0;
     pos = 0; 
     while(pos < len) {
-      if (prefix[pos] == escape_char) {
+      if (prefix[pos] == escape_char && prefix[pos+1] != 0 && strchr(non_word_chars,prefix[pos+1]) != NULL) {       
         pos++; // skip next char
       }
-      else if (strchr(quote_chars, prefix[pos]) != NULL) {
-        // quote char
-        if (qcount % 2 == 1) { // closing quote
-          qpos = -1;          
-        }
-        else {
-          qpos = pos;
-        }
+      else if (qcount % 2 == 0 && strchr(quote_chars, prefix[pos]) != NULL) {
+        // open quote 
+        qpos_open = pos;
+        quote = prefix[pos];
         qcount++;
+      }
+      else if (qcount % 2 == 1 && prefix[pos] == quote) {
+        // close quote
+        qpos_close = pos;
+        qcount++;
+      }
+      else if (strchr(non_word_chars, prefix[pos]) != NULL) {
+        qpos_close = -1;
       }
       ssize_t ofs = str_next_ofs( prefix, len, pos, true, NULL );
       if (ofs <= 0) break;
       pos += ofs;
-    }
-    if (qcount % 2 == 1) {
-      // found it
-      assert(qpos >= 0);
-      quote = prefix[qpos];
-      pos = qpos + 1;  // pos points to the word start just after the quote.
     }    
+    if ((qcount % 2 == 0 && qpos_close >= 0) || // if the last quote is only followed by word chars, we still complete it
+        (qcount % 2 == 1))                     // opening quote found
+    {
+      quote_len = (len - qpos_open - 1);
+      pos = qpos_open + 1;  // pos points to the word start just after the quote.
+    }
+    else {
+      quote = 0;
+    }
   }
 
   // 2. if we did not find a quoted word, look for non-word-chars
@@ -120,22 +129,38 @@ rp_public void rp_complete_quoted_word( rp_completion_env_t* cenv, const char* p
   // if (len == pos) return;
 
   // allocate new unescaped word prefix
-  char* word = mem_strdup( cenv->env->mem, prefix + pos );
+  char* word = mem_strndup( cenv->env->mem, prefix + pos, (quote==0 ? len - pos : quote_len));
   if (word == NULL) return;
 
-  // unescape prefix
   if (quote == 0) {
+    // unescape prefix
     ssize_t wlen = len - pos;
     ssize_t wpos = 0;
     while( wpos < wlen ) {
       ssize_t ofs = str_next_ofs(word, wlen, wpos, true, NULL);
       if (ofs <= 0) break;
-      if (word[wpos] == escape_char && strchr(non_word_chars, word[wpos+1]) != NULL) {
-        rp_memmove( word + wpos, word + wpos + 1, wlen - wpos /* including 0 */ );
+      if (word[wpos] == escape_char && word[wpos+1] != 0 && strchr(non_word_chars, word[wpos+1]) != NULL) {
+        rp_memmove(word + wpos, word + wpos + 1, wlen - wpos /* including 0 */);
       }
       wpos += ofs;
     }
   }
+  #ifdef _WIN32
+  else {
+    // remove inner quote: "c:\Program Files\"Win
+    ssize_t wlen = len - pos;
+    ssize_t wpos = 0;
+    while (wpos < wlen) {
+      ssize_t ofs = str_next_ofs(word, wlen, wpos, true, NULL);
+      if (ofs <= 0) break;
+      if (word[wpos] == escape_char && word[wpos+1] == quote) {
+        word[wpos+1] = escape_char;
+        rp_memmove(word + wpos, word + wpos + 1, wlen - wpos /* including 0 */);
+      }
+      wpos += ofs;
+    }
+  }
+  #endif
 
   // set up the closure
   word_closure_t wenv;
@@ -176,14 +201,14 @@ rp_public void rp_complete_quoted_word( rp_completion_env_t* cenv, const char* p
 static bool os_is_dir(const char* cpath) {  
   struct _stat64 st = { 0 };
   _stat64(cpath, &st);
-  return ((st.st_mode & S_IFDIR) != 0);  // true for symbolic link as well
+  return ((st.st_mode & _S_IFDIR) != 0);  // true for symbolic link as well
 }
 
 #define dir_cursor intptr_t
-#define dir_entry  struct _wfinddata64_t
+#define dir_entry  struct __finddata64_t
 
 static bool os_findfirst(alloc_t* mem, const char* path, dir_cursor* d, dir_entry* entry) {
-  stringbuf_t spath = sbuf_new(mem,true);
+  stringbuf_t* spath = sbuf_new(mem,true);
   if (spath == NULL) return false;
   sbuf_append(spath, path);
   sbuf_append(spath, "\\*");
@@ -205,10 +230,15 @@ static const char* os_direntry_name(dir_entry* entry) {
 }
 
 static bool os_path_is_absolute( const char* path ) {
-  return (path != NULL && path[0] != 0 && path[1] == ':' && (path[2] == '\\' || path[2] == '/')) {
+  if (path != NULL && path[0] != 0 && path[1] == ':' && (path[2] == '\\' || path[2] == '/' || path[2] == 0)) {
     char drive = path[0];
     return ((drive >= 'A' && drive <= 'Z') || (drive >= 'a' && drive <= 'z'));
   }
+  else return false;
+}
+
+rp_private char rp_dirsep(void) {
+  return '\\';
 }
 #else
 
@@ -252,6 +282,10 @@ static const char* os_direntry_name(dir_entry* entry) {
 
 static bool os_path_is_absolute( const char* path ) {
   return (path != NULL && path[0] == '/');
+}
+
+rp_private char rp_dirsep(void) {
+  return '/';
 }
 #endif
 
@@ -304,7 +338,8 @@ static void filename_completer( rp_completion_env_t* cenv, const char* prefix ) 
     // split prefix in dir_prefix / base.
     const char* base = strrchr(prefix,'/');
     #ifdef _WIN32
-    if (base == NULL) base = strrchr(prefix,'\\');
+    const char* base2 = strrchr(prefix,'\\');
+    if (base == NULL || base2 > base) base = base2;
     #endif
     if (base != NULL) {
       base++; 
@@ -314,7 +349,6 @@ static void filename_completer( rp_completion_env_t* cenv, const char* prefix ) 
     // absolute path
     if (os_path_is_absolute(prefix)) {
       // do not use roots but try to complete directly
-      assert(base != NULL);
       if (base != NULL) {
         sbuf_append_n( root_dir, prefix, (base - prefix));  // include dir separator
       }
@@ -336,7 +370,7 @@ static void filename_completer( rp_completion_env_t* cenv, const char* prefix ) 
           sbuf_append_n( root_dir, root, next - root );
           root = next + 1;
         }      
-        sbuf_append_char( root_dir, '/');
+        sbuf_append_char( root_dir, rp_dirsep());
           
         // add the dir_prefix to the root
         if (base != NULL) {
@@ -354,6 +388,7 @@ static void filename_completer( rp_completion_env_t* cenv, const char* prefix ) 
 
 rp_public void rp_complete_filename( rp_completion_env_t* cenv, const char* prefix, char dir_sep, const char* roots ) {
   if (roots == NULL) roots = ".";
+  if (dir_sep == 0) dir_sep = rp_dirsep();
   filename_closure_t fclosure;
   fclosure.dir_sep = dir_sep;
   fclosure.roots = roots; 

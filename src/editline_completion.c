@@ -100,7 +100,7 @@ static void edit_completion_menu(rp_env_t* env, editor_t* eb, bool more_availabl
   ssize_t count = completions_count(env->completions);
   ssize_t count_displayed = count;
   assert(count > 1);
-  ssize_t selected = 0;
+  ssize_t selected = -1;
   ssize_t columns = 1;
   ssize_t percolumn = count;
 
@@ -140,19 +140,19 @@ again:
   }
   if (count > count_displayed) {
     if (more_available) {
-      sbuf_append(eb->extra, "\n\x1B[90m(press shift-tab to see all further completions)\x1B[0m");
+      sbuf_append(eb->extra, "\n\x1B[90m(press page-down (or ctrl-j) to see all further completions)\x1B[0m");
     }
     else {
-      sbuf_appendf(eb->extra, 256, "\n\x1B[90m(press shift-tab to see all %d completions)\x1B[0m", count );
+      sbuf_appendf(eb->extra, 256, "\n\x1B[90m(press page-down (or ctrl-j) to see all %d completions)\x1B[0m", count );
     }
   }
-  //if (count <= count_displayed) {
-  edit_complete(env,eb,selected);
-  editor_undo_restore(eb);
-  //}
-  //else {
-  //  edit_refresh(env, eb);
-  //}
+  if (selected >= 0 && selected <= count_displayed) {
+    edit_complete(env,eb,selected);
+    editor_undo_restore(eb);
+  }
+  else {
+    edit_refresh(env, eb);
+  }
 
   // read here; if not a valid key, push it back and return to main event loop
   code_t c = tty_read(env->tty);
@@ -165,16 +165,16 @@ again:
   if (c == KEY_DOWN || c == KEY_TAB) {
     selected++;
     if (selected >= count_displayed) {
-      term_beep(env->term);
+      //term_beep(env->term);
       selected = 0;
     }
     goto again;
   }
-  else if (c == KEY_UP) {
+  else if (c == KEY_UP || c == KEY_SHIFT_TAB) {
     selected--;
     if (selected < 0) {
       selected = count_displayed - 1;
-      term_beep(env->term);
+      //term_beep(env->term);
     }
     goto again;
   }
@@ -203,7 +203,7 @@ again:
     edit_refresh(env,eb);
     c = 0; // ignore and return
   }
-  else if (c == KEY_ENTER || c == KEY_SPACE /* || c == KEY_TAB*/ ) {  
+  else if (c == KEY_ENTER || (c == KEY_SPACE && selected >= 0) /* || c == KEY_TAB*/ ) {  
     // select the current entry
     assert(selected < count);
     c = 0;      
@@ -215,7 +215,7 @@ again:
     assert(selected < count);
     edit_complete(env, eb, selected); 
   }
-  else if ((c == KEY_PAGEDOWN || c == KEY_SHIFT_TAB || c == KEY_LINEFEED) && count > 9) {
+  else if ((c == KEY_PAGEDOWN || c == KEY_LINEFEED) && count > 9) {
     // show all completions
     c = 0;
     if (more_available) {
@@ -268,7 +268,7 @@ static void edit_generate_completions(rp_env_t* env, editor_t* eb) {
     }    
   }
   else {
-    term_beep(env->term); 
+    //term_beep(env->term); 
     if (!more_available) { 
       edit_complete_longest_prefix(env,eb);
     }    

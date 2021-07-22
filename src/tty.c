@@ -408,7 +408,7 @@ static void tty_waitc_console(tty_t* tty)
   //  wait for a key down event
   INPUT_RECORD inp;
 	DWORD count;
-  uint32_t surrogate_hi;
+  uint32_t surrogate_hi = 0;
   while (true) {
 		if (!ReadConsoleInputW( tty->hcon, &inp, 1, &count)) return;
     if (count != 1) return;

@@ -114,7 +114,7 @@ rp_private const char* str_skip_until_fit( const char* s, ssize_t max_width, boo
 //-------------------------------------------------------------
 
 // get offset of the previous codepoint. does not skip back over CSI sequences.
-static ssize_t str_prev_ofs( const char* s, ssize_t pos, bool is_utf8, ssize_t* width ) {
+rp_private ssize_t str_prev_ofs( const char* s, ssize_t pos, bool is_utf8, ssize_t* width ) {
   ssize_t ofs = 0;
   if (s != NULL && pos > 0) {
     ofs = 1;

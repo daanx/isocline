@@ -179,7 +179,7 @@ rp_private ssize_t completions_apply_longest_prefix(completions_t* cms, stringbu
 
   // check the length
   ssize_t len = rp_strlen(prefix);
-  if (len <= 0) return -1;
+  if (len <= 0 || len < delete_before) return -1;
 
   // we found a prefix :-)
   completion_t cprefix;
