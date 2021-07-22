@@ -210,6 +210,11 @@ again:
     edit_complete(env, eb, selected);    
     tty_code_pushback(env->tty,KEY_TAB); // immediately try to complete again        
   }
+  else if (!code_is_virt_key(env->tty,c)) {
+    // select the current entry and keep writing
+    assert(selected < count);
+    edit_complete(env, eb, selected); 
+  }
   else if ((c == KEY_PAGEDOWN || c == KEY_SHIFT_TAB || c == KEY_LINEFEED) && count > 9) {
     // show all completions
     c = 0;

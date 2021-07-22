@@ -97,6 +97,11 @@ rp_private bool code_is_follower( tty_t* tty, code_t c, char* chr) {
   }
 }
 
+rp_private bool code_is_virt_key( tty_t* tty, code_t c ) {
+  rp_unused(tty);
+  return (KEY_NO_MODS(c) <= 0x20 || KEY_NO_MODS(c) >= KEY_VIRT);
+}
+
 //-------------------------------------------------------------
 // Read a key code
 //-------------------------------------------------------------

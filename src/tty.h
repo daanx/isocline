@@ -32,9 +32,10 @@ rp_private code_t tty_read(tty_t* tty);
 rp_private bool   tty_readc_noblock(tty_t* tty, char* c);   // used in term.c
 rp_private void   tty_code_pushback( tty_t* tty, code_t c );
 
-rp_private bool   code_is_char(tty_t*, code_t c, char* chr );
-rp_private bool   code_is_follower( tty_t*, code_t c, char* chr);
-rp_private bool   code_is_extended( tty_t*, code_t c, char* chr, int* tofollow);
+rp_private bool   code_is_char(tty_t* tty, code_t c, char* chr );
+rp_private bool   code_is_follower( tty_t* tty, code_t c, char* chr);
+rp_private bool   code_is_extended( tty_t* tty, code_t c, char* chr, int* tofollow);
+rp_private bool   code_is_virt_key( tty_t* tty, code_t c );
 
 
 // shared between tty.c and tty_esc.c
