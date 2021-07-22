@@ -25,7 +25,7 @@ typedef struct completion_s {
 } completion_t;
 
 struct completions_s {
-  rp_completion_fun_t* completer;
+  rp_completer_fun_t* completer;
   void* completer_arg;
   ssize_t completer_max;
   ssize_t count;
@@ -88,14 +88,6 @@ rp_private ssize_t completions_count(completions_t* cms) {
   return cms->count;
 }
 
-rp_private ssize_t completions_generate(struct rp_env_s* env, completions_t* cms, const char* input, ssize_t pos, ssize_t max) {
-  completions_clear(cms);
-  if (cms->completer == NULL || input == NULL || input[0] == 0 || rp_strlen(input) < pos) return 0;
-  cms->completer_max = max;
-  cms->completer(env,input,(long)pos,cms->completer_arg);
-  return completions_count(cms);
-}
-
 
 rp_private bool completions_add(completions_t* cms, const char* display, const char* replacement, ssize_t delete_before, ssize_t delete_after) {
   if (cms->completer_max <= 0) return false;
@@ -127,9 +119,59 @@ rp_private ssize_t completions_apply( completions_t* cms, ssize_t index, stringb
   return sbuf_insert_at(sbuf, cm->replacement, start); 
 }
 
-rp_private void completions_set_completer(completions_t* cms, rp_completion_fun_t* completer, void* arg) {
+rp_private void completions_set_completer(completions_t* cms, rp_completer_fun_t* completer, void* arg) {
   cms->completer = completer;
   cms->completer_arg = arg;
 }
+
+//-------------------------------------------------------------
+// Completer functions
+//-------------------------------------------------------------
+typedef bool (rp_completion_fun_t)( rp_completion_env_t* cenv, const char* display, const char* replacement, long delete_before, long delete_after );
+
+struct rp_completion_env_s {
+  rp_env_t*   env;
+  const char* input;
+  long        cursor;
+  void*       arg;
+  rp_completion_fun_t* complete;
+};
+
+rp_public bool rp_add_completion( rp_completion_env_t* cenv, const char* display, const char* replacement ) {
+  return rp_add_completion_ex(cenv,display,replacement,0,0);
+}
+
+rp_public bool rp_add_completion_ex(rp_completion_env_t* cenv, const char* display, const char* replacement, long delete_before, long delete_after) {
+  return completions_add(cenv->env->completions, display, replacement, delete_before, delete_after);
+}
+
+rp_public void rp_set_completer(rp_env_t* env, rp_completer_fun_t* completer, void* arg) {
+  completions_set_completer(env->completions, completer, arg);
+}
+
+
+rp_private ssize_t completions_generate(struct rp_env_s* env, completions_t* cms, const char* input, ssize_t pos, ssize_t max) {
+  completions_clear(cms);
+  if (cms->completer == NULL || input == NULL || input[0] == 0 || rp_strlen(input) < pos) return 0;
+
+  // set up env
+  rp_completion_env_t cenv;
+  cenv.env = env;
+  cenv.input = input,
+  cenv.cursor = (long)pos;
+  cenv.arg = cms->completer_arg;
+  cenv.complete = &rp_add_completion_ex;
+  const char* prefix = mem_strndup(cms->mem, input, pos);
+  cms->completer_max = max;
+  
+  // and complete
+  cms->completer(&cenv,prefix);
+
+  // restore
+  mem_free(cms->mem,prefix);
+  return completions_count(cms);
+}
+
+
 
 

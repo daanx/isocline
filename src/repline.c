@@ -129,13 +129,6 @@ rp_public void rp_history_clear(rp_env_t* env) {
   history_clear(env->history);
 }
 
-rp_public bool rp_add_completion(rp_env_t* env, const char* display, const char* replacement, long delete_before, long delete_after) {
-  return completions_add(env->completions, display, replacement, delete_before, delete_after);
-}
-
-rp_public void rp_set_completer(rp_env_t* env, rp_completion_fun_t* completer, void* arg) {
-  completions_set_completer(env->completions, completer, arg);
-}
 
 
 //-------------------------------------------------------------

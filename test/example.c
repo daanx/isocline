@@ -9,7 +9,7 @@
 #include "repline.h"
 
 // completion function defined below
-static void completer(rp_env_t* env, const char* input, long cur, void* arg ); 
+static void completer(rp_completion_env_t* cenv, const char* prefix );
 
 // main example
 int main() 
@@ -55,38 +55,34 @@ int main()
 // A completer function is called by repline to complete on input.
 // Use `rp_add_completion( env, display, replacement, delete_before, delete_after )` to
 // add actual completions.
-static void completer(rp_env_t* env, const char* input, long cur, void* arg ) 
+static void completer(rp_completion_env_t* cenv, const char* prefix ) 
 {
-  (void)(arg);
-  assert(cur > 0);
-  assert(input != NULL && strlen(input) >= (size_t)cur);
+  size_t len = strlen(prefix);
+  if (len <= 0) return;
 
-  size_t len = strlen(input);
-  if (len <= 0 || cur <= 0) return;  // should never happen
-
-  if (len >= 1 && input[cur-1] == 'h') {
+  if (len >= 1 && prefix[len-1] == 'h') {
     for(int i = 0; i < 100000; i++) {
       char buf[32];
       snprintf(buf,32,"hello repline (%d)", i+1);
-      if (!rp_add_completion(env, NULL, buf, 1, 0)) break;  // break early if not all completions are needed (for better latency)
+      if (!rp_add_completion_ex(cenv, NULL, buf, 1, 0)) break;  // break early if not all completions are needed (for better latency)
     }
   }
-  else if (len >= 1 && input[cur-1] == 'f') {  
-    rp_add_completion(env,NULL,"banana 🍌 etc.", 1, 0);
-    rp_add_completion(env,NULL,"〈pear〉with brackets", 1, 0); 
-    rp_add_completion(env,NULL,"猕猴桃 wide", 1, 0);
-    rp_add_completion(env,NULL,"apples 🍎", 1, 0);
-    rp_add_completion(env, NULL, "zero\xE2\x80\x8Dwidth-joiner",1,0);    
+  else if (len >= 1 && prefix[len-1] == 'f') {  
+    rp_add_completion_ex(cenv,NULL,"banana 🍌 etc.", 1, 0);
+    rp_add_completion_ex(cenv,NULL,"〈pear〉with brackets", 1, 0); 
+    rp_add_completion_ex(cenv,NULL,"猕猴桃 wide", 1, 0);
+    rp_add_completion_ex(cenv,NULL,"apples 🍎", 1, 0);
+    rp_add_completion_ex(cenv, NULL, "zero\xE2\x80\x8Dwidth-joiner",1,0);    
   }
-  else if (len >= 2 && strncmp( input+cur-2, "id", 2) == 0) {
-    // rp_add_completion(env,"C++ - [](auto x){ return x; }", "c++", 2, 0);
-    rp_add_completion(env,"D — (x) => x", "d", 2, 0);                
-    rp_add_completion(env,"Haskell — \\x -> x", "haskell", 2, 0);
-    rp_add_completion(env,"Idris — \\x => x", "ris", 0, 0);          // keep the initial "id" :-)
-    rp_add_completion(env,"Koka — fn(x){ x }", "koka", 2, 0);    
-    rp_add_completion(env,"Ocaml — fun x -> x", "ocaml", 2, 0);
+  else if (len >= 2 && strncmp( prefix+len-2, "id", 2) == 0) {
+    // rp_add_completion_ex(cenv,"C++ - [](auto x){ return x; }", "c++", 2, 0);
+    rp_add_completion_ex(cenv,"D — (x) => x", "d", 2, 0);                
+    rp_add_completion_ex(cenv,"Haskell — \\x -> x", "haskell", 2, 0);
+    rp_add_completion_ex(cenv,"Idris — \\x => x", "ris", 0, 0);          // keep the initial "id" :-)
+    rp_add_completion_ex(cenv,"Koka — fn(x){ x }", "koka", 2, 0);    
+    rp_add_completion_ex(cenv,"Ocaml — fun x -> x", "ocaml", 2, 0);
   }
-  else if (len >= 2 && strncmp( input+cur-2, "ex", 2) == 0) {
-    rp_add_completion(env, NULL, "excellent", 2, 0);
+  else if (len >= 2 && strncmp( prefix+len-2, "ex", 2) == 0) {
+    rp_add_completion_ex(cenv, NULL, "excellent", 2, 0);
   }
 }

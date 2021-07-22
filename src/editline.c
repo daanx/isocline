@@ -17,12 +17,6 @@
 #include "completions.h"
 #include "undo.h"
 
-#if defined(_WIN32)
-#else
-#include <unistd.h>
-#endif
-
-
 
 //-------------------------------------------------------------
 // The editor state
