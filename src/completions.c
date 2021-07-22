@@ -125,8 +125,15 @@ static ssize_t completion_apply( completion_t* cm, stringbuf_t* sbuf, ssize_t po
   debug_msg( "completion: apply: %s at %zd\n", cm->replacement, pos);
   ssize_t start = pos - cm->delete_before;
   if (start < 0) start = 0;
-  sbuf_delete_from_to( sbuf, start, pos + cm->delete_after );
-  return sbuf_insert_at(sbuf, cm->replacement, start); 
+  ssize_t n = cm->delete_before + cm->delete_after;
+  if (rp_strlen(cm->replacement) == n && strncmp(sbuf_string_at(sbuf,start), cm->replacement, to_size_t(n)) == 0) {
+    // no changes
+    return -1;
+  }
+  else {
+    sbuf_delete_from_to( sbuf, start, pos + cm->delete_after );
+    return sbuf_insert_at(sbuf, cm->replacement, start); 
+  }
 }
 
 rp_private ssize_t completions_apply( completions_t* cms, ssize_t index, stringbuf_t* sbuf, ssize_t pos ) {

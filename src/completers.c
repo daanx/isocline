@@ -268,7 +268,7 @@ static bool filename_complete_indir( rp_completion_env_t* cenv, stringbuf_t* dir
   if (os_findfirst(cenv->env->mem, sbuf_string(dir), &d, &entry)) {
     do {
       const char* name = os_direntry_name(&entry);
-      if (name != NULL && strcmp(name, ".") != 0 && strcmp(name, "..") != 0 && rp_starts_with(name, base_prefix)) {
+      if (name != NULL && strcmp(name, ".") != 0 && strcmp(name, "..") != 0 && rp_istarts_with(name, base_prefix)) {
         ssize_t plen = sbuf_len(dir_prefix);
         sbuf_append(dir_prefix, name);
         if (dir_sep != 0) {

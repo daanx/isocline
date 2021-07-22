@@ -9,18 +9,26 @@
 // Completion menu: this file is included in editline.c
 //-------------------------------------------------------------
 
-static void edit_complete(rp_env_t* env, editor_t* eb, ssize_t idx) {
+// return true if anything changed
+static bool edit_complete(rp_env_t* env, editor_t* eb, ssize_t idx) {
   editor_start_modify(eb);
   ssize_t newpos = completions_apply(env->completions, idx, eb->input, eb->pos);
-  if (newpos < 0) return;
+  if (newpos < 0) {
+    editor_undo_restore(eb);
+    return false;
+  }
   eb->pos = newpos;
   edit_refresh(env,eb);  
+  return true;
 }
 
 static bool edit_complete_longest_prefix(rp_env_t* env, editor_t* eb ) {
   editor_start_modify(eb);
   ssize_t newpos = completions_apply_longest_prefix( env->completions, eb->input, eb->pos );
-  if (newpos < 0) return false;
+  if (newpos < 0) {
+    editor_undo_restore(eb);
+    return false;
+  }
   eb->pos = newpos;
   edit_refresh(env,eb);
   return true;
@@ -195,11 +203,12 @@ again:
     edit_refresh(env,eb);
     c = 0; // ignore and return
   }
-  else if (c == KEY_ENTER || c == KEY_SPACE /* || c == KEY_TAB */) {  
+  else if (c == KEY_ENTER || c == KEY_SPACE /* || c == KEY_TAB*/ ) {  
     // select the current entry
     assert(selected < count);
     c = 0;      
-    edit_complete(env, eb, selected);
+    edit_complete(env, eb, selected);    
+    tty_code_pushback(env->tty,KEY_TAB); // immediately try to complete again        
   }
   else if ((c == KEY_PAGEDOWN || c == KEY_SHIFT_TAB || c == KEY_LINEFEED) && count > 9) {
     // show all completions
@@ -249,7 +258,9 @@ static void edit_generate_completions(rp_env_t* env, editor_t* eb) {
   }
   else if (count == 1) {
     // complete if only one match    
-    edit_complete(env,eb,0 /*idx*/);
+    if (edit_complete(env,eb,0 /*idx*/)) {
+      tty_code_pushback(env->tty,KEY_TAB);
+    }    
   }
   else {
     term_beep(env->term); 
