@@ -4,3 +4,7 @@ build/
 .DS_Store
 history.txt
 *.user
+*.exe
+*.hi
+*.o
+*_stub.h
