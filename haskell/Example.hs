@@ -40,7 +40,7 @@ wordCompleter rpc input0
   where
     helloCompletions :: Int -> Int -> IO ()
     helloCompletions i max 
-      = if (i >= max) then return () else
-        do continue <- addCompletion rpc "" ("hello repline " ++ show i)
-           if continue then helloCompletions (i+1) max
-                       else return ()
+      = if (i >= max) 
+          then return () 
+          else do continue <- addCompletion rpc "" ("hello repline " ++ show i)
+                  helloCompletions (if continue then (i+1) else max) max
