@@ -60,14 +60,14 @@ module System.Console.Repline(
       completeQuotedWord,
 
       -- * Configuration
-      Color(..), 
       setPromptColor,
       setPromptMarker,
       enableColor,
       enableBeep,
       enableMultiline,
       enableHistoryDuplicates,
-
+      Color(..), 
+      
       -- * Advanced
       initialize, 
       done, 
