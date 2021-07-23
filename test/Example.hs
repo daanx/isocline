@@ -15,7 +15,7 @@ main
     welcome = "\nHaskell Repline sample program:\n" ++
               "- Type 'exit' to quit. (or use ctrl+d).\n" ++
               "- Press F1 for help on editing commands.\n" ++
-              "- Use ctrl+enter for multiline input. (or shift+enter or ctrl+j on macOS)\n" ++
+              "- Use ctrl+enter for multiline input (or alt-enter on macOS).\n" ++
               "- Type 'id' (or 'ex', 'f', or 'h') followed by tab for completion.\n" ++
               "- Use ctrl+r to search the history.\n" ++
               "\n"
