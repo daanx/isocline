@@ -197,14 +197,16 @@ rp_public rp_env_t* rp_init_custom_alloc( rp_malloc_fun_t* _malloc, rp_realloc_f
   env->mem = mem;
 
   // Initialize
-  env->tty         = tty_new(env->mem, -1);
+  env->tty         = tty_new(env->mem, -1);  // can return NULL
   env->term        = term_new(env->mem, env->tty, false, false, -1 );  
   env->history     = history_new(env->mem);
   env->completions = completions_new(env->mem);
-  env->input       = sbuf_new(env->mem,tty_is_utf8(env->tty));
-  env->extra       = sbuf_new(env->mem,tty_is_utf8(env->tty));
+  env->input       = sbuf_new(env->mem, env->tty==NULL || tty_is_utf8(env->tty));
+  env->extra       = sbuf_new(env->mem, env->tty==NULL || tty_is_utf8(env->tty));
 
-  if (env->extra == NULL || env->input == NULL || env->completions == NULL || env->history == NULL || env->term==NULL
+  if (env->extra == NULL || env->input == NULL 
+      || env->tty == NULL || env->term==NULL
+      || env->completions == NULL || env->history == NULL
       || !term_is_interactive(env->term)) 
   {
     env->noedit = true;

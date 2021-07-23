@@ -167,7 +167,7 @@ rp_public void rp_complete_quoted_word( rp_completion_env_t* cenv, const char* p
   wenv.quote          = quote;
   wenv.non_word_chars = non_word_chars;
   wenv.escape_char    = escape_char;
-  wenv.delete_before_adjust = (len - pos);
+  wenv.delete_before_adjust = (long)(len - pos);
   wenv.prev_complete  = cenv->complete;
   wenv.prev_env       =  cenv->env;
   wenv.sbuf = sbuf_new(cenv->env->mem, true);
@@ -194,7 +194,7 @@ rp_public void rp_complete_quoted_word( rp_completion_env_t* cenv, const char* p
 // Listing files
 //-------------------------------------------------------------
 
-#if defined(WIN32)
+#if defined(_WIN32)
 #include <io.h>
 #include <sys/stat.h>
 

@@ -451,7 +451,7 @@ rp_private void sbuf_free( stringbuf_t* sbuf ) {
 }
 
 rp_private char* sbuf_free_dup(stringbuf_t* sbuf) {
-  if (sbuf == NULL) return NULL;
+  if (sbuf == NULL || sbuf->buf == NULL) return NULL;
   char* s = mem_realloc_tp(sbuf->mem, char, sbuf->buf, sbuf_len(sbuf)+1);
   mem_free(sbuf->mem, sbuf);
   return s;

@@ -1,6 +1,8 @@
 out/
 build/
+dist/
 .vs/
+.stack-work/
 .DS_Store
 history.txt
 *.user
@@ -8,3 +10,4 @@ history.txt
 *.hi
 *.o
 *_stub.h
+*.lock

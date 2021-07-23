@@ -1,0 +1,64 @@
+cabal-version: 1.12
+
+-- This file has been generated from package.yaml by hpack version 0.34.4.
+--
+-- see: https://github.com/sol/hpack
+
+name:           repline
+version:        0.1
+description:    Please see the readme on GitHub at <https://github.com/daanx/repline/haskell#readme>
+homepage:       https://github.com/daanx/repline#readme
+bug-reports:    https://github.com/daanx/repline/issues
+author:         Daan Leijen
+maintainer:     daan@effp.org
+license:        MIT
+license-file:   LICENSE
+build-type:     Simple
+extra-source-files:
+    readme.md
+
+source-repository head
+  type: git
+  location: https://github.com/daanx/repline
+
+library
+  exposed-modules:
+      System.Console.Repline
+  other-modules:
+      Paths_repline
+  hs-source-dirs:
+      haskell
+  c-sources:
+      src/repline.c
+  build-depends:
+      base >=3.0
+    , bytestring
+    , text
+  default-language: Haskell2010
+
+executable example
+  main-is: Example.hs
+  other-modules:
+      Paths_repline
+  hs-source-dirs:
+      test
+  build-depends:
+      base >=3.0
+    , bytestring
+    , repline
+    , text
+  default-language: Haskell2010
+
+test-suite test-example
+  type: exitcode-stdio-1.0
+  main-is: Example.hs
+  other-modules:
+      Paths_repline
+  hs-source-dirs:
+      test
+  build-depends:
+      base >=3.0
+    , bytestring
+    , repline
+    , text
+  default-language: Haskell2010

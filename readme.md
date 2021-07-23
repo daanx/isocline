@@ -34,7 +34,22 @@ while( (input = rp_readline(env,"prompt")) != NULL ) { // ctrl+d or errors retur
 
 See the [example](test/example.c) for a full example with completion, history, etc.
 
-## Build
+
+## Run the Example
+
+You can compile and run the example as:
+```
+$ gcc -o example -Iinclude test/example.c src/repline.c
+$ ./example
+```
+
+or, the Haskell one:
+```
+$ ghc -ihaskell test/Example.hs src/repline.c
+$ ./test/Example
+```
+
+## Build the Library
 
 ### CMake
 
@@ -60,10 +75,7 @@ Copy the sources (in `include` and `src`) into your project, or add the library 
 $ git submodule add https://github.com/daanx/repline
 ```
 and add `repline/src/repline.c` to your build rules -- no configuration is needed. 
-For example, we can build the example program directly as:
-```
-$ gcc -Iinclude -o example src/repline.c test/example.c
-```
+
 
 ## Motivation
 

@@ -1,0 +1,37 @@
+name:       repline
+version:    0.1         
+github:     "daanx/repline"
+license:    MIT
+author:     Daan Leijen
+maintainer: daan@effp.org
+
+extra-source-files:
+  - readme.md
+
+description: Please see the readme on GitHub at <https://github.com/daanx/repline/haskell#readme>
+
+dependencies:
+  - base >= 3.0       
+  - bytestring
+  - text
+
+library:
+  source-dirs:
+    - haskell
+  c-sources:
+    - src/repline.c
+
+
+executables:
+  example:
+    main: Example.hs
+    source-dirs: test
+    dependencies: 
+      - repline
+
+tests:
+  test-example:
+    main: Example.hs
+    source-dirs: test
+    dependencies: 
+      - repline      

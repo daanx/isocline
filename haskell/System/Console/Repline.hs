@@ -4,27 +4,59 @@
   under the terms of the MIT License. A copy of the license can be
   found in the "LICENSE" file at the root of this distribution.
 ---------------------------------------------------------------------------- -}
+{-|
+Description : Binding to the Repline library, a portable alternative to GNU Readline
+Copyright   : (c) 2021, Daan Leijen
+License     : MIT
+Maintainer  : daan@effp.org
+Stability   : Experimental
 
+See <https://github.com/daanx/repline/haskell#readme> for more information.
+
+@
+import System.Console.Repline
+
+main :: IO ()
+main  = `withRepline` $ \\rp ->
+        do putStrLn \"Welcome\"
+           `setPromptColor` rp `Green`
+           `setHistory` rp \"history.txt\" 200
+           input \<- `readline` rp \"myprompt\"     -- full prompt becomes \"myprompt> \"
+           putStrLn (\"You wrote:\\n\" ++ input)
+@
+
+Enjoy,
+-- Daan
+-}
 module System.Console.Repline( 
-      Rp, Color(..), 
-      
+      -- * Readline
+      Rp,       
       withRepline,
-      readline,
+      readline, 
+
+      -- * Configuration
+      Color(..), 
       setPromptColor,
 
+      -- * History
       setHistory,
       historyClear,
       historyRemoveLast,
 
-      RpComp,
+      -- * Completion
+      Completions,
       setCompleter,
       addCompletion,
       completeFileName,
       completeWord,
       completeQuotedWord,
 
-      initialize, done    
+      -- * Advanced
+      initialize, 
+      done, 
+      readlineMaybe
     ) where
+
 
 import Data.List( intersperse )
 import Control.Exception( bracket )
@@ -32,87 +64,37 @@ import Foreign.C.String( CString, peekCString, withCString, castCharToCChar )
 import Foreign.Ptr
 import Foreign.C.Types
 
+-- the following are used for utf8 encoding.
+import qualified Data.ByteString as B ( useAsCString, packCString )
+import qualified Data.Text as T  ( pack, unpack )
+import Data.Text.Encoding as TE  ( decodeUtf8With, encodeUtf8)
+import Data.Text.Encoding.Error  ( lenientDecode )
 
+
+----------------------------------------------------------------------------
+-- C Types
+----------------------------------------------------------------------------
 
 data RpEnv
-data RpCompEnv  
+data RpCompletions  
 
-newtype Rp     = Rp (Ptr RpEnv)
-newtype RpComp = RpComp (Ptr RpCompEnv)
+newtype Rp          = Rp (Ptr RpEnv)
+newtype Completions = Completions (Ptr RpCompletions)
 
-type CCompleterFun = Ptr RpCompEnv -> CString -> IO ()
-type CompleterFun  = RpComp -> String -> IO ()
+type CCompleterFun = Ptr RpCompletions -> CString -> IO ()
+type CompleterFun  = Completions -> String -> IO ()
+
+
+----------------------------------------------------------------------------
+-- Basic readline
+----------------------------------------------------------------------------
 
 foreign import ccall rp_init      :: IO (Ptr RpEnv)
 foreign import ccall rp_done      :: Ptr RpEnv -> IO ()
 foreign import ccall rp_readline  :: Ptr RpEnv -> CString -> IO CString
 foreign import ccall rp_free      :: Ptr RpEnv -> (Ptr a) -> IO () 
 foreign import ccall rp_set_prompt_color      :: Ptr RpEnv -> CInt -> IO ()
-foreign import ccall rp_set_history           :: Ptr RpEnv -> CString -> CInt -> IO ()
-foreign import ccall rp_history_remove_last   :: Ptr RpEnv -> IO ()
-foreign import ccall rp_history_clear         :: Ptr RpEnv -> IO ()
 
-foreign import ccall rp_set_completer         :: Ptr RpEnv -> FunPtr CCompleterFun -> IO ()
-foreign import ccall "wrapper" rp_make_completer :: CCompleterFun -> IO (FunPtr CCompleterFun)
-foreign import ccall rp_add_completion        :: Ptr RpCompEnv -> CString -> CString -> IO CChar
-foreign import ccall rp_complete_filename     :: Ptr RpCompEnv -> CString -> CChar -> CString -> IO ()
-foreign import ccall rp_complete_word         :: Ptr RpCompEnv -> CString -> FunPtr CCompleterFun -> IO ()
-foreign import ccall rp_complete_quoted_word  :: Ptr RpCompEnv -> CString -> FunPtr CCompleterFun -> CString -> CChar -> CString -> IO ()
-
-
-withCString0 :: String -> (CString -> IO a) -> IO a
-withCString0 s action
-  = if (null s) then action nullPtr else withCString s action
-
-setCompleter :: Rp -> (RpComp -> String -> IO ()) -> IO ()
-setCompleter (Rp rp) completer 
-  = do ccompleter <- makeCCompleter completer
-       rp_set_completer rp ccompleter
-
-makeCCompleter :: CompleterFun -> IO (FunPtr CCompleterFun)
-makeCCompleter completer
-  = rp_make_completer wrapper
-  where
-    wrapper :: Ptr RpCompEnv -> CString -> IO ()
-    wrapper rpcomp cprefx
-      = do prefx <- peekCString cprefx
-           completer (RpComp rpcomp) prefx
-
-
-addCompletion :: RpComp -> String -> String -> IO Bool
-addCompletion (RpComp rpc) display completion 
-  = withCString0 display $ \cdisplay ->
-    withCString completion $ \ccompletion ->
-    do cbool <- rp_add_completion rpc cdisplay ccompletion
-       return (fromEnum cbool /= 0)
-    
-
-completeFileName :: RpComp -> String -> Maybe Char -> [FilePath] -> IO ()
-completeFileName (RpComp rpc) prefx dirSep roots
-  = withCString prefx $ \cprefx ->
-    withCString0 (concat (intersperse ";" roots)) $ \croots ->
-    do let cdirSep = case dirSep of
-                       Nothing -> toEnum 0
-                       Just c  -> castCharToCChar c
-       rp_complete_filename rpc cprefx cdirSep croots
-
-completeWord :: RpComp -> String -> (RpComp -> String -> IO ()) -> IO () 
-completeWord (RpComp rpc) prefx completer
-  = withCString prefx $ \cprefx ->
-    do ccompleter <- makeCCompleter completer
-       rp_complete_word rpc cprefx ccompleter
-  
-completeQuotedWord :: RpComp -> String -> (RpComp -> String -> IO ()) -> String -> Maybe Char -> String -> IO () 
-completeQuotedWord (RpComp rpc) prefx completer nonWordChars escapeChar quoteChars
-  = withCString prefx $ \cprefx ->
-    withCString0 nonWordChars $ \cnonWordChars ->
-    withCString0 quoteChars $ \cquoteChars ->
-    do let cescapeChar = case escapeChar of
-                          Nothing -> toEnum 0
-                          Just c  -> castCharToCChar c
-       ccompleter <- makeCCompleter completer
-       rp_complete_quoted_word rpc cprefx ccompleter cnonWordChars cescapeChar cquoteChars
-  
 
 initialize :: IO Rp
 initialize 
@@ -123,10 +105,17 @@ done (Rp rpenv)
   = rp_done rpenv
 
 readline :: Rp -> String -> IO String  
-readline (Rp rpenv) prompt
-  = withCString prompt $ \cprompt ->
+readline rp prompt
+  = do mbRes <- readlineMaybe rp prompt
+       case mbRes of
+         Just s  -> return s
+         Nothing -> return ""
+
+readlineMaybe:: Rp -> String -> IO (Maybe String)
+readlineMaybe (Rp rpenv) prompt
+  = withUTF8String prompt $ \cprompt ->
     do cres <- rp_readline rpenv cprompt
-       res  <- peekCString cres
+       res  <- peekUTF8StringMaybe cres
        rp_free rpenv cres
        return res
 
@@ -135,9 +124,18 @@ setPromptColor (Rp rp) color
   = rp_set_prompt_color rp (toEnum (fromEnum color))
 
 
+
+----------------------------------------------------------------------------
+-- History
+----------------------------------------------------------------------------
+
+foreign import ccall rp_set_history           :: Ptr RpEnv -> CString -> CInt -> IO ()
+foreign import ccall rp_history_remove_last   :: Ptr RpEnv -> IO ()
+foreign import ccall rp_history_clear         :: Ptr RpEnv -> IO ()
+
 setHistory :: Rp -> String -> Int -> IO ()
 setHistory (Rp rp) fname maxEntries
-  = withCString0 fname $ \cfname ->
+  = withUTF8String0 fname $ \cfname ->
     do rp_set_history rp cfname (toEnum maxEntries)
 
 historyRemoveLast :: Rp -> IO ()
@@ -153,6 +151,72 @@ withRepline action
   = bracket initialize done action
 
 
+
+----------------------------------------------------------------------------
+-- Completion
+----------------------------------------------------------------------------
+
+foreign import ccall rp_set_completer         :: Ptr RpEnv -> FunPtr CCompleterFun -> IO ()
+foreign import ccall "wrapper" rp_make_completer :: CCompleterFun -> IO (FunPtr CCompleterFun)
+foreign import ccall rp_add_completion        :: Ptr RpCompletions -> CString -> CString -> IO CChar
+foreign import ccall rp_complete_filename     :: Ptr RpCompletions -> CString -> CChar -> CString -> IO ()
+foreign import ccall rp_complete_word         :: Ptr RpCompletions -> CString -> FunPtr CCompleterFun -> IO ()
+foreign import ccall rp_complete_quoted_word  :: Ptr RpCompletions -> CString -> FunPtr CCompleterFun -> CString -> CChar -> CString -> IO ()
+
+
+setCompleter :: Rp -> (Completions -> String -> IO ()) -> IO ()
+setCompleter (Rp rp) completer 
+  = do ccompleter <- makeCCompleter completer
+       rp_set_completer rp ccompleter
+
+makeCCompleter :: CompleterFun -> IO (FunPtr CCompleterFun)
+makeCCompleter completer
+  = rp_make_completer wrapper
+  where
+    wrapper :: Ptr RpCompletions -> CString -> IO ()
+    wrapper rpcomp cprefx
+      = do prefx <- peekUTF8String0 cprefx
+           completer (Completions rpcomp) prefx
+
+
+addCompletion :: Completions -> String -> String -> IO Bool
+addCompletion (Completions rpc) display completion 
+  = withUTF8String0 display $ \cdisplay ->
+    withUTF8String completion $ \ccompletion ->
+    do cbool <- rp_add_completion rpc cdisplay ccompletion
+       return (fromEnum cbool /= 0)
+    
+
+completeFileName :: Completions -> String -> Maybe Char -> [FilePath] -> IO ()
+completeFileName (Completions rpc) prefx dirSep roots
+  = withUTF8String prefx $ \cprefx ->
+    withUTF8String0 (concat (intersperse ";" roots)) $ \croots ->
+    do let cdirSep = case dirSep of
+                       Nothing -> toEnum 0
+                       Just c  -> castCharToCChar c
+       rp_complete_filename rpc cprefx cdirSep croots
+
+completeWord :: Completions -> String -> (Completions -> String -> IO ()) -> IO () 
+completeWord (Completions rpc) prefx completer
+  = withUTF8String prefx $ \cprefx ->
+    do ccompleter <- makeCCompleter completer
+       rp_complete_word rpc cprefx ccompleter
+  
+completeQuotedWord :: Completions -> String -> (Completions -> String -> IO ()) -> String -> Maybe Char -> String -> IO () 
+completeQuotedWord (Completions rpc) prefx completer nonWordChars escapeChar quoteChars
+  = withUTF8String prefx $ \cprefx ->
+    withUTF8String0 nonWordChars $ \cnonWordChars ->
+    withUTF8String0 quoteChars $ \cquoteChars ->
+    do let cescapeChar = case escapeChar of
+                          Nothing -> toEnum 0
+                          Just c  -> castCharToCChar c
+       ccompleter <- makeCCompleter completer
+       rp_complete_quoted_word rpc cprefx ccompleter cnonWordChars cescapeChar cquoteChars
+  
+
+----------------------------------------------------------------------------
+-- Colors
+----------------------------------------------------------------------------
 
 -- Color
 data Color  = Black
@@ -214,3 +278,33 @@ instance Enum Color where
         96 -> Cyan
         97 -> White
         _  -> ColorDefault
+
+
+----------------------------------------------------------------------------
+-- UTF8 Strings
+----------------------------------------------------------------------------
+
+withUTF8String0 :: String -> (CString -> IO a) -> IO a
+withUTF8String0 s action
+  = if (null s) then action nullPtr else withUTF8String s action
+
+peekUTF8String0 :: CString -> IO String
+peekUTF8String0 cstr
+  = if (nullPtr == cstr) then return "" else peekUTF8String cstr
+
+peekUTF8StringMaybe :: CString -> IO (Maybe String)
+peekUTF8StringMaybe cstr
+  = if (nullPtr == cstr) then return Nothing 
+     else do s <- peekUTF8String cstr
+             return (Just s)
+
+peekUTF8String :: CString -> IO String
+peekUTF8String cstr
+  = do bstr <- B.packCString cstr
+       return (T.unpack (TE.decodeUtf8With lenientDecode bstr))
+
+withUTF8String :: String -> (CString -> IO a) -> IO a
+withUTF8String str action
+  = do let bstr = TE.encodeUtf8 (T.pack str)
+       B.useAsCString bstr action
+       

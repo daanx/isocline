@@ -329,7 +329,8 @@ rp_private void tty_free(tty_t* tty) {
 }
 
 rp_private bool tty_is_utf8(tty_t* tty) {
-  return tty->is_utf8;
+  if (tty == NULL) return true;
+  return (tty->is_utf8);
 }
 //-------------------------------------------------------------
 // Unix
