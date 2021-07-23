@@ -125,6 +125,10 @@ rp_public void rp_history_remove_last(rp_env_t* env) {
   history_remove_last(env->history);
 }
 
+rp_public void rp_history_add( rp_env_t* env, const char* entry ) {
+  history_push( env->history, entry );
+}
+
 rp_public void rp_history_clear(rp_env_t* env) {
   history_clear(env->history);
 }

@@ -50,6 +50,7 @@ module System.Console.Repline(
       setHistory,
       historyClear,
       historyRemoveLast,
+      historyAdd,
 
       -- * Completion
       Completions,
@@ -152,6 +153,7 @@ readlineMaybe (Rp rpenv) prompt
 foreign import ccall rp_set_history           :: Ptr RpEnv -> CString -> CInt -> IO ()
 foreign import ccall rp_history_remove_last   :: Ptr RpEnv -> IO ()
 foreign import ccall rp_history_clear         :: Ptr RpEnv -> IO ()
+foreign import ccall rp_history_add           :: Ptr RpEnv -> CString -> IO ()
 
 -- | @setHistory rp filename maxEntries@: 
 -- Enable history that is persisted to the given file path with a given maximum number of entries.
@@ -178,7 +180,11 @@ withRepline :: (Rp -> IO a) -> IO a
 withRepline action
   = bracket initialize done action
 
-
+-- | @historyAdd rp entry@: add @entry@ to the history.
+historyAdd :: Rp -> String -> IO ()
+historyAdd (Rp rp) entry
+  = withUTF8String0 entry $ \centry ->
+    do rp_history_add rp centry 
 
 ----------------------------------------------------------------------------
 -- Completion

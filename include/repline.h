@@ -59,6 +59,8 @@ void rp_history_remove_last(rp_env_t* env);
 // Clear the history.
 void rp_history_clear(rp_env_t* env);
 
+// Add an entry to the history
+void rp_history_add( rp_env_t* env, const char* entry );
 
 //--------------------------------------------------------------
 // Basic Completion
