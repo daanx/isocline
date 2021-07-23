@@ -232,6 +232,8 @@ typedef void  (rp_free_fun_t)( void* p );
 rp_env_t* rp_init_custom_alloc( rp_malloc_fun_t* _malloc, rp_realloc_fun_t* _realloc, rp_free_fun_t* _free );
 
 
+void rp_free( rp_env_t* env, void* p );
+
 #ifdef __cplusplus
 }
 #endif

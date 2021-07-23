@@ -130,7 +130,9 @@ rp_public void rp_history_clear(rp_env_t* env) {
   history_clear(env->history);
 }
 
-
+rp_public void rp_free( rp_env_t* env, void* p ) {
+  mem_free(env->mem, p);
+}
 
 //-------------------------------------------------------------
 // Initialize
