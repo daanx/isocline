@@ -4,9 +4,16 @@ github:     "daanx/repline"
 license:    MIT
 author:     Daan Leijen
 maintainer: daan@effp.org
+synopsis:   A wrapper around the Repline C library (a portable alternative to GNU Readline)
+category:   console
 
 extra-source-files:
-  - readme.md
+  - readme.md  
+  - haskell/readme.md
+  - src/*.c
+  - src/*.h
+  - include/*.h
+
 
 description: Please see the readme on GitHub at <https://github.com/daanx/repline/haskell#readme>
 
@@ -20,7 +27,6 @@ library:
     - haskell
   c-sources:
     - src/repline.c
-
 
 executables:
   example:

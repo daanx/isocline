@@ -16,7 +16,7 @@ which can provide an alternative to GNU Readline.
 The Repline library is included and not a separate dependency.
 
 Repline works across Unix, Windows, and macOS, and relies on a minimal subset of ANSI escape sequences.
-It has a good multi-line editing mode which is nice for inputting small functions etc.
+It has a good multi-line editing mode (use shift/ctrl-enter) which is nice for inputting small functions etc.
 Other features include support for colors, history, completion, unicode, undo/redo, 
 incremental history search, etc.
 
@@ -62,6 +62,11 @@ module System.Console.Repline(
       -- * Configuration
       Color(..), 
       setPromptColor,
+      setPromptMarker,
+      enableColor,
+      enableBeep,
+      enableMultiline,
+      enableHistoryDuplicates,
 
       -- * Advanced
       initialize, 
@@ -108,7 +113,6 @@ foreign import ccall rp_init      :: IO (Ptr RpEnv)
 foreign import ccall rp_done      :: Ptr RpEnv -> IO ()
 foreign import ccall rp_readline  :: Ptr RpEnv -> CString -> IO CString
 foreign import ccall rp_free      :: Ptr RpEnv -> (Ptr a) -> IO () 
-foreign import ccall rp_set_prompt_color      :: Ptr RpEnv -> CInt -> IO ()
 
 -- | Initialize Repline (see also 'withRepline')
 initialize :: IO Rp
@@ -122,7 +126,8 @@ done (Rp rpenv)
 
 -- | @readline rp prompt@: Read (multi-line) input from the user with rich editing abilities. 
 -- Takes the prompt text as an argument. The full prompt is the combination
--- of the given prompt and the promp marker (@\"> \"@ by default).
+-- of the given prompt and the promp marker (@\"> \"@ by default) .
+-- See also 'enableMultiline', 'setPromptColor', and 'setPromptMarker'.
 readline :: Rp -> String -> IO String  
 readline rp prompt
   = do mbRes <- readlineMaybe rp prompt
@@ -139,12 +144,6 @@ readlineMaybe (Rp rpenv) prompt
        rp_free rpenv cres
        return res
 
--- | Set the color of the prompt.
-setPromptColor :: Rp -> Color -> IO ()
-setPromptColor (Rp rp) color
-  = rp_set_prompt_color rp (toEnum (fromEnum color))
-
-
 
 ----------------------------------------------------------------------------
 -- History
@@ -157,6 +156,7 @@ foreign import ccall rp_history_clear         :: Ptr RpEnv -> IO ()
 -- | @setHistory rp filename maxEntries@: 
 -- Enable history that is persisted to the given file path with a given maximum number of entries.
 -- Use -1 for the default entries (200).
+-- See also 'enableHistoryDuplicates'.
 setHistory :: Rp -> FilePath -> Int -> IO ()
 setHistory (Rp rp) fname maxEntries
   = withUTF8String0 fname $ \cfname ->
@@ -282,6 +282,59 @@ completeQuotedWord (Completions rpc) prefx completer nonWordChars escapeChar quo
        ccompleter <- makeCCompleter completer
        rp_complete_quoted_word rpc cprefx ccompleter cnonWordChars cescapeChar cquoteChars
   
+
+----------------------------------------------------------------------------
+-- Configuration
+----------------------------------------------------------------------------
+foreign import ccall rp_set_prompt_color  :: Ptr RpEnv -> CInt -> IO ()
+foreign import ccall rp_set_prompt_marker :: Ptr RpEnv -> CString -> IO ()
+foreign import ccall rp_enable_multiline  :: Ptr RpEnv -> CCBool -> IO ()
+foreign import ccall rp_enable_beep       :: Ptr RpEnv -> CCBool -> IO ()
+foreign import ccall rp_enable_color      :: Ptr RpEnv -> CCBool -> IO ()
+foreign import ccall rp_enable_history_duplicates :: Ptr RpEnv -> CCBool -> IO ()
+
+-- use our own CBool for compatibility with an older base
+type CCBool = CInt
+
+cbool :: Bool -> CCBool
+cbool True  = toEnum 1
+cbool False = toEnum 0
+
+
+-- | Set the color of the prompt.
+setPromptColor :: Rp -> Color -> IO ()
+setPromptColor (Rp rp) color
+  = rp_set_prompt_color rp (toEnum (fromEnum color))
+
+
+-- | Set the prompt marker. Pass @\"\"@ for the default marker (@\"> \"@).
+setPromptMarker :: Rp -> String -> IO ()
+setPromptMarker (Rp rp) marker
+  = withUTF8String0 marker $ \cmarker ->
+    do rp_set_prompt_marker rp cmarker
+
+-- | Disable or enable multi-line input (enabled by default).
+enableMultiline :: Rp -> Bool -> IO ()
+enableMultiline (Rp rp) enable
+  = do rp_enable_multiline rp (cbool enable)
+
+-- | Disable or enable sound (enabled by default).
+-- | A beep is used when tab cannot find any completion for example.
+enableBeep :: Rp -> Bool -> IO ()
+enableBeep (Rp rp) enable
+  = do rp_enable_beep rp (cbool enable)
+
+-- | Disable or enable color output (enabled by default).
+enableColor :: Rp -> Bool -> IO ()
+enableColor (Rp rp) enable
+  = do rp_enable_color rp (cbool enable)
+
+-- | Disable or enable duplicate entries in the history (duplicate entries are not allowed by default).
+enableHistoryDuplicates :: Rp -> Bool -> IO ()
+enableHistoryDuplicates (Rp rp) enable
+  = do rp_enable_history_duplicates rp (cbool enable)
+
+
 
 ----------------------------------------------------------------------------
 -- Colors

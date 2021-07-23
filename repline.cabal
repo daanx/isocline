@@ -6,7 +6,9 @@ cabal-version: 1.12
 
 name:           repline
 version:        0.1
+synopsis:       A wrapper around the Repline C library (a portable alternative to GNU Readline)
 description:    Please see the readme on GitHub at <https://github.com/daanx/repline/haskell#readme>
+category:       console
 homepage:       https://github.com/daanx/repline#readme
 bug-reports:    https://github.com/daanx/repline/issues
 author:         Daan Leijen
@@ -16,6 +18,31 @@ license-file:   LICENSE
 build-type:     Simple
 extra-source-files:
     readme.md
+    haskell/readme.md
+    src/common.c
+    src/completers.c
+    src/completions.c
+    src/editline.c
+    src/editline_completion.c
+    src/editline_help.c
+    src/editline_history.c
+    src/history.c
+    src/repline.c
+    src/stringbuf.c
+    src/term.c
+    src/tty.c
+    src/tty_esc.c
+    src/undo.c
+    src/wcwidth.c
+    src/common.h
+    src/completions.h
+    src/env.h
+    src/history.h
+    src/stringbuf.h
+    src/term.h
+    src/tty.h
+    src/undo.h
+    include/repline.h
 
 source-repository head
   type: git
