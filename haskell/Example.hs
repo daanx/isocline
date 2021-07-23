@@ -31,10 +31,10 @@ wordCompleter rpc input0
        when (input `isPrefixOf` "hello repline") $
          do helloCompletions 1 100000
        when (input == "id") $
-         do addCompletion rpc "D — (x) => x" "d"                
+         do addCompletion rpc "D — (x) => x"       "d"                
             addCompletion rpc "Haskell — \\x -> x" "haskell"
-            addCompletion rpc "Idris — \\x => x" "idris"
-            addCompletion rpc "Koka — fn(x){ x }" "koka"    
+            addCompletion rpc "Idris — \\x => x"   "idris"
+            addCompletion rpc "Koka — fn(x){ x }"  "koka"    
             addCompletion rpc "Ocaml — fun x -> x" "ocaml"
             return ()
   where
