@@ -11,7 +11,16 @@ License     : MIT
 Maintainer  : daan@effp.org
 Stability   : Experimental
 
-See <https://github.com/daanx/repline/haskell#readme> for more information.
+A Haskell wrapper around the [Repline C library](https://github.com/daanx/repline#readme) 
+which can provide an alternative to GNU Readline.
+The Repline library is included and not a separate dependency.
+
+Repline works across Unix, Windows, and macOS, and relies on a minimal subset of ANSI escape sequences.
+It has a good multi-line editing mode which is nice for inputting small functions etc.
+Other features include support for colors, history, completion, unicode, undo/redo, 
+incremental history search, etc.
+
+Minimal example:
 
 @
 import System.Console.Repline
@@ -25,6 +34,9 @@ main  = `withRepline` $ \\rp ->
            putStrLn (\"You wrote:\\n\" ++ input)
 @
 
+A larger [example](https://github.com/daanx/repline/blob/main/test/Example.hs) 
+with custom tab completion can be found in the Github repository.
+
 Enjoy,
 -- Daan
 -}
@@ -33,11 +45,7 @@ module System.Console.Repline(
       Rp,       
       withRepline,
       readline, 
-
-      -- * Configuration
-      Color(..), 
-      setPromptColor,
-
+    
       -- * History
       setHistory,
       historyClear,
@@ -50,6 +58,10 @@ module System.Console.Repline(
       completeFileName,
       completeWord,
       completeQuotedWord,
+
+      -- * Configuration
+      Color(..), 
+      setPromptColor,
 
       -- * Advanced
       initialize, 
@@ -78,7 +90,10 @@ import Data.Text.Encoding.Error  ( lenientDecode )
 data RpEnv
 data RpCompletions  
 
+-- | The Repline environment.
 newtype Rp          = Rp (Ptr RpEnv)
+
+-- | Abstract list of current completions.
 newtype Completions = Completions (Ptr RpCompletions)
 
 type CCompleterFun = Ptr RpCompletions -> CString -> IO ()
@@ -95,15 +110,19 @@ foreign import ccall rp_readline  :: Ptr RpEnv -> CString -> IO CString
 foreign import ccall rp_free      :: Ptr RpEnv -> (Ptr a) -> IO () 
 foreign import ccall rp_set_prompt_color      :: Ptr RpEnv -> CInt -> IO ()
 
-
+-- | Initialize Repline (see also 'withRepline')
 initialize :: IO Rp
 initialize 
   = fmap Rp rp_init
 
+-- | Discard the Repline environment (automatically done at program exit as well)
 done :: Rp -> IO ()
 done (Rp rpenv) 
   = rp_done rpenv
 
+-- | @readline rp prompt@: Read (multi-line) input from the user with rich editing abilities. 
+-- Takes the prompt text as an argument. The full prompt is the combination
+-- of the given prompt and the promp marker (@\"> \"@ by default).
 readline :: Rp -> String -> IO String  
 readline rp prompt
   = do mbRes <- readlineMaybe rp prompt
@@ -111,6 +130,7 @@ readline rp prompt
          Just s  -> return s
          Nothing -> return ""
 
+-- | As 'readline' but returns 'Nothing' on end-of-file or other errors (ctrl-C/ctrl-D).
 readlineMaybe:: Rp -> String -> IO (Maybe String)
 readlineMaybe (Rp rpenv) prompt
   = withUTF8String prompt $ \cprompt ->
@@ -119,6 +139,7 @@ readlineMaybe (Rp rpenv) prompt
        rp_free rpenv cres
        return res
 
+-- | Set the color of the prompt.
 setPromptColor :: Rp -> Color -> IO ()
 setPromptColor (Rp rp) color
   = rp_set_prompt_color rp (toEnum (fromEnum color))
@@ -133,19 +154,26 @@ foreign import ccall rp_set_history           :: Ptr RpEnv -> CString -> CInt ->
 foreign import ccall rp_history_remove_last   :: Ptr RpEnv -> IO ()
 foreign import ccall rp_history_clear         :: Ptr RpEnv -> IO ()
 
-setHistory :: Rp -> String -> Int -> IO ()
+-- | @setHistory rp filename maxEntries@: 
+-- Enable history that is persisted to the given file path with a given maximum number of entries.
+-- Use -1 for the default entries (200).
+setHistory :: Rp -> FilePath -> Int -> IO ()
 setHistory (Rp rp) fname maxEntries
   = withUTF8String0 fname $ \cfname ->
     do rp_set_history rp cfname (toEnum maxEntries)
 
+-- | Repline automatically adds input of more than 1 character to the history.
+-- This command removes the last entry.
 historyRemoveLast :: Rp -> IO ()
 historyRemoveLast (Rp rp)
   = rp_history_remove_last rp
 
+-- | Clear the history.
 historyClear :: Rp -> IO ()
 historyClear (Rp rp)
   = rp_history_clear rp
 
+-- | @withRepline action@: Perform @action@ with a fresh Repline environment.
 withRepline :: (Rp -> IO a) -> IO a
 withRepline action
   = bracket initialize done action
@@ -163,7 +191,12 @@ foreign import ccall rp_complete_filename     :: Ptr RpCompletions -> CString ->
 foreign import ccall rp_complete_word         :: Ptr RpCompletions -> CString -> FunPtr CCompleterFun -> IO ()
 foreign import ccall rp_complete_quoted_word  :: Ptr RpCompletions -> CString -> FunPtr CCompleterFun -> CString -> CChar -> CString -> IO ()
 
-
+-- | @setCompleter rp completer@: Set a new tab-completion function @completer@ 
+-- that is called by Repline automatically. 
+-- The callback is called with a 'Completions' context and the current user
+-- input up to the cursor.
+-- By default the 'completeFileName' completer is used.
+-- This overwrites any previously set completer.
 setCompleter :: Rp -> (Completions -> String -> IO ()) -> IO ()
 setCompleter (Rp rp) completer 
   = do ccompleter <- makeCCompleter completer
@@ -179,6 +212,11 @@ makeCCompleter completer
            completer (Completions rpcomp) prefx
 
 
+-- | @addCompletion compl display completion@: Inside a completer callback, add a new completion with a 
+-- @display@ string and @completion@ string. If display is empty, the completion is used to 
+-- display as well. If 'addCompletion' returns 'True' keep adding completions,
+-- but if it returns 'False' an effort should be made to return from the completer
+-- callback without adding more completions.
 addCompletion :: Completions -> String -> String -> IO Bool
 addCompletion (Completions rpc) display completion 
   = withUTF8String0 display $ \cdisplay ->
@@ -186,7 +224,15 @@ addCompletion (Completions rpc) display completion
     do cbool <- rp_add_completion rpc cdisplay ccompletion
        return (fromEnum cbool /= 0)
     
-
+-- | @completeFileName compls input dirSep roots@: 
+-- Complete filenames with the given @input@, a possible directory separator @dirSep@
+-- used to complete directories, and a list of root folders @roots@ to search from
+-- (by default @["."]@).
+-- For example, using @\'/\'@ as a directory separator, we get:
+--
+-- > /ho         --> /home/
+-- > /home/.ba   --> /home/.bashrc
+--
 completeFileName :: Completions -> String -> Maybe Char -> [FilePath] -> IO ()
 completeFileName (Completions rpc) prefx dirSep roots
   = withUTF8String prefx $ \cprefx ->
@@ -196,12 +242,35 @@ completeFileName (Completions rpc) prefx dirSep roots
                        Just c  -> castCharToCChar c
        rp_complete_filename rpc cprefx cdirSep croots
 
+-- | @completeWord compl input completer@: 
+-- Complete a /word/ taking care of automatically quoting and escaping characters.
+-- Takes the 'Completions' environment @compl@, the current @input@, and a user defined 
+-- @completer@ function that is called with adjusted input which is unquoted, unescaped,
+-- and limited to the /word/ just before the cursor.
+-- For example, with a @hello world@ completion, we get:
+--
+-- > hel        -->  hello\ world
+-- > hello\ w   -->  hello\ world
+-- > hello w    -->                   # no completion, the word is just 'w'>
+-- > "hel       -->  "hello world" 
+-- > "hello w   -->  "hello world"
+--
+-- The call @('completeWord' compl prefx fun)@ is a short hand for 
+-- @('completeQuotedWord' compl prefx fun \" \\t\\r\\n\" \'\\\\\' \"\'\\\"\")@.
 completeWord :: Completions -> String -> (Completions -> String -> IO ()) -> IO () 
 completeWord (Completions rpc) prefx completer
   = withUTF8String prefx $ \cprefx ->
     do ccompleter <- makeCCompleter completer
        rp_complete_word rpc cprefx ccompleter
   
+-- | @completeQuotedWord compl input completer nonWordChars escapeChar quoteChars@: 
+-- Complete a /word/ taking care of automatically quoting and escaping characters.
+-- Takes the 'Completions' environment @compl@, the current @input@, and a user defined 
+-- @completer@ function that is called with adjusted input which is unquoted, unescaped,
+-- and limited to the /word/ just before the cursor.
+-- Unlike 'completeWord', this function takes an explicit string of /non-word/ characters,
+-- the /escape/ character, and a string of /quote/ characters.
+-- See also 'completeWord'.
 completeQuotedWord :: Completions -> String -> (Completions -> String -> IO ()) -> String -> Maybe Char -> String -> IO () 
 completeQuotedWord (Completions rpc) prefx completer nonWordChars escapeChar quoteChars
   = withUTF8String prefx $ \cprefx ->
@@ -218,7 +287,7 @@ completeQuotedWord (Completions rpc) prefx completer nonWordChars escapeChar quo
 -- Colors
 ----------------------------------------------------------------------------
 
--- Color
+-- | Terminal colors. Used for example in 'setPromptColor'.
 data Color  = Black
             | Maroon
             | Green
