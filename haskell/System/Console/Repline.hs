@@ -54,6 +54,10 @@ module System.Console.Repline(
 
       -- * Completion
       Completions,
+      
+      readlineWithCompleter,
+      readlineWithCompleterMaybe,
+
       setCompleter,
       addCompletion,
       completeFileName,
@@ -112,8 +116,9 @@ type CompleterFun  = Completions -> String -> IO ()
 
 foreign import ccall rp_init      :: IO (Ptr RpEnv)
 foreign import ccall rp_done      :: Ptr RpEnv -> IO ()
-foreign import ccall rp_readline  :: Ptr RpEnv -> CString -> IO CString
 foreign import ccall rp_free      :: Ptr RpEnv -> (Ptr a) -> IO () 
+foreign import ccall rp_readline  :: Ptr RpEnv -> CString -> IO CString
+foreign import ccall rp_readline_with_completer  :: Ptr RpEnv -> CString -> FunPtr CCompleterFun -> (Ptr a) -> IO CString
 
 -- | Initialize Repline (see also 'withRepline')
 initialize :: IO Rp
@@ -145,6 +150,24 @@ readlineMaybe (Rp rpenv) prompt
        rp_free rpenv cres
        return res
 
+
+readlineWithCompleter :: Rp -> String -> (Completions -> String -> IO ()) -> IO String
+readlineWithCompleter rp prompt completer 
+  = do mbRes <- readlineWithCompleterMaybe rp prompt completer
+       case mbRes of
+         Just s  -> return s
+         Nothing -> return ""
+
+
+readlineWithCompleterMaybe :: Rp -> String -> (Completions -> String -> IO ()) -> IO (Maybe String) 
+readlineWithCompleterMaybe (Rp rp) prompt completer 
+  = withUTF8String prompt $ \cprompt ->
+    do ccompleter <- makeCCompleter completer
+       cres <- rp_readline_with_completer rp cprompt ccompleter nullPtr
+       res  <- peekUTF8StringMaybe cres
+       rp_free rp cres
+       freeHaskellFunPtr ccompleter
+       return res
 
 ----------------------------------------------------------------------------
 -- History

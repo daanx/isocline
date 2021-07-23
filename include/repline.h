@@ -79,11 +79,16 @@ typedef struct rp_completion_env_s rp_completion_env_t;
 typedef void (rp_completer_fun_t)(rp_completion_env_t* cenv, const char* prefix );
 
 // Set the completion handler.
-// The `arg` is passed to every `completer` call by repline as is (and can be NULL).
-// This can be used to propagate user state to the `completer`.
 // There can only be one completion function, setting it again disables the previous one.
 // The initial completer use `rp_complete_filename`.
 void rp_set_completer( rp_env_t* env, rp_completer_fun_t* completer, void* arg);
+
+
+// Read input from the user using rich editing abilities, 
+// using a particular completion funcion for this call only.
+// See also: `rp_readline`, `rp_set_prompt_marker`, `rp_set_prompt_color`.
+char* rp_readline_with_completer(rp_env_t* env, const char* prompt_text, rp_completer_fun_t* completer, void* completer_arg );   
+
 
 // In a completion callback, use this function to add completions.
 // The `display` is used to display the completion in the completion menu.
