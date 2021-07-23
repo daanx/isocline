@@ -21,6 +21,7 @@ rp_private history_t* history_new(alloc_t* mem);
 rp_private void     history_free(history_t* h);
 rp_private void     history_clear(history_t* h);
 rp_private void     history_enable_duplicates( history_t* h, bool enable );
+rp_private ssize_t  history_count(const history_t* h);
 
 rp_private void     history_load_from(history_t* h, const char* fname, long max_entries);
 rp_private void     history_load( history_t* h );

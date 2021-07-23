@@ -117,7 +117,6 @@ rp_public void rp_enable_history_duplicates( rp_env_t* env, bool enable ) {
   history_enable_duplicates(env->history, enable);
 }
 
-
 rp_public void rp_set_history(rp_env_t* env, const char* fname, long max_entries ) {
   history_load_from(env->history, fname, max_entries );
 }
@@ -128,6 +127,20 @@ rp_public void rp_history_remove_last(rp_env_t* env) {
 
 rp_public void rp_history_clear(rp_env_t* env) {
   history_clear(env->history);
+}
+
+rp_public void rp_enable_auto_tab( rp_env_t* env, bool enable ) {
+  env->complete_autotab = enable;
+}
+
+rp_public void rp_enable_completion_preview( rp_env_t* env, bool enable ) {
+  env->complete_nopreview = !enable;
+}
+
+rp_public void rp_set_iface_colors( rp_env_t* env, rp_color_t color_info, rp_color_t color_diminish, rp_color_t color_highlight ) {
+  env->color_info = (color_info == RP_COLOR_NONE ? RP_DARKGRAY : color_info);
+  env->color_diminish = (color_diminish == RP_COLOR_NONE ? RP_LIGHTGRAY : color_diminish);
+  env->color_highlight = (color_highlight == RP_COLOR_NONE ? RP_WHITE : color_highlight);
 }
 
 rp_public void rp_free( rp_env_t* env, void* p ) {
@@ -212,8 +225,9 @@ rp_public rp_env_t* rp_init_custom_alloc( rp_malloc_fun_t* _malloc, rp_realloc_f
     env->noedit = true;
   }
   env->prompt_marker = NULL;
-  env->prompt_color  = RP_DEFAULT_COLOR;
   env->multiline_eol = '\\';
+  env->prompt_color  = RP_COLOR_DEFAULT;
+  rp_set_iface_colors( env, RP_COLOR_NONE, RP_COLOR_NONE, RP_COLOR_NONE);
   
   // install atexit handler
   if (envs==NULL) atexit(&rp_atexit);

@@ -136,6 +136,7 @@ void rp_complete_quoted_word( rp_completion_env_t* cenv, const char* prefix, rp_
 
 // Available ANSI colors.
 typedef enum rp_color_e {
+  RP_COLOR_NONE = 0,
   RP_BLACK      = 30,
   RP_MAROON,
   RP_GREEN,
@@ -144,7 +145,9 @@ typedef enum rp_color_e {
   RP_PURPLE,
   RP_TEAL,
   RP_LIGHTGRAY,
-  RP_DARKGRAY   = 90,
+  RP_LIGHTGREY = RP_LIGHTGRAY,
+  RP_DARKGRAY  = 90,
+  RP_DARKGREY  = RP_DARKGRAY,
   RP_RED,
   RP_LIME,
   RP_YELLOW,
@@ -152,7 +155,7 @@ typedef enum rp_color_e {
   RP_MAGENTA,
   RP_CYAN,
   RP_WHITE,
-  RP_DEFAULT_COLOR = 39
+  RP_COLOR_DEFAULT = 39    // default terminal color
 } rp_color_t;
 
 // Set a prompt marker. Pass NULL for the default marker ("> ").
@@ -174,7 +177,19 @@ void rp_enable_color( rp_env_t* env, bool enable );
 // Disable or enable duplicate entries in the history (disabled by default).
 void rp_enable_history_duplicates( rp_env_t* env, bool enable );
 
+// Disable or enable automatic tab completion after a completion 
+// to expand as far as possible if the completions are unique. (disabled by default).
+void rp_enable_auto_tab( rp_env_t* env, bool enable );
 
+// Disable or enable preview of a completion selection (enabled by default)
+void rp_enable_completion_preview( rp_env_t* env, bool enable );
+
+// Set the color used for interface elements:
+// - info: for example, numbers in the completion menu (`RP_DARKGRAY` by default)
+// - diminish: for example, non matching parts in a history search (`RP_LIGHTGRAY` by default)
+// - highlight: for example, the matching part in a history search (`RP_WHITE` by default)
+// Use `RP_COLOR_NONE` to use the default color. (but `RP_COLOR_DEFAULT` for the default terminal text color!)
+void rp_set_iface_colors( rp_env_t* env, rp_color_t color_info, rp_color_t color_diminish, rp_color_t color_highlight );
 
 //--------------------------------------------------------------
 // Advanced Completion

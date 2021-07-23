@@ -96,6 +96,7 @@ rp_private void term_underline(term_t* term, bool on) {
 }
 
 rp_private void term_color(term_t* term, rp_color_t color) {
+  if (color == RP_COLOR_NONE || color == RP_COLOR_DEFAULT) return;
   term_writef(term, 64, RP_CSI "%dm", (int)color );
 }
 

@@ -33,6 +33,11 @@ int main()
   // set a nice color for the prompt and the prompt marker (>)
   rp_set_prompt_color(env, RP_GREEN);
 
+  // try to auto complete after a completion as long as the completion is unique
+  rp_enable_auto_tab( env, true );
+
+  //rp_set_iface_colors( env, RP_MAROON, RP_DARKGRAY, RP_YELLOW );
+
   // run until empty input
   char* input;
   while((input = rp_readline(env,"rεplinε")) != NULL)    // ctrl-d/ctrl-c return NULL (as well as errors)

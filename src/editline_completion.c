@@ -39,7 +39,7 @@ static void editor_append_completion(rp_env_t* env, editor_t* eb, ssize_t idx, s
   if (display == NULL) return;
   if (numbered) {
     char buf[32];
-    snprintf(buf, 32, "\x1B[90m%s%zd \x1B[0m", (selected ? (eb->is_utf8 ? "\xE2\x86\x92" : "*") : " "), 1 + idx);
+    snprintf(buf, 32, "\x1B[%dm%s%zd \x1B[0m", env->color_info, (selected ? (eb->is_utf8 ? "\xE2\x86\x92" : "*") : " "), 1 + idx);
     sbuf_append(eb->extra, buf);
     width -= 3;
   }
@@ -100,7 +100,7 @@ static void edit_completion_menu(rp_env_t* env, editor_t* eb, bool more_availabl
   ssize_t count = completions_count(env->completions);
   ssize_t count_displayed = count;
   assert(count > 1);
-  ssize_t selected = -1;
+  ssize_t selected = (env->complete_nopreview ? 0 : -1); // select first or none
   ssize_t columns = 1;
   ssize_t percolumn = count;
 
@@ -140,13 +140,13 @@ again:
   }
   if (count > count_displayed) {
     if (more_available) {
-      sbuf_append(eb->extra, "\n\x1B[90m(press page-down (or ctrl-j) to see all further completions)\x1B[0m");
+      sbuf_appendf(eb->extra, 256, "\n\x1B[%dm(press page-down (or ctrl-j) to see all further completions)\x1B[0m", env->color_info);
     }
     else {
-      sbuf_appendf(eb->extra, 256, "\n\x1B[90m(press page-down (or ctrl-j) to see all %d completions)\x1B[0m", count );
+      sbuf_appendf(eb->extra, 256, "\n\x1B[%dm(press page-down (or ctrl-j) to see all %zd completions)\x1B[0m", env->color_info, count );
     }
   }
-  if (selected >= 0 && selected <= count_displayed) {
+  if (!env->complete_nopreview && selected >= 0 && selected <= count_displayed) {
     edit_complete(env,eb,selected);
     editor_undo_restore(eb);
   }
@@ -203,15 +203,17 @@ again:
     edit_refresh(env,eb);
     c = 0; // ignore and return
   }
-  else if (c == KEY_ENTER || (c == KEY_SPACE && selected >= 0) /* || c == KEY_TAB*/ ) {  
+  else if (selected >= 0 && (c == KEY_ENTER || c == KEY_SPACE)) /* || c == KEY_TAB*/ {  
     // select the current entry
     assert(selected < count);
     c = 0;      
     edit_complete(env, eb, selected);    
-    tty_code_pushback(env->tty,KEY_TAB); // immediately try to complete again        
+    if (env->complete_autotab) {
+      tty_code_pushback(env->tty,KEY_EVENT_AUTOTAB); // immediately try to complete again        
+    }
   }
-  else if (!code_is_virt_key(env->tty,c)) {
-    // select the current entry and keep writing
+  else if (!env->complete_nopreview && !code_is_virt_key(env->tty,c)) {
+    // if in preview mode, select the current entry and keep writing
     assert(selected < count);
     edit_complete(env, eb, selected); 
   }
@@ -236,10 +238,10 @@ again:
       }
     }
     if (count >= RP_MAX_COMPLETIONS_TO_SHOW) {
-      term_write(env->term, "\x1B[90m... and more.\x1B[0m\r\n");
+      term_writef(env->term, 256, "\x1B[%dm... and more.\x1B[0m\r\n", env->color_info);
     }
     else {
-      term_writef(env->term, 256, "\x1B[90m(%d possible completions)\x1B[0m\r\n", count );
+      term_writef(env->term, 256, "\x1B[%dm(%zd possible completions)\x1B[0m\r\n", env->color_info, count );
     }
     for(ssize_t i = 0; i < rc.row+1; i++) {
       term_write(env->term, " \r\n");
@@ -252,19 +254,19 @@ again:
   if (c != 0) tty_code_pushback(env->tty,c);
 }
 
-static void edit_generate_completions(rp_env_t* env, editor_t* eb) {
+static void edit_generate_completions(rp_env_t* env, editor_t* eb, bool autotab) {
   debug_msg( "edit: complete: %zd: %s\n", eb->pos, sbuf_string(eb->input) );
   if (eb->pos < 0) return;
   ssize_t count = completions_generate(env, env->completions, sbuf_string(eb->input), eb->pos, RP_MAX_COMPLETIONS_TO_TRY);
   bool more_available = (count >= RP_MAX_COMPLETIONS_TO_TRY);
   if (count <= 0) {
     // no completions
-    term_beep(env->term); 
+    if (!autotab) term_beep(env->term); 
   }
   else if (count == 1) {
     // complete if only one match    
-    if (edit_complete(env,eb,0 /*idx*/)) {
-      tty_code_pushback(env->tty,KEY_TAB);
+    if (edit_complete(env,eb,0 /*idx*/) && env->complete_autotab) {
+      tty_code_pushback(env->tty,KEY_EVENT_AUTOTAB);
     }    
   }
   else {

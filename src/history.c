@@ -47,6 +47,9 @@ rp_private void history_enable_duplicates( history_t* h, bool enable ) {
   h->allow_duplicates = enable;
 }
 
+rp_private ssize_t  history_count(const history_t* h) {
+  return h->count;
+}
 
 //-------------------------------------------------------------
 // push/clear

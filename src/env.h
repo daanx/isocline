@@ -35,6 +35,11 @@ struct rp_env_s {
   bool            initialized;      // are we initialized?
   bool            noedit;           // is rich editing possible (tty != NULL)
   bool            singleline_only;  // allow only single line editing?
+  bool            complete_nopreview; // do not show completion preview for each selection in the completion menu?
+  bool            complete_autotab; // try to keep completing after a completion?
+  rp_color_t      color_info;       // information color, for example numbers in the completion menu. (=RP_DARKGRAY)
+  rp_color_t      color_diminish;   // diminish color, for example the non-highlighted part in a history search (=RP_DARKGRAY)
+  rp_color_t      color_highlight;  // highlighted color, for example, the current match in a history search (=RP_DEFAULT_COLOR)
 };
 
 rp_private char*    rp_editline(rp_env_t* env, const char* prompt_text);

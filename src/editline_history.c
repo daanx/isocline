@@ -77,6 +77,11 @@ static void hsearch_done( alloc_t* mem, hsearch_t* hs ) {
 }
 
 static void edit_history_search(rp_env_t* env, editor_t* eb, char* initial ) {
+  if (history_count( env->history ) <= 0) {
+    term_beep(env->term);
+    return;
+  }
+
   // update history
   if (eb->modified) { 
     history_update(env->history, sbuf_string(eb->input)); // update first entry if modified
@@ -95,8 +100,7 @@ static void edit_history_search(rp_env_t* env, editor_t* eb, char* initial ) {
   ssize_t match_pos = 0;       // current matched position
   ssize_t match_len = 0;       // length of the match
   const char* hentry = NULL;   // current history entry
-  char buf[32];                // for formatting the index number
-
+  
   // Simulate per character searches for each letter in `initial` (so backspace works)
   if (initial != NULL) {
     const ssize_t initial_len = rp_strlen(initial);
@@ -127,20 +131,21 @@ static void edit_history_search(rp_env_t* env, editor_t* eb, char* initial ) {
   // Incremental search
 again:
   hentry = history_get(env->history,hidx);
-  snprintf(buf,32,"\x1B[97m%zd. ", hidx);
-  sbuf_append(eb->extra, buf );
-  sbuf_append(eb->extra, "\x1B[90m" );         // dark gray
-  sbuf_append_n( eb->extra, hentry, match_pos );  
-  sbuf_append(eb->extra, "\x1B[4m\x1B[97m" );  // underline bright white
-  sbuf_append_n( eb->extra, hentry + match_pos, match_len );
-  sbuf_append(eb->extra, "\x1B[90m\x1B[24m" ); // no underline dark gray
-  sbuf_append(eb->extra, hentry + match_pos + match_len );
-  sbuf_append(eb->extra, "\n\n(use tab for the next match and backspace to go back)" );
-  sbuf_append(eb->extra, "\x1B[0m\n" );
+  if (hentry != NULL) {
+    sbuf_appendf(eb->extra, 128, "\x1B[%dm%zd. ", env->color_info, hidx);
+    sbuf_appendf(eb->extra, 128, "\x1B[%dm", env->color_diminish );         // dark gray
+    sbuf_append_n( eb->extra, hentry, match_pos );  
+    sbuf_appendf(eb->extra, 128, "\x1B[%dm\x1B[4m\x1B[1m", env->color_highlight );  // underline bright white
+    sbuf_append_n( eb->extra, hentry + match_pos, match_len );
+    sbuf_appendf(eb->extra, 128, "\x1B[24m\x1B[21m\x1B[%dm", env->color_diminish ); // no underline dark gray
+    sbuf_append(eb->extra, hentry + match_pos + match_len );
+    sbuf_appendf(eb->extra, 128, "\x1B[%dm\n\n(use tab for the next match and backspace to go back)", env->color_info );
+    sbuf_append(eb->extra, "\x1B[0m\n" );
+  }
   edit_refresh(env, eb);
 
   // Process commands
-  code_t c = tty_read(env->tty);
+  code_t c = (hentry == NULL ? KEY_ESC : tty_read(env->tty));
   sbuf_clear(eb->extra);
   if (c == KEY_ESC || c == KEY_BELL /* ^G */ || c == KEY_CTRL_C) {
     c = 0;  

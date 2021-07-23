@@ -135,7 +135,7 @@ static bool edit_pos_is_at_row_end( rp_env_t* env, editor_t* eb ) {
 
 static void edit_write_prompt( rp_env_t* env, editor_t* eb, ssize_t row, bool in_extra ) {
   if (!in_extra) { 
-    if (env->prompt_color != RP_DEFAULT_COLOR) term_color( env->term, env->prompt_color );
+    term_color( env->term, env->prompt_color );
     if (row==0) {
       term_write(env->term, eb->prompt_text);
     }
@@ -144,7 +144,7 @@ static void edit_write_prompt( rp_env_t* env, editor_t* eb, ssize_t row, bool in
       term_writef(env->term, w, "%*c", w, ' ' );
     }
     term_attr_reset( env->term );
-    if (env->prompt_color != RP_DEFAULT_COLOR) term_color( env->term, env->prompt_color );
+    term_color( env->term, env->prompt_color );
     term_write( env->term, (env->prompt_marker == NULL ? "> " : env->prompt_marker )); 
     term_attr_reset( env->term );
   }
@@ -633,9 +633,12 @@ static char* edit_line( rp_env_t* env, const char* prompt_text )
       case KEY_LINEFEED: // '\n' (ctrl+J, shift+enter)
         if (!env->singleline_only) { edit_insert_char(env,&eb,'\n',true); }
         break;
+      case KEY_EVENT_AUTOTAB:
+        edit_generate_completions(env,&eb,true);
+        break;
       case KEY_TAB:
       case WITH_ALT('?'):
-        edit_generate_completions(env,&eb);
+        edit_generate_completions(env,&eb,false);
         break;
       case KEY_CTRL_R:
       case KEY_CTRL_S:

@@ -120,7 +120,7 @@ rp_private code_t tty_read_esc(tty_t* tty); // in tty_esc.c
 
 #define KEY_EVENT_BASE    (0x200)
 #define KEY_EVENT_RESIZE  (KEY_EVENT_BASE+0)  // not use for now
-
+#define KEY_EVENT_AUTOTAB (KEY_EVENT_BASE+1)  // for auto completion
 
 // Convenience
 #define KEY_CTRL_UP       (WITH_CTRL(KEY_UP))
