@@ -316,7 +316,7 @@ static bool match_extension(const char* name, const char* extensions) {
   ssize_t name_len = rp_strlen(name);
   ssize_t len = rp_strlen(extensions);
   ssize_t cur = 0;  
-  debug_msg("match extensions: %s ~ %s", name, extensions);
+  //debug_msg("match extensions: %s ~ %s", name, extensions);
   for (ssize_t end = 0; end <= len; end++) {
     if (extensions[end] == ';' || extensions[end] == 0) {
       if (ends_with_n(name, name_len, extensions+cur, (end - cur))) {
@@ -335,6 +335,7 @@ static bool filename_complete_indir( rp_completion_env_t* cenv, stringbuf_t* dir
   dir_cursor d = 0;
   dir_entry entry;
   bool cont = true;
+  stringbuf_t* display = sbuf_new(cenv->env->mem,true);
   if (os_findfirst(cenv->env->mem, sbuf_string(dir), &d, &entry)) {
     do {
       const char* name = os_direntry_name(&entry);
@@ -345,6 +346,7 @@ static bool filename_complete_indir( rp_completion_env_t* cenv, stringbuf_t* dir
         bool isdir;
         const ssize_t plen = sbuf_len(dir_prefix);
         sbuf_append(dir_prefix, name);
+        sbuf_replace(display, name);
         { // check directory and potentially add a dirsep to the dir_prefix
           const ssize_t dlen = sbuf_len(dir);
           sbuf_append_char(dir,rp_dirsep());
@@ -352,17 +354,19 @@ static bool filename_complete_indir( rp_completion_env_t* cenv, stringbuf_t* dir
           isdir = os_is_dir(sbuf_string(dir));
           if (isdir && dir_sep != 0) {
             sbuf_append_char(dir_prefix,dir_sep); 
+            sbuf_append_char(display, dir_sep);
           }
           sbuf_delete_from(dir,dlen);  // restore dir
         }
         if (isdir || match_extension(name, extensions)) {
-          cont = rp_add_completion(cenv, NULL, sbuf_string(dir_prefix));
+          cont = rp_add_completion(cenv, sbuf_string(display), sbuf_string(dir_prefix));
         }
         sbuf_delete_from( dir_prefix, plen ); // restore dir_prefix
       }
     } while (cont && os_findnext(d, &entry));
     os_findclose(d);
   }
+  sbuf_free(display);
   return cont;
 }
 
