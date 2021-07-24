@@ -710,7 +710,7 @@ rp_public bool rp_starts_with( const char* s, const char* prefix ) {
   return (prefix[i] == 0);
 }
 
-static char rp_tolower( char c ) {
+rp_private char rp_tolower( char c ) {
   return (c >= 'A' && c <= 'Z'  ?  c - 'A' + 'a' : c);
 }
 

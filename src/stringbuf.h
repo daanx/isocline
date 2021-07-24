@@ -64,6 +64,10 @@ rp_private ssize_t sbuf_find_word_end( stringbuf_t* sbuf, ssize_t pos );
 rp_private ssize_t sbuf_find_ws_word_start( stringbuf_t* sbuf, ssize_t pos );
 rp_private ssize_t sbuf_find_ws_word_end( stringbuf_t* sbuf, ssize_t pos );
 
+// ascii tolower
+rp_private char rp_tolower(char c);
+
+
 // row/column info
 typedef struct rowcol_s {
   ssize_t row;

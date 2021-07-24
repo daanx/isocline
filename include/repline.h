@@ -88,8 +88,10 @@ char* rp_readline_with_completer(const char* prompt_text, rp_completer_fun_t* co
 bool rp_add_completion( rp_completion_env_t* cenv, const char* display, const char* completion );
 
 
-// Complete a filename given a semi-colon separated list of root directories `roots`. 
-// If `roots` is NULL, the current directory it the root ("."). 
+// Complete a filename given a semi-colon separated list of root directories `roots` and 
+// semi-colon separated list of possible extensions (excluding directories). 
+// If `roots` is NULL, the current directory is the root ("."). 
+// If `extensions` is NULL, any extension will match.
 // Each root directory should _not_ end with a directory separator.
 // If a directory is completed, the `dir_separator` is added at the end if it is not `0`.
 // Usually the `dir_separator` is `/` but it can be set to `\\` on Windows systems.
@@ -98,7 +100,7 @@ bool rp_add_completion( rp_completion_env_t* cenv, const char* display, const ch
 // /ho         --> /home/
 // /home/.ba   --> /home/.bashrc
 // ```
-void rp_complete_filename( rp_completion_env_t* cenv, const char* prefix, char dir_separator, const char* roots );
+void rp_complete_filename( rp_completion_env_t* cenv, const char* prefix, char dir_separator, const char* roots, const char* extensions );
 
 // Complete a _word_; calls the user provided function `fun` to complete while taking
 // care of quotes and escape characters. Almost all user provided completers should use

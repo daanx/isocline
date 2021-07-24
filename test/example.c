@@ -85,7 +85,10 @@ static void word_completer(rp_completion_env_t* cenv, const char* prefix ) {
 // We use `rp_complete_word` to handle escape characters and quoted words.
 static void completer(rp_completion_env_t* cenv, const char* prefix ) 
 {
-  rp_complete_filename( cenv, prefix, 0, ".;/usr/local" );   // try to complete file names from the roots "." and "/usr/local"
-  rp_complete_word( cenv, prefix, &word_completer );         // and also use our custom completer  
+  // try to complete file names from the roots "." and "/usr/local"
+  rp_complete_filename( cenv, prefix, 0, ".;/usr/local", "c;h;kk" /* any extension */ );   
+
+  // and also use our custom completer  
+  rp_complete_word( cenv, prefix, &word_completer );        
 }
   

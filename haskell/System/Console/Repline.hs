@@ -193,7 +193,7 @@ historyAdd entry
 foreign import ccall rp_set_completer         :: FunPtr CCompleterFun -> IO ()
 foreign import ccall "wrapper" rp_make_completer :: CCompleterFun -> IO (FunPtr CCompleterFun)
 foreign import ccall rp_add_completion        :: Ptr RpCompletions -> CString -> CString -> IO CChar
-foreign import ccall rp_complete_filename     :: Ptr RpCompletions -> CString -> CChar -> CString -> IO ()
+foreign import ccall rp_complete_filename     :: Ptr RpCompletions -> CString -> CChar -> CString -> CString -> IO ()
 foreign import ccall rp_complete_word         :: Ptr RpCompletions -> CString -> FunPtr CCompleterFun -> IO ()
 foreign import ccall rp_complete_quoted_word  :: Ptr RpCompletions -> CString -> FunPtr CCompleterFun -> CString -> CChar -> CString -> IO ()
 
@@ -230,23 +230,24 @@ addCompletion (Completions rpc) display completion
     do cbool <- rp_add_completion rpc cdisplay ccompletion
        return (fromEnum cbool /= 0)
     
--- | @completeFileName compls input dirSep roots@: 
+-- | @completeFileName compls input dirSep roots extensions@: 
 -- Complete filenames with the given @input@, a possible directory separator @dirSep@
--- used to complete directories, and a list of root folders @roots@ to search from
--- (by default @["."]@).
+-- used to complete directories, a list of root folders @roots@  to search from
+-- (by default @["."]@), and a list of extensions to match (use @[]@ to match any extension).
 -- For example, using @\'/\'@ as a directory separator, we get:
 --
 -- > /ho         --> /home/
 -- > /home/.ba   --> /home/.bashrc
 --
-completeFileName :: Completions -> String -> Maybe Char -> [FilePath] -> IO ()
-completeFileName (Completions rpc) prefx dirSep roots
+completeFileName :: Completions -> String -> Maybe Char -> [FilePath] -> [String] -> IO ()
+completeFileName (Completions rpc) prefx dirSep roots extensions
   = withUTF8String prefx $ \cprefx ->
     withUTF8String0 (concat (intersperse ";" roots)) $ \croots ->
+    withUTF8String0 (concat (intersperse ";" extensions)) $ \cextensions ->
     do let cdirSep = case dirSep of
                        Nothing -> toEnum 0
                        Just c  -> castCharToCChar c
-       rp_complete_filename rpc cprefx cdirSep croots
+       rp_complete_filename rpc cprefx cdirSep croots cextensions
 
 -- | @completeWord compl input completer@: 
 -- Complete a /word/ taking care of automatically quoting and escaping characters.

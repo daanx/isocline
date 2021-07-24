@@ -295,26 +295,67 @@ rp_private char rp_dirsep(void) {
 // File completion 
 //-------------------------------------------------------------
 
-static bool filename_complete_indir( rp_completion_env_t* cenv, stringbuf_t* dir, stringbuf_t* dir_prefix, const char* base_prefix, char dir_sep ) {
+static bool ends_with_n(const char* name, ssize_t name_len, const char* ending, ssize_t len) {
+  if (name_len < len) return false;
+  if (ending == NULL || len <= 0) return true;
+  for (ssize_t i = 1; i <= len; i++) {
+    char c1 = name[name_len - i];
+    char c2 = ending[len - i];
+    #ifdef _WIN32
+    if (rp_tolower(c1) != rp_tolower(c2)) return false;
+    #else
+    if (c1 != c2) return false;
+    #endif
+  }
+  return true;
+}
+
+static bool match_extension(const char* name, const char* extensions) {
+  if (extensions == NULL || extensions[0] == 0) return true;
+  if (name == NULL) return false;
+  ssize_t name_len = rp_strlen(name);
+  ssize_t cur = 0;  
+  for (ssize_t end = 0; extensions[end] != 0; end++) {
+    if (extensions[end] == ';') {
+      if (ends_with_n(name, name_len, extensions+cur, (end - cur))) {
+        return true;
+      }
+      cur = end+1;
+    }
+  }
+  return false;
+}
+
+static bool filename_complete_indir( rp_completion_env_t* cenv, stringbuf_t* dir, 
+                                      stringbuf_t* dir_prefix, const char* base_prefix, 
+                                        char dir_sep, const char* extensions ) 
+{
   dir_cursor d = 0;
   dir_entry entry;
   bool cont = true;
   if (os_findfirst(cenv->env->mem, sbuf_string(dir), &d, &entry)) {
     do {
       const char* name = os_direntry_name(&entry);
-      if (name != NULL && strcmp(name, ".") != 0 && strcmp(name, "..") != 0 && rp_istarts_with(name, base_prefix)) {
-        ssize_t plen = sbuf_len(dir_prefix);
+      if (name != NULL && strcmp(name, ".") != 0 && strcmp(name, "..") != 0 && 
+          rp_istarts_with(name, base_prefix))
+      {
+        // possible match, first check if it is a directory
+        bool isdir;
+        const ssize_t plen = sbuf_len(dir_prefix);
         sbuf_append(dir_prefix, name);
-        if (dir_sep != 0) {
-          ssize_t dlen = sbuf_len(dir);
-          sbuf_append_char(dir,dir_sep);
+        { // check directory and potentially add a dirsep to the dir_prefix
+          const ssize_t dlen = sbuf_len(dir);
+          sbuf_append_char(dir,rp_dirsep());
           sbuf_append(dir,name);
-          if (os_is_dir(sbuf_string(dir))) {
+          isdir = os_is_dir(sbuf_string(dir));
+          if (isdir && dir_sep != 0) {
             sbuf_append_char(dir_prefix,dir_sep); 
           }
           sbuf_delete_from(dir,dlen);  // restore dir
         }
-        cont = rp_add_completion(cenv, NULL, sbuf_string(dir_prefix) );
+        if (isdir || match_extension(name, extensions)) {
+          cont = rp_add_completion(cenv, NULL, sbuf_string(dir_prefix));
+        }
         sbuf_delete_from( dir_prefix, plen ); // restore dir_prefix
       }
     } while (cont && os_findnext(d, &entry));
@@ -325,6 +366,7 @@ static bool filename_complete_indir( rp_completion_env_t* cenv, stringbuf_t* dir
 
 typedef struct filename_closure_s {
   const char* roots;
+  const char* extensions;
   char        dir_sep;
 } filename_closure_t;
 
@@ -352,7 +394,8 @@ static void filename_completer( rp_completion_env_t* cenv, const char* prefix ) 
       if (base != NULL) {
         sbuf_append_n( root_dir, prefix, (base - prefix));  // include dir separator
       }
-      filename_complete_indir( cenv, root_dir, dir_prefix, (base != NULL ? base : prefix), fclosure->dir_sep );   
+      filename_complete_indir( cenv, root_dir, dir_prefix, (base != NULL ? base : prefix), 
+                                  fclosure->dir_sep, fclosure->extensions );   
     }
     else {
       // relative path, complete with respect to every root.
@@ -378,7 +421,8 @@ static void filename_completer( rp_completion_env_t* cenv, const char* prefix ) 
         }
 
         // and complete in this directory    
-        filename_complete_indir( cenv, root_dir, dir_prefix, (base != NULL ? base : prefix), fclosure->dir_sep );          
+        filename_complete_indir( cenv, root_dir, dir_prefix, (base != NULL ? base : prefix), 
+                                   fclosure->dir_sep, fclosure->extensions);
       }
     }
   }
@@ -386,12 +430,14 @@ static void filename_completer( rp_completion_env_t* cenv, const char* prefix ) 
   mem_free(cenv->env->mem, dir_prefix);
 }
 
-rp_public void rp_complete_filename( rp_completion_env_t* cenv, const char* prefix, char dir_sep, const char* roots ) {
+rp_public void rp_complete_filename( rp_completion_env_t* cenv, const char* prefix, char dir_sep, const char* roots, const char* extensions ) {
   if (roots == NULL) roots = ".";
+  if (extensions == NULL) extensions = "";
   if (dir_sep == 0) dir_sep = rp_dirsep();
   filename_closure_t fclosure;
   fclosure.dir_sep = dir_sep;
   fclosure.roots = roots; 
+  fclosure.extensions = extensions;
   cenv->arg = &fclosure;
   rp_complete_quoted_word( cenv, prefix, &filename_completer, " \t\r\n`@$><=;|&{(", '\\', "'\"");  
 }

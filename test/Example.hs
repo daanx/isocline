@@ -30,7 +30,7 @@ interaction
        
 completer :: Completions -> String -> IO () 
 completer compl input
-  = do completeFileName compl input Nothing [".","/usr/local"]
+  = do completeFileName compl input Nothing [".","/usr/local"] [] {-any extension-}
        completeWord compl input wordCompleter
   
 wordCompleter :: Completions-> String -> IO ()   

@@ -272,5 +272,5 @@ static void default_filename_completer( rp_completion_env_t* cenv, const char* p
   #else
   const char sep = '/';
   #endif
-  rp_complete_filename( cenv, prefix, sep, ".");
+  rp_complete_filename( cenv, prefix, sep, ".", NULL);
 }
