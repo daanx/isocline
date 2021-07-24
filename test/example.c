@@ -79,6 +79,13 @@ static void word_completer(rp_completion_env_t* cenv, const char* prefix ) {
   else if (strcmp(prefix,"ex") == 0) {
     rp_add_completion(cenv, NULL, "excellent");
   }
+  else if (prefix[0] != 0 && rp_istarts_with("print",prefix)) {  
+    rp_add_completion(cenv,NULL,"print");
+    rp_add_completion(cenv,NULL,"println"); 
+    rp_add_completion(cenv,NULL,"prints");
+    rp_add_completion(cenv,NULL,"printsln");
+    rp_add_completion(cenv,NULL,"prompt");    
+  }
 }
 
 // A completer function is called by repline to complete on input.
@@ -89,6 +96,7 @@ static void completer(rp_completion_env_t* cenv, const char* prefix )
   rp_complete_filename( cenv, prefix, 0, ".;/usr/local", NULL /* any extension */ );   
 
   // and also use our custom completer  
-  rp_complete_word( cenv, prefix, &word_completer );        
+  //rp_complete_word( cenv, prefix, &word_completer );        
+  rp_complete_quoted_word( cenv, prefix, &word_completer, " !=+,`@#&^&*.()\r\t\n", '\\', "'\"" );        
 }
   

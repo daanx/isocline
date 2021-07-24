@@ -198,7 +198,7 @@ rp_private ssize_t completions_apply_longest_prefix(completions_t* cms, stringbu
   // adjust all delete_before for the new replacement
   for( ssize_t i = 0; i < cms->count; i++) {
     cm = completions_get(cms,i);
-    cm->delete_before += len;
+    cm->delete_before = len;
   }
 
   return newpos;
