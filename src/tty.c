@@ -485,7 +485,7 @@ static void tty_waitc_console(tty_t* tty)
     // low surrogate pair
     else if (chr >= 0xDC00 && chr <= 0xDFFF) {
 			chr = ((surrogate_hi << 10) + (chr - 0xDC00) + 0x10000);
-      tty_cpush_unicode(tty,chr);
+      tty_cpush_csi_unicode(tty,mods,chr);
       surrogate_hi = 0;
       return;
 		}

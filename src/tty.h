@@ -48,7 +48,7 @@ rp_private code_t tty_read_esc(tty_t* tty); // in tty_esc.c
 // Key codes
 //-------------------------------------------------------------
 
-#define KEY_CHAR(c)       ((code_t)c)
+#define KEY_CHAR(c)       ((code_t)((uint8_t)c))
 
 #define KEY_MOD_SHIFT     0x1000U
 #define KEY_MOD_ALT       0x2000U
