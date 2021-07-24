@@ -25,22 +25,22 @@
 #define RP_CSI      "\x1B["
 
 struct term_s {
-  int     fout;
-  ssize_t width;
-  ssize_t height;
-  bool    monochrome;
-  bool    silent;
-  bool    raw_enabled;
-  bool    buffered;
+  int         fout;
+  ssize_t     width;
+  ssize_t     height;
+  bool        nocolor;
+  bool        silent;
+  bool        raw_enabled;
+  bool        buffered;
   stringbuf_t* buf;
-  alloc_t* mem;  
+  alloc_t*    mem;  
   #ifdef _WIN32
-  HANDLE  hcon;
-  WORD    hcon_default_attr;  
-  WORD    hcon_orig_attr;
-  DWORD   hcon_orig_mode;
-  UINT    hcon_orig_cp;  
-  COORD   hcon_save_cursor;
+  HANDLE      hcon;
+  WORD        hcon_default_attr;  
+  WORD        hcon_orig_attr;
+  DWORD       hcon_orig_mode;
+  UINT        hcon_orig_cp;  
+  COORD       hcon_save_cursor;
   #endif
 };
 
@@ -104,14 +104,6 @@ rp_private void term_color(term_t* term, rp_color_t color) {
 
 // Unused for now
 /*
-internal void term_bold(term_t* term) {
-  term_write(term, RP_CSI "1m" );
-}
-
-internal void term_italic(term_t* term) {
-  term_write(term, RP_CSI "2m" );
-}
-
 internal void term_bgcolor(term_t* term, rp_color_t color) {
   term_writef(term, RP_CSI "%dm", color + 10 );
 }
@@ -175,7 +167,7 @@ rp_private void term_beep(term_t* term) {
 
 
 rp_private bool term_write(term_t* term, const char* s) {
-  // todo: strip colors on monochrome
+  // todo: strip colors on nocolor
   ssize_t n = rp_strlen(s);
   return term_write_n(term,s,n);
 }
@@ -220,13 +212,13 @@ rp_private bool term_end_buffered(term_t* term) {
 
 static void term_init_raw(term_t* term);
 
-rp_private term_t* term_new(alloc_t* mem, tty_t* tty, bool monochrome, bool silent, int fout ) 
+rp_private term_t* term_new(alloc_t* mem, tty_t* tty, bool nocolor, bool silent, int fout ) 
 {
   term_t* term = mem_zalloc_tp(mem, term_t);
   if (term == NULL) return NULL;
 
   term->fout   = (fout < 0 ? STDOUT_FILENO : fout);
-  term->monochrome = monochrome;
+  term->nocolor = nocolor;
   term->silent = silent;  
   term->mem    = mem;
   term->width  = 80;
@@ -265,7 +257,7 @@ rp_private void term_enable_beep(term_t* term, bool enable) {
 }
 
 rp_private void term_enable_color(term_t* term, bool enable) {
-  term->monochrome = !enable;
+  term->nocolor = !enable;
 }
 
 
@@ -283,9 +275,53 @@ rp_private void term_free(term_t* term) {
 //-------------------------------------------------------------
 
 #if !defined(_WIN32)
-
-static bool term_write_direct(term_t* term, const char* s, ssize_t n ) {
+static bool term_write_console(term_t* term, const char* s, ssize_t n) {
   return (write(term->fout, s, to_size_t(n)) == n);
+}
+
+static bool term_write_esc(term_t* term, const char* s, ssize_t len) {
+  if (term->nocolor && s[1]=='[' && s[len-1] == 'm') {
+    ssize_t n = 1;
+    sscanf(s + 2, "%zd", &n);
+    if ((n >= 30 && n <= 49) || (n >= 90 && n <= 109)) {
+      // ignore color
+      return true;
+    }
+  }
+  return term_write_console(term, s, len);
+}
+
+static bool term_write_direct(term_t* term, const char* s, ssize_t len ) {
+  if (!term->nocolor) {
+    return term_write_console(term, s, len);
+  }
+  else {
+    // strip CSI color sequences
+    ssize_t pos = 0;
+    while (pos < len) {
+      // handle non-escape sequences in bulk
+      ssize_t nonesc = 0;
+      ssize_t next;
+      while ((next = str_next_ofs(s, len, pos+nonesc, true, NULL)) > 0 && s[pos + nonesc] != '\x1B') {
+        nonesc += next;
+      }
+      if (nonesc > 0) {
+        term_write_console(term, s+pos, nonesc);
+        pos += nonesc;
+      }
+      if (next <= 0) break;
+
+      // handle escape sequence (note: str_next_ofs considers whole CSI escape sequences at a time)
+      if (next > 1 && s[pos] == '\x1B') {
+        term_write_esc(term, s+pos, next);
+      }
+      else {
+        term_write_console(term, s+pos, next);
+      }
+      pos += next;
+    }
+    return (pos == len);
+  }
 }
 
 #else
@@ -438,7 +474,7 @@ static void term_esc_attr( term_t* term, ssize_t cmd ) {
   else if (cmd == 27) {  // not reverse
     attr &= ~COMMON_LVB_REVERSE_VIDEO;
   }
-  else if (!term->monochrome) {
+  else if (!term->nocolor) {
     if (cmd >= 30 && cmd <= 37) {  // fore ground
       attr = (attr & ~0x0F) | attr_color[cmd - 30];
     }
@@ -448,13 +484,13 @@ static void term_esc_attr( term_t* term, ssize_t cmd ) {
     else if (cmd >= 40 && cmd <= 47) {  // back ground
       attr = (attr & ~0xF0) | (WORD)(attr_color[cmd - 40] << 4);
     }
-    else if (cmd >= 90 && cmd <= 97) {  // back ground bright
-      attr = (attr & ~0xF0u) | (WORD)(attr_color[cmd - 90] << 4) | BACKGROUND_INTENSITY;
+    else if (cmd >= 100 && cmd <= 107) {  // back ground bright
+      attr = (attr & ~0xF0u) | (WORD)(attr_color[cmd - 100] << 4) | BACKGROUND_INTENSITY;
     }
     else if (cmd == 39) {  // default fore ground
       attr = (attr & ~0x0F) | (def_attr & 0x0F);
     }
-    else if (cmd == 39) {  // default back ground
+    else if (cmd == 49) {  // default back ground
       attr = (attr & ~0xF0) | (def_attr & 0xF0);
     }
   }
@@ -582,7 +618,24 @@ static bool term_write_direct(term_t* term, const char* s, ssize_t len ) {
 // Enable/disable terminal raw mode
 //-------------------------------------------------------------
 
-#if defined(_WIN32)
+#if !defined(_WIN32)
+
+rp_private void term_start_raw(term_t* term) {
+  if (term->raw_enabled) return; 
+  term->raw_enabled = true;  
+}
+
+rp_private void term_end_raw(term_t* term) {
+  if (!term->raw_enabled) return;
+  term->raw_enabled = false;
+}
+
+static void term_init_raw(term_t* term) {
+  rp_unused(term);
+}
+
+#else
+
 rp_private void term_start_raw(term_t* term) {
   if (term->raw_enabled) return;
   CONSOLE_SCREEN_BUFFER_INFO info;
@@ -619,50 +672,13 @@ static void term_init_raw(term_t* term) {
   }
 }
 
-#else
-
-rp_private void term_start_raw(term_t* term) {
-  if (term->raw_enabled) return; 
-  term->raw_enabled = true;  
-}
-
-rp_private void term_end_raw(term_t* term) {
-  if (!term->raw_enabled) return;
-  term->raw_enabled = false;
-}
-
-static void term_init_raw(term_t* term) {
-  rp_unused(term);
-}
-
 #endif
 
 //-------------------------------------------------------------
 // Update terminal dimensions
 //-------------------------------------------------------------
 
-#ifdef _WIN32
-
-rp_private bool term_update_dim(term_t* term, tty_t* tty) {
-  rp_unused(tty);
-  if (term->hcon == 0) {
-    term->hcon = GetConsoleWindow();
-  }
-  ssize_t rows = 0;
-  ssize_t cols = 0;  
-  CONSOLE_SCREEN_BUFFER_INFO sbinfo;  
-  if (GetConsoleScreenBufferInfo(term->hcon, &sbinfo)) {
-     cols = sbinfo.srWindow.Right - sbinfo.srWindow.Left + 1;
-     rows = sbinfo.srWindow.Bottom - sbinfo.srWindow.Top + 1;
-  }
-  bool changed = (term->width != cols || term->height != rows);
-  term->width = cols;
-  term->height = rows;
-  debug_msg("term: update dim: %zd, %zd\n", term->height, term->width );
-  return changed;
-}
-
-#else
+#if !defined(_WIN32)
 
 static bool term_get_cursor_pos( term_t* term, tty_t* tty, int* row, int* col) 
 {
@@ -726,4 +742,26 @@ rp_private bool term_update_dim(term_t* term, tty_t* tty) {
   term->height = rows;
   return changed;  
 }
+
+#else
+
+rp_private bool term_update_dim(term_t* term, tty_t* tty) {
+  rp_unused(tty);
+  if (term->hcon == 0) {
+    term->hcon = GetConsoleWindow();
+  }
+  ssize_t rows = 0;
+  ssize_t cols = 0;  
+  CONSOLE_SCREEN_BUFFER_INFO sbinfo;  
+  if (GetConsoleScreenBufferInfo(term->hcon, &sbinfo)) {
+     cols = sbinfo.srWindow.Right - sbinfo.srWindow.Left + 1;
+     rows = sbinfo.srWindow.Bottom - sbinfo.srWindow.Top + 1;
+  }
+  bool changed = (term->width != cols || term->height != rows);
+  term->width = cols;
+  term->height = rows;
+  debug_msg("term: update dim: %zd, %zd\n", term->height, term->width );
+  return changed;
+}
+
 #endif

@@ -33,11 +33,12 @@ int main()
   // try to auto complete after a completion as long as the completion is unique
   rp_enable_auto_tab(true );
 
+  
   //rp_set_iface_colors( env, RP_MAROON, RP_DARKGRAY, RP_YELLOW );
 
   // run until empty input
   char* input;
-  while((input = rp_readline("test" /*"rεplinε"*/)) != NULL)    // ctrl-d/ctrl-c return NULL (as well as errors)
+  while((input = rp_readline("rεplinε")) != NULL)    // ctrl-d/ctrl-c return NULL (as well as errors)
   {
     bool stop = (strcmp(input,"exit") == 0 || strcmp(input,"") == 0); 
     printf("-----\n"           // echo the input

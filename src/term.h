@@ -16,7 +16,7 @@ struct term_s;
 typedef struct term_s term_t;
 
 // Primitives
-rp_private term_t* term_new(alloc_t* mem, tty_t* tty, bool monochrome, bool silent, int fout);
+rp_private term_t* term_new(alloc_t* mem, tty_t* tty, bool nocolor, bool silent, int fout);
 rp_private void term_free(term_t* term);
 
 rp_private bool term_is_interactive(const term_t* term);
