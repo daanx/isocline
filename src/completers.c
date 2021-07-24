@@ -316,6 +316,7 @@ static bool match_extension(const char* name, const char* extensions) {
   ssize_t name_len = rp_strlen(name);
   ssize_t len = rp_strlen(extensions);
   ssize_t cur = 0;  
+  debug_msg("match extensions: %s ~ %s", name, extensions);
   for (ssize_t end = 0; end <= len; end++) {
     if (extensions[end] == ';' || extensions[end] == 0) {
       if (ends_with_n(name, name_len, extensions+cur, (end - cur))) {
