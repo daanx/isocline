@@ -314,9 +314,10 @@ static bool match_extension(const char* name, const char* extensions) {
   if (extensions == NULL || extensions[0] == 0) return true;
   if (name == NULL) return false;
   ssize_t name_len = rp_strlen(name);
+  ssize_t len = rp_strlen(extensions);
   ssize_t cur = 0;  
-  for (ssize_t end = 0; extensions[end] != 0; end++) {
-    if (extensions[end] == ';') {
+  for (ssize_t end = 0; end <= len; end++) {
+    if (extensions[end] == ';' || extensions[end] == 0) {
       if (ends_with_n(name, name_len, extensions+cur, (end - cur))) {
         return true;
       }
