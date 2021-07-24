@@ -37,7 +37,7 @@ int main()
 
   // run until empty input
   char* input;
-  while((input = rp_readline("rεplinε")) != NULL)    // ctrl-d/ctrl-c return NULL (as well as errors)
+  while((input = rp_readline("test" /*"rεplinε"*/)) != NULL)    // ctrl-d/ctrl-c return NULL (as well as errors)
   {
     bool stop = (strcmp(input,"exit") == 0 || strcmp(input,"") == 0); 
     printf("-----\n"           // echo the input

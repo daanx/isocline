@@ -40,6 +40,7 @@ struct term_s {
   WORD    hcon_orig_attr;
   DWORD   hcon_orig_mode;
   UINT    hcon_orig_cp;  
+  COORD   hcon_save_cursor;
   #endif
 };
 
@@ -190,7 +191,6 @@ rp_private bool term_write_n(term_t* term, const char* s, ssize_t n) {
   }
 }
 
-
 rp_private void term_start_buffered(term_t* term) {
   if (term->buf == NULL) {
     term->buf = sbuf_new(term->mem, true);
@@ -223,6 +223,8 @@ static void term_init_raw(term_t* term);
 rp_private term_t* term_new(alloc_t* mem, tty_t* tty, bool monochrome, bool silent, int fout ) 
 {
   term_t* term = mem_zalloc_tp(mem, term_t);
+  if (term == NULL) return NULL;
+
   term->fout   = (fout < 0 ? STDOUT_FILENO : fout);
   term->monochrome = monochrome;
   term->silent = silent;  
@@ -291,7 +293,9 @@ static bool term_write_direct(term_t* term, const char* s, ssize_t n ) {
 //-------------------------------------------------------------
 // On windows we do ansi escape emulation ourselves.
 // (for compat pre-win10 systems)
-//-------------------------------------------------------------
+//
+// note: we use row/col as 1-based ANSI escape while windows X/Y coords are 0-based.
+//-------------------------------------------------------------------------
 
 static bool term_write_console(term_t* term, const char* s, ssize_t n ) {
   DWORD written;
@@ -299,23 +303,46 @@ static bool term_write_console(term_t* term, const char* s, ssize_t n ) {
   return (written == (DWORD)(to_size_t(n)));
 }
 
+static void term_get_cursor(term_t* term, ssize_t* row, ssize_t* col) {
+  *row = 0;
+  *col = 0;
+  CONSOLE_SCREEN_BUFFER_INFO info;
+  if (!GetConsoleScreenBufferInfo(term->hcon, &info)) return;
+  *row = (ssize_t)info.dwCursorPosition.Y + 1;
+  *col = (ssize_t)info.dwCursorPosition.X + 1;
+}
+
 static void term_move_cursor_to( term_t* term, ssize_t row, ssize_t col ) {
   CONSOLE_SCREEN_BUFFER_INFO info;
   if (!GetConsoleScreenBufferInfo( term->hcon, &info )) return;
-  if (col >= info.dwSize.X) col = info.dwSize.X - 1;
-  if (row >= info.dwSize.Y) row = info.dwSize.Y - 1;
+  if (col > info.dwSize.X) col = info.dwSize.X;
+  if (row > info.dwSize.Y) row = info.dwSize.Y;
+  if (col <= 0) col = 1;
+  if (row <= 0) row = 1;
   COORD coord;
-  coord.X = (SHORT)col;
-  coord.Y = (SHORT)row;
+  coord.X = (SHORT)col - 1;
+  coord.Y = (SHORT)row - 1;
   SetConsoleCursorPosition( term->hcon, coord);
+}
+
+static void term_cursor_save(term_t* term) {
+  memset(&term->hcon_save_cursor, 0, sizeof(term->hcon_save_cursor));
+  CONSOLE_SCREEN_BUFFER_INFO info;
+  if (!GetConsoleScreenBufferInfo(term->hcon, &info)) return;
+  term->hcon_save_cursor = info.dwCursorPosition;
+}
+
+static void term_cursor_restore(term_t* term) {
+  if (term->hcon_save_cursor.X == 0) return;
+  SetConsoleCursorPosition(term->hcon, term->hcon_save_cursor);
 }
 
 static void term_move_cursor( term_t* term, ssize_t drow, ssize_t dcol, ssize_t n ) {
   CONSOLE_SCREEN_BUFFER_INFO info;
   if (!GetConsoleScreenBufferInfo( term->hcon, &info )) return;
   COORD cur = info.dwCursorPosition;
-  ssize_t col = cur.X + n*dcol;
-  ssize_t row = cur.Y + n*drow;
+  ssize_t col = (ssize_t)cur.X + 1 + n*dcol;
+  ssize_t row = (ssize_t)cur.Y + 1 + n*drow;
   term_move_cursor_to( term, row, col );
 }
 
@@ -334,7 +361,7 @@ static void term_erase_line( term_t* term, ssize_t mode ) {
   ssize_t length;
   if (mode == 2) {
     // to end of line    
-    length = info.srWindow.Right - info.dwCursorPosition.X + 1;
+    length = (ssize_t)info.srWindow.Right - info.dwCursorPosition.X + 1;
     start  = info.dwCursorPosition;
   }
   else if (mode == 1) {
@@ -347,10 +374,36 @@ static void term_erase_line( term_t* term, ssize_t mode ) {
     // entire line
     start.X = 0;
     start.Y = info.dwCursorPosition.Y;
-    length = info.srWindow.Right + 1;
+    length = (ssize_t)info.srWindow.Right + 1;
   }
   FillConsoleOutputAttribute( term->hcon, 0, (DWORD)length, start, &written );
-  FillConsoleOutputCharacter( term->hcon, ' ', (DWORD)length, start, &written );
+  FillConsoleOutputCharacterA( term->hcon, ' ', (DWORD)length, start, &written );
+}
+
+static void term_clear_screen(term_t* term, ssize_t mode) {
+  CONSOLE_SCREEN_BUFFER_INFO info;
+  if (!GetConsoleScreenBufferInfo(term->hcon, &info)) return;
+  COORD start;
+  start.X = 0;
+  start.Y = 0;
+  ssize_t length;
+  ssize_t width = (ssize_t)info.dwSize.X;
+  if (mode == 2) {
+    // entire screen
+    length = width * info.dwSize.Y;    
+  }
+  else if (mode == 1) {
+    // to cursor
+    length = (width * ((ssize_t)info.dwCursorPosition.Y - 1)) + info.dwCursorPosition.X;
+  }
+  else {
+    // from cursor
+    start  = info.dwCursorPosition;
+    length = (width * ((ssize_t)info.dwSize.Y - info.dwCursorPosition.Y)) + (width - info.dwCursorPosition.X + 1);
+  }
+  DWORD written;
+  FillConsoleOutputAttribute(term->hcon,   0, (DWORD)length, start, &written);
+  FillConsoleOutputCharacterA(term->hcon, ' ', (DWORD)length, start, &written);
 }
 
 static WORD attr_color[8] = {
@@ -373,24 +426,6 @@ static void term_esc_attr( term_t* term, ssize_t cmd ) {
   if (cmd==0) {
     attr = def_attr;
   }
-  else if (cmd >= 30 && cmd <= 37) {  // fore ground
-    attr = (attr & ~0x0F) | attr_color[cmd - 30];
-  }
-  else if (cmd >= 90 && cmd <= 97) {  // fore ground bright
-    attr = (attr & ~0x0F) | attr_color[cmd - 90] | FOREGROUND_INTENSITY;
-  }
-  else if (cmd >= 40 && cmd <= 47) {  // back ground
-    attr = (attr & ~0xF0) | (WORD)(attr_color[cmd - 40] << 4);
-  }
-  else if (cmd >= 90 && cmd <= 97) {  // back ground bright
-    attr = (attr & ~0xF0u) | (WORD)(attr_color[cmd - 90] << 4) | BACKGROUND_INTENSITY;
-  }
-  else if (cmd == 39) {  // default fore ground
-    attr = (attr & ~0x0F) | (def_attr & 0x0F);
-  }
-  else if (cmd == 39) {  // default back ground
-    attr = (attr & ~0xF0) | (def_attr & 0xF0);
-  }
   else if (cmd == 4) {  // underline
     attr |= COMMON_LVB_UNDERSCORE;
   }
@@ -400,13 +435,32 @@ static void term_esc_attr( term_t* term, ssize_t cmd ) {
   else if (cmd == 7) {  // reverse
     attr |= COMMON_LVB_REVERSE_VIDEO;
   }
-  else if (cmd == 24) {  // not reverse
+  else if (cmd == 27) {  // not reverse
     attr &= ~COMMON_LVB_REVERSE_VIDEO;
   }
-  else {
-    return; // ignore
+  else if (!term->monochrome) {
+    if (cmd >= 30 && cmd <= 37) {  // fore ground
+      attr = (attr & ~0x0F) | attr_color[cmd - 30];
+    }
+    else if (cmd >= 90 && cmd <= 97) {  // fore ground bright
+      attr = (attr & ~0x0F) | attr_color[cmd - 90] | FOREGROUND_INTENSITY;
+    }
+    else if (cmd >= 40 && cmd <= 47) {  // back ground
+      attr = (attr & ~0xF0) | (WORD)(attr_color[cmd - 40] << 4);
+    }
+    else if (cmd >= 90 && cmd <= 97) {  // back ground bright
+      attr = (attr & ~0xF0u) | (WORD)(attr_color[cmd - 90] << 4) | BACKGROUND_INTENSITY;
+    }
+    else if (cmd == 39) {  // default fore ground
+      attr = (attr & ~0x0F) | (def_attr & 0x0F);
+    }
+    else if (cmd == 39) {  // default back ground
+      attr = (attr & ~0xF0) | (def_attr & 0xF0);
+    }
   }
-  if (attr != cur_attr) SetConsoleTextAttribute( term->hcon, attr );
+  if (attr != cur_attr) {
+    SetConsoleTextAttribute(term->hcon, attr);
+  }
 }
 
 static ssize_t esc_param( const char* s, ssize_t len, ssize_t def ) {
@@ -424,32 +478,69 @@ static void esc_param2( const char* s, ssize_t len, ssize_t* p1, ssize_t* p2, ss
 }
 
 static void term_write_esc( term_t* term, const char* s, ssize_t len ) {
-  switch( s[len-1] ) {
-    case 'A': 
-      term_move_cursor( term, -1, 0, esc_param( s+2, len, 1 ) ); 
+  ssize_t row;
+  ssize_t col;
+  if (s[1] == '[') {
+    switch (s[len-1]) {
+    case 'A':
+      term_move_cursor(term, -1, 0, esc_param(s+2, len, 1));
       break;
-    case 'B': 
-      term_move_cursor( term, 1, 0, esc_param( s+2, len, 1 ) ); 
+    case 'B':
+      term_move_cursor(term, 1, 0, esc_param(s+2, len, 1));
       break;
-    case 'C': 
-      term_move_cursor( term, 0, 1, esc_param( s+2, len, 1 ) ); 
+    case 'C':
+      term_move_cursor(term, 0, 1, esc_param(s+2, len, 1));
       break;
-    case 'D': 
-      term_move_cursor( term, 0, -1, esc_param( s+2, len, 1 ) ); 
+    case 'D':
+      term_move_cursor(term, 0, -1, esc_param(s+2, len, 1));
       break;
-    case 'H': {
-      ssize_t row;
-      ssize_t col;
+    case 'H': 
       esc_param2(s+2, len, &row, &col, 1);
       term_move_cursor_to(term, row, col);
       break;
-    }
     case 'K':
-      term_erase_line( term, esc_param( s+2, len, 0 ) );
+      term_erase_line(term, esc_param(s+2, len, 0));
       break;
     case 'm':
-      term_esc_attr( term, esc_param( s+2, len, 0 ) );
+      term_esc_attr(term, esc_param(s+2, len, 0));
       break;
+
+    // support some less standard escape codes (currently not used by repline)
+    case 'E':  // line down
+      term_get_cursor(term, &row, &col);
+      row += esc_param(s+2, len, 1);
+      term_move_cursor_to(term, row, 1);
+      break;
+    case 'F':  // line up
+      term_get_cursor(term, &row, &col);
+      row -= esc_param(s+2, len, 1);
+      term_move_cursor_to(term, row, 1);
+      break;
+    case 'G':  // absolute column
+      term_get_cursor(term, &row, &col);
+      col = esc_param(s+2, len, 1);
+      term_move_cursor_to(term, row, col);
+      break;
+    case 'J': 
+      term_clear_screen(term, esc_param(s+2, len, 0));
+      break;
+    case 'h':
+      if (strncmp(s+2, "?25h", 4) == 0) {
+        term_cursor_visible(term, true);
+      }
+      break;
+    case 'l': 
+      if (strncmp(s+2, "?25l", 4) == 0) {
+        term_cursor_visible(term, false);
+      }
+      break;
+    case 's': 
+      term_cursor_save(term);
+      break;    
+    case 'u': 
+      term_cursor_restore(term);
+      break;
+    }
   }
   // otherwise ignore
 }
@@ -470,7 +561,7 @@ static bool term_write_direct(term_t* term, const char* s, ssize_t len ) {
     }    
     if (next <= 0) break;
 
-    // handle control
+    // handle control (note: str_next_ofs considers whole CSI escape sequences at a time)
     if (next > 1 && s[pos] == '\x1B') {
       term_write_esc(term, s+pos, next);
     }

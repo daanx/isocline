@@ -237,7 +237,6 @@ static rp_env_t* rp_env_create( rp_malloc_fun_t* _malloc, rp_realloc_fun_t* _rea
 
 static rp_env_t* rpenv;
 
-
 static void rp_atexit(void) {
   if (rpenv != NULL) {
     rp_env_free(rpenv);
