@@ -26,11 +26,10 @@ Minimal example:
 import System.Console.Repline
 
 main :: IO ()
-main  = `withRepline` $ \\rp ->
-        do putStrLn \"Welcome\"
-           `setPromptColor` rp `Green`
-           `setHistory` rp \"history.txt\" 200
-           input \<- `readline` rp \"myprompt\"     -- full prompt becomes \"myprompt> \"
+main  = do putStrLn \"Welcome\"
+           `setPromptColor` `Green`
+           `setHistory` \"history.txt\" 200
+           input \<- `readline` \"myprompt\"     -- full prompt becomes \"myprompt> \"
            putStrLn (\"You wrote:\\n\" ++ input)
 @
 
@@ -42,10 +41,9 @@ Enjoy,
 -}
 module System.Console.Repline( 
       -- * Readline
-      Rp,       
-      withRepline,
       readline, 
-    
+      readlineWithCompleter,      
+      
       -- * History
       setHistory,
       historyClear,
@@ -53,30 +51,30 @@ module System.Console.Repline(
       historyAdd,
 
       -- * Completion
-      Completions,
-      
-      readlineWithCompleter,
-      readlineWithCompleterMaybe,
-
-      setCompleter,
+      Completions,      
       addCompletion,
       completeFileName,
       completeWord,
       completeQuotedWord,
 
       -- * Configuration
-      setPromptColor,
       setPromptMarker,
+      setPromptColor,
+      setReplineColors,
+      
+      enableAutoTab,
       enableColor,
       enableBeep,
       enableMultiline,
       enableHistoryDuplicates,
+      enableCompletionPreview,
+      
       Color(..), 
       
       -- * Advanced
-      initialize, 
-      done, 
-      readlineMaybe
+      setDefaultCompleter,      
+      readlineMaybe,
+      readlineWithCompleterMaybe      
     ) where
 
 
@@ -97,11 +95,7 @@ import Data.Text.Encoding.Error  ( lenientDecode )
 -- C Types
 ----------------------------------------------------------------------------
 
-data RpEnv
 data RpCompletions  
-
--- | The Repline environment.
-newtype Rp          = Rp (Ptr RpEnv)
 
 -- | Abstract list of current completions.
 newtype Completions = Completions (Ptr RpCompletions)
@@ -114,58 +108,46 @@ type CompleterFun  = Completions -> String -> IO ()
 -- Basic readline
 ----------------------------------------------------------------------------
 
-foreign import ccall rp_init      :: IO (Ptr RpEnv)
-foreign import ccall rp_done      :: Ptr RpEnv -> IO ()
-foreign import ccall rp_free      :: Ptr RpEnv -> (Ptr a) -> IO () 
-foreign import ccall rp_readline  :: Ptr RpEnv -> CString -> IO CString
-foreign import ccall rp_readline_with_completer  :: Ptr RpEnv -> CString -> FunPtr CCompleterFun -> (Ptr a) -> IO CString
+foreign import ccall rp_free      :: (Ptr a) -> IO () 
+foreign import ccall rp_readline  :: CString -> IO CString
+foreign import ccall rp_readline_with_completer  :: CString -> FunPtr CCompleterFun -> (Ptr a) -> IO CString
 
--- | Initialize Repline (see also 'withRepline')
-initialize :: IO Rp
-initialize 
-  = fmap Rp rp_init
-
--- | Discard the Repline environment (automatically done at program exit as well)
-done :: Rp -> IO ()
-done (Rp rpenv) 
-  = rp_done rpenv
-
--- | @readline rp prompt@: Read (multi-line) input from the user with rich editing abilities. 
+-- | @readline prompt@: Read (multi-line) input from the user with rich editing abilities. 
 -- Takes the prompt text as an argument. The full prompt is the combination
 -- of the given prompt and the promp marker (@\"> \"@ by default) .
 -- See also 'enableMultiline', 'setPromptColor', and 'setPromptMarker'.
-readline :: Rp -> String -> IO String  
-readline rp prompt
-  = do mbRes <- readlineMaybe rp prompt
+readline :: String -> IO String  
+readline prompt
+  = do mbRes <- readlineMaybe prompt
        case mbRes of
          Just s  -> return s
          Nothing -> return ""
 
 -- | As 'readline' but returns 'Nothing' on end-of-file or other errors (ctrl-C/ctrl-D).
-readlineMaybe:: Rp -> String -> IO (Maybe String)
-readlineMaybe (Rp rpenv) prompt
+readlineMaybe:: String -> IO (Maybe String)
+readlineMaybe prompt
   = withUTF8String prompt $ \cprompt ->
-    do cres <- rp_readline rpenv cprompt
+    do cres <- rp_readline cprompt
        res  <- peekUTF8StringMaybe cres
-       rp_free rpenv cres
+       rp_free cres
        return res
 
 
-readlineWithCompleter :: Rp -> String -> (Completions -> String -> IO ()) -> IO String
-readlineWithCompleter rp prompt completer 
-  = do mbRes <- readlineWithCompleterMaybe rp prompt completer
+readlineWithCompleter :: String -> (Completions -> String -> IO ()) -> IO String
+readlineWithCompleter prompt completer 
+  = do mbRes <- readlineWithCompleterMaybe prompt completer
        case mbRes of
          Just s  -> return s
          Nothing -> return ""
 
 
-readlineWithCompleterMaybe :: Rp -> String -> (Completions -> String -> IO ()) -> IO (Maybe String) 
-readlineWithCompleterMaybe (Rp rp) prompt completer 
+readlineWithCompleterMaybe :: String -> (Completions -> String -> IO ()) -> IO (Maybe String) 
+readlineWithCompleterMaybe prompt completer 
   = withUTF8String prompt $ \cprompt ->
     do ccompleter <- makeCCompleter completer
-       cres <- rp_readline_with_completer rp cprompt ccompleter nullPtr
+       cres <- rp_readline_with_completer cprompt ccompleter nullPtr
        res  <- peekUTF8StringMaybe cres
-       rp_free rp cres
+       rp_free cres
        freeHaskellFunPtr ccompleter
        return res
 
@@ -173,63 +155,58 @@ readlineWithCompleterMaybe (Rp rp) prompt completer
 -- History
 ----------------------------------------------------------------------------
 
-foreign import ccall rp_set_history           :: Ptr RpEnv -> CString -> CInt -> IO ()
-foreign import ccall rp_history_remove_last   :: Ptr RpEnv -> IO ()
-foreign import ccall rp_history_clear         :: Ptr RpEnv -> IO ()
-foreign import ccall rp_history_add           :: Ptr RpEnv -> CString -> IO ()
+foreign import ccall rp_set_history           :: CString -> CInt -> IO ()
+foreign import ccall rp_history_remove_last   :: IO ()
+foreign import ccall rp_history_clear         :: IO ()
+foreign import ccall rp_history_add           :: CString -> IO ()
 
--- | @setHistory rp filename maxEntries@: 
+-- | @setHistory filename maxEntries@: 
 -- Enable history that is persisted to the given file path with a given maximum number of entries.
 -- Use -1 for the default entries (200).
 -- See also 'enableHistoryDuplicates'.
-setHistory :: Rp -> FilePath -> Int -> IO ()
-setHistory (Rp rp) fname maxEntries
+setHistory :: FilePath -> Int -> IO ()
+setHistory fname maxEntries
   = withUTF8String0 fname $ \cfname ->
-    do rp_set_history rp cfname (toEnum maxEntries)
+    do rp_set_history cfname (toEnum maxEntries)
 
 -- | Repline automatically adds input of more than 1 character to the history.
 -- This command removes the last entry.
-historyRemoveLast :: Rp -> IO ()
-historyRemoveLast (Rp rp)
-  = rp_history_remove_last rp
+historyRemoveLast :: IO ()
+historyRemoveLast 
+  = rp_history_remove_last
 
 -- | Clear the history.
-historyClear :: Rp -> IO ()
-historyClear (Rp rp)
-  = rp_history_clear rp
+historyClear :: IO ()
+historyClear
+  = rp_history_clear
 
--- | @withRepline action@: Perform @action@ with a fresh Repline environment.
-withRepline :: (Rp -> IO a) -> IO a
-withRepline action
-  = bracket initialize done action
-
--- | @historyAdd rp entry@: add @entry@ to the history.
-historyAdd :: Rp -> String -> IO ()
-historyAdd (Rp rp) entry
+-- | @historyAdd entry@: add @entry@ to the history.
+historyAdd :: String -> IO ()
+historyAdd entry
   = withUTF8String0 entry $ \centry ->
-    do rp_history_add rp centry 
+    do rp_history_add centry 
 
 ----------------------------------------------------------------------------
 -- Completion
 ----------------------------------------------------------------------------
 
-foreign import ccall rp_set_completer         :: Ptr RpEnv -> FunPtr CCompleterFun -> IO ()
+foreign import ccall rp_set_completer         :: FunPtr CCompleterFun -> IO ()
 foreign import ccall "wrapper" rp_make_completer :: CCompleterFun -> IO (FunPtr CCompleterFun)
 foreign import ccall rp_add_completion        :: Ptr RpCompletions -> CString -> CString -> IO CChar
 foreign import ccall rp_complete_filename     :: Ptr RpCompletions -> CString -> CChar -> CString -> IO ()
 foreign import ccall rp_complete_word         :: Ptr RpCompletions -> CString -> FunPtr CCompleterFun -> IO ()
 foreign import ccall rp_complete_quoted_word  :: Ptr RpCompletions -> CString -> FunPtr CCompleterFun -> CString -> CChar -> CString -> IO ()
 
--- | @setCompleter rp completer@: Set a new tab-completion function @completer@ 
+-- | @setDefaultCompleter completer@: Set a new tab-completion function @completer@ 
 -- that is called by Repline automatically. 
 -- The callback is called with a 'Completions' context and the current user
 -- input up to the cursor.
 -- By default the 'completeFileName' completer is used.
 -- This overwrites any previously set completer.
-setCompleter :: Rp -> (Completions -> String -> IO ()) -> IO ()
-setCompleter (Rp rp) completer 
+setDefaultCompleter :: (Completions -> String -> IO ()) -> IO ()
+setDefaultCompleter completer 
   = do ccompleter <- makeCCompleter completer
-       rp_set_completer rp ccompleter
+       rp_set_completer ccompleter
 
 makeCCompleter :: CompleterFun -> IO (FunPtr CCompleterFun)
 makeCCompleter completer
@@ -291,6 +268,7 @@ completeWord (Completions rpc) prefx completer
   = withUTF8String prefx $ \cprefx ->
     do ccompleter <- makeCCompleter completer
        rp_complete_word rpc cprefx ccompleter
+       freeHaskellFunPtr ccompleter
   
 -- | @completeQuotedWord compl input completer nonWordChars escapeChar quoteChars@: 
 -- Complete a /word/ taking care of automatically quoting and escaping characters.
@@ -310,17 +288,21 @@ completeQuotedWord (Completions rpc) prefx completer nonWordChars escapeChar quo
                           Just c  -> castCharToCChar c
        ccompleter <- makeCCompleter completer
        rp_complete_quoted_word rpc cprefx ccompleter cnonWordChars cescapeChar cquoteChars
+       freeHaskellFunPtr ccompleter
   
 
 ----------------------------------------------------------------------------
 -- Configuration
 ----------------------------------------------------------------------------
-foreign import ccall rp_set_prompt_color  :: Ptr RpEnv -> CInt -> IO ()
-foreign import ccall rp_set_prompt_marker :: Ptr RpEnv -> CString -> IO ()
-foreign import ccall rp_enable_multiline  :: Ptr RpEnv -> CCBool -> IO ()
-foreign import ccall rp_enable_beep       :: Ptr RpEnv -> CCBool -> IO ()
-foreign import ccall rp_enable_color      :: Ptr RpEnv -> CCBool -> IO ()
-foreign import ccall rp_enable_history_duplicates :: Ptr RpEnv -> CCBool -> IO ()
+foreign import ccall rp_set_prompt_color  :: CInt -> IO ()
+foreign import ccall rp_set_iface_colors  :: CInt -> CInt -> CInt -> IO ()
+foreign import ccall rp_set_prompt_marker :: CString -> IO ()
+foreign import ccall rp_enable_multiline  :: CCBool -> IO ()
+foreign import ccall rp_enable_beep       :: CCBool -> IO ()
+foreign import ccall rp_enable_color      :: CCBool -> IO ()
+foreign import ccall rp_enable_history_duplicates :: CCBool -> IO ()
+foreign import ccall rp_enable_auto_tab    :: CCBool -> IO ()
+foreign import ccall rp_enable_completion_preview :: CCBool -> IO ()
 
 -- use our own CBool for compatibility with an older base
 type CCBool = CInt
@@ -329,41 +311,63 @@ cbool :: Bool -> CCBool
 cbool True  = toEnum 1
 cbool False = toEnum 0
 
+ccolor :: Color -> CInt
+ccolor clr = toEnum (fromEnum clr)
+
 
 -- | Set the color of the prompt.
-setPromptColor :: Rp -> Color -> IO ()
-setPromptColor (Rp rp) color
-  = rp_set_prompt_color rp (toEnum (fromEnum color))
+setPromptColor :: Color -> IO ()
+setPromptColor color
+  = rp_set_prompt_color (ccolor color)
 
 
 -- | Set the prompt marker. Pass @\"\"@ for the default marker (@\"> \"@).
-setPromptMarker :: Rp -> String -> IO ()
-setPromptMarker (Rp rp) marker
+setPromptMarker :: String -> IO ()
+setPromptMarker marker
   = withUTF8String0 marker $ \cmarker ->
-    do rp_set_prompt_marker rp cmarker
+    do rp_set_prompt_marker cmarker
 
 -- | Disable or enable multi-line input (enabled by default).
-enableMultiline :: Rp -> Bool -> IO ()
-enableMultiline (Rp rp) enable
-  = do rp_enable_multiline rp (cbool enable)
+enableMultiline :: Bool -> IO ()
+enableMultiline enable
+  = do rp_enable_multiline (cbool enable)
 
 -- | Disable or enable sound (enabled by default).
 -- | A beep is used when tab cannot find any completion for example.
-enableBeep :: Rp -> Bool -> IO ()
-enableBeep (Rp rp) enable
-  = do rp_enable_beep rp (cbool enable)
+enableBeep :: Bool -> IO ()
+enableBeep enable
+  = do rp_enable_beep (cbool enable)
 
 -- | Disable or enable color output (enabled by default).
-enableColor :: Rp -> Bool -> IO ()
-enableColor (Rp rp) enable
-  = do rp_enable_color rp (cbool enable)
+enableColor :: Bool -> IO ()
+enableColor enable
+  = do rp_enable_color (cbool enable)
 
 -- | Disable or enable duplicate entries in the history (duplicate entries are not allowed by default).
-enableHistoryDuplicates :: Rp -> Bool -> IO ()
-enableHistoryDuplicates (Rp rp) enable
-  = do rp_enable_history_duplicates rp (cbool enable)
+enableHistoryDuplicates :: Bool -> IO ()
+enableHistoryDuplicates enable
+  = do rp_enable_history_duplicates (cbool enable)
 
 
+-- | Disable or enable automatic tab completion after a completion 
+-- to expand as far as possible if the completions are unique. (disabled by default).
+enableAutoTab :: Bool -> IO ()
+enableAutoTab enable
+  = do rp_enable_auto_tab (cbool enable)
+
+-- | Disable or enable preview of a completion selection (enabled by default)
+enableCompletionPreview :: Bool -> IO ()
+enableCompletionPreview enable
+  = do rp_enable_completion_preview (cbool enable)
+
+-- | Set the color used for interface elements:
+-- - info: for example, numbers in the completion menu (`DarkGray` by default)
+-- - diminish: for example, non matching parts in a history search (`LightGray` by default)
+-- - highlight: for example, the matching part in a history search (`White` by default)
+-- Use `ColorNone` to use the default color. (but `ColorDefault` for the default terminal text color!
+setReplineColors :: Color -> Color -> Color -> IO ()
+setReplineColors colorInfo colorDiminish colorHighlight
+  = rp_set_iface_colors (ccolor colorInfo) (ccolor colorDiminish) (ccolor colorHighlight)
 
 ----------------------------------------------------------------------------
 -- Colors
@@ -387,6 +391,7 @@ data Color  = Black
             | Cyan
             | White
             | ColorDefault
+            | ColorNone
             deriving (Show,Eq,Ord)
 
 instance Enum Color where
@@ -408,7 +413,8 @@ instance Enum Color where
         Magenta     -> 95
         Cyan        -> 96
         White       -> 97
-        ColorDefault -> 39
+        ColorDefault-> 39
+        ColorNone   -> 0
 
   toEnum color 
     = case color of
@@ -428,7 +434,8 @@ instance Enum Color where
         95 -> Magenta
         96 -> Cyan
         97 -> White
-        _  -> ColorDefault
+        39 -> ColorDefault
+        _  -> ColorNone
 
 
 ----------------------------------------------------------------------------

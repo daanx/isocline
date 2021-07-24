@@ -21,26 +21,23 @@ int main()
          "- Type 'id' (or 'ex', 'f', or 'h') followed by tab for completion.\n"
          "\n");
 
-  // initialize and get a repline environment         
-  rp_env_t* env = rp_init();
-
-  // enable completion with a completion function
-  rp_set_completer(env, &completer, NULL);
+  // enable completion with a default completion function
+  rp_set_completer(&completer, NULL);
 
   // enable history; use a NULL filename to not persist history to disk
-  rp_set_history(env, "history.txt", -1 /* default entries (= 200) */);
+  rp_set_history("history.txt", -1 /* default entries (= 200) */);
 
   // set a nice color for the prompt and the prompt marker (>)
-  rp_set_prompt_color(env, RP_GREEN);
+  rp_set_prompt_color(RP_GREEN);
 
   // try to auto complete after a completion as long as the completion is unique
-  rp_enable_auto_tab( env, true );
+  rp_enable_auto_tab(true );
 
   //rp_set_iface_colors( env, RP_MAROON, RP_DARKGRAY, RP_YELLOW );
 
   // run until empty input
   char* input;
-  while((input = rp_readline(env,"rεplinε")) != NULL)    // ctrl-d/ctrl-c return NULL (as well as errors)
+  while((input = rp_readline("rεplinε")) != NULL)    // ctrl-d/ctrl-c return NULL (as well as errors)
   {
     bool stop = (strcmp(input,"exit") == 0 || strcmp(input,"") == 0); 
     printf("-----\n"           // echo the input
@@ -50,10 +47,6 @@ int main()
     if (stop) break;
   }
   printf("done\n");
-  
-  // release the repline environment 
-  // (not required as it is otherwise released at the end through an atexit handler)
-  rp_done(env);
   return 0;
 }
 

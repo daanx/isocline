@@ -421,7 +421,7 @@ static void tty_waitc_console(tty_t* tty)
     
     // we need to handle shift up events separately
     if (!inp.Event.KeyEvent.bKeyDown && inp.Event.KeyEvent.wVirtualKeyCode == VK_SHIFT) {
-      modstate &= ~SHIFT_PRESSED;
+      modstate &= (DWORD)~SHIFT_PRESSED;
     }
 
     // ignore AltGr

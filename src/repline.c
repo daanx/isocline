@@ -44,8 +44,9 @@
 
 static char*  rp_getline( alloc_t* mem );
 
-rp_public char* rp_readline(rp_env_t* env, const char* prompt_text) 
+rp_public char* rp_readline(const char* prompt_text) 
 {
+  rp_env_t* env = rp_get_env();
   if (env == NULL) return NULL;
   if (!env->noedit) {
     // terminal editing enabled
@@ -91,63 +92,81 @@ static char* rp_getline(alloc_t* mem)
 // Interface
 //-------------------------------------------------------------
 
-rp_public void rp_set_prompt_marker( rp_env_t* env, const char* prompt_marker ) {
+rp_public void rp_set_prompt_marker( const char* prompt_marker ) {
+  rp_env_t* env = rp_get_env(); if (env==NULL) return;
   if (prompt_marker == NULL) prompt_marker = "> ";
   mem_free(env->mem, env->prompt_marker);
   env->prompt_marker = mem_strdup(env->mem,prompt_marker);  
 }
 
-rp_public void rp_set_prompt_color( rp_env_t* env, rp_color_t color ) {
+rp_public void rp_set_prompt_color( rp_color_t color ) {
+  rp_env_t* env = rp_get_env(); if (env==NULL) return;
   env->prompt_color = color;
 }
 
-rp_public void rp_enable_multiline( rp_env_t* env, bool enable ) {
+rp_public void rp_enable_multiline( bool enable ) {
+  rp_env_t* env = rp_get_env(); if (env==NULL) return;
   env->singleline_only = !enable;
 }
 
-rp_public void rp_enable_beep( rp_env_t* env, bool enable ) {
+rp_public void rp_enable_beep( bool enable ) {
+  rp_env_t* env = rp_get_env(); if (env==NULL) return;
   term_enable_beep(env->term, enable);
 }
 
-rp_public void rp_enable_color( rp_env_t* env, bool enable ) {
+rp_public void rp_enable_color( bool enable ) {
+  rp_env_t* env = rp_get_env(); if (env==NULL) return;
   term_enable_color( env->term, enable );
 }
 
-rp_public void rp_enable_history_duplicates( rp_env_t* env, bool enable ) {
+rp_public void rp_enable_history_duplicates( bool enable ) {
+  rp_env_t* env = rp_get_env(); if (env==NULL) return;
   history_enable_duplicates(env->history, enable);
 }
 
-rp_public void rp_set_history(rp_env_t* env, const char* fname, long max_entries ) {
+rp_public void rp_set_history(const char* fname, long max_entries ) {
+  rp_env_t* env = rp_get_env(); if (env==NULL) return;
   history_load_from(env->history, fname, max_entries );
 }
 
-rp_public void rp_history_remove_last(rp_env_t* env) {
+rp_public void rp_history_remove_last(void) {
+  rp_env_t* env = rp_get_env(); if (env==NULL) return;
   history_remove_last(env->history);
 }
 
-rp_public void rp_history_add( rp_env_t* env, const char* entry ) {
+rp_public void rp_history_add( const char* entry ) {
+  rp_env_t* env = rp_get_env(); if (env==NULL) return;
   history_push( env->history, entry );
 }
 
-rp_public void rp_history_clear(rp_env_t* env) {
+rp_public void rp_history_clear(void) {
+  rp_env_t* env = rp_get_env(); if (env==NULL) return;
   history_clear(env->history);
 }
 
-rp_public void rp_enable_auto_tab( rp_env_t* env, bool enable ) {
+rp_public void rp_enable_auto_tab( bool enable ) {
+  rp_env_t* env = rp_get_env(); if (env==NULL) return;
   env->complete_autotab = enable;
 }
 
-rp_public void rp_enable_completion_preview( rp_env_t* env, bool enable ) {
+rp_public void rp_enable_completion_preview( bool enable ) {
+  rp_env_t* env = rp_get_env(); if (env==NULL) return;
   env->complete_nopreview = !enable;
 }
 
-rp_public void rp_set_iface_colors( rp_env_t* env, rp_color_t color_info, rp_color_t color_diminish, rp_color_t color_highlight ) {
+static void set_iface_colors(rp_env_t* env, rp_color_t color_info, rp_color_t color_diminish, rp_color_t color_highlight) {
   env->color_info = (color_info == RP_COLOR_NONE ? RP_DARKGRAY : color_info);
   env->color_diminish = (color_diminish == RP_COLOR_NONE ? RP_LIGHTGRAY : color_diminish);
   env->color_highlight = (color_highlight == RP_COLOR_NONE ? RP_WHITE : color_highlight);
 }
 
-rp_public void rp_free( rp_env_t* env, void* p ) {
+rp_public void rp_set_iface_colors( rp_color_t color_info, rp_color_t color_diminish, rp_color_t color_highlight ) {
+  rp_env_t* env = rp_get_env(); if (env==NULL) return;
+  set_iface_colors(env, color_info, color_diminish, color_highlight);
+}
+
+rp_public void rp_free( void* p ) {
+  rp_env_t* env = rp_get_env(); if (env==NULL) return;
   mem_free(env->mem, p);
 }
 
@@ -157,17 +176,9 @@ rp_public void rp_free( rp_env_t* env, void* p ) {
 // Initialize
 //-------------------------------------------------------------
 
-// Keep a list of environments to ensure every env is deallocated at the end
-static rp_env_t* envs; // = NULL
+static void rp_atexit(void);
 
-static void rp_atexit(void) {
-  rp_env_t* env;
-  while ( (env = envs) != NULL ) {
-    rp_done(env);  // removes itself from the list
-  }
-}
-
-rp_public void rp_done( rp_env_t* env ) {
+static void rp_env_free(rp_env_t* env) {
   if (env == NULL) return;
   history_save(env->history);
   history_free(env->history);
@@ -179,28 +190,14 @@ rp_public void rp_done( rp_env_t* env ) {
   mem_free(env->mem,env->prompt_marker); 
   env->prompt_marker = NULL;
   
-  // remove from list
-  rp_env_t* prev = NULL;
-  rp_env_t* cur = envs;
-  while( cur != NULL ) {
-    if (cur == env) {
-      if (prev == NULL) envs = env->next;
-                   else prev->next = env->next;
-      break;
-    }
-    else {
-      prev = cur;
-      cur = cur->next;
-    }
-  }
-
   // and deallocate ourselves
   alloc_t* mem = env->mem;  
   mem_free(mem, env);
   mem_free(mem, mem);
 }
 
-rp_public rp_env_t* rp_init_custom_alloc( rp_malloc_fun_t* _malloc, rp_realloc_fun_t* _realloc, rp_free_fun_t* _free )  
+
+static rp_env_t* rp_env_create( rp_malloc_fun_t* _malloc, rp_realloc_fun_t* _realloc, rp_free_fun_t* _free )  
 {
   // allocate
   alloc_t* mem = (alloc_t*)_malloc(sizeof(alloc_t));
@@ -233,19 +230,40 @@ rp_public rp_env_t* rp_init_custom_alloc( rp_malloc_fun_t* _malloc, rp_realloc_f
   env->prompt_marker = NULL;
   env->multiline_eol = '\\';
   env->prompt_color  = RP_COLOR_DEFAULT;
-  rp_set_iface_colors( env, RP_COLOR_NONE, RP_COLOR_NONE, RP_COLOR_NONE);
+  set_iface_colors(env,RP_COLOR_NONE, RP_COLOR_NONE, RP_COLOR_NONE);
   
-  // install atexit handler
-  if (envs==NULL) atexit(&rp_atexit);
-  
-  // push on env list
-  env->next = envs;
-  envs = env; 
   return env;
 }
 
-rp_public rp_env_t* rp_init(void) {
-  return rp_init_custom_alloc( &malloc, &realloc, &free );
+static rp_env_t* rpenv;
+
+
+static void rp_atexit(void) {
+  if (rpenv != NULL) {
+    rp_env_free(rpenv);
+    rpenv = NULL;
+  }
 }
 
+rp_private rp_env_t* rp_get_env(void) {  
+  if (rpenv==NULL) {
+    rpenv = rp_env_create( &malloc, &realloc, &free );
+    if (rpenv != NULL) { atexit( &rp_atexit ); }
+  }
+  return rpenv;
+}
+
+rp_public void rp_init_custom_malloc( rp_malloc_fun_t* _malloc, rp_realloc_fun_t* _realloc, rp_free_fun_t* _free ) {
+  assert(rpenv == NULL);
+  if (rpenv != NULL) {
+    rp_env_free(rpenv);    
+    rpenv = rp_env_create( _malloc, _realloc, _free ); 
+  }
+  else {
+    rpenv = rp_env_create( _malloc, _realloc, _free ); 
+    if (rpenv != NULL) {
+      atexit( &rp_atexit );
+    }
+  }
+}
 

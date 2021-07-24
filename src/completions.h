@@ -18,7 +18,6 @@
 #define RP_MAX_COMPLETIONS_TO_SHOW  (1000)
 #define RP_MAX_COMPLETIONS_TO_TRY   (RP_MAX_COMPLETIONS_TO_SHOW/4)
 
-struct rp_env_s;
 typedef struct completions_s completions_t;
 
 rp_private completions_t* completions_new(alloc_t* mem);

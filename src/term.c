@@ -331,7 +331,7 @@ static void term_erase_line( term_t* term, ssize_t mode ) {
   if (!GetConsoleScreenBufferInfo( term->hcon, &info )) return;
   DWORD written;
   COORD start;
-  DWORD length;
+  ssize_t length;
   if (mode == 2) {
     // to end of line    
     length = info.srWindow.Right - info.dwCursorPosition.X + 1;
@@ -349,8 +349,8 @@ static void term_erase_line( term_t* term, ssize_t mode ) {
     start.Y = info.dwCursorPosition.Y;
     length = info.srWindow.Right + 1;
   }
-  FillConsoleOutputAttribute( term->hcon, 0, length, start, &written );
-  FillConsoleOutputCharacter( term->hcon, ' ', length, start, &written );
+  FillConsoleOutputAttribute( term->hcon, 0, (DWORD)length, start, &written );
+  FillConsoleOutputCharacter( term->hcon, ' ', (DWORD)length, start, &written );
 }
 
 static WORD attr_color[8] = {
@@ -380,10 +380,10 @@ static void term_esc_attr( term_t* term, ssize_t cmd ) {
     attr = (attr & ~0x0F) | attr_color[cmd - 90] | FOREGROUND_INTENSITY;
   }
   else if (cmd >= 40 && cmd <= 47) {  // back ground
-    attr = (attr & ~0xF0) | (attr_color[cmd - 40] << 4);
+    attr = (attr & ~0xF0) | (WORD)(attr_color[cmd - 40] << 4);
   }
   else if (cmd >= 90 && cmd <= 97) {  // back ground bright
-    attr = (attr & ~0xF0) | (attr_color[cmd - 90] << 4) | BACKGROUND_INTENSITY;
+    attr = (attr & ~0xF0u) | (WORD)(attr_color[cmd - 90] << 4) | BACKGROUND_INTENSITY;
   }
   else if (cmd == 39) {  // default fore ground
     attr = (attr & ~0x0F) | (def_attr & 0x0F);
@@ -410,12 +410,14 @@ static void term_esc_attr( term_t* term, ssize_t cmd ) {
 }
 
 static ssize_t esc_param( const char* s, ssize_t len, ssize_t def ) {
+  rp_unused(len);
   ssize_t n = def;
   sscanf(s, "%zd", &n);
   return n;
 }
 
 static void esc_param2( const char* s, ssize_t len, ssize_t* p1, ssize_t* p2, ssize_t def ) {
+  rp_unused(len);
   *p1 = def;
   *p2 = def;
   sscanf(s, "%zd;%zd", p1, p2);  
@@ -551,6 +553,7 @@ static void term_init_raw(term_t* term) {
 #ifdef _WIN32
 
 rp_private bool term_update_dim(term_t* term, tty_t* tty) {
+  rp_unused(tty);
   if (term->hcon == 0) {
     term->hcon = GetConsoleWindow();
   }

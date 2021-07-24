@@ -30,7 +30,7 @@ typedef struct editor_s {
   ssize_t       cur_row;      // current row that has the cursor (0 based, relative to the prompt)
   bool          modified;     // has a modification happened? (used for history navigation for example)  
   bool          is_utf8;      // terminal is utf8
-  int           history_idx;  // current index in the history 
+  ssize_t       history_idx;  // current index in the history 
   editstate_t*  undo;         // undo buffer  
   editstate_t*  redo;         // redo buffer
   const char*   prompt_text;  // text of the prompt before the prompt marker  
@@ -760,7 +760,7 @@ static char* edit_line( rp_env_t* env, const char* prompt_text )
   
   // update history
   history_update(env->history, res);
-  if (res != NULL && (res[0] == 0 || res[1] == 0)) rp_history_remove_last(env);  // no empty or single-char entries
+  if (res != NULL && (res[0] == 0 || res[1] == 0)) rp_history_remove_last();  // no empty or single-char entries
   history_save(env->history);
   return res;
 }

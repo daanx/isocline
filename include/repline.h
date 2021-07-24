@@ -19,17 +19,6 @@ extern "C" {
 // Main interface
 //--------------------------------------------------------------
 
-// The readline abstract environment.
-struct rp_env_s;
-typedef struct rp_env_s rp_env_t;
-
-// Initialize and create a repline environment.
-// See also: `rp_init_custom_alloc`.
-rp_env_t* rp_init(void);
-
-// Release the repline environment. 
-// This is called automatically on program exit for unreleased environments.
-void rp_done(rp_env_t* env);
 
 // Read input from the user using rich editing abilities.
 // The `prompt_text` can be NULL for the default (""). 
@@ -43,7 +32,7 @@ void rp_done(rp_env_t* env);
 // next line without editing capability.
 //
 // See also: `rp_set_prompt_marker`, `rp_set_prompt_color`.
-char* rp_readline(rp_env_t* env, const char* prompt_text);   
+char* rp_readline(const char* prompt_text);   
 
 
 //--------------------------------------------------------------
@@ -51,16 +40,16 @@ char* rp_readline(rp_env_t* env, const char* prompt_text);
 //--------------------------------------------------------------
 
 // Enable history. Use a NULL filename to not persist the history. Use -1 for max_entries to get the default (200).
-void rp_set_history(rp_env_t* env, const char* fname, long max_entries );
+void rp_set_history(const char* fname, long max_entries );
 
 // The last returned input from `rp_readline` is automatically added to the history; this function removes it.
-void rp_history_remove_last(rp_env_t* env);
+void rp_history_remove_last(void);
 
 // Clear the history.
-void rp_history_clear(rp_env_t* env);
+void rp_history_clear(void);
 
 // Add an entry to the history
-void rp_history_add( rp_env_t* env, const char* entry );
+void rp_history_add( const char* entry );
 
 //--------------------------------------------------------------
 // Basic Completion
@@ -78,16 +67,16 @@ typedef struct rp_completion_env_s rp_completion_env_t;
 // the word to be completed without escape characters or quotes.
 typedef void (rp_completer_fun_t)(rp_completion_env_t* cenv, const char* prefix );
 
-// Set the completion handler.
-// There can only be one completion function, setting it again disables the previous one.
+// Set the default completion handler.
+// There can only be one default completion function, setting it again disables the previous one.
 // The initial completer use `rp_complete_filename`.
-void rp_set_completer( rp_env_t* env, rp_completer_fun_t* completer, void* arg);
+void rp_set_completer( rp_completer_fun_t* completer, void* arg);
 
 
 // Read input from the user using rich editing abilities, 
 // using a particular completion funcion for this call only.
 // See also: `rp_readline`, `rp_set_prompt_marker`, `rp_set_prompt_color`.
-char* rp_readline_with_completer(rp_env_t* env, const char* prompt_text, rp_completer_fun_t* completer, void* completer_arg );   
+char* rp_readline_with_completer(const char* prompt_text, rp_completer_fun_t* completer, void* completer_arg );   
 
 
 // In a completion callback, use this function to add completions.
@@ -166,37 +155,37 @@ typedef enum rp_color_e {
 } rp_color_t;
 
 // Set a prompt marker. Pass NULL for the default marker ("> ").
-void rp_set_prompt_marker( rp_env_t* env, const char* prompt_marker );
+void rp_set_prompt_marker( const char* prompt_marker );
 
 // Set the color used for the prompt text and marker.
-void rp_set_prompt_color( rp_env_t* env, rp_color_t color );
+void rp_set_prompt_color( rp_color_t color );
 
 // Disable or enable multi-line input (enabled by default).
-void rp_enable_multiline( rp_env_t* env, bool enable );
+void rp_enable_multiline( bool enable );
 
 // Disable or enable sound (enabled by default).
 // A beep is used when tab cannot find any completion for example.
-void rp_enable_beep( rp_env_t* env, bool enable );
+void rp_enable_beep( bool enable );
 
 // Disable or enable color output (enabled by default).
-void rp_enable_color( rp_env_t* env, bool enable );
+void rp_enable_color( bool enable );
 
 // Disable or enable duplicate entries in the history (disabled by default).
-void rp_enable_history_duplicates( rp_env_t* env, bool enable );
+void rp_enable_history_duplicates( bool enable );
 
 // Disable or enable automatic tab completion after a completion 
 // to expand as far as possible if the completions are unique. (disabled by default).
-void rp_enable_auto_tab( rp_env_t* env, bool enable );
+void rp_enable_auto_tab( bool enable );
 
 // Disable or enable preview of a completion selection (enabled by default)
-void rp_enable_completion_preview( rp_env_t* env, bool enable );
+void rp_enable_completion_preview( bool enable );
 
 // Set the color used for interface elements:
 // - info: for example, numbers in the completion menu (`RP_DARKGRAY` by default)
 // - diminish: for example, non matching parts in a history search (`RP_LIGHTGRAY` by default)
 // - highlight: for example, the matching part in a history search (`RP_WHITE` by default)
 // Use `RP_COLOR_NONE` to use the default color. (but `RP_COLOR_DEFAULT` for the default terminal text color!)
-void rp_set_iface_colors( rp_env_t* env, rp_color_t color_info, rp_color_t color_diminish, rp_color_t color_highlight );
+void rp_set_iface_colors( rp_color_t color_info, rp_color_t color_diminish, rp_color_t color_highlight );
 
 //--------------------------------------------------------------
 // Advanced Completion
@@ -206,9 +195,6 @@ void rp_set_iface_colors( rp_env_t* env, rp_color_t color_info, rp_color_t color
 // Usually completer functions should look at their `prefix` though as transformers
 // like `rp_complete_word` may modify the prefix (for example, unescape it).
 const char* rp_completion_input( rp_completion_env_t* cenv, long* cursor );
-
-// Get the current repline environment.
-rp_env_t* rp_completion_env( rp_completion_env_t* cenv );
 
 // Get the completion argument passed to `rp_set_completer`.
 void* rp_completion_arg( rp_completion_env_t* cenv );
@@ -251,10 +237,11 @@ typedef void* (rp_realloc_fun_t)( void* p, size_t newsize );
 typedef void  (rp_free_fun_t)( void* p );
 
 // Initialize with custom allocation functions.
-rp_env_t* rp_init_custom_alloc( rp_malloc_fun_t* _malloc, rp_realloc_fun_t* _realloc, rp_free_fun_t* _free );
+// This must be called as the first function in a program!
+void rp_init_custom_alloc( rp_malloc_fun_t* _malloc, rp_realloc_fun_t* _realloc, rp_free_fun_t* _free );
 
-
-void rp_free( rp_env_t* env, void* p );
+// Free a potentially custom alloc'd pointer (in particular, the result returned from `rp_readline`)
+void rp_free( void* p );
 
 #ifdef __cplusplus
 }

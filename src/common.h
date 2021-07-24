@@ -72,6 +72,10 @@ rp_private void debug_msg( const char* fmt, ... );
 #define debug_msg(...)
 #endif
 
+struct rp_env_s;
+typedef struct rp_env_s rp_env_t;
+
+
 //-------------------------------------------------------------
 // Allocation
 //-------------------------------------------------------------

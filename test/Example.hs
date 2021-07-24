@@ -5,12 +5,11 @@ import Control.Monad( when )
 
 main :: IO ()
 main
-  = withRepline $ \rp ->
-    do putStrLn welcome
-       setPromptColor rp Green
-       setHistory rp "history.txt" 200
-       setCompleter rp completer
-       interaction rp
+  = do putStrLn welcome
+       setPromptColor Green
+       setHistory "history.txt" 200
+       setDefaultCompleter completer
+       interaction
   where
     welcome = "\nHaskell Repline sample program:\n" ++
               "- Type 'exit' to quit. (or use ctrl+d).\n" ++
@@ -20,13 +19,13 @@ main
               "- Use ctrl+r to search the history.\n" ++
               "\n"
 
-interaction :: Rp -> IO ()
-interaction rp
-  = do s <- readline rp "hαskell"
+interaction :: IO ()
+interaction 
+  = do s <- readline "hαskell"
        putStrLn $ unlines ["--------",s,"--------"]
        if (s == "" || s == "exit") 
          then return ()
-         else interaction rp
+         else interaction
        
        
 completer :: Completions -> String -> IO () 

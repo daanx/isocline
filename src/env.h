@@ -42,8 +42,8 @@ struct rp_env_s {
   rp_color_t      color_highlight;  // highlighted color, for example, the current match in a history search (=RP_DEFAULT_COLOR)
 };
 
-rp_private char*    rp_editline(rp_env_t* env, const char* prompt_text);
+rp_private char*      rp_editline(rp_env_t* env, const char* prompt_text);
 
-
+rp_private rp_env_t*  rp_get_env(void);
 
 #endif // RP_ENV_H
