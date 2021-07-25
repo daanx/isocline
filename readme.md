@@ -118,9 +118,10 @@ These are also shown when pressing `F1` on a Repline prompt.
 | `enter`,`space`   | use the currently selected completion |
 | `1` - `9`         | use completion N from the menu |
 | `tab          `   | select the next completion |
+| `shift-tab    `   | select the previous completion |
 | `left`,`right`,`up`,`down`  | select completion N in the menu |
 | `esc          `   | exit menu without completing |
-| `pgdn`,`shift-tab`   | show all further possible completions |
+| `pgdn`,`^enter`,`^j`   | show all further possible completions |
   
 
 | Incremental history search        |                                                 |
