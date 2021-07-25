@@ -52,12 +52,90 @@ $ ./test/Example
 
 # Editing with Repline
 
-Repline tries to 
+Repline tries to be mostly compatible with standard [GNU Readline].
+
+### Overview:
+```apl
+       home/ctrl-a      cursor     end/ctrl-e
+         ┌────────────────┼────────────────┐    (navigate)
+         │    ctrl-left   │   ctrl-right   │
+         │        ┌───────┼───────┐        │    ctrl+r   : search history
+         ▼        ▼       ▼       ▼        ▼    tab      : complete word
+  prompt> it is the quintessential language     shift-tab: insert new line
+         ▲        ▲               ▲        ▲    esc      : delete line, done
+         │        └───────────────┘        │    ctrl+z   : undo
+         │   alt-backsp         alt-d      │
+         └─────────────────────────────────┘    (delete)
+       ctrl-u                          ctrl-k
+```
+
+### Key Bindings
+
+These are also shown when pressing `F1` on a Repline prompt.
+
+| Navigation        |                                                 |
+|-------------------|-------------------------------------------------|
+| `left`,`^b`       | go one character to the left |
+| `right`,`^f   `   | go one character to the right |
+| `up           `   | go one row up, or back in the history |
+| `down         `   | go one row down, or forward in the history |
+| `^left        `   | go to the start of the previous word |
+| `^right       `   | go to the end the current word |
+| `home`,`^a    `   | go to the start of the current line |
+| `end`,`^e     `   | go to the end of the current line |
+| `pgup`,`^home `   | go to the start of the current input |
+| `pgdn`,`^end  `   | go to the end of the current input |
+| `^p           `   | go back in the history |
+| `^n           `   | go forward in the history |
+| `^r`,`^s      `   | search the history starting with the current word |
+  
+
+| Deletion        |                                                 |
+|-------------------|-------------------------------------------------|
+| `del`,`^d     `   | delete the current character |
+| `backsp`,`^h  `   | delete the previous character |
+| `^w           `   | delete to preceding white space |
+| `alt-backsp   `   | delete to the start of the current word |
+| `alt-d        `   | delete to the end of the current word |
+| `^u           `   | delete to the start of the current line |
+| `^k           `   | delete to the end of the current line |
+| `esc          `   | delete the current line, or done with empty input |
+  
+
+| Editing           |                                                 |
+|-------------------|-------------------------------------------------|
+| `enter        `   | accept current input |
+| `^enter`,`^j`,`shift-tab` | create a new line for multi-line input |
+| `^l           `   | clear screen |
+| `^t           `   | swap with previous character (move character backward) |
+| `^z`,`^_      `   | undo |
+| `^y           `   | redo |
+| `tab          `   | try to complete the current input |
+  
+
+| Completion menu   |                                                 |
+|-------------------|-------------------------------------------------|
+| `enter`,`space`   | use the currently selected completion |
+| `1` - `9`         | use completion N from the menu |
+| `tab          `   | select the next completion |
+| cursor keys       | select completion N in the menu |
+| `esc          `   | exit menu without completing |
+| `pgdn,        `   | |
+| `shift-tab    `   | show all further possible completions |
+  
+
+| Incremental history search        |                                                 |
+|-------------------|-------------------------------------------------|
+| `enter        `   | use the currently found history entry |
+| `backsp`,`^z  `   | go back to the previous match (undo) |
+| `tab`,`^r     `   | find the next match |
+| `shift-tab`,`^s`  | find an earlier match |
+| `esc          `   | exit search |
 
 
 # Build the Library
 
-## CMake
+##- CMake
 
 Clone the repository and run cmake to build a static library (`.a`/`.lib`):
 ```
@@ -77,7 +155,7 @@ $ ./example
 See the Haskell [readme][Haskell] for instructions to build the Haskell library.
 
 
-## As a Single Source
+##- As a Single Source
 
 Copy the sources (in `include` and `src`) into your project, or add the library as a [submodule]:
 ```
@@ -93,11 +171,12 @@ portable (across Linux, macOS, and Windows), unicode support,
 a BSD-style license, and good functionality for completion and multi-line editing.
 
 Some other libraries that we considered:
-[GNU readline](https://tiswww.case.edu/php/chet/readline/rltop.html),
+[GNU readline],
 [editline](https://github.com/troglobit/editline),
 [linenoise](https://github.com/antirez/linenoise),
 [replxx](https://github.com/AmokHuginnsson/replxx).
 
+[GNU readline]: https://tiswww.case.edu/php/chet/readline/rltop.html
 [koka]: http://www.koka-lang.org
 [submodule]: https://git-scm.com/book/en/v2/Git-Tools-Submodules
 [Haskell]: https://github.com/daanx/repline/tree/main/haskell
