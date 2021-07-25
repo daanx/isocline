@@ -749,3 +749,14 @@ rp_private int rp_stricmp(const char* s1, const char* s2) {
   assert(s1[i] == 0);
   return (s2[i] == 0 ? 0 : -1);
 }
+
+
+// parse a decimal (leave pi unchanged on error)
+rp_private bool rp_atoz(const char* s, ssize_t* pi) {
+  return (sscanf(s, "%zd", pi) == 1);
+}
+
+// parse two decimals separated by a semicolon 
+rp_private bool rp_atoz2(const char* s, ssize_t* pi, ssize_t* pj) {
+  return (sscanf(s, "%zd;%zd", pi, pj) == 2);
+}

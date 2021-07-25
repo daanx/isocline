@@ -70,6 +70,10 @@ rp_private char rp_tolower(char c);
 // ascii compare case-insensitive
 rp_private int rp_stricmp(const char* s1, const char* s2);
 
+// parse a decimal 
+rp_private bool rp_atoz(const char* s, ssize_t* i);
+// parse two decimals separated by a semicolon
+rp_private bool rp_atoz2(const char* s, ssize_t* i, ssize_t* j);
 
 // row/column info
 typedef struct rowcol_s {

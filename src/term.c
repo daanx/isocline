@@ -232,9 +232,9 @@ rp_private term_t* term_new(alloc_t* mem, tty_t* tty, bool nocolor, bool silent,
   
   // read COLUMS/LINES from the environment for a better initial guess.
   const char* env_columns = getenv("COLUMNS");
-  if (env_columns != NULL) { sscanf(env_columns, "%zd", &term->width); }
+  if (env_columns != NULL) { rp_atoz(env_columns, &term->width); }
   const char* env_lines = getenv("LINES");
-  if (env_lines != NULL)   { sscanf(env_lines, "%zd", &term->height); }
+  if (env_lines != NULL)   { rp_atoz(env_lines, &term->height); }
   
   // initialize raw terminal output and terminal dimensions
   term_init_raw(term);
@@ -288,7 +288,7 @@ static bool term_write_console(term_t* term, const char* s, ssize_t n) {
 static bool term_write_esc(term_t* term, const char* s, ssize_t len) {
   if (term->nocolor && s[1]=='[' && s[len-1] == 'm') {
     ssize_t n = 1;
-    sscanf(s + 2, "%zd", &n);
+    rp_atoz(s + 2, &n);
     if ((n >= 30 && n <= 49) || (n >= 90 && n <= 109)) {
       // ignore color
       return true;
@@ -509,7 +509,7 @@ static ssize_t esc_param( const char* s, ssize_t len, ssize_t def ) {
   rp_unused(len);
   if (*s == '?') s++;
   ssize_t n = def;
-  sscanf(s, "%zd", &n);
+  rp_atoz(s, &n);
   return n;
 }
 
@@ -518,7 +518,7 @@ static void esc_param2( const char* s, ssize_t len, ssize_t* p1, ssize_t* p2, ss
   if (*s == '?') s++; 
   *p1 = def;
   *p2 = def;
-  sscanf(s, "%zd;%zd", p1, p2);  
+  rp_atoz2(s, p1, p2);  
 }
 
 static void term_write_esc( term_t* term, const char* s, ssize_t len ) {
@@ -699,7 +699,7 @@ static void term_init_raw(term_t* term) {
 
 #if !defined(_WIN32)
 
-static bool term_get_cursor_pos( term_t* term, tty_t* tty, int* row, int* col) 
+static bool term_get_cursor_pos( term_t* term, tty_t* tty, ssize_t* row, ssize_t* col) 
 {
   // send request
   if (!term_write(term, RP_CSI "6n")) return false;
@@ -717,16 +717,16 @@ static bool term_get_cursor_pos( term_t* term, tty_t* tty, int* row, int* col)
     len++;    
   }
   buf[len] = 0;
-  return (sscanf(buf,"%d;%d",row,col) == 2);
+  return rp_atoz2(buf,row,col);
 }
 
-static void term_set_cursor_pos( term_t* term, int row, int col ) {
-  term_writef( term, 128, RP_CSI "%d;%dH", row, col );
+static void term_set_cursor_pos( term_t* term, ssize_t row, ssize_t col ) {
+  term_writef( term, 128, RP_CSI "%zd;%zdH", row, col );
 }
 
 rp_private bool term_update_dim(term_t* term, tty_t* tty) {
-  int cols = 0;
-  int rows = 0;
+  ssize_t cols = 0;
+  ssize_t rows = 0;
   struct winsize ws;
   if (ioctl(1, TIOCGWINSZ, &ws) >= 0) {
     // ioctl succeeded
@@ -736,12 +736,12 @@ rp_private bool term_update_dim(term_t* term, tty_t* tty) {
   else {
     // determine width by querying the cursor position
     debug_msg("term: ioctl term-size failed: %d,%d\n", ws.ws_row, ws.ws_col);
-    int col0 = 0;
-    int row0 = 0;
+    ssize_t col0 = 0;
+    ssize_t row0 = 0;
     if (term_get_cursor_pos(term,tty,&row0,&col0)) {
       term_set_cursor_pos(term,999,999);
-      int col1 = 0;
-      int row1 = 0;
+      ssize_t col1 = 0;
+      ssize_t row1 = 0;
       if (term_get_cursor_pos(term,tty,&row1,&col1)) {
         cols = col1;
         rows = row1;
