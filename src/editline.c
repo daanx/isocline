@@ -135,15 +135,17 @@ static bool edit_pos_is_at_row_end( rp_env_t* env, editor_t* eb ) {
 
 static void edit_write_prompt( rp_env_t* env, editor_t* eb, ssize_t row, bool in_extra ) {
   if (!in_extra) { 
-    term_color( env->term, env->prompt_color );
     if (row==0) {
+      term_color( env->term, env->prompt_color );
       term_write(env->term, eb->prompt_text);
+      term_attr_reset( env->term );    
     }
     else {
       ssize_t w = str_column_width(eb->prompt_text,eb->is_utf8);
-      term_writef(env->term, w, "%*c", w, ' ' );
+      if (w > 0) {
+        term_writef(env->term, w, "%*c", w, ' ' );
+      }
     }
-    term_attr_reset( env->term );
     term_color( env->term, env->prompt_color );
     term_write( env->term, (env->prompt_marker == NULL ? "> " : env->prompt_marker )); 
     term_attr_reset( env->term );
