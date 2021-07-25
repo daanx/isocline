@@ -9,6 +9,7 @@ main
        setPromptColor Green
        setHistory "history.txt" 200
        setDefaultCompleter completer
+       enableAutoTab True
        interaction
   where
     welcome = "\nHaskell Repline sample program:\n" ++
@@ -36,6 +37,7 @@ completer compl input
 wordCompleter :: Completions-> String -> IO ()   
 wordCompleter compl input0
   = do let input = map toLower input0
+       addCompletionsFor compl input ["print","println","prints","printsln","prompt"]
        when (input `isPrefixOf` "hello repline") $
          do helloCompletions 1 100000
        when (input == "id") $
@@ -52,3 +54,4 @@ wordCompleter compl input0
           then return () 
           else do continue <- addCompletion compl "" ("hello repline " ++ show i)
                   helloCompletions (if continue then (i+1) else max) max
+

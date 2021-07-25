@@ -501,6 +501,7 @@ static void term_esc_attr( term_t* term, ssize_t cmd ) {
 
 static ssize_t esc_param( const char* s, ssize_t len, ssize_t def ) {
   rp_unused(len);
+  if (*s == '?') s++;
   ssize_t n = def;
   sscanf(s, "%zd", &n);
   return n;
@@ -508,6 +509,7 @@ static ssize_t esc_param( const char* s, ssize_t len, ssize_t def ) {
 
 static void esc_param2( const char* s, ssize_t len, ssize_t* p1, ssize_t* p2, ssize_t def ) {
   rp_unused(len);
+  if (*s == '?') s++; 
   *p1 = def;
   *p2 = def;
   sscanf(s, "%zd;%zd", p1, p2);  
@@ -576,9 +578,18 @@ static void term_write_esc( term_t* term, const char* s, ssize_t len ) {
     case 'u':
       term_cursor_restore(term);
       break;
+    // otherwise ignore
     }
   }
-  // otherwise ignore
+  else if (s[1] == '7') {
+    term_cursor_save(term);
+  }
+  else if (s[1] == '8') {
+    term_cursor_restore(term);
+  }
+  else {
+    // otherwise ignore
+  }
 }
 
 static bool term_write_direct(term_t* term, const char* s, ssize_t len ) {

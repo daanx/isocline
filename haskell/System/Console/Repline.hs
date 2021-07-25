@@ -53,6 +53,7 @@ module System.Console.Repline(
       -- * Completion
       Completions,      
       addCompletion,
+      addCompletionsFor,
       completeFileName,
       completeWord,
       completeQuotedWord,
@@ -78,7 +79,7 @@ module System.Console.Repline(
     ) where
 
 
-import Data.List( intersperse )
+import Data.List( intersperse, isPrefixOf )
 import Control.Exception( bracket )
 import Foreign.C.String( CString, peekCString, withCString, castCharToCChar )
 import Foreign.Ptr
@@ -230,6 +231,16 @@ addCompletion (Completions rpc) display completion
     do cbool <- rp_add_completion rpc cdisplay ccompletion
        return (fromEnum cbool /= 0)
     
+-- | @addCompletionsFor compl input candidates@: add completions for any candidate
+-- string in @candidates@ for which @input@ is a prefix.
+addCompletionsFor :: Completions -> String -> [String] -> IO Bool
+addCompletionsFor compl input candidates
+  = do results <- mapM add (filter (input `isPrefixOf`) candidates)
+       return (and results)
+  where
+    add completion 
+      = addCompletion compl completion completion
+
 -- | @completeFileName compls input dirSep roots extensions@: 
 -- Complete filenames with the given @input@, a possible directory separator @dirSep@
 -- used to complete directories, a list of root folders @roots@  to search from

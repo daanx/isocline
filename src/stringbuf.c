@@ -132,29 +132,37 @@ rp_private ssize_t str_prev_ofs( const char* s, ssize_t pos, bool is_utf8, ssize
 
 // skip a CSI sequence
 rp_private bool skip_csi_esc( const char* s, ssize_t len, ssize_t* esclen ) {  
-  // <https://en.wikipedia.org/wiki/ANSI_escape_code#CSI_(Control_Sequence_Introducer)_sequences>
   if (esclen != NULL) *esclen = 0;
-  if (s == NULL || len < 2|| s[0] != '\x1B' || s[1] != '[') return false;
-  ssize_t n = 2;
-  bool intermediate = false;
-  while( len > n ) {
-    char c = s[n];
-    if (c >= 0x30 && c <= 0x3F) {       // parameter bytes: 0–9:;<=>?
-      if (intermediate) break;          // cannot follow intermediate bytes
-      n++;
+  if (s == NULL || len < 2 || s[0] != '\x1B') return false;
+  if (s[1] == '[' && s[1] == '[') {
+    // <https://en.wikipedia.org/wiki/ANSI_escape_code#CSI_(Control_Sequence_Introducer)_sequences>
+    // CSI or OSC
+    ssize_t n = 2;
+    bool intermediate = false;
+    while (len > n) {
+      char c = s[n];
+      if (c >= 0x30 && c <= 0x3F) {       // parameter bytes: 0–9:;<=>?
+        if (intermediate) break;          // cannot follow intermediate bytes
+        n++;
+      }
+      else if (c >= 0x20 && c <= 0x2F) {  // intermediate bytes: ' ',!"#$%&'()*+,-./
+        intermediate = true;
+        n++;
+      }
+      else if (c >= 0x40 && c <= 0x7E) {  // terminating byte: @A–Z[\]^_`a–z{|}~
+        n++;
+        if (esclen != NULL) *esclen = n;
+        return true;
+      }
+      else {
+        break; // illegal character for an escape sequence.
+      }
     }
-    else if (c >= 0x20 && c <= 0x2F) {  // intermediate bytes: ' ',!"#$%&'()*+,-./
-      intermediate = true;
-      n++;
-    }
-    else if (c >= 0x40 && c <= 0x7E) {  // terminating byte: @A–Z[\]^_`a–z{|}~
-      n++;
-      if (esclen != NULL) *esclen = n;
-      return true;
-    }
-    else {
-      break; // illegal character for an escape sequence.
-    }
+  }
+  else {
+    // assume single character escape code (like ESC 7)
+    *esclen = 2;
+    return true;
   }
   return false;
 }
