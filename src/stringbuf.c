@@ -734,3 +734,18 @@ rp_public bool rp_istarts_with( const char* s, const char* prefix ) {
   }
   return (prefix[i] == 0);
 }
+
+rp_private int rp_stricmp(const char* s1, const char* s2) {
+  if (s1 == NULL && s2 == NULL) return 0;
+  if (s1 == NULL) return -1;
+  if (s2 == NULL) return 1;
+  ssize_t i;
+  for (i = 0; s1[i] != 0; i++) {  // note: if s2[i] == 0 the loop will stop as c1 != c2
+    char c1 = rp_tolower(s1[i]);
+    char c2 = rp_tolower(s2[i]);
+    if (c1 < c2) return -1;
+    if (c1 > c2) return 1;
+  }
+  assert(s1[i] == 0);
+  return (s2[i] == 0 ? 0 : -1);
+}

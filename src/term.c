@@ -637,6 +637,8 @@ static bool term_write_direct(term_t* term, const char* s, ssize_t len ) {
 
 #if !defined(_WIN32)
 
+// On non-windows, the terminal is set in raw mode by the tty.
+
 rp_private void term_start_raw(term_t* term) {
   if (term->raw_enabled) return; 
   term->raw_enabled = true;  

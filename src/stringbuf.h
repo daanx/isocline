@@ -67,6 +67,9 @@ rp_private ssize_t sbuf_find_ws_word_end( stringbuf_t* sbuf, ssize_t pos );
 // ascii tolower
 rp_private char rp_tolower(char c);
 
+// ascii compare case-insensitive
+rp_private int rp_stricmp(const char* s1, const char* s2);
+
 
 // row/column info
 typedef struct rowcol_s {

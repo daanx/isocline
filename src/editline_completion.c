@@ -274,6 +274,7 @@ static void edit_generate_completions(rp_env_t* env, editor_t* eb, bool autotab)
     if (!more_available) { 
       edit_complete_longest_prefix(env,eb);
     }    
+    completions_sort(env->completions);
     edit_completion_menu( env, eb, more_available);    
   }
 }
