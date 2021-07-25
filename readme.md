@@ -170,7 +170,7 @@ This required: pure C (no dependency on a C++ runtime or other libraries),
 portable (across Linux, macOS, and Windows), unicode support, 
 a BSD-style license, and good functionality for completion and multi-line editing.
 
-Some other libraries that we considered:
+Some other excellent libraries that we considered:
 [GNU readline],
 [editline](https://github.com/troglobit/editline),
 [linenoise](https://github.com/antirez/linenoise),
