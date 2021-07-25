@@ -222,7 +222,7 @@ static bool prim_add_completion(rp_env_t* env, void* funenv, const char* display
   return completions_add(env->completions, display, replacement, delete_before, delete_after);
 }
 
-rp_public void rp_set_completer(rp_completer_fun_t* completer, void* arg) {
+rp_public void rp_set_default_completer(rp_completer_fun_t* completer, void* arg) {
   rp_env_t* env = rp_get_env(); if (env == NULL) return;
   completions_set_completer(env->completions, completer, arg);
 }
@@ -235,9 +235,9 @@ rp_public char* rp_readline_with_completer(const char* prompt_text,
   rp_completer_fun_t* prev_completer;
   void* prev_completer_arg;
   completions_get_completer(env->completions, &prev_completer, &prev_completer_arg);
-  rp_set_completer( completer, completer_arg);
+  rp_set_default_completer( completer, completer_arg);
   char* res = rp_readline( prompt_text );
-  rp_set_completer( prev_completer, prev_completer_arg);
+  rp_set_default_completer( prev_completer, prev_completer_arg);
   return res;
 }
 

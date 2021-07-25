@@ -70,7 +70,7 @@ typedef void (rp_completer_fun_t)(rp_completion_env_t* cenv, const char* prefix 
 // Set the default completion handler.
 // There can only be one default completion function, setting it again disables the previous one.
 // The initial completer use `rp_complete_filename`.
-void rp_set_completer( rp_completer_fun_t* completer, void* arg);
+void rp_set_default_completer( rp_completer_fun_t* completer, void* arg);
 
 
 // Read input from the user using rich editing abilities, 

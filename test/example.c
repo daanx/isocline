@@ -22,7 +22,7 @@ int main()
          "\n");
 
   // enable completion with a default completion function
-  rp_set_completer(&completer, NULL);
+  rp_set_default_completer(&completer, NULL);
 
   // enable history; use a NULL filename to not persist history to disk
   rp_set_history("history.txt", -1 /* default entries (= 200) */);

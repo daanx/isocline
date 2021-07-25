@@ -191,7 +191,7 @@ historyAdd entry
 -- Completion
 ----------------------------------------------------------------------------
 
-foreign import ccall rp_set_completer         :: FunPtr CCompleterFun -> IO ()
+foreign import ccall rp_set_default_completer :: FunPtr CCompleterFun -> IO ()
 foreign import ccall "wrapper" rp_make_completer :: CCompleterFun -> IO (FunPtr CCompleterFun)
 foreign import ccall rp_add_completion        :: Ptr RpCompletions -> CString -> CString -> IO CChar
 foreign import ccall rp_complete_filename     :: Ptr RpCompletions -> CString -> CChar -> CString -> CString -> IO ()
@@ -207,7 +207,7 @@ foreign import ccall rp_complete_quoted_word  :: Ptr RpCompletions -> CString ->
 setDefaultCompleter :: (Completions -> String -> IO ()) -> IO ()
 setDefaultCompleter completer 
   = do ccompleter <- makeCCompleter completer
-       rp_set_completer ccompleter
+       rp_set_default_completer ccompleter
 
 makeCCompleter :: CompleterFun -> IO (FunPtr CCompleterFun)
 makeCCompleter completer
