@@ -71,7 +71,7 @@ Repline tries to be mostly compatible with standard [GNU Readline].
 
 ### Key Bindings
 
-These are also shown when pressing `F1` on a Repline prompt.
+These are also shown when pressing `F1` on a Repline prompt. We use `^` as a shorthand for `ctrl-`:
 
 | Navigation        |                                                 |
 |-------------------|-------------------------------------------------|
