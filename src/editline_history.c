@@ -106,7 +106,7 @@ static void edit_history_search(rp_env_t* env, editor_t* eb, char* initial ) {
     const ssize_t initial_len = rp_strlen(initial);
     ssize_t ipos = 0;
     while( ipos < initial_len ) {
-      ssize_t next = str_next_ofs( initial, initial_len, ipos, eb->is_utf8, NULL );
+      ssize_t next = str_next_ofs( initial, initial_len, ipos, NULL );
       if (next < 0) break;
       hsearch_push( eb->mem, &hs, hidx, match_pos, match_len, true);
       char c = initial[ipos + next];  // terminate temporarily

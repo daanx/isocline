@@ -73,7 +73,7 @@ rp_public char* rp_readline(const char* prompt_text)
 static char* rp_getline(alloc_t* mem)
 {  
   // read until eof or newline
-  stringbuf_t* sb = sbuf_new(mem,true);
+  stringbuf_t* sb = sbuf_new(mem);
   int c;
   while (true) {
     c = fgetc(stdin);
@@ -230,8 +230,8 @@ static rp_env_t* rp_env_create( rp_malloc_fun_t* _malloc, rp_realloc_fun_t* _rea
   env->term        = term_new(env->mem, env->tty, false, false, -1 );  
   env->history     = history_new(env->mem);
   env->completions = completions_new(env->mem);
-  env->input       = sbuf_new(env->mem, env->tty==NULL || tty_is_utf8(env->tty));
-  env->extra       = sbuf_new(env->mem, env->tty==NULL || tty_is_utf8(env->tty));
+  env->input       = sbuf_new(env->mem);
+  env->extra       = sbuf_new(env->mem);
 
   if (env->extra == NULL || env->input == NULL 
       || env->tty == NULL || env->term==NULL

@@ -49,14 +49,14 @@ static void editor_append_completion(rp_env_t* env, editor_t* eb, ssize_t idx, s
   }
   else {
     // fit to width
-    const char* sc = str_skip_until_fit( display, width, eb->is_utf8);
+    const char* sc = str_skip_until_fit( display, width);
     if (sc != display) {
       sbuf_append( eb->extra, "...");
-      sc = str_skip_until_fit( display, width - 3, eb->is_utf8);
+      sc = str_skip_until_fit( display, width - 3);
     }
     sbuf_append( eb->extra, sc);
     // fill out with spaces
-    ssize_t n = width - str_column_width(sc, eb->is_utf8);
+    ssize_t n = width - str_column_width(sc);
     while( n-- > 0 ) { sbuf_append( eb->extra," "); }  
   }
 }
@@ -84,12 +84,12 @@ static void editor_append_completion3(rp_env_t* env, editor_t* eb, ssize_t idx1,
   editor_append_completion(env, eb, idx3, RP_DISPLAY3_COL, true, (idx3 == selected) );
 }
 
-static ssize_t edit_completions_max_width( rp_env_t* env, editor_t* eb, ssize_t count ) {
+static ssize_t edit_completions_max_width( rp_env_t* env, ssize_t count ) {
   ssize_t max_width = 0;
   for( ssize_t i = 0; i < count; i++) {
     const char* display = completions_get_display(env->completions,i);
     if (display != NULL) {
-      ssize_t w = str_column_width( display, eb->is_utf8);
+      ssize_t w = str_column_width( display);
       if (w > max_width) max_width = w;
     }
   }
@@ -108,7 +108,7 @@ again:
   // show first 9 (or 8) completions
   sbuf_clear(eb->extra);
   ssize_t twidth = term_get_width(env->term);
-  if (count > 3 && twidth > RP_DISPLAY3_WIDTH && edit_completions_max_width(env, eb, 9) <= RP_DISPLAY3_MAX) {
+  if (count > 3 && twidth > RP_DISPLAY3_WIDTH && edit_completions_max_width(env, 9) <= RP_DISPLAY3_MAX) {
     // display as a 3 column block
     count_displayed = (count > 9 ? 9 : count);
     columns = 3;
@@ -118,7 +118,7 @@ again:
       editor_append_completion3(env, eb, rw, percolumn+rw, (2*percolumn)+rw, selected);
     }
   }
-  else if (count > 4 && twidth > RP_DISPLAY2_WIDTH && edit_completions_max_width(env, eb, 8) <= RP_DISPLAY2_MAX) {
+  else if (count > 4 && twidth > RP_DISPLAY2_WIDTH && edit_completions_max_width(env, 8) <= RP_DISPLAY2_MAX) {
     // display as a 2 column block if some entries are too wide for three columns
     count_displayed = (count > 8 ? 8 : count);
     columns = 2;

@@ -113,9 +113,9 @@ static void edit_get_prompt_width( rp_env_t* env, editor_t* eb, bool in_extra, s
     *cpromptw = 0;
   }
   else {
-    ssize_t textw = str_column_width(eb->prompt_text, eb->is_utf8);
-    ssize_t markerw = str_column_width(env->prompt_marker, eb->is_utf8);
-    ssize_t cmarkerw = str_column_width(env->cprompt_marker, eb->is_utf8);
+    ssize_t textw = str_column_width(eb->prompt_text);
+    ssize_t markerw = str_column_width(env->prompt_marker);
+    ssize_t cmarkerw = str_column_width(env->cprompt_marker);
     *promptw = markerw + textw;
     *cpromptw = (env->no_multiline_indent || *promptw < cmarkerw ? cmarkerw : *promptw);
   }
@@ -152,9 +152,9 @@ static void edit_write_prompt( rp_env_t* env, editor_t* eb, ssize_t row, bool in
   }
   else if (!env->no_multiline_indent) {
     // multiline continuation indentation
-    ssize_t textw = str_column_width(eb->prompt_text, eb->is_utf8);
-    ssize_t markerw = str_column_width(env->prompt_marker, eb->is_utf8);
-    ssize_t cmarkerw = str_column_width(env->cprompt_marker, eb->is_utf8);      
+    ssize_t textw = str_column_width(eb->prompt_text );
+    ssize_t markerw = str_column_width(env->prompt_marker);
+    ssize_t cmarkerw = str_column_width(env->cprompt_marker);      
     if (cmarkerw < markerw + textw) {
       term_write_repeat(env->term, " ", markerw + textw - cmarkerw );
     }
@@ -180,9 +180,9 @@ typedef struct refresh_info_s {
 static bool edit_refresh_rows_iter(
     const char* s,
     ssize_t row, ssize_t row_start, ssize_t row_len, 
-    bool is_wrap, bool is_utf8, const void* arg, void* res)
+    bool is_wrap, const void* arg, void* res)
 {
-  rp_unused(is_utf8); rp_unused(res);
+  rp_unused(res);
   const refresh_info_t* info = (const refresh_info_t*)(arg);
   term_t* term = info->env->term;
 

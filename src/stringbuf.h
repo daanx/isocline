@@ -21,7 +21,7 @@
 struct stringbuf_s;
 typedef struct stringbuf_s stringbuf_t;
 
-rp_private stringbuf_t*  sbuf_new( alloc_t* mem, bool is_utf8 );
+rp_private stringbuf_t*  sbuf_new( alloc_t* mem );
 rp_private void    sbuf_free( stringbuf_t* sbuf );
 rp_private char*   sbuf_free_dup(stringbuf_t* sbuf);
 rp_private ssize_t sbuf_len(const stringbuf_t* s);
@@ -96,7 +96,7 @@ rp_private ssize_t sbuf_get_rc_at_pos( stringbuf_t* sbuf, ssize_t termw, ssize_t
 // row iteration
 typedef bool (row_fun_t)(const char* s,
                           ssize_t row, ssize_t row_start, ssize_t row_len, 
-                          bool is_wrap, bool is_utf8, const void* arg, void* res);
+                          bool is_wrap, const void* arg, void* res);
 
 rp_private ssize_t sbuf_for_each_row( stringbuf_t* sbuf, ssize_t termw, ssize_t promptw, ssize_t cpromptw, row_fun_t* fun, void* arg, void* res );
 
@@ -108,10 +108,10 @@ rp_private ssize_t sbuf_for_each_row( stringbuf_t* sbuf, ssize_t termw, ssize_t 
 // skip a single CSI sequence (ESC [ ...)
 rp_private bool    skip_csi_esc( const char* s, ssize_t len, ssize_t* esclen ); // used in term.c
 
-rp_private ssize_t str_column_width( const char* s, bool is_utf8 );
-rp_private ssize_t str_prev_ofs( const char* s, ssize_t pos, bool is_utf8, ssize_t* cwidth );
-rp_private ssize_t str_next_ofs( const char* s, ssize_t len, ssize_t pos, bool is_utf8, ssize_t* cwidth );
-rp_private const char* str_skip_until_fit( const char* s, ssize_t max_width, bool is_utf8);
+rp_private ssize_t str_column_width( const char* s );
+rp_private ssize_t str_prev_ofs( const char* s, ssize_t pos, ssize_t* cwidth );
+rp_private ssize_t str_next_ofs( const char* s, ssize_t len, ssize_t pos, ssize_t* cwidth );
+rp_private const char* str_skip_until_fit( const char* s, ssize_t max_width);
 
 
 #endif // RP_STRINGBUF_H

@@ -94,7 +94,7 @@ rp_public void rp_complete_quoted_word( rp_completion_env_t* cenv, const char* p
       else if (strchr(non_word_chars, prefix[pos]) != NULL) {
         qpos_close = -1;
       }
-      ssize_t ofs = str_next_ofs( prefix, len, pos, true, NULL );
+      ssize_t ofs = str_next_ofs( prefix, len, pos, NULL );
       if (ofs <= 0) break;
       pos += ofs;
     }    
@@ -114,7 +114,7 @@ rp_public void rp_complete_quoted_word( rp_completion_env_t* cenv, const char* p
     pos = len;
     while(pos > 0) {
       // go back one code point
-      ssize_t ofs = str_prev_ofs(prefix, pos, true, NULL );
+      ssize_t ofs = str_prev_ofs(prefix, pos, NULL );
       if (ofs <= 0) break;
       if (strchr(non_word_chars, prefix[pos - ofs]) != NULL) {
         // non word char, break if it is not escaped
@@ -137,7 +137,7 @@ rp_public void rp_complete_quoted_word( rp_completion_env_t* cenv, const char* p
     ssize_t wlen = len - pos;
     ssize_t wpos = 0;
     while( wpos < wlen ) {
-      ssize_t ofs = str_next_ofs(word, wlen, wpos, true, NULL);
+      ssize_t ofs = str_next_ofs(word, wlen, wpos, NULL);
       if (ofs <= 0) break;
       if (word[wpos] == escape_char && word[wpos+1] != 0 && strchr(non_word_chars, word[wpos+1]) != NULL) {
         rp_memmove(word + wpos, word + wpos + 1, wlen - wpos /* including 0 */);
@@ -151,7 +151,7 @@ rp_public void rp_complete_quoted_word( rp_completion_env_t* cenv, const char* p
     ssize_t wlen = len - pos;
     ssize_t wpos = 0;
     while (wpos < wlen) {
-      ssize_t ofs = str_next_ofs(word, wlen, wpos, true, NULL);
+      ssize_t ofs = str_next_ofs(word, wlen, wpos, NULL);
       if (ofs <= 0) break;
       if (word[wpos] == escape_char && word[wpos+1] == quote) {
         word[wpos+1] = escape_char;
@@ -170,7 +170,7 @@ rp_public void rp_complete_quoted_word( rp_completion_env_t* cenv, const char* p
   wenv.delete_before_adjust = (long)(len - pos);
   wenv.prev_complete  = cenv->complete;
   wenv.prev_env       =  cenv->env;
-  wenv.sbuf = sbuf_new(cenv->env->mem, true);
+  wenv.sbuf = sbuf_new(cenv->env->mem);
   if (wenv.sbuf == NULL) { mem_free(cenv->env->mem, word); return; }
   cenv->complete = &word_add_completion_ex;
   cenv->closure = &wenv;
@@ -208,7 +208,7 @@ static bool os_is_dir(const char* cpath) {
 #define dir_entry  struct __finddata64_t
 
 static bool os_findfirst(alloc_t* mem, const char* path, dir_cursor* d, dir_entry* entry) {
-  stringbuf_t* spath = sbuf_new(mem,true);
+  stringbuf_t* spath = sbuf_new(mem);
   if (spath == NULL) return false;
   sbuf_append(spath, path);
   sbuf_append(spath, "\\*");
@@ -335,7 +335,7 @@ static bool filename_complete_indir( rp_completion_env_t* cenv, stringbuf_t* dir
   dir_cursor d = 0;
   dir_entry entry;
   bool cont = true;
-  stringbuf_t* display = sbuf_new(cenv->env->mem,true);
+  stringbuf_t* display = sbuf_new(cenv->env->mem);
   if (os_findfirst(cenv->env->mem, sbuf_string(dir), &d, &entry)) {
     do {
       const char* name = os_direntry_name(&entry);
@@ -379,8 +379,8 @@ typedef struct filename_closure_s {
 static void filename_completer( rp_completion_env_t* cenv, const char* prefix ) {
   if (prefix == NULL) return;
   filename_closure_t* fclosure = (filename_closure_t*)cenv->arg;  
-  stringbuf_t* root_dir = sbuf_new(cenv->env->mem,true);
-  stringbuf_t* dir_prefix = sbuf_new(cenv->env->mem,true);
+  stringbuf_t* root_dir = sbuf_new(cenv->env->mem);
+  stringbuf_t* dir_prefix = sbuf_new(cenv->env->mem);
   if (root_dir!=NULL && dir_prefix != NULL) 
   {
     // split prefix in dir_prefix / base.

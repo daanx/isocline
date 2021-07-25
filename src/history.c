@@ -239,7 +239,7 @@ rp_private void history_load( history_t* h ) {
   if (h->fname == NULL) return;
   FILE* f = fopen(h->fname, "r");
   if (f == NULL) return;
-  stringbuf_t* sbuf = sbuf_new(h->mem,true);
+  stringbuf_t* sbuf = sbuf_new(h->mem);
   if (sbuf != NULL) {
     while (!feof(f)) {
       if (!history_read_entry(h,f,sbuf)) break; // error
@@ -256,7 +256,7 @@ rp_private void history_save( const history_t* h ) {
   #ifndef _WIN32
   chmod(h->fname,S_IRUSR|S_IWUSR);
   #endif
-  stringbuf_t* sbuf = sbuf_new(h->mem,true);
+  stringbuf_t* sbuf = sbuf_new(h->mem);
   if (sbuf != NULL) {
     for( int i = 0; i < h->count; i++ )  {
       if (!history_write_entry(h->elems[i],f,sbuf)) break;  // error

@@ -11,12 +11,12 @@
 #include "common.h"
 #include "stringbuf.h"
 
+// In place growable utf-8 strings
 struct stringbuf_s {
   char*     buf;
   ssize_t   buflen;
   ssize_t   count;  
   alloc_t*  mem;
-  bool      is_utf8;
 };
 
 
@@ -63,10 +63,9 @@ static ssize_t utf8_char_width( const char* s, ssize_t n ) {
 
 
 // The column width of a codepoint (0, 1, or 2)
-static ssize_t char_column_width( const char* s, ssize_t n, bool is_utf8 ) {
+static ssize_t char_column_width( const char* s, ssize_t n ) {
   if (s == NULL || n <= 0) return 0;
   else if ((uint8_t)(*s) < ' ') return 0;   // also for CSI escape sequences
-  else if (!is_utf8) return 1;
   else {
     ssize_t w = utf8_char_width(s, n);
     #ifdef _WIN32
@@ -77,31 +76,31 @@ static ssize_t char_column_width( const char* s, ssize_t n, bool is_utf8 ) {
   }
 }
 
-static ssize_t str_column_width_n( const char* s, ssize_t len, bool is_utf8 ) {
+static ssize_t str_column_width_n( const char* s, ssize_t len ) {
   if (s == NULL || len <= 0) return 0;
   ssize_t pos = 0;
   ssize_t cwidth = 0;
   ssize_t cw;
   ssize_t ofs;
-  while (s[pos] != 0 && (ofs = str_next_ofs(s, len, pos, is_utf8, &cw)) > 0) {
+  while (s[pos] != 0 && (ofs = str_next_ofs(s, len, pos, &cw)) > 0) {
     cwidth += cw;
     pos += ofs;
   }  
   return cwidth;
 }
 
-rp_private ssize_t str_column_width( const char* s, bool is_utf8 ) {
-  return str_column_width_n( s, rp_strlen(s), is_utf8 );
+rp_private ssize_t str_column_width( const char* s ) {
+  return str_column_width_n( s, rp_strlen(s) );
 }
 
-rp_private const char* str_skip_until_fit( const char* s, ssize_t max_width, bool is_utf8) {
+rp_private const char* str_skip_until_fit( const char* s, ssize_t max_width ) {
   if (s == NULL) return s;
-  ssize_t cwidth = str_column_width(s, is_utf8);
+  ssize_t cwidth = str_column_width(s);
   ssize_t len    = rp_strlen(s);
   ssize_t pos = 0;
   ssize_t next;
   ssize_t cw;
-  while (cwidth > max_width && (next = str_next_ofs(s, len, pos, is_utf8, &cw)) > 0) {
+  while (cwidth > max_width && (next = str_next_ofs(s, len, pos, &cw)) > 0) {
     cwidth -= cw;
     pos += next;
   }
@@ -114,19 +113,17 @@ rp_private const char* str_skip_until_fit( const char* s, ssize_t max_width, boo
 //-------------------------------------------------------------
 
 // get offset of the previous codepoint. does not skip back over CSI sequences.
-rp_private ssize_t str_prev_ofs( const char* s, ssize_t pos, bool is_utf8, ssize_t* width ) {
+rp_private ssize_t str_prev_ofs( const char* s, ssize_t pos, ssize_t* width ) {
   ssize_t ofs = 0;
   if (s != NULL && pos > 0) {
     ofs = 1;
-    if (is_utf8) {
-      while (pos > ofs) {
-        uint8_t u = (uint8_t)s[pos - ofs];
-        if (u < 0x80 || u > 0xBF) break;  // continue while follower
-        ofs++;
-      }
+    while (pos > ofs) {
+      uint8_t u = (uint8_t)s[pos - ofs];
+      if (u < 0x80 || u > 0xBF) break;  // continue while follower
+      ofs++;
     }
   }
-  if (width != NULL) *width = char_column_width( s+(pos-ofs), ofs, is_utf8 );
+  if (width != NULL) *width = char_column_width( s+(pos-ofs), ofs );
   return ofs;
 }
 
@@ -168,7 +165,7 @@ rp_private bool skip_csi_esc( const char* s, ssize_t len, ssize_t* esclen ) {
 }
 
 // Offset to the next codepoint, treats CSI escape sequences as a single code point.
-rp_private ssize_t str_next_ofs( const char* s, ssize_t len, ssize_t pos, bool is_utf8, ssize_t* cwidth ) {
+rp_private ssize_t str_next_ofs( const char* s, ssize_t len, ssize_t pos, ssize_t* cwidth ) {
   ssize_t ofs = 0;
   if (s != NULL && len > pos) {
     if (skip_csi_esc(s+pos,len-pos,&ofs)) {
@@ -176,17 +173,15 @@ rp_private ssize_t str_next_ofs( const char* s, ssize_t len, ssize_t pos, bool i
     }
     else {
       ofs = 1;
-      if (is_utf8) {
-        // utf8 extended character?
-        while(len > pos + ofs) {
-          uint8_t u = (uint8_t)s[pos + ofs];
-          if (u < 0x80 || u > 0xBF) break;  // break if not a follower
-          ofs++;
-        }
-      }
+      // utf8 extended character?
+      while(len > pos + ofs) {
+        uint8_t u = (uint8_t)s[pos + ofs];
+        if (u < 0x80 || u > 0xBF) break;  // break if not a follower
+        ofs++;
+      }      
     } 
   }
-  if (cwidth != NULL) *cwidth = char_column_width( s+pos, ofs, is_utf8 );
+  if (cwidth != NULL) *cwidth = char_column_width( s+pos, ofs );
   return ofs;
 }
 
@@ -203,14 +198,14 @@ static ssize_t str_limit_to_length( const char* s, ssize_t n ) {
 
 typedef bool (match_fun_t)(const char* s, ssize_t len);
 
-static ssize_t str_find_backward( const char* s, ssize_t len, ssize_t pos, match_fun_t* match, bool skip_immediate_matches, bool is_utf8 ) {
+static ssize_t str_find_backward( const char* s, ssize_t len, ssize_t pos, match_fun_t* match, bool skip_immediate_matches ) {
   if (pos > len) pos = len;
   if (pos < 0) pos = 0;
   ssize_t i = pos;
   // skip matching first (say, whitespace in case of the previous start-of-word)
   if (skip_immediate_matches) {
     do {
-      ssize_t prev = str_prev_ofs(s, i, is_utf8, NULL); 
+      ssize_t prev = str_prev_ofs(s, i, NULL); 
       if (prev <= 0) break;
       assert(i - prev >= 0);
       if (!match(s + i - prev, prev)) break;
@@ -219,7 +214,7 @@ static ssize_t str_find_backward( const char* s, ssize_t len, ssize_t pos, match
   }
   // find match
   do {
-    ssize_t prev = str_prev_ofs(s, i, is_utf8, NULL); 
+    ssize_t prev = str_prev_ofs(s, i, NULL); 
     if (prev <= 0) break;
     assert(i - prev >= 0);
     if (match(s + i - prev, prev)) {
@@ -230,7 +225,7 @@ static ssize_t str_find_backward( const char* s, ssize_t len, ssize_t pos, match
   return -1; // not found
 }
 
-static ssize_t str_find_forward( const char* s, ssize_t len, ssize_t pos, match_fun_t* match, bool skip_immediate_matches, bool is_utf8 ) {
+static ssize_t str_find_forward( const char* s, ssize_t len, ssize_t pos, match_fun_t* match, bool skip_immediate_matches ) {
   if (s == NULL || len < 0) return -1;
   if (pos > len) pos = len;
   if (pos < 0) pos = 0;  
@@ -239,7 +234,7 @@ static ssize_t str_find_forward( const char* s, ssize_t len, ssize_t pos, match_
   // skip matching first (say, whitespace in case of the next end-of-word)
   if (skip_immediate_matches) {
     do {
-      next = str_next_ofs(s, len, i, is_utf8, NULL); 
+      next = str_next_ofs(s, len, i, NULL); 
       if (next <= 0) break;
       assert( i + next <= len);
       if (!match(s + i, next)) break;
@@ -248,7 +243,7 @@ static ssize_t str_find_forward( const char* s, ssize_t len, ssize_t pos, match_
   }
   // and then look
   do {
-    next = str_next_ofs(s, len, i, is_utf8, NULL); 
+    next = str_next_ofs(s, len, i, NULL); 
     if (next <= 0) break;
     assert( i + next <= len);
     if (match(s + i, next)) {
@@ -263,13 +258,13 @@ static bool match_linefeed( const char* s, ssize_t n ) {
   return (n == 1 && (*s == '\n' || *s == 0));
 }
 
-static ssize_t str_find_line_start( const char* s, ssize_t len, ssize_t pos, bool is_utf8) {
-  ssize_t start = str_find_backward(s,len,pos,&match_linefeed,false /* don't skip immediate matches */, is_utf8);
+static ssize_t str_find_line_start( const char* s, ssize_t len, ssize_t pos) {
+  ssize_t start = str_find_backward(s,len,pos,&match_linefeed,false /* don't skip immediate matches */);
   return (start < 0 ? 0 : start); 
 }
 
-static ssize_t str_find_line_end( const char* s, ssize_t len, ssize_t pos, bool is_utf8) {
-  ssize_t end = str_find_forward(s,len,pos, &match_linefeed, false, is_utf8);
+static ssize_t str_find_line_end( const char* s, ssize_t len, ssize_t pos) {
+  ssize_t end = str_find_forward(s,len,pos, &match_linefeed, false);
   return (end < 0 ? len : end);
 }
 
@@ -278,13 +273,13 @@ static bool match_nonletter( const char* s, ssize_t n ) {
   return !(n > 1 || (c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z') || (c >= '0' && c <= '9') || c == '_' || c == '-' || c > '~');
 }
 
-static ssize_t str_find_word_start( const char* s, ssize_t len, ssize_t pos, bool is_utf8) {
-  ssize_t start = str_find_backward(s,len,pos,&match_nonletter,true /* skip immediate matches */, is_utf8);
+static ssize_t str_find_word_start( const char* s, ssize_t len, ssize_t pos) {
+  ssize_t start = str_find_backward(s,len,pos,&match_nonletter,true /* skip immediate matches */);
   return (start < 0 ? 0 : start); 
 }
 
-static ssize_t str_find_word_end( const char* s, ssize_t len, ssize_t pos, bool is_utf8) {
-  ssize_t end = str_find_forward(s,len,pos,&match_nonletter,true /* skip immediate matches */, is_utf8);
+static ssize_t str_find_word_end( const char* s, ssize_t len, ssize_t pos) {
+  ssize_t end = str_find_forward(s,len,pos,&match_nonletter,true /* skip immediate matches */);
   return (end < 0 ? len : end); 
 }
 
@@ -293,13 +288,13 @@ static bool match_whitespace( const char* s, ssize_t n ) {
   return (n == 1 && (c == ' ' || c == '\t' || c == '\n' || c == '\r'));
 }
 
-static ssize_t str_find_ws_word_start( const char* s, ssize_t len, ssize_t pos, bool is_utf8) {
-  ssize_t start = str_find_backward(s,len,pos,&match_whitespace,true /* skip immediate matches */, is_utf8);
+static ssize_t str_find_ws_word_start( const char* s, ssize_t len, ssize_t pos) {
+  ssize_t start = str_find_backward(s,len,pos,&match_whitespace,true /* skip immediate matches */);
   return (start < 0 ? 0 : start); 
 }
 
-static ssize_t str_find_ws_word_end( const char* s, ssize_t len, ssize_t pos, bool is_utf8) {
-  ssize_t end = str_find_forward(s,len,pos,&match_whitespace,true /* skip immediate matches */, is_utf8);
+static ssize_t str_find_ws_word_end( const char* s, ssize_t len, ssize_t pos) {
+  ssize_t end = str_find_forward(s,len,pos,&match_whitespace,true /* skip immediate matches */);
   return (end < 0 ? len : end); 
 }
 
@@ -310,7 +305,7 @@ static ssize_t str_find_ws_word_end( const char* s, ssize_t len, ssize_t pos, bo
 
 // invoke a function for each terminal row; returns total row count.
 static ssize_t str_for_each_row( const char* s, ssize_t len, ssize_t termw, ssize_t promptw, ssize_t cpromptw,
-                                 row_fun_t* fun, bool is_utf8, const void* arg, void* res ) 
+                                 row_fun_t* fun, const void* arg, void* res ) 
 {
   if (s == NULL) s = "";
   ssize_t i;
@@ -319,7 +314,7 @@ static ssize_t str_for_each_row( const char* s, ssize_t len, ssize_t termw, ssiz
   ssize_t rstart = 0;  
   for(i = 0; i < len; ) {
     ssize_t w;
-    ssize_t next = str_next_ofs(s, len, i, is_utf8, &w);    
+    ssize_t next = str_next_ofs(s, len, i, &w);    
     if (next <= 0) {
       debug_msg("str: foreach row: next<=0: len %zd, i %zd, w %zd, buf %s\n", len, i, w, s );
       assert(false);
@@ -329,7 +324,7 @@ static ssize_t str_for_each_row( const char* s, ssize_t len, ssize_t termw, ssiz
     if (termw != 0 && i != 0 && termcol > termw) {  
       // wrap
       if (fun != NULL) {
-        if (fun(s,rcount,rstart,i - rstart,true,is_utf8,arg,res)) return rcount;
+        if (fun(s,rcount,rstart,i - rstart,true,arg,res)) return rcount;
       }
       rcount++;
       rstart = i;
@@ -338,7 +333,7 @@ static ssize_t str_for_each_row( const char* s, ssize_t len, ssize_t termw, ssiz
     if (s[i] == '\n') {
       // newline
       if (fun != NULL) {
-        if (fun(s,rcount,rstart,i - rstart,false,is_utf8,arg,res)) return rcount;
+        if (fun(s,rcount,rstart,i - rstart,false,arg,res)) return rcount;
       }
       rcount++;
       rstart = i+1;
@@ -349,7 +344,7 @@ static ssize_t str_for_each_row( const char* s, ssize_t len, ssize_t termw, ssiz
     rcol += w;
   }
   if (fun != NULL) {
-    if (fun(s,rcount,rstart,i - rstart,false,is_utf8,arg,res)) return rcount;
+    if (fun(s,rcount,rstart,i - rstart,false,arg,res)) return rcount;
   }
   return rcount+1;
 }
@@ -362,7 +357,7 @@ static ssize_t str_for_each_row( const char* s, ssize_t len, ssize_t termw, ssiz
 static bool str_get_current_pos_iter(
     const char* s,
     ssize_t row, ssize_t row_start, ssize_t row_len, 
-    bool is_wrap, bool is_utf8, const void* arg, void* res)
+    bool is_wrap, const void* arg, void* res)
 {
   rp_unused(is_wrap);
   rowcol_t* rc = (rowcol_t*)res;
@@ -373,7 +368,7 @@ static bool str_get_current_pos_iter(
     rc->row_start = row_start;
     rc->row_len   = row_len;
     rc->row = row;
-    rc->col = str_column_width_n( s + row_start, pos - row_start, is_utf8 );
+    rc->col = str_column_width_n( s + row_start, pos - row_start );
     rc->first_on_row = (pos == row_start);
     //ssize_t adjust = (is_wrap  /* wrap has no newline at end */ || 
     //                 (row_len > 0 && s[row_start + row_len - 1] == 0) /* end of user input */ ? 1 : 0);
@@ -383,8 +378,8 @@ static bool str_get_current_pos_iter(
   return false; // always continue to count all rows
 }
 
-static ssize_t str_get_rc_at_pos(const char* s, ssize_t len, ssize_t termw, ssize_t promptw, ssize_t cpromptw, ssize_t pos, bool is_utf8, rowcol_t* rc) {
-  ssize_t rows = str_for_each_row(s, len, termw, promptw, cpromptw, &str_get_current_pos_iter, is_utf8, &pos, rc);
+static ssize_t str_get_rc_at_pos(const char* s, ssize_t len, ssize_t termw, ssize_t promptw, ssize_t cpromptw, ssize_t pos, rowcol_t* rc) {
+  ssize_t rows = str_for_each_row(s, len, termw, promptw, cpromptw, &str_get_current_pos_iter, &pos, rc);
   // debug_msg("edit: current pos: (%d, %d) %s %s\n", rc->row, rc->col, rc->first_on_row ? "first" : "", rc->last_on_row ? "last" : "");
   return rows;
 }
@@ -396,7 +391,7 @@ static ssize_t str_get_rc_at_pos(const char* s, ssize_t len, ssize_t termw, ssiz
 static bool str_set_pos_iter(
     const char* s,
     ssize_t row, ssize_t row_start, ssize_t row_len, 
-    bool is_wrap, bool is_utf8, const void* arg, void* res)
+    bool is_wrap, const void* arg, void* res)
 {
   rp_unused(arg); rp_unused(is_wrap);
   rowcol_t* rc = (rowcol_t*)arg;
@@ -407,7 +402,7 @@ static bool str_set_pos_iter(
   ssize_t end = row_start + row_len;
   while (col < rc->col && i < end) {
     ssize_t cw;
-    ssize_t next = str_next_ofs(s, row_start + row_len, i, is_utf8, &cw);
+    ssize_t next = str_next_ofs(s, row_start + row_len, i, &cw);
     if (next <= 0) break;
     i   += next;
     col += cw;
@@ -416,13 +411,13 @@ static bool str_set_pos_iter(
   return true; // stop iteration
 }
 
-static ssize_t str_get_pos_at_rc(const char* s, ssize_t len, ssize_t termw, ssize_t promptw, ssize_t cpromptw, ssize_t row, ssize_t col /* without prompt */, bool is_utf8) {
+static ssize_t str_get_pos_at_rc(const char* s, ssize_t len, ssize_t termw, ssize_t promptw, ssize_t cpromptw, ssize_t row, ssize_t col /* without prompt */) {
   rowcol_t rc;
   memset(&rc,0,ssizeof(rc));
   rc.row = row;
   rc.col = col;
   ssize_t pos = -1;
-  str_for_each_row(s,len,termw,promptw,cpromptw,&str_set_pos_iter,is_utf8,&rc,&pos);  
+  str_for_each_row(s,len,termw,promptw,cpromptw,&str_set_pos_iter,&rc,&pos);  
   return pos;
 }
 
@@ -431,12 +426,11 @@ static ssize_t str_get_pos_at_rc(const char* s, ssize_t len, ssize_t termw, ssiz
 // String buffer
 //-------------------------------------------------------------
 
-static void sbuf_init( stringbuf_t* sbuf, alloc_t* mem, bool is_utf8 ) {
+static void sbuf_init( stringbuf_t* sbuf, alloc_t* mem ) {
   sbuf->mem = mem;
   sbuf->buf = NULL;
   sbuf->buflen = 0;
   sbuf->count = 0;
-  sbuf->is_utf8 = is_utf8;
 }
 
 static void sbuf_done( stringbuf_t* sbuf ) {
@@ -446,10 +440,10 @@ static void sbuf_done( stringbuf_t* sbuf ) {
   sbuf->count = 0;
 }
 
-rp_private stringbuf_t*  sbuf_new( alloc_t* mem, bool is_utf8 ) {
+rp_private stringbuf_t*  sbuf_new( alloc_t* mem ) {
   stringbuf_t* sbuf = mem_zalloc_tp(mem,stringbuf_t);
   if (sbuf == NULL) return NULL;
-  sbuf_init(sbuf,mem,is_utf8);
+  sbuf_init(sbuf,mem);
   return sbuf;
 }
 
@@ -606,11 +600,11 @@ rp_private void sbuf_replace(stringbuf_t* sbuf, const char* s) {
 }
 
 static ssize_t sbuf_next_ofs( stringbuf_t* sbuf, ssize_t pos, ssize_t* cwidth ) {
-  return str_next_ofs( sbuf->buf, sbuf->count, pos, sbuf->is_utf8, cwidth);
+  return str_next_ofs( sbuf->buf, sbuf->count, pos, cwidth);
 }
 
 static ssize_t sbuf_prev_ofs( stringbuf_t* sbuf, ssize_t pos, ssize_t* cwidth ) {
-  return str_prev_ofs( sbuf->buf, pos, sbuf->is_utf8, cwidth);
+  return str_prev_ofs( sbuf->buf, pos, cwidth);
 }
 
 rp_private ssize_t sbuf_next( stringbuf_t* sbuf, ssize_t pos, ssize_t* cwidth) {
@@ -657,41 +651,41 @@ rp_private ssize_t sbuf_swap_char( stringbuf_t* sbuf, ssize_t pos ) {
 }
 
 rp_private ssize_t sbuf_find_line_start( stringbuf_t* sbuf, ssize_t pos ) {
-  return str_find_line_start( sbuf->buf, sbuf->count, pos, sbuf->is_utf8);
+  return str_find_line_start( sbuf->buf, sbuf->count, pos);
 }
 
 rp_private ssize_t sbuf_find_line_end( stringbuf_t* sbuf, ssize_t pos ) {
-  return str_find_line_end( sbuf->buf, sbuf->count, pos, sbuf->is_utf8);
+  return str_find_line_end( sbuf->buf, sbuf->count, pos);
 }
 
 rp_private ssize_t sbuf_find_word_start( stringbuf_t* sbuf, ssize_t pos ) {
-  return str_find_word_start( sbuf->buf, sbuf->count, pos, sbuf->is_utf8);
+  return str_find_word_start( sbuf->buf, sbuf->count, pos);
 }
 
 rp_private ssize_t sbuf_find_word_end( stringbuf_t* sbuf, ssize_t pos ) {
-  return str_find_word_end( sbuf->buf, sbuf->count, pos, sbuf->is_utf8);
+  return str_find_word_end( sbuf->buf, sbuf->count, pos);
 }
 
 rp_private ssize_t sbuf_find_ws_word_start( stringbuf_t* sbuf, ssize_t pos ) {
-  return str_find_ws_word_start( sbuf->buf, sbuf->count, pos, sbuf->is_utf8);
+  return str_find_ws_word_start( sbuf->buf, sbuf->count, pos);
 }
 
 rp_private ssize_t sbuf_find_ws_word_end( stringbuf_t* sbuf, ssize_t pos ) {
-  return str_find_ws_word_end( sbuf->buf, sbuf->count, pos, sbuf->is_utf8);
+  return str_find_ws_word_end( sbuf->buf, sbuf->count, pos);
 }
 
 // find row/col position
 rp_private ssize_t sbuf_get_pos_at_rc( stringbuf_t* sbuf, ssize_t termw, ssize_t promptw, ssize_t cpromptw, ssize_t row, ssize_t col ) {
-  return str_get_pos_at_rc( sbuf->buf, sbuf->count, termw, promptw, cpromptw, row, col, sbuf->is_utf8);
+  return str_get_pos_at_rc( sbuf->buf, sbuf->count, termw, promptw, cpromptw, row, col);
 }
 
 // get row/col for a given position
 rp_private ssize_t sbuf_get_rc_at_pos( stringbuf_t* sbuf, ssize_t termw, ssize_t promptw, ssize_t cpromptw, ssize_t pos, rowcol_t* rc ) {
-  return str_get_rc_at_pos( sbuf->buf, sbuf->count, termw, promptw, cpromptw, pos, sbuf->is_utf8, rc);
+  return str_get_rc_at_pos( sbuf->buf, sbuf->count, termw, promptw, cpromptw, pos, rc);
 }
 
 rp_private ssize_t sbuf_for_each_row( stringbuf_t* sbuf, ssize_t termw, ssize_t promptw, ssize_t cpromptw, row_fun_t* fun, void* arg, void* res ) {
-  return str_for_each_row( sbuf->buf, sbuf->count, termw, promptw, cpromptw, fun, sbuf->is_utf8, arg, res);
+  return str_for_each_row( sbuf->buf, sbuf->count, termw, promptw, cpromptw, fun, arg, res);
 }
 
 
@@ -702,7 +696,7 @@ rp_private ssize_t sbuf_for_each_row( stringbuf_t* sbuf, ssize_t termw, ssize_t 
 rp_public long rp_prev_char( const char* s, long pos ) {
   ssize_t len = rp_strlen(s);
   if (pos < 0 || pos > len) return -1;
-  ssize_t ofs = str_prev_ofs( s, pos, true, NULL );
+  ssize_t ofs = str_prev_ofs( s, pos, NULL );
   if (ofs <= 0) return -1;
   return (long)(pos - ofs);
 }
@@ -710,7 +704,7 @@ rp_public long rp_prev_char( const char* s, long pos ) {
 rp_public long rp_next_char( const char* s, long pos ) {
   ssize_t len = rp_strlen(s);
   if (pos < 0 || pos > len) return -1;
-  ssize_t ofs = str_next_ofs( s, len, pos, true, NULL );
+  ssize_t ofs = str_next_ofs( s, len, pos, NULL );
   if (ofs <= 0) return -1;
   return (long)(pos + ofs);
 }

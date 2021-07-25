@@ -191,7 +191,7 @@ rp_private bool term_write_n(term_t* term, const char* s, ssize_t n) {
 
 rp_private void term_start_buffered(term_t* term) {
   if (term->buf == NULL) {
-    term->buf = sbuf_new(term->mem, true);
+    term->buf = sbuf_new(term->mem);
     if (term->buf == NULL) {
       term->buffered = false;
       return;
@@ -308,7 +308,7 @@ static bool term_write_direct(term_t* term, const char* s, ssize_t len ) {
       // handle non-escape sequences in bulk
       ssize_t nonesc = 0;
       ssize_t next;
-      while ((next = str_next_ofs(s, len, pos+nonesc, true, NULL)) > 0 && s[pos + nonesc] != '\x1B') {
+      while ((next = str_next_ofs(s, len, pos+nonesc, NULL)) > 0 && s[pos + nonesc] != '\x1B') {
         nonesc += next;
       }
       if (nonesc > 0) {
@@ -605,7 +605,7 @@ static bool term_write_direct(term_t* term, const char* s, ssize_t len ) {
     // handle non-control in bulk
     ssize_t nonctrl = 0;
     ssize_t next;
-    while( (next = str_next_ofs( s, len, pos+nonctrl, true, NULL )) > 0 && (uint8_t)s[pos + nonctrl] >= ' ') {
+    while( (next = str_next_ofs( s, len, pos+nonctrl, NULL )) > 0 && (uint8_t)s[pos + nonctrl] >= ' ') {
       nonctrl += next;
     }
     if (nonctrl > 0) {
