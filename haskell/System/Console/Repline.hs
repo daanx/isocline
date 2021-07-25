@@ -13,28 +13,54 @@ Stability   : Experimental
 
 A Haskell wrapper around the [Repline C library](https://github.com/daanx/repline#readme) 
 which can provide an alternative to GNU Readline.
-The Repline library is included and not a separate dependency.
+(The Repline library is included whole and not a separate dependency).
 
 Repline works across Unix, Windows, and macOS, and relies on a minimal subset of ANSI escape sequences.
 It has a good multi-line editing mode (use shift/ctrl-enter) which is nice for inputting small functions etc.
 Other features include support for colors, history, completion, unicode, undo/redo, 
 incremental history search, etc.
 
-Minimal example:
+Minimal example with history:
 
 @
 import System.Console.Repline
 
 main :: IO ()
 main  = do putStrLn \"Welcome\"
-           `setPromptColor` `Green`
            `setHistory` \"history.txt\" 200
            input \<- `readline` \"myprompt\"     -- full prompt becomes \"myprompt> \"
            putStrLn (\"You wrote:\\n\" ++ input)
 @
 
+Or using custom completions with an interactive loop:
+
+@
+import System.Console.Repline
+import Data.Char( toLower )
+
+main :: IO ()
+main 
+  = do `setPromptColor` `Green`
+       `setHistory` "history.txt" 200
+       `enableAutoTab` `True`
+       interaction
+
+interaction :: IO ()
+interaction 
+  = do s <- `readlineWithCompleter` \"hαskell\" completer
+       putStrLn (\"You wrote:\\n\" ++ s)
+       if (s == \"\" || s == \"exit\") then return () else interaction
+                     
+completer :: `Completions` -> String -> IO () 
+completer compl input
+  = do `completeFileName` compl input Nothing [\".\",\"\/usr\/local\"] [\".hs\"]  -- use [] for any extension
+       `addCompletionsFor` compl (map toLower input) 
+          [\"print\",\"println\",\"prints\",\"printsln\",\"prompt\"]
+       return ()
+@
+
 A larger [example](https://github.com/daanx/repline/blob/main/test/Example.hs) 
-with custom tab completion can be found in the Github repository.
+with more extenstive custom completion can be found in the [Github repository](https://github.com/daanx/repline).
 
 Enjoy,
 -- Daan
@@ -116,7 +142,7 @@ foreign import ccall rp_readline_with_completer  :: CString -> FunPtr CCompleter
 -- | @readline prompt@: Read (multi-line) input from the user with rich editing abilities. 
 -- Takes the prompt text as an argument. The full prompt is the combination
 -- of the given prompt and the promp marker (@\"> \"@ by default) .
--- See also 'enableMultiline', 'setPromptColor', and 'setPromptMarker'.
+-- See also 'readlineWithCompleter', 'readlineMaybe', 'enableMultiline', 'setPromptColor', and 'setPromptMarker'.
 readline :: String -> IO String  
 readline prompt
   = do mbRes <- readlineMaybe prompt
@@ -134,6 +160,9 @@ readlineMaybe prompt
        return res
 
 
+-- | @readlineWithCompleter prompt completer@: as 'readline' but
+-- uses the given @completer@ function to complete words on @tab@ (instead of the default completer). 
+-- See also 'readline' and 'setDefaultCompleter'.
 readlineWithCompleter :: String -> (Completions -> String -> IO ()) -> IO String
 readlineWithCompleter prompt completer 
   = do mbRes <- readlineWithCompleterMaybe prompt completer
@@ -142,6 +171,8 @@ readlineWithCompleter prompt completer
          Nothing -> return ""
 
 
+-- | As 'readlineWithCompleter' but returns 'Nothing' on end-of-file or other errors (ctrl-C/ctrl-D).
+-- See also 'readlineWithCompleter'.
 readlineWithCompleterMaybe :: String -> (Completions -> String -> IO ()) -> IO (Maybe String) 
 readlineWithCompleterMaybe prompt completer 
   = withUTF8String prompt $ \cprompt ->
@@ -242,10 +273,11 @@ addCompletionsFor compl input candidates
       = addCompletion compl completion completion
 
 -- | @completeFileName compls input dirSep roots extensions@: 
--- Complete filenames with the given @input@, a possible directory separator @dirSep@
--- used to complete directories, a list of root folders @roots@  to search from
+-- Complete filenames with the given @input@, a possible directory separator @dirSep@, 
+-- a list of root folders @roots@  to search from
 -- (by default @["."]@), and a list of extensions to match (use @[]@ to match any extension).
--- For example, using @\'/\'@ as a directory separator, we get:
+-- The directory separator is used when completing directory names.
+-- For example, using g @\'/\'@ as a directory separator, we get:
 --
 -- > /ho         --> /home/
 -- > /home/.ba   --> /home/.bashrc
