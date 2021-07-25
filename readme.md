@@ -6,9 +6,9 @@ Repline is a pure C library that can be used as readline alternative.
 
 - Small: less than 5k lines and can be compiled as a single C file without 
   any dependencies or configuration (e.g. `gcc -c src/repline.c`).
-- Portable: works on Unix, Windows, and macOS, and relies on a minimal
+- Portable: works on Unix, Windows, and macOS, and uses a minimal
   subset of ANSI escape sequences.
-- Features: extensive multi-line editing mode, colors, history, completion, unicode, 
+- Features: extensive multi-line editing mode (`shift-tab`), colors, history, completion, unicode, 
   undo/redo, incremental history search, graceful fallback, etc.
 - License: MIT.
 - Comes with a [Haskell] binding (`System.Console.Repline`).
@@ -118,7 +118,7 @@ These are also shown when pressing `F1` on a Repline prompt.
 | `enter`,`space`   | use the currently selected completion |
 | `1` - `9`         | use completion N from the menu |
 | `tab          `   | select the next completion |
-| cursor keys       | select completion N in the menu |
+| `left`,`right`,`up`,`down`  | select completion N in the menu |
 | `esc          `   | exit menu without completing |
 | `pgdn,        `   | |
 | `shift-tab    `   | show all further possible completions |
@@ -128,14 +128,17 @@ These are also shown when pressing `F1` on a Repline prompt.
 |-------------------|-------------------------------------------------|
 | `enter        `   | use the currently found history entry |
 | `backsp`,`^z  `   | go back to the previous match (undo) |
-| `tab`,`^r     `   | find the next match |
-| `shift-tab`,`^s`  | find an earlier match |
+| `tab`,`^r`,`up`   | find the next match |
+| `shift-tab`,`^s`,`down`  | find an earlier match |
 | `esc          `   | exit search |
 
 
 # Build the Library
 
-##- CMake
+See the Haskell [readme][Haskell] for instructions to build the Haskell library.
+
+
+### Build with CMake
 
 Clone the repository and run cmake to build a static library (`.a`/`.lib`):
 ```
@@ -152,10 +155,7 @@ and run the example program:
 $ ./example
 ```
 
-See the Haskell [readme][Haskell] for instructions to build the Haskell library.
-
-
-##- As a Single Source
+### Build as a Single Source
 
 Copy the sources (in `include` and `src`) into your project, or add the library as a [submodule]:
 ```
