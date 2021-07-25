@@ -25,4 +25,4 @@ You can install the `repline` package locally as:
 $ cabal install
 ```
 
-[example]: https://github.com/daanx/repline/test/Example.hs
+[example]: https://github.com/daanx/repline/blob/main/test/Example.hs
