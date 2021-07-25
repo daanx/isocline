@@ -120,8 +120,7 @@ These are also shown when pressing `F1` on a Repline prompt.
 | `tab          `   | select the next completion |
 | `left`,`right`,`up`,`down`  | select completion N in the menu |
 | `esc          `   | exit menu without completing |
-| `pgdn,        `   | |
-| `shift-tab    `   | show all further possible completions |
+| `pgdn`,`shift-tab`   | show all further possible completions |
   
 
 | Incremental history search        |                                                 |
