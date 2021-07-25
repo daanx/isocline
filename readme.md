@@ -174,7 +174,8 @@ Some other libraries that we considered:
 [GNU readline],
 [editline](https://github.com/troglobit/editline),
 [linenoise](https://github.com/antirez/linenoise),
-[replxx](https://github.com/AmokHuginnsson/replxx).
+[replxx](https://github.com/AmokHuginnsson/replxx), and 
+[Haskeline](https://github.com/judah/haskeline).
 
 [GNU readline]: https://tiswww.case.edu/php/chet/readline/rltop.html
 [koka]: http://www.koka-lang.org
