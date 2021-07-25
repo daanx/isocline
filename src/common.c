@@ -63,6 +63,98 @@ rp_private bool rp_strncpy( char* dest, ssize_t dest_size /* including 0 */, con
 
 
 //-------------------------------------------------------------
+// Unicode
+//-------------------------------------------------------------
+#define RP_RAW_PLANE      ((unicode_t)(0xE0000U))
+#define RP_RAW_UTF8_OFS   (RP_RAW_PLANE + 0xE000U)
+#define RP_RAW_UTF16_OFS  (RP_RAW_PLANE)               // unused
+
+rp_private unicode_t unicode_from_raw(uint8_t c) {
+  return (RP_RAW_PLANE + RP_RAW_UTF8_OFS + c);
+}
+
+static bool unicode_is_raw_utf8(unicode_t u) {
+  return (u >= RP_RAW_PLANE + RP_RAW_UTF8_OFS && u <= RP_RAW_PLANE + RP_RAW_UTF8_OFS + 0xFF);
+}
+
+rp_private void unicode_to_utf8(unicode_t u, uint8_t buf[5]) {
+  memset(buf, 0, 5);
+  if (u <= 0x7F) {
+    buf[0] = (uint8_t)u;
+  }
+  else if (u <= 0x07FF) {
+    buf[0] = (0xC0 | ((uint8_t)(u >> 6)));
+    buf[1] = (0x80 | (((uint8_t)u) & 0x3F));
+  }
+  else if (u <= 0xFFFF) {
+    buf[0] = (0xE0 |  ((uint8_t)(u >> 12)));
+    buf[1] = (0x80 | (((uint8_t)(u >>  6)) & 0x3F));
+    buf[2] = (0x80 | (((uint8_t)u) & 0x3F));
+  }
+  else if (u <= 0x10FFFF) {
+    if (unicode_is_raw_utf8(u)) {
+      buf[0] = u - RP_RAW_PLANE - RP_RAW_UTF8_OFS;
+      buf[1] = 0;
+    }
+    else {
+      buf[0] = (0xF0 |  ((uint8_t)(u >> 18)));
+      buf[1] = (0x80 | (((uint8_t)(u >> 12)) & 0x3F));
+      buf[2] = (0x80 | (((uint8_t)(u >>  6)) & 0x3F));
+      buf[3] = (0x80 | (((uint8_t)u) & 0x3F));
+    }
+  }
+}
+
+// is this a utf8 continuation byte?
+static inline bool is_cont(uint8_t c) {
+  return ((c & 0xC0) == 0x80);
+}
+
+rp_private unicode_t unicode_from_utf8(const uint8_t* s, ssize_t len, ssize_t* count) {
+  uint8_t c0 = 0;
+  if (len <= 0 || s == NULL) {
+    goto fail;
+  }
+  // 1 byte
+  c0 = s[0];
+  if (c0 <= 0x7F && len >= 1) {
+    if (count != NULL) *count = 1;
+    return c0; 
+  }
+  else if (c0 <= 0xC1) { // invalid continuation byte or invalid 0xC0, 0xC1
+    goto fail;
+  }
+  // 2 bytes
+  else if (c0 <= 0xDF && len >= 2 && is_cont(s[1])) { 
+    if (count != NULL) *count = 2;
+    return (((c0 & 0x1F) << 6) | (s[1] & 0x3F));
+  }
+  // 3 bytes: reject overlong and surrogate halves
+  else if (len >= 3 && 
+           ((c0 == 0xE0 && s[1] >= 0xA0 && s[1] <= 0xBF && is_cont(s[2])) ||
+            (c0 >= 0xE1 && c0 <= 0xEC && is_cont(s[1]) && is_cont(s[2])) 
+          ))
+  {
+    if (count != NULL) *count = 3;
+    return (((c0 & 0x0F) << 12) | ((s[1] & 0x3F) << 6) | (s[2] & 0x3F));
+  }
+  // 4 bytes: reject overlong
+  else if (len >= 4 && 
+           (((c0 == 0xF0 && s[1] >= 0x90 && s[1] <= 0xBF && is_cont(s[2]) && is_cont(s[3])) ||
+            (c0 >= 0xF1 && c0 <= 0xF3 && is_cont(s[1]) && is_cont(s[2]) && is_cont(s[3])) ||
+            (c0 == 0xF4 && s[1] >= 0x80 && s[1] <= 0x8F && is_cont(s[2]) && is_cont(s[3]))) 
+          )) 
+  {
+    if (count != NULL) *count = 4;
+    return (((c0 & 0x07) << 18) | ((s[1] & 0x3F) << 12) | ((s[2] & 0x3F) << 6) | (s[3] & 0x3F));
+  }  
+fail:
+  if (count != NULL) *count = 1;
+  return unicode_from_raw(c0);
+}
+
+
+//-------------------------------------------------------------
 // Debug
 //-------------------------------------------------------------
 

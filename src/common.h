@@ -62,6 +62,17 @@ rp_private bool    rp_strcpy(char* dest, ssize_t dest_size /* including 0 */, co
 rp_private bool    rp_strncpy(char* dest, ssize_t dest_size /* including 0 */, const char* src, ssize_t n);
 
 
+
+//-------------------------------------------------------------
+// Unicode
+//-------------------------------------------------------------
+
+typedef uint32_t  unicode_t;
+
+rp_private bool      unicode_to_utf8(unicode_t u, uint8_t buf[5]);
+rp_private unicode_t unicode_from_utf8(const uint8_t* s, ssize_t len, ssize_t* count);
+rp_private unicode_t unicode_from_raw(uint8_t c);
+
 //-------------------------------------------------------------
 // Debug
 //-------------------------------------------------------------

@@ -523,20 +523,18 @@ static void edit_multiline_eol(rp_env_t* env, editor_t* eb) {
   edit_refresh(env,eb);
 }
 
-static void edit_insert_char(rp_env_t* env, editor_t* eb, char c, bool refresh) {
-  if (refresh) {
-    editor_start_modify(eb);
-  }
-  char buf[2];
-  buf[0] = c;
-  buf[1] = 0;
-  sbuf_insert_at( eb->input, buf, eb->pos );
-  eb->pos++;
-  
-  // output to terminal
-  if (refresh) {
-    edit_refresh(env,eb);
-  }
+static void edit_insert_unicode(rp_env_t* env, editor_t* eb, unicode_t u) {
+  editor_start_modify(eb);
+  ssize_t nextpos = sbuf_insert_unicode_at(eb->input, u, eb->pos);
+  if (nextpos >= 0) eb->pos = nextpos;
+  edit_refresh(env, eb);
+}
+
+static void edit_insert_char(rp_env_t* env, editor_t* eb, char c) {
+  editor_start_modify(eb);
+  ssize_t nextpos = sbuf_insert_char_at( eb->input, c, eb->pos );
+  if (nextpos >= 0) eb->pos = nextpos;
+  edit_refresh(env,eb);  
 }
 
 //-------------------------------------------------------------
@@ -589,7 +587,6 @@ static char* edit_line( rp_env_t* env, const char* prompt_text )
 
   // process keys
   code_t c;          // current key code
-  int tofollow = 0;  // utf8 extended characters to still follow (to delay refresh)
   while(true) {    
     // read a character
     c = tty_read(env->tty);
@@ -600,21 +597,6 @@ static char* edit_line( rp_env_t* env, const char* prompt_text )
       // eb.cur_rows = env->term.height;
       edit_refresh(env,&eb);   
     }
-
-    // followers (for utf8)
-    if (tofollow > 0) {
-      char chr;
-      if (code_is_follower(env->tty, c, &chr)) {
-        tofollow--;
-        edit_insert_char( env, &eb, chr, tofollow == 0 /* refresh? */);
-        continue;
-      }
-      else {
-        // not a follower! recover.
-        tofollow = 0;
-      }
-    }
-    assert(tofollow==0);
 
     // Operations that may return
     if (c == KEY_ENTER) {
@@ -646,7 +628,7 @@ static char* edit_line( rp_env_t* env, const char* prompt_text )
     else switch(c) {
       case KEY_SHIFT_TAB:
       case KEY_LINEFEED: // '\n' (ctrl+J, shift+enter)
-        if (!env->singleline_only) { edit_insert_char(env,&eb,'\n',true); }
+        if (!env->singleline_only) { edit_insert_char(env,&eb,'\n'); }
         break;
       case KEY_EVENT_AUTOTAB:
         edit_generate_completions(env,&eb,true);
@@ -748,11 +730,12 @@ static char* edit_line( rp_env_t* env, const char* prompt_text )
         break;
       default: {
         char chr;
-        if (code_is_char(env->tty,c,&chr)) {
-          edit_insert_char(env,&eb,chr, true /* refresh */);
+        unicode_t uchr;
+        if (code_is_ascii_char(env->tty,c,&chr)) {
+          edit_insert_char(env,&eb,chr);
         }
-        else if (code_is_extended(env->tty,c,&chr,&tofollow)) {
-          edit_insert_char(env,&eb,chr, (tofollow > 0));
+        else if (code_is_unicode(env->tty, c, &uchr)) {
+          edit_insert_unicode(env,&eb, uchr);
         }
         else {
           debug_msg( "edit: ignore code: 0x%04x\n", c);

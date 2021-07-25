@@ -555,6 +555,14 @@ rp_private ssize_t sbuf_insert_char_at(stringbuf_t* sbuf, char c, ssize_t pos ) 
   return sbuf_insert_at_n( sbuf, s, 1, pos);
 }
 
+rp_private ssize_t sbuf_insert_unicode_at(stringbuf_t* sbuf, unicode_t u, ssize_t pos) {
+  char s[5];
+  unicode_to_utf8(u, &s);
+  return sbuf_insert_at(sbuf, s, pos);
+}
+
+
+
 rp_private void sbuf_delete_at( stringbuf_t* sbuf, ssize_t pos, ssize_t count ) {
   if (pos < 0 || pos >= sbuf->count) return;
   if (pos + count > sbuf->count) count = sbuf->count - pos;

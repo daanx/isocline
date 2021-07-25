@@ -144,14 +144,6 @@ static code_t esc_decode_vt( uint32_t vt_code ) {
   return KEY_NONE;
 }
 
-static code_t esc_decode_unicode( tty_t* tty, uint32_t unicode ) {
-  // push unicode and pop the lead byte to return
-  tty_cpush_unicode(tty,unicode);
-  char c = 0;
-  tty_cpop(tty,&c);
-  return KEY_CHAR(c);
-}
-
 static code_t esc_decode_xterm( char xcode ) {
   // ESC [
   switch(xcode) {
@@ -262,7 +254,7 @@ static code_t tty_read_csi(tty_t* tty, char c1, char peek, code_t mods0) {
     special = peek;
     if (!tty_readc_noblock(tty,&peek)) {  
       tty_cpush_char(tty,special); // recover
-      return (KEY_CHAR(c1) | KEY_MOD_ALT);       // Alt+<anychar>
+      return (key_char(c1) | KEY_MOD_ALT);       // Alt+<anychar>
     }
   }
 
@@ -326,7 +318,7 @@ static code_t tty_read_csi(tty_t* tty, char c1, char peek, code_t mods0) {
   }
   else if (final == 'u' && c1 == '[') {
     // unicode
-    code = esc_decode_unicode(tty,num1);
+    code = key_unicode(num1);
   }
   else if (c1 == 'O' && ((final >= 'A' && final <= 'Z') || (final >= 'a' && final <= 'z'))) {
     // ss3
@@ -373,5 +365,5 @@ rp_private code_t tty_read_esc(tty_t* tty) {
 
 alt:  
   // Alt+<char>
-  return (KEY_CHAR(peek) | KEY_MOD_ALT);  // ESC <anychar>
+  return (key_char(peek) | KEY_MOD_ALT);  // ESC <anychar>
 }

@@ -29,33 +29,43 @@ rp_private bool   tty_is_utf8(tty_t* tty);
 rp_private void   tty_start_raw(tty_t* tty);
 rp_private void   tty_end_raw(tty_t* tty);
 rp_private code_t tty_read(tty_t* tty);
-rp_private bool   tty_readc_noblock(tty_t* tty, char* c);   // used in term.c
+rp_private bool   tty_readc_noblock(tty_t* tty, uint8_t* c);   // used in term.c
 rp_private void   tty_code_pushback( tty_t* tty, code_t c );
 
-rp_private bool   code_is_char(tty_t* tty, code_t c, char* chr );
-rp_private bool   code_is_follower( tty_t* tty, code_t c, char* chr);
-rp_private bool   code_is_extended( tty_t* tty, code_t c, char* chr, int* tofollow);
+rp_private bool   code_is_ascii_char(tty_t* tty, code_t c, char* chr );
+rp_private bool   code_is_unicode(tty_t* tty, code_t c, unicode_t* uchr);
 rp_private bool   code_is_virt_key( tty_t* tty, code_t c );
 
 
-// shared between tty.c and tty_esc.c
-rp_private void   tty_cpush_char(tty_t* tty, char c);
-rp_private void   tty_cpush_unicode(tty_t* tty, uint32_t c);
-rp_private bool   tty_cpop(tty_t* tty, char* c);
+// shared between tty.c and tty_esc.c: low level character push
+rp_private void   tty_cpush_char(tty_t* tty, uint8_t c);
+rp_private bool   tty_cpop(tty_t* tty, uint8_t* c);
 rp_private code_t tty_read_esc(tty_t* tty); // in tty_esc.c
 
 //-------------------------------------------------------------
-// Key codes
+// Key codes: a code_t is 32 bits.
+// we use the bottom 24 (nah, 21) bits for unicode (up to x0010FFFF)
+// The codes after x01000000 are for virtual keys 
+// and events use  x02000000.
+// The top 4 bits are used for modifiers.
 //-------------------------------------------------------------
 
-#define KEY_CHAR(c)       ((code_t)((uint8_t)c))
+static inline code_t key_char( char c ) {
+  // careful about signed character conversion (negative char ~> 0x80 - 0xFF)
+  return ((uint8_t)c);
+}
 
-#define KEY_MOD_SHIFT     0x1000U
-#define KEY_MOD_ALT       0x2000U
-#define KEY_MOD_CTRL      0x4000U
+static inline code_t key_unicode( unicode_t u ) {
+  return u;
+}
 
-#define KEY_NO_MODS(k)    (k & 0x0FFFU)
-#define KEY_MODS(k)       (k & 0xF000U)
+
+#define KEY_MOD_SHIFT     (0x10000000U)
+#define KEY_MOD_ALT       (0x20000000U)
+#define KEY_MOD_CTRL      (0x40000000U)
+
+#define KEY_NO_MODS(k)    (k & 0x0FFFFFFFU)
+#define KEY_MODS(k)       (k & 0xF0000000U)
 
 #define WITH_SHIFT(x)     (x | KEY_MOD_SHIFT)
 #define WITH_ALT(x)       (x | KEY_MOD_ALT)
@@ -91,8 +101,10 @@ rp_private code_t tty_read_esc(tty_t* tty); // in tty_esc.c
 #define KEY_ESC           (27)
 #define KEY_SPACE         (32)
 #define KEY_RUBOUT        (127)  // always translated to KEY_BACKSP
+#define KEY_UNICODE_MAX   (0x0010FFFFU)
 
-#define KEY_VIRT          (0x100)  
+
+#define KEY_VIRT          (0x01000000U)  
 #define KEY_UP            (KEY_VIRT+0)
 #define KEY_DOWN          (KEY_VIRT+1)
 #define KEY_LEFT          (KEY_VIRT+2)
@@ -118,7 +130,7 @@ rp_private code_t tty_read_esc(tty_t* tty); // in tty_esc.c
 #define KEY_F12           (KEY_VIRT+22)
 #define KEY_F(n)          (KEY_F1 + (n) - 1)
 
-#define KEY_EVENT_BASE    (0x200)
+#define KEY_EVENT_BASE    (0x02000000U)
 #define KEY_EVENT_RESIZE  (KEY_EVENT_BASE+0)  // not use for now
 #define KEY_EVENT_AUTOTAB (KEY_EVENT_BASE+1)  // for auto completion
 

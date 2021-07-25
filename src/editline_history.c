@@ -191,27 +191,15 @@ again:
   }
   else {
     // insert character and search further backward
-    int tofollow;
     char chr;
-    if (code_is_char(env->tty,c,&chr)) {
+    unicode_t uchr;
+    if (code_is_ascii_char(env->tty,c,&chr)) {
       hsearch_push(env->mem, &hs, hidx, match_pos, match_len, true);
-      edit_insert_char(env,eb,chr, false /* refresh */);      
+      edit_insert_char(env,eb,chr);      
     }
-    else if (code_is_extended(env->tty,c,&chr,&tofollow)) {
+    else if (code_is_unicode(env->tty,c,&uchr)) {
       hsearch_push(env->mem, &hs, hidx, match_pos, match_len, true);
-      edit_insert_char(env,eb,chr,false);
-      while (tofollow-- > 0) {
-        c = tty_read(env->tty);
-        if (code_is_follower(env->tty,c,&chr)) {
-          edit_insert_char(env,eb,chr, false);
-        }
-        else {
-          // recover bad utf8
-          tty_code_pushback(env->tty,c);
-          break;
-        }
-      }
-      edit_refresh(env,eb);
+      edit_insert_unicode(env,eb,uchr);
     }
     else {
       // ignore command

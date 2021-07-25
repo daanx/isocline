@@ -50,15 +50,15 @@ struct tty_s {
 //-------------------------------------------------------------
 
 static bool tty_has_available(tty_t* tty);   // characters available?
-static bool tty_readc(tty_t* tty, char* c);  // read one byte
+static bool tty_readc(tty_t* tty, uint8_t* c);  // read one byte
 static bool tty_code_pop( tty_t* tty, code_t* code ); 
 
 //-------------------------------------------------------------
 // Key code helpers
 //-------------------------------------------------------------
 
-rp_private bool code_is_char(tty_t* tty, code_t c, char* chr ) {
-  if (c >= 0x20 && c <= (tty->is_utf8 ? 0x7FU : 0xFFU)) {
+rp_private bool code_is_ascii_char(tty_t* tty, code_t c, char* chr ) {
+  if (c >= ' ' && c <= 0x7F) {
     if (chr != NULL) *chr = (char)c;
     return true;
   }
@@ -68,34 +68,17 @@ rp_private bool code_is_char(tty_t* tty, code_t c, char* chr ) {
   }
 }
 
-rp_private bool code_is_extended( tty_t* tty, code_t c, char* chr, int* tofollow) {
-  if (tty->is_utf8 && c >= 0x80 && c <= 0xFF) {
-    if (chr != NULL) *chr = (char)c;
-    if (tofollow != NULL) {
-      if (c <= 0xC1) *tofollow = 0;
-      else if (c <= 0xDF) *tofollow = 1;
-      else if (c <= 0xEF) *tofollow = 2;
-      else *tofollow = 3;
-    }
+rp_private bool code_is_unicode(tty_t* tty, code_t c, unicode_t* uchr) {
+  if (c <= KEY_UNICODE_MAX) {
+    if (uchr != NULL) *uchr = c;
     return true;
   }
   else {
-    if (chr != NULL) *chr = 0;
-    if (tofollow != NULL) *tofollow = 0;
+    if (uchr != NULL) *uchr = 0;
     return false;
   }
 }
 
-rp_private bool code_is_follower( tty_t* tty, code_t c, char* chr) {
-  if (tty->is_utf8 && c >= 0x80 && c <= 0xBF) {
-    if (chr != NULL) *chr = (char)c;
-    return true;
-  }
-  else {
-    if (chr != NULL) *chr = 0;
-    return false;
-  }
-}
 
 rp_private bool code_is_virt_key( tty_t* tty, code_t c ) {
   rp_unused(tty);
@@ -105,10 +88,47 @@ rp_private bool code_is_virt_key( tty_t* tty, code_t c ) {
 //-------------------------------------------------------------
 // Read a key code
 //-------------------------------------------------------------
+static code_t modify_code( code_t code );
 
-rp_private bool tty_readc_noblock(tty_t* tty, char* c) {
+
+rp_private bool tty_readc_noblock(tty_t* tty, uint8_t* c) {
   if (!tty_has_available(tty)) return false;  // do not modify c if nothing available (see `tty_readc_csi_num`)  
   return tty_readc(tty,c);
+}
+
+static code_t tty_read_utf8( tty_t* tty, uint8_t c0 ) {
+  uint8_t buf[5];
+  memset(buf, 0, 5);
+
+  // try to read as many bytes as potentially needed
+  buf[0] = c0;
+  ssize_t count = 1;
+  if (c0 > 0x7F) {
+    if (tty_readc_noblock(tty, buf+count)) {
+      count++;
+      if (c0 > 0xDF) {
+        if (tty_readc_noblock(tty, buf+count)) {
+          count++;
+          if (c0 > 0xEF) {
+            if (tty_readc_noblock(tty, buf+count)) {
+              count++;
+            }
+          }
+        }
+      }
+    }
+  }
+
+  // decode the utf8 to unicode
+  ssize_t read = 0;
+  code_t code = key_unicode(unicode_from_utf8(buf, count, &read));
+
+  // push back unused bytes (in the case of invalid utf8)
+  while (count > read) {
+    count--;
+    tty_cpush_char(tty, buf[count]);
+  }
+  return code;
 }
 
 // read a single char/key
@@ -120,17 +140,31 @@ rp_private code_t tty_read(tty_t* tty) {
   }
 
   // read a single char/byte from a character stream
-  char c;
+  uint8_t c;
   if (!tty_readc(tty, &c)) return KEY_NONE;  
   
-  // Escape sequence?
   if (c == KEY_ESC) {
+    // escape sequence?
     code = tty_read_esc(tty);
   }
+  else if (c <= 0x7F) {
+    // ascii
+    code = key_char(c);
+  }
+  else if (tty->is_utf8) {
+    // utf8 sequence
+    code = tty_read_utf8(tty,c);
+  }
   else {
-    code = KEY_CHAR(c);
+    // c >= 0x80 but not utf8; use raw plane
+    code = key_unicode( unicode_from_raw(c) );
   }
 
+  return modify_code(code);
+}
+
+// Transform virtual keys to be more portable across platforms
+static code_t modify_code( code_t code ) {
   code_t key  = KEY_NO_MODS(code);
   code_t mods = KEY_MODS(code);
   debug_msg( "tty: readc %s%s%s 0x%03x ('%c')\n", 
@@ -142,8 +176,8 @@ rp_private code_t tty_read(tty_t* tty) {
     code = KEY_BACKSP | mods;
   }
   // ctrl+'_' is translated to '\x1F' on Linux, translate it back 
-  else if (key == KEY_CHAR('\x1F') && mods == 0) {
-    code = WITH_CTRL(KEY_CHAR('_'));
+  else if (key == key_char('\x1F') && mods == 0) {
+    code = WITH_CTRL(key_char('_'));
   }
   // treat ctrl/shift + enter always as KEY_LINEFEED for portability
   else if (key == KEY_ENTER && (mods == KEY_MOD_SHIFT || mods == KEY_MOD_ALT || mods == KEY_MOD_CTRL)) {
@@ -193,7 +227,7 @@ rp_private void tty_code_pushback( tty_t* tty, code_t c ) {
 // low-level character pushback (for escape sequences and windows)
 //-------------------------------------------------------------
 
-rp_private bool tty_cpop(tty_t* tty, char* c) {  
+rp_private bool tty_cpop(tty_t* tty, uint8_t* c) {  
   if (tty->cpushed <= 0) {  // do not modify c on failure (see `tty_decode_unicode`)
     return false;
   }
@@ -212,7 +246,7 @@ static void tty_cpush(tty_t* tty, const char* s) {
     return;
   }
   for (ssize_t i = 0; i < len; i++) {
-    tty->cpushbuf[tty->cpushed + i] = s[len - i - 1];
+    tty->cpushbuf[tty->cpushed + i] = (uint8_t)( s[len - i - 1] );
   }
   tty->cpushed += len;
   return;
@@ -230,37 +264,13 @@ static void tty_cpushf(tty_t* tty, const char* fmt, ...) {
   return;
 }
 
-rp_private void tty_cpush_char(tty_t* tty, char c) {  
-  char buf[2];
+rp_private void tty_cpush_char(tty_t* tty, uint8_t c) {  
+  uint8_t buf[2];
   buf[0] = c;
   buf[1] = 0;
-  tty_cpush(tty,buf);
+  tty_cpush(tty, (const char*)buf);
 }
 
-
-rp_private void tty_cpush_unicode(tty_t* tty, uint32_t c) {
-  uint8_t buf[5];
-  memset(buf,0,5);
-  if (c <= 0x7F) {
-    buf[0] = (uint8_t)c;
-  }
-  else if (c <= 0x07FF) {
-    buf[0] = (0xC0 | ((uint8_t)(c >> 6)));
-    buf[1] = (0x80 | (((uint8_t)c) & 0x3F));
-  }
-  else if (c <= 0xFFFF) {
-    buf[0] = (0xE0 |  ((uint8_t)(c >> 12)));
-    buf[1] = (0x80 | (((uint8_t)(c >>  6)) & 0x3F));
-    buf[2] = (0x80 | (((uint8_t)c) & 0x3F));
-  }
-  else if (c <= 0x10FFFF) {
-    buf[0] = (0xF0 |  ((uint8_t)(c >> 18)));
-    buf[1] = (0x80 | (((uint8_t)(c >> 12)) & 0x3F));
-    buf[2] = (0x80 | (((uint8_t)(c >>  6)) & 0x3F));
-    buf[3] = (0x80 | (((uint8_t)c) & 0x3F));
-  }
-  tty_cpush(tty, (char*)buf);
-}
 
 //-------------------------------------------------------------
 // Push escape codes (used on Windows)
@@ -336,6 +346,7 @@ rp_private bool tty_is_utf8(tty_t* tty) {
   if (tty == NULL) return true;
   return (tty->is_utf8);
 }
+
 //-------------------------------------------------------------
 // Unix
 //-------------------------------------------------------------
@@ -396,7 +407,7 @@ static bool tty_has_available(tty_t* tty) {
 
 static void tty_waitc_console(tty_t* tty);
 
-static bool tty_readc(tty_t* tty, char* c) {
+static bool tty_readc(tty_t* tty, uint8_t* c) {
   if (tty_cpop(tty,c)) return true;
   // The following does not work as one cannot paste unicode characters this way :-(
   //   DWORD nread;
