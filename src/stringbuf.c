@@ -556,9 +556,9 @@ rp_private ssize_t sbuf_insert_char_at(stringbuf_t* sbuf, char c, ssize_t pos ) 
 }
 
 rp_private ssize_t sbuf_insert_unicode_at(stringbuf_t* sbuf, unicode_t u, ssize_t pos) {
-  char s[5];
-  unicode_to_utf8(u, &s);
-  return sbuf_insert_at(sbuf, s, pos);
+  uint8_t s[5];
+  unicode_to_qutf8(u, s);
+  return sbuf_insert_at(sbuf, (const char*)s, pos);
 }
 
 

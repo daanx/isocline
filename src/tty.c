@@ -32,7 +32,7 @@ struct tty_s {
   bool    is_utf8;
   code_t  pushbuf[TTY_PUSH_MAX];
   ssize_t pushed;
-  char    cpushbuf[TTY_PUSH_MAX];
+  uint8_t cpushbuf[TTY_PUSH_MAX];
   ssize_t cpushed;
   #if defined(_WIN32)
   HANDLE  hcon;
@@ -57,7 +57,7 @@ static bool tty_code_pop( tty_t* tty, code_t* code );
 // Key code helpers
 //-------------------------------------------------------------
 
-rp_private bool code_is_ascii_char(tty_t* tty, code_t c, char* chr ) {
+rp_private bool code_is_ascii_char(code_t c, char* chr ) {
   if (c >= ' ' && c <= 0x7F) {
     if (chr != NULL) *chr = (char)c;
     return true;
@@ -68,7 +68,7 @@ rp_private bool code_is_ascii_char(tty_t* tty, code_t c, char* chr ) {
   }
 }
 
-rp_private bool code_is_unicode(tty_t* tty, code_t c, unicode_t* uchr) {
+rp_private bool code_is_unicode(code_t c, unicode_t* uchr) {
   if (c <= KEY_UNICODE_MAX) {
     if (uchr != NULL) *uchr = c;
     return true;
@@ -80,8 +80,7 @@ rp_private bool code_is_unicode(tty_t* tty, code_t c, unicode_t* uchr) {
 }
 
 
-rp_private bool code_is_virt_key( tty_t* tty, code_t c ) {
-  rp_unused(tty);
+rp_private bool code_is_virt_key(code_t c ) {
   return (KEY_NO_MODS(c) <= 0x20 || KEY_NO_MODS(c) >= KEY_VIRT);
 }
 
@@ -121,7 +120,7 @@ static code_t tty_read_utf8( tty_t* tty, uint8_t c0 ) {
 
   // decode the utf8 to unicode
   ssize_t read = 0;
-  code_t code = key_unicode(unicode_from_utf8(buf, count, &read));
+  code_t code = key_unicode(unicode_from_qutf8(buf, count, &read));
 
   // push back unused bytes (in the case of invalid utf8)
   while (count > read) {
@@ -149,14 +148,14 @@ rp_private code_t tty_read(tty_t* tty) {
   }
   else if (c <= 0x7F) {
     // ascii
-    code = key_char(c);
+    code = key_unicode(c);
   }
   else if (tty->is_utf8) {
     // utf8 sequence
     code = tty_read_utf8(tty,c);
   }
   else {
-    // c >= 0x80 but not utf8; use raw plane
+    // c >= 0x80 but tty is not utf8; use raw plane
     code = key_unicode( unicode_from_raw(c) );
   }
 
@@ -300,7 +299,7 @@ static void tty_cpush_csi_unicode( tty_t* tty, code_t mods, uint32_t unicode ) {
       (mods == KEY_MOD_CTRL && unicode < ' ' && unicode != KEY_TAB && unicode != KEY_ENTER 
                         && unicode != KEY_LINEFEED && unicode != KEY_BACKSP) ||
       (mods == KEY_MOD_SHIFT && unicode >= ' ' && unicode <= KEY_RUBOUT)) {
-    tty_cpush_char(tty,(char)unicode);
+    tty_cpush_char(tty,(uint8_t)unicode);
   }
   else {
     tty_cpushf(tty,"\x1B[%u;%uu", unicode, csi_mods(mods) );
@@ -352,9 +351,9 @@ rp_private bool tty_is_utf8(tty_t* tty) {
 //-------------------------------------------------------------
 #if !defined(_WIN32)
 
-static bool tty_readc(tty_t* tty, char* c) {
+static bool tty_readc(tty_t* tty, uint8_t* c) {
   if (tty_cpop(tty,c)) return true;
-  if (read(tty->fin, c, 1) != 1) return false;  
+  if (read(tty->fin, (char*)c, 1) != 1) return false;  
   return true;
 }
 

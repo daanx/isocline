@@ -193,11 +193,11 @@ again:
     // insert character and search further backward
     char chr;
     unicode_t uchr;
-    if (code_is_ascii_char(env->tty,c,&chr)) {
+    if (code_is_ascii_char(c,&chr)) {
       hsearch_push(env->mem, &hs, hidx, match_pos, match_len, true);
       edit_insert_char(env,eb,chr);      
     }
-    else if (code_is_unicode(env->tty,c,&uchr)) {
+    else if (code_is_unicode(c,&uchr)) {
       hsearch_push(env->mem, &hs, hidx, match_pos, match_len, true);
       edit_insert_unicode(env,eb,uchr);
     }

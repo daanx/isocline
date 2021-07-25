@@ -212,7 +212,7 @@ again:
       tty_code_pushback(env->tty,KEY_EVENT_AUTOTAB); // immediately try to complete again        
     }
   }
-  else if (!env->complete_nopreview && !code_is_virt_key(env->tty,c)) {
+  else if (!env->complete_nopreview && !code_is_virt_key(c)) {
     // if in preview mode, select the current entry and exit the menu
     assert(selected < count);
     edit_complete(env, eb, selected); 

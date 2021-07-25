@@ -731,10 +731,10 @@ static char* edit_line( rp_env_t* env, const char* prompt_text )
       default: {
         char chr;
         unicode_t uchr;
-        if (code_is_ascii_char(env->tty,c,&chr)) {
+        if (code_is_ascii_char(c,&chr)) {
           edit_insert_char(env,&eb,chr);
         }
-        else if (code_is_unicode(env->tty, c, &uchr)) {
+        else if (code_is_unicode(c, &uchr)) {
           edit_insert_unicode(env,&eb, uchr);
         }
         else {

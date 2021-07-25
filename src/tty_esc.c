@@ -144,7 +144,7 @@ static code_t esc_decode_vt( uint32_t vt_code ) {
   return KEY_NONE;
 }
 
-static code_t esc_decode_xterm( char xcode ) {
+static code_t esc_decode_xterm( uint8_t xcode ) {
   // ESC [
   switch(xcode) {
     case 'A': return KEY_UP;
@@ -175,7 +175,7 @@ static code_t esc_decode_xterm( char xcode ) {
   return KEY_NONE;
 }
 
-static code_t esc_decode_ss3( char ss3_code ) {
+static code_t esc_decode_ss3( uint8_t ss3_code ) {
   // ESC O 
   switch(ss3_code) {
     case 'A': return KEY_UP;
@@ -224,37 +224,37 @@ static code_t esc_decode_ss3( char ss3_code ) {
   return KEY_NONE;
 }
 
-static void tty_read_csi_num(tty_t* tty, char* ppeek, uint32_t* num) {
+static void tty_read_csi_num(tty_t* tty, uint8_t* ppeek, uint32_t* num) {
   *num = 1; // default
-  int count = 0;
+  ssize_t count = 0;
   uint32_t i = 0;
   while (*ppeek >= '0' && *ppeek <= '9' && count < 16) {    
-    char digit = *ppeek - '0';
+    uint8_t digit = *ppeek - '0';
     if (!tty_readc_noblock(tty,ppeek)) break;  // peek is not modified in this case 
     count++;
-    i = 10*i + (uint8_t)digit; 
+    i = 10*i + digit; 
   }
   if (count > 0) *num = i;
 }
 
-static code_t tty_read_csi(tty_t* tty, char c1, char peek, code_t mods0) {
+static code_t tty_read_csi(tty_t* tty, uint8_t c1, uint8_t peek, code_t mods0) {
   // CSI starts with 0x9b (c1=='[') | ESC [ (c1=='[') | ESC [Oo?] (c1 == 'O')  /* = SS3 */
   
   // check for extra starter '[' (Linux sends ESC [ [ 15 ~  for F5 for example)
-  if (c1 == '[' && strchr("[Oo?", peek) != NULL) {
-    char cx = peek;
+  if (c1 == '[' && strchr("[Oo?", (char)peek) != NULL) {
+    uint8_t cx = peek;
     if (tty_readc_noblock(tty, &peek)) {
       c1 = cx;
     }
   }
 
   // "special" characters ('?' is used for private sequences)
-  char special = 0;
-  if (strchr(":<=>?",peek) != NULL) { 
+  uint8_t special = 0;
+  if (strchr(":<=>?",(char)peek) != NULL) { 
     special = peek;
     if (!tty_readc_noblock(tty,&peek)) {  
       tty_cpush_char(tty,special); // recover
-      return (key_char(c1) | KEY_MOD_ALT);       // Alt+<anychar>
+      return (key_unicode(c1) | KEY_MOD_ALT);       // Alt+<anychar>
     }
   }
 
@@ -268,8 +268,8 @@ static code_t tty_read_csi(tty_t* tty, char c1, char peek, code_t mods0) {
   }
 
   // the final character (we do not allow 'intermediate characters')
-  char   final = peek;
-  code_t modifiers = mods0;
+  uint8_t final = peek;
+  code_t  modifiers = mods0;
 
   debug_msg("tty: escape sequence: ESC %c %c %d;%d %c\n", c1, (special == 0 ? '_' : special), num1, num2, final);
   
@@ -333,8 +333,8 @@ static code_t tty_read_csi(tty_t* tty, char c1, char peek, code_t mods0) {
 }
 
 rp_private code_t tty_read_esc(tty_t* tty) {
-  code_t mods = 0;
-  char peek = 0;
+  code_t  mods = 0;
+  uint8_t peek = 0;
   
   // lone ESC?
   if (!tty_readc_noblock(tty,&peek)) return KEY_ESC;
@@ -353,7 +353,7 @@ rp_private code_t tty_read_esc(tty_t* tty) {
 
   // SS3?
   if (peek == 'O' || peek == 'o' || peek == '?' /*vt52*/) {
-    char c1 = peek;
+    uint8_t c1 = peek;
     if (!tty_readc_noblock(tty, &peek)) goto alt;
     if (c1 == 'o') { 
       // ETerm uses this for ctrl+<cursor>
@@ -365,5 +365,5 @@ rp_private code_t tty_read_esc(tty_t* tty) {
 
 alt:  
   // Alt+<char>
-  return (key_char(peek) | KEY_MOD_ALT);  // ESC <anychar>
+  return (key_unicode(peek) | KEY_MOD_ALT);  // ESC <anychar>
 }

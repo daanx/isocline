@@ -64,6 +64,7 @@ rp_private bool rp_strncpy( char* dest, ssize_t dest_size /* including 0 */, con
 
 //-------------------------------------------------------------
 // Unicode
+// QUTF-8: See <https://github.com/koka-lang/koka/blob/master/kklib/include/kklib/string.h>
 //-------------------------------------------------------------
 #define RP_RAW_PLANE      ((unicode_t)(0xE0000U))
 #define RP_RAW_UTF8_OFS   (RP_RAW_PLANE + 0xE000U)
@@ -77,7 +78,7 @@ static bool unicode_is_raw_utf8(unicode_t u) {
   return (u >= RP_RAW_PLANE + RP_RAW_UTF8_OFS && u <= RP_RAW_PLANE + RP_RAW_UTF8_OFS + 0xFF);
 }
 
-rp_private void unicode_to_utf8(unicode_t u, uint8_t buf[5]) {
+rp_private void unicode_to_qutf8(unicode_t u, uint8_t buf[5]) {
   memset(buf, 0, 5);
   if (u <= 0x7F) {
     buf[0] = (uint8_t)u;
@@ -93,7 +94,7 @@ rp_private void unicode_to_utf8(unicode_t u, uint8_t buf[5]) {
   }
   else if (u <= 0x10FFFF) {
     if (unicode_is_raw_utf8(u)) {
-      buf[0] = u - RP_RAW_PLANE - RP_RAW_UTF8_OFS;
+      buf[0] = (uint8_t)(u - RP_RAW_PLANE - RP_RAW_UTF8_OFS);
       buf[1] = 0;
     }
     else {
@@ -110,8 +111,8 @@ static inline bool is_cont(uint8_t c) {
   return ((c & 0xC0) == 0x80);
 }
 
-rp_private unicode_t unicode_from_utf8(const uint8_t* s, ssize_t len, ssize_t* count) {
-  uint8_t c0 = 0;
+rp_private unicode_t unicode_from_qutf8(const uint8_t* s, ssize_t len, ssize_t* count) {
+  unicode_t c0 = 0;
   if (len <= 0 || s == NULL) {
     goto fail;
   }
@@ -136,7 +137,7 @@ rp_private unicode_t unicode_from_utf8(const uint8_t* s, ssize_t len, ssize_t* c
           ))
   {
     if (count != NULL) *count = 3;
-    return (((c0 & 0x0F) << 12) | ((s[1] & 0x3F) << 6) | (s[2] & 0x3F));
+    return (((c0 & 0x0F) << 12) | ((unicode_t)(s[1] & 0x3F) << 6) | (s[2] & 0x3F));
   }
   // 4 bytes: reject overlong
   else if (len >= 4 && 
@@ -146,11 +147,11 @@ rp_private unicode_t unicode_from_utf8(const uint8_t* s, ssize_t len, ssize_t* c
           )) 
   {
     if (count != NULL) *count = 4;
-    return (((c0 & 0x07) << 18) | ((s[1] & 0x3F) << 12) | ((s[2] & 0x3F) << 6) | (s[3] & 0x3F));
+    return (((c0 & 0x07) << 18) | ((unicode_t)(s[1] & 0x3F) << 12) | ((unicode_t)(s[2] & 0x3F) << 6) | (s[3] & 0x3F));
   }  
 fail:
   if (count != NULL) *count = 1;
-  return unicode_from_raw(c0);
+  return unicode_from_raw(s[0]);
 }
 
 

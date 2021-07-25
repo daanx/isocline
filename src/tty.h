@@ -32,9 +32,9 @@ rp_private code_t tty_read(tty_t* tty);
 rp_private bool   tty_readc_noblock(tty_t* tty, uint8_t* c);   // used in term.c
 rp_private void   tty_code_pushback( tty_t* tty, code_t c );
 
-rp_private bool   code_is_ascii_char(tty_t* tty, code_t c, char* chr );
-rp_private bool   code_is_unicode(tty_t* tty, code_t c, unicode_t* uchr);
-rp_private bool   code_is_virt_key( tty_t* tty, code_t c );
+rp_private bool   code_is_ascii_char(code_t c, char* chr );
+rp_private bool   code_is_unicode(code_t c, unicode_t* uchr);
+rp_private bool   code_is_virt_key(code_t c );
 
 
 // shared between tty.c and tty_esc.c: low level character push

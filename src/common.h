@@ -63,14 +63,21 @@ rp_private bool    rp_strncpy(char* dest, ssize_t dest_size /* including 0 */, c
 
 
 
-//-------------------------------------------------------------
+//---------------------------------------------------------------------
 // Unicode
-//-------------------------------------------------------------
+//
+// We use "qutf-8" (quite like utf-8) encoding and decoding. 
+// Internally we always use valid utf-8. If we encounter invalid
+// utf-8 bytes (or bytes >= 0x80 from any other encoding) we encode
+// these as special code points in the "raw plane" (0xEE000 - 0xFF0FF).
+// We decoding we are then able to restore such raw bytes as-is.
+// See <https://github.com/koka-lang/koka/blob/master/kklib/include/kklib/string.h>
+//---------------------------------------------------------------------
 
 typedef uint32_t  unicode_t;
 
-rp_private bool      unicode_to_utf8(unicode_t u, uint8_t buf[5]);
-rp_private unicode_t unicode_from_utf8(const uint8_t* s, ssize_t len, ssize_t* count);
+rp_private void      unicode_to_qutf8(unicode_t u, uint8_t buf[5]);
+rp_private unicode_t unicode_from_qutf8(const uint8_t* s, ssize_t len, ssize_t* nread); // validating
 rp_private unicode_t unicode_from_raw(uint8_t c);
 
 //-------------------------------------------------------------
