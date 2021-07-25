@@ -13,6 +13,7 @@ This is a bit tricky as there is no clear standard; see:
 - <http://www.leonerd.org.uk/hacks/fixterms/>.
 - <https://en.wikipedia.org/wiki/ANSI_escape_code#CSI_(Control_Sequence_Introducer)_sequences>
 - <https://www.xfree86.org/current/ctlseqs.html>
+- <https://vt100.net/docs/vt220-rm/contents.html>
 - <https://www.ecma-international.org/wp-content/uploads/ECMA-48_5th_edition_june_1991.pdf>
 
 Generally, for our purposes we accept a subset of escape sequence as:
@@ -45,20 +46,26 @@ We then accept the following standard sequences to encode keys:
        |  ESC '[' special? unicode ';' modifiers 'u'       # direct unicode code
 
 Moreover, we translate the following deprecated special cases that do 
-not fit into the standard key codes or escape sequence grammar:
----------------------------------------------------------------
-  ESC '?' ..         ~>  ESC 'O' ..                 # vt52 treated as SS3
-  ESC '[' 'O' ..     ~>  ESC '[' ..                 # ESC '[' 'O' [P-S]  is used in xterm for F1-F4
-  ESC '[' .. '@'     ~>  ESC '[' '3' '~'            # Del on Mach
-  ESC '[' .. '9'     ~>  ESC '[' '2' '~'            # Ins on Mach
-  ESC .. [^@$]       ~>  ESC .. '~'                 # ETerm,xrvt,urxt: ^ = ctrl, $ = shift, @ = alt
-  ESC '[' '[' [A-E]  ~>  ESC '[' .. [M-Q]           # Linux F1-F5
-  ESC '[' [a-d]      ~>  ESC '[' '1' ';' '2' [A-D]  # Eterm cursor+shift
-  ESC 'o' [a-d]      ~>  ESC '[' '1' ';' '5' [A-D]  # Eterm cursor+ctrl
-  ESC 'O' [1-9] fin  ~>  ESC 'O' '1' ';' [1-9] fin  # Haiku puts modifiers as parameter 1
+not fit into the standard key codes or escape sequence grammar. 
+First we translate away special starter sequences:
+---------------------------------------------------------------------
+  ESC '[' '[' ..      ~>  ESC '[' ..                  # Linux sometimes uses extra '[' for CSI
+  ESC '[' 'O' ..      ~>  ESC 'O' ..                  # Linux sometimes uses extra '[' for SS3
+  ESC 'o' ..          ~>  ESC 'O' ..                  # Eterm: ctrl + SS3
+  ESC '?' ..          ~>  ESC 'O' ..                  # vt52 treated as SS3
 
-The modifiers are:
-------------------
+And then translate the following special cases into a standard form:
+---------------------------------------------------------------------
+  ESC '[' .. '@'      ~>  ESC '[' '3' '~'             # Del on Mach
+  ESC '[' .. '9'      ~>  ESC '[' '2' '~'             # Ins on Mach
+  ESC .. [^@$]        ~>  ESC .. '~'                  # ETerm,xrvt,urxt: ^ = ctrl, $ = shift, @ = alt
+  ESC '[' [a-d]       ~>  ESC '[' '1' ';' '2' [A-D]   # Eterm shift+<cursor>
+  ESC 'O' [1-9] final ~>  ESC 'O' '1' ';' [1-9] final # modifiers as parameter 1 (like on Haiku)
+  ESC '[' [1-9] [^~u] ~>  ESC 'O' '1' ';' [1-9] final # modifiers as parameter 1
+
+The modifier keys are encoded as "(modifiers-1) & mask" where the 
+shift mask is 0x01, alt 0x02 and ctrl 0x04. Therefore:
+------------------------------------------------------------
   1:  -           5: ctrl            9: alt  (for minicom)
   2:  shift       6: shift+ctrl
   3:  alt         7: alt+ctrl
@@ -171,7 +178,7 @@ static code_t esc_decode_xterm( char xcode ) {
     case 'V': return KEY_PAGEUP;   // Mach
     case 'W': return KEY_F11;
     case 'X': return KEY_F12;    
-    case 'Y': return KEY_END;      // Mach    
+    case 'Y': return KEY_END;      // Mach       
   }
   return KEY_NONE;
 }
@@ -198,7 +205,7 @@ static code_t esc_decode_ss3( char ss3_code ) {
     case 'U': return KEY_F6;
     case 'V': return KEY_F7;
     case 'W': return KEY_F8;
-    case 'X': return KEY_F9;  // = on vt220
+    case 'X': return KEY_F9;  // '=' on vt220
     case 'Y': return KEY_F10;
     // numpad
     case 'a': return KEY_UP;
@@ -239,36 +246,23 @@ static void tty_read_csi_num(tty_t* tty, char* ppeek, uint32_t* num) {
 }
 
 static code_t tty_read_csi(tty_t* tty, char c1, char peek, code_t mods0) {
-  // CSI starts with 0x9b (c1=='[') | ESC [ (c1=='[')
-  // also process SS3 which starts with ESC O, ESC o, or ESC ? (on a vt52)  (c1=='O' or 'o' or '?')
+  // CSI starts with 0x9b (c1=='[') | ESC [ (c1=='[') | ESC [Oo?] (c1 == 'O')  /* = SS3 */
   
-  // "special" characters (includes non-standard '[' for linux function keys)
-  char special = 0;
-  if (strchr(":<=>?[",peek) != NULL) { 
-    special = peek;
-    if (!tty_readc_noblock(tty,&peek)) {  
-      tty_cpush_char(tty,special); // recover
-      return (KEY_CHAR(c1) | KEY_MOD_ALT);       // Alt+any
+  // check for extra starter '[' (Linux sends ESC [ [ 15 ~  for F5 for example)
+  if (c1 == '[' && strchr("[Oo?", peek) != NULL) {
+    char cx = peek;
+    if (tty_readc_noblock(tty, &peek)) {
+      c1 = cx;
     }
   }
 
-  // treat vt52 as standard SS3 (<https://www.xfree86.org/current/ctlseqs.html#VT52-Style%20Function%20Keys>)
-  if (c1 == '?') {
-    special = '?';
-    c1 = 'O'; 
-  }
-
-  // handle xterm: ESC [ O [P-S]  and treat O as a special in that case.
-  if (c1 == '[' && peek == 'O') {
-    if (tty_readc_noblock(tty,&peek)) {
-      if (peek >= 'P' && peek <= 'S') {
-        // ESC [ O [P-S]   : used for F1-F4 on xterm
-        special = 'O';  // make the O a special and continue
-      }
-      else {
-        tty_cpush_char(tty,peek); // recover
-        peek = 'O';
-      }
+  // "special" characters ('?' is used for private sequences)
+  char special = 0;
+  if (strchr(":<=>?",peek) != NULL) { 
+    special = peek;
+    if (!tty_readc_noblock(tty,&peek)) {  
+      tty_cpush_char(tty,special); // recover
+      return (KEY_CHAR(c1) | KEY_MOD_ALT);       // Alt+<anychar>
     }
   }
 
@@ -301,22 +295,15 @@ static code_t tty_read_csi(tty_t* tty, char c1, char peek, code_t mods0) {
     if (final=='@') modifiers |= KEY_MOD_SHIFT | KEY_MOD_CTRL;
     final = '~';
   }
-  if (c1 == '[' && special == '[' && (final >= 'A' && final <= 'E')) {
-    // ESC [ [ [A-E]  : linux F1-F5 codes
-    final = 'M' + (final - 'A');  // map to xterm M-Q codes.
-  }
-  else if (c1 == '[' && final >= 'a' && final <= 'd') {
+  else if (c1 == '[' && final >= 'a' && final <= 'd') {  // note: do not catch ESC [ .. u  (for unicode)
     // ESC [ [a-d]  : on Eterm for shift+ cursor
     modifiers |= KEY_MOD_SHIFT;
     final = 'A' + (final - 'a');
   }
-  else if (c1 == 'o' && final >= 'a' && final <= 'd') {
-    // ESC o [a-d]  : on Eterm these are ctrl+cursor
-    c1 = '[';
-    modifiers |= KEY_MOD_CTRL;
-    final = 'A' + (final - 'a');  // to uppercase A - D.
-  }
-  else if (c1 == 'O' && num2 == 1 && num1 > 1 && num1 <= 8) {
+  
+  if (((c1 == 'O') || (c1=='[' && final != '~' && final != 'u')) &&
+      (num2 == 1 && num1 > 1 && num1 <= 8)) 
+  {
     // on haiku the modifier can be parameter 1, make it parameter 2 instead
     num2 = num1;
     num1 = 1;
@@ -354,32 +341,37 @@ static code_t tty_read_csi(tty_t* tty, char c1, char peek, code_t mods0) {
 }
 
 rp_private code_t tty_read_esc(tty_t* tty) {
+  code_t mods = 0;
   char peek = 0;
-  if (!tty_readc_noblock(tty,&peek)) return KEY_ESC; // ESC
+  
+  // lone ESC?
+  if (!tty_readc_noblock(tty,&peek)) return KEY_ESC;
+
+  // treat ESC ESC as Alt modifier (macOS sends ESC ESC [ [A-D] for alt-<cursor>)
+  if (peek == KEY_ESC) {
+    if (!tty_readc_noblock(tty, &peek)) goto alt;
+    mods |= KEY_MOD_ALT;
+  }
+
+  // CSI ?
   if (peek == '[') {
-    if (!tty_readc_noblock(tty,&peek)) return ('[' | KEY_MOD_ALT);  // ESC [
-    return tty_read_csi(tty,'[',peek,0);  // ESC [ ...
+    if (!tty_readc_noblock(tty, &peek)) goto alt;
+    return tty_read_csi(tty, '[', peek, mods);  // ESC [ ...
   }
-  else if (peek == 'O' || peek == 'o' || peek == '?' /*vt52*/) {
-    // SS3 ?
+
+  // SS3?
+  if (peek == 'O' || peek == 'o' || peek == '?' /*vt52*/) {
     char c1 = peek;
-    if (!tty_readc_noblock(tty,&peek)) return (KEY_CHAR(c1) | KEY_MOD_ALT);  // ESC [Oo?]
-    return tty_read_csi(tty,c1,peek,0);  // ESC [Oo?] ...
-  }
-  else if (peek == KEY_ESC) {
-    // macOS returns ESC ESC [ [A-D] for alt-<cursor>
-    if (!tty_readc_noblock(tty,&peek)) {
-      tty_cpush_char(tty,'\x1B'); 
-      return KEY_ESC; // ESC
+    if (!tty_readc_noblock(tty, &peek)) goto alt;
+    if (c1 == 'o') { 
+      // ETerm uses this for ctrl+<cursor>
+      mods |= KEY_MOD_CTRL;
     }
-    if (peek != '[' || !tty_readc_noblock(tty,&peek)) {
-      tty_cpush_char(tty,peek);
-      tty_cpush_char(tty,'\x1B'); 
-      return KEY_ESC;
-    }
-    return tty_read_csi(tty,'[',peek,KEY_MOD_ALT);
+    // treat all as standard SS3 'O'
+    return tty_read_csi(tty,'O',peek,mods);  // ESC [Oo?] ...
   }
-  else {
-    return (KEY_CHAR(peek) | KEY_MOD_ALT);  // ESC any    
-  }  
+
+alt:  
+  // Alt+<char>
+  return (KEY_CHAR(peek) | KEY_MOD_ALT);  // ESC <anychar>
 }

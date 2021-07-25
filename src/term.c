@@ -573,7 +573,7 @@ static void term_write_esc( term_t* term, const char* s, ssize_t len ) {
     case 's': 
       term_cursor_save(term);
       break;    
-    case 'u': 
+    case 'u':
       term_cursor_restore(term);
       break;
     }

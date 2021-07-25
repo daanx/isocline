@@ -141,6 +141,10 @@ rp_private code_t tty_read(tty_t* tty) {
   if (key == KEY_RUBOUT) {
     code = KEY_BACKSP | mods;
   }
+  // ctrl+'_' is translated to '\x1F' on Linux, translate it back 
+  else if (key == KEY_CHAR('\x1F') && mods == 0) {
+    code = WITH_CTRL(KEY_CHAR('_'));
+  }
   // treat ctrl/shift + enter always as KEY_LINEFEED for portability
   else if (key == KEY_ENTER && (mods == KEY_MOD_SHIFT || mods == KEY_MOD_ALT || mods == KEY_MOD_CTRL)) {
     code = KEY_LINEFEED;
