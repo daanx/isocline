@@ -56,15 +56,15 @@ Repline tries to be mostly compatible with standard [GNU Readline].
 
 ### Overview:
 ```apl
-       home/ctrl-a      cursor     end/ctrl-e
-         ┌────────────────┼────────────────┐    (navigate)
-         │    ctrl-left   │   ctrl-right   │
-         │        ┌───────┼───────┐        │    ctrl+r   : search history
-         ▼        ▼       ▼       ▼        ▼    tab      : complete word
+       home/ctrl-a       cursor     end/ctrl-e
+         ┌─────────────────┼───────────────┐    (navigate)
+         │     ctrl-left   │  ctrl-right   │
+         │         ┌───────┼──────┐        │    ctrl+r   : search history
+         ▼         ▼       ▼      ▼        ▼    tab      : complete word
   prompt> it is the quintessential language     shift-tab: insert new line
-         ▲        ▲               ▲        ▲    esc      : delete line, done
-         │        └───────────────┘        │    ctrl+z   : undo
-         │   alt-backsp         alt-d      │
+         ▲         ▲              ▲        ▲    esc      : delete line, done
+         │         └──────────────┘        │    ctrl+z   : undo
+         │    alt-backsp        alt-d      │
          └─────────────────────────────────┘    (delete)
        ctrl-u                          ctrl-k
 ```
