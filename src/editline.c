@@ -606,7 +606,7 @@ static char* edit_line( rp_env_t* env, const char* prompt_text )
       char chr;
       if (code_is_follower(env->tty, c, &chr)) {
         tofollow--;
-        edit_insert_char( env, &eb, chr, tofollow == 0);
+        edit_insert_char( env, &eb, chr, tofollow == 0 /* refresh? */);
         continue;
       }
       else {

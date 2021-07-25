@@ -199,7 +199,8 @@ static void rp_env_free(rp_env_t* env) {
   tty_free(env->tty);
   sbuf_free(env->input);
   sbuf_free(env->extra);
-  mem_free(env->mem,env->prompt_marker); 
+  mem_free(env->mem, env->cprompt_marker);
+  mem_free(env->mem,env->prompt_marker);
   env->prompt_marker = NULL;
   
   // and deallocate ourselves

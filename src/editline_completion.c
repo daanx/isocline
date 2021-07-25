@@ -213,7 +213,7 @@ again:
     }
   }
   else if (!env->complete_nopreview && !code_is_virt_key(env->tty,c)) {
-    // if in preview mode, select the current entry and keep writing
+    // if in preview mode, select the current entry and exit the menu
     assert(selected < count);
     edit_complete(env, eb, selected); 
   }

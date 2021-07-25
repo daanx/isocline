@@ -157,7 +157,7 @@ static int completion_compare(const void* p1, const void* p2) {
 
 rp_private void completions_sort(completions_t* cms) {
   if (cms->count <= 0) return;
-  qsort(cms->elems, cms->count, sizeof(cms->elems[0]), &completion_compare);
+  qsort(cms->elems, to_size_t(cms->count), sizeof(cms->elems[0]), &completion_compare);
 }
 
 #define RP_MAX_PREFIX  (256)

@@ -432,8 +432,8 @@ static void filename_completer( rp_completion_env_t* cenv, const char* prefix ) 
       }
     }
   }
-  mem_free(cenv->env->mem, root_dir);
-  mem_free(cenv->env->mem, dir_prefix);
+  sbuf_free(root_dir);
+  sbuf_free(dir_prefix);
 }
 
 rp_public void rp_complete_filename( rp_completion_env_t* cenv, const char* prefix, char dir_sep, const char* roots, const char* extensions ) {
