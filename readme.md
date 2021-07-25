@@ -52,7 +52,7 @@ $ ./test/Example
 
 # Editing with Repline
 
-Repline tries to be mostly compatible with standard [GNU Readline].
+Repline tries to be mostly compatible with standard [GNU Readline] key bindings.
 
 ### Overview:
 ```apl
