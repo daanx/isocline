@@ -33,7 +33,9 @@ int main()
   // try to auto complete after a completion as long as the completion is unique
   rp_enable_auto_tab(true );
 
-  
+  rp_set_prompt_marker( "$ ", ">$ ");
+  rp_enable_multiline_indent( false );
+
   //rp_set_iface_colors( env, RP_MAROON, RP_DARKGRAY, RP_YELLOW );
 
   // run until empty input

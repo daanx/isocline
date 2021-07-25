@@ -63,7 +63,7 @@ rp_private bool history_update( history_t* h, const char* entry ) {
   return true;
 }
 
-static void history_delete_at( history_t* h, int idx ) {
+static void history_delete_at( history_t* h, ssize_t idx ) {
   if (idx < 0 || idx >= h->count) return;
   mem_free(h->mem, h->elems[idx]);
   for(ssize_t i = idx+1; i < h->count; i++) {

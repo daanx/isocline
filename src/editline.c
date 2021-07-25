@@ -106,22 +106,31 @@ static bool editor_pos_is_at_end(editor_t* eb ) {
 //-------------------------------------------------------------
 
 
-static ssize_t edit_get_prompt_width( rp_env_t* env, editor_t* eb, bool in_extra, ssize_t* termw ) {
+static void edit_get_prompt_width( rp_env_t* env, editor_t* eb, bool in_extra, ssize_t* termw, ssize_t* promptw, ssize_t* cpromptw ) {
   if (termw!=NULL) *termw = term_get_width( env->term );
-  return (in_extra ? 0 : str_column_width(eb->prompt_text,eb->is_utf8) + 
-                         (env->prompt_marker == NULL ? 2 : str_column_width(env->prompt_marker,eb->is_utf8)));
+  if (in_extra) {
+    *promptw = 0;
+    *cpromptw = 0;
+  }
+  else {
+    ssize_t textw = str_column_width(eb->prompt_text, eb->is_utf8);
+    ssize_t markerw = str_column_width(env->prompt_marker, eb->is_utf8);
+    ssize_t cmarkerw = str_column_width(env->cprompt_marker, eb->is_utf8);
+    *promptw = markerw + textw;
+    *cpromptw = (env->no_multiline_indent || *promptw < cmarkerw ? cmarkerw : *promptw);
+  }
 }
 
 static ssize_t edit_get_rowcol( rp_env_t* env, editor_t* eb, rowcol_t* rc ) {
-  ssize_t termw;
-  ssize_t promptw = edit_get_prompt_width( env, eb, false, &termw );
-  return sbuf_get_rc_at_pos( eb->input, termw, promptw, eb->pos, rc );
+  ssize_t termw, promptw, cpromptw;
+  edit_get_prompt_width(env, eb, false, &termw, &promptw, &cpromptw);
+  return sbuf_get_rc_at_pos( eb->input, termw, promptw, cpromptw, eb->pos, rc );
 }
 
 static void edit_set_pos_at_rowcol( rp_env_t* env, editor_t* eb, ssize_t row, ssize_t col ) {
-  ssize_t termw;
-  ssize_t promptw = edit_get_prompt_width( env, eb, false, &termw );
-  ssize_t pos = sbuf_get_pos_at_rc( eb->input, termw, promptw, row, col );
+  ssize_t termw, promptw, cpromptw;
+  edit_get_prompt_width(env, eb, false, &termw, &promptw, &cpromptw);
+  ssize_t pos = sbuf_get_pos_at_rc( eb->input, termw, promptw, cpromptw, row, col );
   if (pos < 0) return;
   eb->pos = pos;
   edit_refresh(env, eb);
@@ -134,22 +143,26 @@ static bool edit_pos_is_at_row_end( rp_env_t* env, editor_t* eb ) {
 }
 
 static void edit_write_prompt( rp_env_t* env, editor_t* eb, ssize_t row, bool in_extra ) {
-  if (!in_extra) { 
-    if (row==0) {
-      term_color( env->term, env->prompt_color );
-      term_write(env->term, eb->prompt_text);
-      term_attr_reset( env->term );    
-    }
-    else {
-      ssize_t w = str_column_width(eb->prompt_text,eb->is_utf8);
-      if (w > 0) {
-        term_writef(env->term, w, "%*c", w, ' ' );
-      }
-    }
+  if (in_extra) return;
+  if (row==0) {
+    // regular prompt text
     term_color( env->term, env->prompt_color );
-    term_write( env->term, (env->prompt_marker == NULL ? "> " : env->prompt_marker )); 
-    term_attr_reset( env->term );
+    term_write(env->term, eb->prompt_text);
+    term_attr_reset( env->term );    
   }
+  else if (!env->no_multiline_indent) {
+    // multiline continuation indentation
+    ssize_t textw = str_column_width(eb->prompt_text, eb->is_utf8);
+    ssize_t markerw = str_column_width(env->prompt_marker, eb->is_utf8);
+    ssize_t cmarkerw = str_column_width(env->cprompt_marker, eb->is_utf8);      
+    if (cmarkerw < markerw + textw) {
+      term_write_repeat(env->term, " ", markerw + textw - cmarkerw );
+    }
+  }
+  // the marker
+  term_color( env->term, env->prompt_color );
+  term_write( env->term, (row == 0 ? env->prompt_marker : env->cprompt_marker )); 
+  term_attr_reset( env->term );
 }
 
 //-------------------------------------------------------------
@@ -197,7 +210,7 @@ static bool edit_refresh_rows_iter(
 }
 
 static void edit_refresh_rows(rp_env_t* env, editor_t* eb, 
-                                  ssize_t termw, ssize_t promptw, 
+                                  ssize_t termw, ssize_t promptw, ssize_t cpromptw,
                                   bool in_extra, ssize_t first_row, ssize_t last_row) 
 {
   refresh_info_t info;
@@ -206,7 +219,7 @@ static void edit_refresh_rows(rp_env_t* env, editor_t* eb,
   info.in_extra = in_extra;
   info.first_row  = first_row;
   info.last_row   = last_row;
-  sbuf_for_each_row( (in_extra ? eb->extra : eb->input), termw, promptw,
+  sbuf_for_each_row( (in_extra ? eb->extra : eb->input), termw, promptw, cpromptw,
                             &edit_refresh_rows_iter, &info, NULL );
 }
 
@@ -214,13 +227,13 @@ static void edit_refresh_rows(rp_env_t* env, editor_t* eb,
 
 static void edit_refresh(rp_env_t* env, editor_t* eb) 
 {
-  ssize_t termw;
-  ssize_t promptw = edit_get_prompt_width( env, eb, false, &termw );
+  ssize_t termw, promptw, cpromptw;
+  edit_get_prompt_width( env, eb, false, &termw, &promptw, &cpromptw );
 
   rowcol_t rc;
-  ssize_t rows_input = sbuf_get_rc_at_pos( eb->input, termw, promptw, eb->pos, &rc );
+  const ssize_t rows_input = sbuf_get_rc_at_pos( eb->input, termw, promptw, cpromptw, eb->pos, &rc );
   rowcol_t rc_extra;
-  ssize_t rows_extra = sbuf_get_rc_at_pos( eb->extra, termw, 0, 0, &rc_extra );
+  ssize_t rows_extra = sbuf_get_rc_at_pos( eb->extra, termw, 0, 0, 0 /*pos*/, &rc_extra );
   if (sbuf_len(eb->extra) == 0) rows_extra = 0;
   ssize_t rows = rows_input + rows_extra; 
   debug_msg("edit: start refresh: rows %zd, pos: %zd,%zd (previous rows %zd, row %zd)\n", rows, rc.row, rc.col, eb->cur_rows, eb->cur_row);
@@ -239,11 +252,11 @@ static void edit_refresh(rp_env_t* env, editor_t* eb)
   term_up(env->term, eb->cur_row);
   
   // render rows
-  edit_refresh_rows( env, eb, termw, promptw, false, first_row, last_row );
+  edit_refresh_rows( env, eb, termw, promptw, cpromptw, false, first_row, last_row );
   if (rows_extra > 0) {
     ssize_t first_rowx = (first_row > rows_input ? first_row - rows_input : 0);
     ssize_t last_rowx = last_row - rows_input; assert(last_rowx >= 0);
-    edit_refresh_rows(env, eb, termw, 0, true, first_rowx, last_rowx);
+    edit_refresh_rows(env, eb, termw, 0, 0, true, first_rowx, last_rowx);
   }
 
   // overwrite trailing rows we do not use anymore
@@ -261,7 +274,7 @@ static void edit_refresh(rp_env_t* env, editor_t* eb)
   // move cursor back to edit position
   term_start_of_line(env->term);
   term_up(env->term, first_row + rrows - 1 - rc.row );
-  term_right(env->term, rc.col + promptw);
+  term_right(env->term, rc.col + (rc.row == 0 ? promptw : cpromptw));
   term_end_buffered(env->term);
 
   // update previous

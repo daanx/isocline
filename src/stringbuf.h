@@ -79,10 +79,10 @@ typedef struct rowcol_s {
 } rowcol_t;
 
 // find row/col position
-rp_private ssize_t sbuf_get_pos_at_rc( stringbuf_t* sbuf, ssize_t termw, ssize_t promptw, ssize_t row, ssize_t col );
+rp_private ssize_t sbuf_get_pos_at_rc( stringbuf_t* sbuf, ssize_t termw, ssize_t promptw, ssize_t cpromptw, ssize_t row, ssize_t col );
 
 // get row/col for a given position
-rp_private ssize_t sbuf_get_rc_at_pos( stringbuf_t* sbuf, ssize_t termw, ssize_t promptw, ssize_t pos, rowcol_t* rc );
+rp_private ssize_t sbuf_get_rc_at_pos( stringbuf_t* sbuf, ssize_t termw, ssize_t promptw, ssize_t cpromptw, ssize_t pos, rowcol_t* rc );
 
 
 // row iteration
@@ -90,7 +90,7 @@ typedef bool (row_fun_t)(const char* s,
                           ssize_t row, ssize_t row_start, ssize_t row_len, 
                           bool is_wrap, bool is_utf8, const void* arg, void* res);
 
-rp_private ssize_t sbuf_for_each_row( stringbuf_t* sbuf, ssize_t termw, ssize_t promptw, row_fun_t* fun, void* arg, void* res );
+rp_private ssize_t sbuf_for_each_row( stringbuf_t* sbuf, ssize_t termw, ssize_t promptw, ssize_t cpromptw, row_fun_t* fun, void* arg, void* res );
 
 
 //-------------------------------------------------------------

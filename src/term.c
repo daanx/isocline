@@ -165,6 +165,12 @@ rp_private void term_beep(term_t* term) {
   fflush(stderr);
 }
 
+rp_private bool term_write_repeat(term_t* term, const char* s, ssize_t count) {
+  for (; count > 0; count--) {
+    if (!term_write(term, s)) return false;
+  }
+  return true;
+}
 
 rp_private bool term_write(term_t* term, const char* s) {
   // todo: strip colors on nocolor
@@ -765,8 +771,8 @@ rp_private bool term_update_dim(term_t* term, tty_t* tty) {
   ssize_t cols = 0;  
   CONSOLE_SCREEN_BUFFER_INFO sbinfo;  
   if (GetConsoleScreenBufferInfo(term->hcon, &sbinfo)) {
-     cols = sbinfo.srWindow.Right - sbinfo.srWindow.Left + 1;
-     rows = sbinfo.srWindow.Bottom - sbinfo.srWindow.Top + 1;
+     cols = (ssize_t)sbinfo.srWindow.Right - (ssize_t)sbinfo.srWindow.Left + 1;
+     rows = (ssize_t)sbinfo.srWindow.Bottom - (ssize_t)sbinfo.srWindow.Top + 1;
   }
   bool changed = (term->width != cols || term->height != rows);
   term->width = cols;

@@ -19,6 +19,7 @@ extern "C" {
 // Main interface
 //--------------------------------------------------------------
 
+#define RP_VERSION   (100)    // 1.0.0
 
 // Read input from the user using rich editing abilities.
 // The `prompt_text` can be NULL for the default (""). 
@@ -156,8 +157,10 @@ typedef enum rp_color_e {
   RP_COLOR_DEFAULT = 39    // default terminal color
 } rp_color_t;
 
-// Set a prompt marker. Pass NULL for the default marker ("> ").
-void rp_set_prompt_marker( const char* prompt_marker );
+// Set a prompt marker and a potential marker for extra lines with multiline input. 
+// Pass NULL for the `prompt_marker` for the default marker ("> ").
+// Pass NULL for continuation prompt marker to make it equal to the `prompt_marker`.
+void rp_set_prompt_marker( const char* prompt_marker, const char* continuation_prompt_marker );
 
 // Set the color used for the prompt text and marker.
 void rp_set_prompt_color( rp_color_t color );
@@ -181,6 +184,10 @@ void rp_enable_auto_tab( bool enable );
 
 // Disable or enable preview of a completion selection (enabled by default)
 void rp_enable_completion_preview( bool enable );
+
+// Disable or enable automatic identation of continuation lines in multiline
+// input so it aligns with the initial prompt.
+void rp_enable_multiline_indent(bool enable);
 
 // Set the color used for interface elements:
 // - info: for example, numbers in the completion menu (`RP_DARKGRAY` by default)

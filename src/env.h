@@ -29,7 +29,8 @@ struct rp_env_s {
   history_t*      history;          // edit history
   stringbuf_t*    input;            // keep a current input buffer to avoid reallocation
   stringbuf_t*    extra;            // keep a current extra buffer to avoid reallocation
-  const char*     prompt_marker;    // the prompt marker (NULL is default "> ")
+  const char*     prompt_marker;    // the prompt marker (defaults to "> ")
+  const char*     cprompt_marker;   // prompt marker for continuation lines (defaults to `prompt_marker`)
   rp_color_t      prompt_color;     // color used to display the prompt
   char            multiline_eol;    // character used for multiline input ("\")
   bool            initialized;      // are we initialized?
@@ -37,6 +38,7 @@ struct rp_env_s {
   bool            singleline_only;  // allow only single line editing?
   bool            complete_nopreview; // do not show completion preview for each selection in the completion menu?
   bool            complete_autotab; // try to keep completing after a completion?
+  bool            no_multiline_indent; // indent continuation lines to line up under the initial prompt 
   rp_color_t      color_info;       // information color, for example numbers in the completion menu. (=RP_DARKGRAY)
   rp_color_t      color_diminish;   // diminish color, for example the non-highlighted part in a history search (=RP_DARKGRAY)
   rp_color_t      color_highlight;  // highlighted color, for example, the current match in a history search (=RP_DEFAULT_COLOR)

@@ -95,6 +95,7 @@ module System.Console.Repline(
       enableMultiline,
       enableHistoryDuplicates,
       enableCompletionPreview,
+      enableMultilineIndent,
       
       Color(..), 
       
@@ -340,13 +341,14 @@ completeQuotedWord (Completions rpc) prefx completer nonWordChars escapeChar quo
 ----------------------------------------------------------------------------
 foreign import ccall rp_set_prompt_color  :: CInt -> IO ()
 foreign import ccall rp_set_iface_colors  :: CInt -> CInt -> CInt -> IO ()
-foreign import ccall rp_set_prompt_marker :: CString -> IO ()
+foreign import ccall rp_set_prompt_marker :: CString -> CString -> IO ()
 foreign import ccall rp_enable_multiline  :: CCBool -> IO ()
 foreign import ccall rp_enable_beep       :: CCBool -> IO ()
 foreign import ccall rp_enable_color      :: CCBool -> IO ()
+foreign import ccall rp_enable_auto_tab   :: CCBool -> IO ()
 foreign import ccall rp_enable_history_duplicates :: CCBool -> IO ()
-foreign import ccall rp_enable_auto_tab    :: CCBool -> IO ()
 foreign import ccall rp_enable_completion_preview :: CCBool -> IO ()
+foreign import ccall rp_enable_multiline_indent   :: CCBool -> IO ()
 
 -- use our own CBool for compatibility with an older base
 type CCBool = CInt
@@ -365,11 +367,14 @@ setPromptColor color
   = rp_set_prompt_color (ccolor color)
 
 
--- | Set the prompt marker. Pass @\"\"@ for the default marker (@\"> \"@).
-setPromptMarker :: String -> IO ()
-setPromptMarker marker
+-- | @setPromptMarker marker multiline_marker@: Set the prompt @marker@ (by default @\"> \"@). 
+-- and a possible different continuation prompt marker @multiline_marker@ for multiline 
+-- input (defaults to @marker@).
+setPromptMarker :: String -> String -> IO ()
+setPromptMarker marker multiline_marker  
   = withUTF8String0 marker $ \cmarker ->
-    do rp_set_prompt_marker cmarker
+    withUTF8String0 multiline_marker $ \cmultiline_marker ->
+    do rp_set_prompt_marker cmarker cmultiline_marker
 
 -- | Disable or enable multi-line input (enabled by default).
 enableMultiline :: Bool -> IO ()
@@ -412,6 +417,13 @@ enableCompletionPreview enable
 setReplineColors :: Color -> Color -> Color -> IO ()
 setReplineColors colorInfo colorDiminish colorHighlight
   = rp_set_iface_colors (ccolor colorInfo) (ccolor colorDiminish) (ccolor colorHighlight)
+
+-- | Disable or enable automatic indentation to line up the
+-- multiline prompt marker with the initial prompt marker (enabled by default).
+-- See also 'setPromptMarker'.
+enableMultilineIndent :: Bool -> IO ()
+enableMultilineIndent enable
+  = do rp_enable_multiline_indent (cbool enable)
 
 ----------------------------------------------------------------------------
 -- Colors

@@ -92,11 +92,18 @@ static char* rp_getline(alloc_t* mem)
 // Interface
 //-------------------------------------------------------------
 
-rp_public void rp_set_prompt_marker( const char* prompt_marker ) {
-  rp_env_t* env = rp_get_env(); if (env==NULL) return;
+static void set_prompt_marker(rp_env_t* env, const char* prompt_marker, const char* cprompt_marker) {
   if (prompt_marker == NULL) prompt_marker = "> ";
+  if (cprompt_marker == NULL) cprompt_marker = prompt_marker;
   mem_free(env->mem, env->prompt_marker);
-  env->prompt_marker = mem_strdup(env->mem,prompt_marker);  
+  mem_free(env->mem, env->cprompt_marker);
+  env->prompt_marker = mem_strdup(env->mem, prompt_marker);
+  env->cprompt_marker = mem_strdup(env->mem, cprompt_marker);
+}
+
+rp_public void rp_set_prompt_marker( const char* prompt_marker, const char* cprompt_marker ) {
+  rp_env_t* env = rp_get_env(); if (env==NULL) return;
+  set_prompt_marker(env, prompt_marker, cprompt_marker);
 }
 
 rp_public void rp_set_prompt_color( rp_color_t color ) {
@@ -152,6 +159,11 @@ rp_public void rp_enable_auto_tab( bool enable ) {
 rp_public void rp_enable_completion_preview( bool enable ) {
   rp_env_t* env = rp_get_env(); if (env==NULL) return;
   env->complete_nopreview = !enable;
+}
+
+rp_public void rp_enable_multiline_indent(bool enable) {
+  rp_env_t* env = rp_get_env(); if (env==NULL) return;
+  env->no_multiline_indent = !enable;
 }
 
 static void set_iface_colors(rp_env_t* env, rp_color_t color_info, rp_color_t color_diminish, rp_color_t color_highlight) {
@@ -227,11 +239,10 @@ static rp_env_t* rp_env_create( rp_malloc_fun_t* _malloc, rp_realloc_fun_t* _rea
   {
     env->noedit = true;
   }
-  env->prompt_marker = NULL;
   env->multiline_eol = '\\';
   env->prompt_color  = RP_COLOR_DEFAULT;
   set_iface_colors(env,RP_COLOR_NONE, RP_COLOR_NONE, RP_COLOR_NONE);
-  
+  set_prompt_marker(env, NULL, NULL);
   return env;
 }
 

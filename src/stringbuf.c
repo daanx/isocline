@@ -134,9 +134,9 @@ rp_private ssize_t str_prev_ofs( const char* s, ssize_t pos, bool is_utf8, ssize
 rp_private bool skip_csi_esc( const char* s, ssize_t len, ssize_t* esclen ) {  
   if (esclen != NULL) *esclen = 0;
   if (s == NULL || len < 2 || s[0] != '\x1B') return false;
-  if (s[1] == '[' && s[1] == '[') {
+  if (s[1] == '[' || s[1] == ']') {
     // <https://en.wikipedia.org/wiki/ANSI_escape_code#CSI_(Control_Sequence_Introducer)_sequences>
-    // CSI or OSC
+    // CSI [ or OSC ]
     ssize_t n = 2;
     bool intermediate = false;
     while (len > n) {
@@ -161,7 +161,7 @@ rp_private bool skip_csi_esc( const char* s, ssize_t len, ssize_t* esclen ) {
   }
   else {
     // assume single character escape code (like ESC 7)
-    *esclen = 2;
+    if (esclen != NULL) *esclen = 2;
     return true;
   }
   return false;
@@ -309,7 +309,7 @@ static ssize_t str_find_ws_word_end( const char* s, ssize_t len, ssize_t pos, bo
 //-------------------------------------------------------------
 
 // invoke a function for each terminal row; returns total row count.
-static ssize_t str_for_each_row( const char* s, ssize_t len, ssize_t termw, ssize_t promptw, 
+static ssize_t str_for_each_row( const char* s, ssize_t len, ssize_t termw, ssize_t promptw, ssize_t cpromptw,
                                  row_fun_t* fun, bool is_utf8, const void* arg, void* res ) 
 {
   if (s == NULL) s = "";
@@ -325,7 +325,8 @@ static ssize_t str_for_each_row( const char* s, ssize_t len, ssize_t termw, ssiz
       assert(false);
       break;
     }
-    if (termw != 0 && i != 0 && (rcol + w + promptw + 1 /* for the cursor */) > termw) {  
+    ssize_t termcol = rcol + w + (rcount == 0 ? promptw : cpromptw) + 1 /* for the cursor */;
+    if (termw != 0 && i != 0 && termcol > termw) {  
       // wrap
       if (fun != NULL) {
         if (fun(s,rcount,rstart,i - rstart,true,is_utf8,arg,res)) return rcount;
@@ -382,8 +383,8 @@ static bool str_get_current_pos_iter(
   return false; // always continue to count all rows
 }
 
-static ssize_t str_get_rc_at_pos(const char* s, ssize_t len, ssize_t termw, ssize_t promptw, ssize_t pos, bool is_utf8, rowcol_t* rc) {
-  ssize_t rows = str_for_each_row(s, len, termw, promptw, &str_get_current_pos_iter, is_utf8, &pos, rc);
+static ssize_t str_get_rc_at_pos(const char* s, ssize_t len, ssize_t termw, ssize_t promptw, ssize_t cpromptw, ssize_t pos, bool is_utf8, rowcol_t* rc) {
+  ssize_t rows = str_for_each_row(s, len, termw, promptw, cpromptw, &str_get_current_pos_iter, is_utf8, &pos, rc);
   // debug_msg("edit: current pos: (%d, %d) %s %s\n", rc->row, rc->col, rc->first_on_row ? "first" : "", rc->last_on_row ? "last" : "");
   return rows;
 }
@@ -415,13 +416,13 @@ static bool str_set_pos_iter(
   return true; // stop iteration
 }
 
-static ssize_t str_get_pos_at_rc(const char* s, ssize_t len, ssize_t termw, ssize_t promptw, ssize_t row, ssize_t col /* without prompt */, bool is_utf8) {
+static ssize_t str_get_pos_at_rc(const char* s, ssize_t len, ssize_t termw, ssize_t promptw, ssize_t cpromptw, ssize_t row, ssize_t col /* without prompt */, bool is_utf8) {
   rowcol_t rc;
   memset(&rc,0,ssizeof(rc));
   rc.row = row;
   rc.col = col;
   ssize_t pos = -1;
-  str_for_each_row(s,len,termw,promptw,&str_set_pos_iter,is_utf8,&rc,&pos);  
+  str_for_each_row(s,len,termw,promptw,cpromptw,&str_set_pos_iter,is_utf8,&rc,&pos);  
   return pos;
 }
 
@@ -672,17 +673,17 @@ rp_private ssize_t sbuf_find_ws_word_end( stringbuf_t* sbuf, ssize_t pos ) {
 }
 
 // find row/col position
-rp_private ssize_t sbuf_get_pos_at_rc( stringbuf_t* sbuf, ssize_t termw, ssize_t promptw, ssize_t row, ssize_t col ) {
-  return str_get_pos_at_rc( sbuf->buf, sbuf->count, termw, promptw, row, col, sbuf->is_utf8);
+rp_private ssize_t sbuf_get_pos_at_rc( stringbuf_t* sbuf, ssize_t termw, ssize_t promptw, ssize_t cpromptw, ssize_t row, ssize_t col ) {
+  return str_get_pos_at_rc( sbuf->buf, sbuf->count, termw, promptw, cpromptw, row, col, sbuf->is_utf8);
 }
 
 // get row/col for a given position
-rp_private ssize_t sbuf_get_rc_at_pos( stringbuf_t* sbuf, ssize_t termw, ssize_t promptw, ssize_t pos, rowcol_t* rc ) {
-  return str_get_rc_at_pos( sbuf->buf, sbuf->count, termw, promptw, pos, sbuf->is_utf8, rc);
+rp_private ssize_t sbuf_get_rc_at_pos( stringbuf_t* sbuf, ssize_t termw, ssize_t promptw, ssize_t cpromptw, ssize_t pos, rowcol_t* rc ) {
+  return str_get_rc_at_pos( sbuf->buf, sbuf->count, termw, promptw, cpromptw, pos, sbuf->is_utf8, rc);
 }
 
-rp_private ssize_t sbuf_for_each_row( stringbuf_t* sbuf, ssize_t termw, ssize_t promptw, row_fun_t* fun, void* arg, void* res ) {
-  return str_for_each_row( sbuf->buf, sbuf->count, termw, promptw, fun, sbuf->is_utf8, arg, res);
+rp_private ssize_t sbuf_for_each_row( stringbuf_t* sbuf, ssize_t termw, ssize_t promptw, ssize_t cpromptw, row_fun_t* fun, void* arg, void* res ) {
+  return str_for_each_row( sbuf->buf, sbuf->count, termw, promptw, cpromptw, fun, sbuf->is_utf8, arg, res);
 }
 
 
