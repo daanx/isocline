@@ -32,7 +32,7 @@ rp_private code_t tty_read(tty_t* tty);
 rp_private bool   tty_readc_noblock(tty_t* tty, uint8_t* c);   // used in term.c
 rp_private bool   tty_readc(tty_t* tty, uint8_t* c);   // used in term.c
 rp_private void   tty_code_pushback( tty_t* tty, code_t c );
-rp_private bool   tty_has_resize_event( const tty_t* tty );
+rp_private bool   tty_term_resize_event( tty_t* tty );
 rp_private bool   code_is_ascii_char(code_t c, char* chr );
 rp_private bool   code_is_unicode(code_t c, unicode_t* uchr);
 rp_private bool   code_is_virt_key(code_t c );

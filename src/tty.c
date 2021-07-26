@@ -32,7 +32,8 @@ struct tty_s {
   int     fd_in;                    // input handle
   bool    raw_enabled;              // is raw mode enabled?
   bool    is_utf8;                  // is the input stream in utf-8 mode?
-  bool    has_resize_event;         // are resize events generated?
+  bool    has_term_resize_event;    // are resize events generated?
+  bool    term_resize_event;        // did a term resize happen?
   code_t  pushbuf[TTY_PUSH_MAX];    // push back buffer for full key codes
   ssize_t pushed;
   uint8_t cpushbuf[TTY_PUSH_MAX];   // low level push back buffer for bytes
@@ -219,7 +220,8 @@ static bool tty_code_pop( tty_t* tty, code_t* code ) {
   return true;
 }
 
-rp_private void tty_code_pushback( tty_t* tty, code_t c ) {
+rp_private void tty_code_pushback( tty_t* tty, code_t c ) {   
+  // note: must be signal safe
   if (tty->pushed >= TTY_PUSH_MAX) return;
   tty->pushbuf[tty->pushed] = c;
   tty->pushed++;
@@ -352,9 +354,13 @@ rp_private bool tty_is_utf8(const tty_t* tty) {
   return (tty->is_utf8);
 }
 
-rp_private bool tty_has_resize_event(const tty_t* tty) {
+rp_private bool tty_term_resize_event(tty_t* tty) {
   if (tty == NULL) return true;
-  return (false); // tty->has_resize_event);
+  if (tty->has_term_resize_event) {
+    if (!tty->term_resize_event) return false;
+    tty->term_resize_event = false;  // reset.   
+  }
+  return true;
 }
 
 //-------------------------------------------------------------
@@ -367,8 +373,7 @@ static bool tty_readc(tty_t* tty, uint8_t* c) {
   *c = 0;
   ssize_t nread = read(tty->fd_in, (char*)c, 1);
   if (nread < 0 && errno == EINTR) {
-    // probably SIGWINCH; push a resize event
-    tty_code_pushback( tty, KEY_EVENT_RESIZE );
+    // tty_code_pushback( tty, KEY_EVENT_RESIZE ); // to support dynamic resizing; disabled for now
   }
   return (nread == 1);
 }
@@ -397,7 +402,7 @@ typedef struct sighandler_s {
 } sighandler_t;
 
 static sighandler_t sighandlers[] = {
-  //{ SIGWINCH, {0} },
+  { SIGWINCH, {0} },
   { SIGTERM,  {0} }, 
   { SIGINT,   {0} }, 
   { SIGQUIT,  {0} }, 
@@ -418,8 +423,9 @@ static bool sigaction_is_valid( struct sigaction* sa ) {
 // Generic signal handler
 static void sig_handler(int signum, siginfo_t* siginfo, void* uap ) {
   if (signum == SIGWINCH) {
-    // SIGWINCH does not set SA_RESTART and a read operation will return EINTR
-    // which allows a refresh of the terminal.
+    if (sig_tty != NULL) {
+      sig_tty->term_resize_event = true;
+    }
   }
   else {
     // the rest are termination signals; restore the terminal mode. (`tcsetattr` is signal-safe)
@@ -440,18 +446,18 @@ static void sig_handler(int signum, siginfo_t* siginfo, void* uap ) {
 
 static void signals_install(tty_t* tty) {
   sig_tty = tty;
-  sig_tty->has_resize_event = true;
+  sig_tty->has_term_resize_event = true;
   // generic signal handler
   struct sigaction handler;
   memset(&handler,0,sizeof(handler));
   sigemptyset(&handler.sa_mask);
   handler.sa_sigaction = &sig_handler;
+  handler.sa_flags = SA_RESTART;
   // install for all signals
   for( sighandler_t* sh = sighandlers; sh->signum != 0; sh++ ) {
-    handler.sa_flags = (sh->signum == SIGWINCH ? 0 : SA_RESTART);
     if (sigaction( sh->signum, &handler, &sh->previous ) < 0) {
       sh->previous.sa_sigaction = NULL;
-      if (sh->signum == SIGWINCH) { sig_tty->has_resize_event = false; }
+      if (sh->signum == SIGWINCH) { sig_tty->has_term_resize_event = false; }
     };
   }
 }

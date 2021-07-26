@@ -310,40 +310,25 @@ static void edit_clear_screen(rp_env_t* env, editor_t* eb ) {
 }
 
 // Terminal window resized
-static void edit_resize(rp_env_t* env, editor_t* eb ) {
+static bool edit_resize(rp_env_t* env, editor_t* eb ) {
   term_update_dim(env->term);
   ssize_t newtermw = term_get_width(env->term);
-  if (eb->termw != newtermw) {
-    ssize_t promptw, cpromptw;
-    edit_get_prompt_width( env, eb, false, &promptw, &cpromptw );
-    rowcol_t rc;
-    const ssize_t rows_input = sbuf_get_wrapped_rc_at_pos( eb->input, eb->termw, newtermw, promptw, cpromptw, eb->pos, &rc );
-    rowcol_t rc_extra;
-    ssize_t rows_extra = sbuf_get_wrapped_rc_at_pos( eb->extra, eb->termw, newtermw, 0, 0, 0 /*pos*/, &rc_extra );
-    if (sbuf_len(eb->extra) == 0) rows_extra = 0;
-    ssize_t rows = rows_input + rows_extra;
-    debug_msg("edit: resize: new row(s): %zd, %zd, previous: %zd, %zd\n", rc.row, rows, eb->cur_row, eb->cur_rows);
-    eb->cur_row = rc.row;
-    eb->cur_rows = rows;
-    eb->termw = newtermw;     
-  }
-  edit_refresh(env,eb); 
-  
-  /*
-  ssize_t termw, promptw, cpromptw;
-  edit_get_prompt_width( env, eb, false, &termw, &promptw, &cpromptw );
-  termw -= 1;
+  if (eb->termw == newtermw) return false;
+
+  ssize_t promptw, cpromptw;
+  edit_get_prompt_width( env, eb, false, &promptw, &cpromptw );
   rowcol_t rc;
-  const ssize_t rows_input = sbuf_get_rc_at_pos( eb->input, termw, promptw, cpromptw, eb->pos, &rc );
+  const ssize_t rows_input = sbuf_get_wrapped_rc_at_pos( eb->input, eb->termw, newtermw, promptw, cpromptw, eb->pos, &rc );
   rowcol_t rc_extra;
-  ssize_t rows_extra = sbuf_get_rc_at_pos( eb->extra, termw, 0, 0, 0 , &rc_extra );
+  ssize_t rows_extra = sbuf_get_wrapped_rc_at_pos( eb->extra, eb->termw, newtermw, 0, 0, 0 /*pos*/, &rc_extra );
   if (sbuf_len(eb->extra) == 0) rows_extra = 0;
-  ssize_t rows = rows_input + rows_extra; 
-  debug_msg("edit: resized: rows %zd, pos: %zd,%zd (previous rows %zd, row %zd)\n", rows, rc.row, rc.col, eb->cur_rows, eb->cur_row);
+  ssize_t rows = rows_input + rows_extra;
+  debug_msg("edit: resize: new row(s): %zd, %zd, previous: %zd, %zd\n", rc.row, rows, eb->cur_row, eb->cur_rows);
   eb->cur_row = rc.row;
-  eb->cur_rows = rows;  
-  */
-  
+  eb->cur_rows = rows;
+  eb->termw = newtermw;     
+  edit_refresh(env,eb); 
+  return true;
 } 
 
 
@@ -630,14 +615,9 @@ static char* edit_line( rp_env_t* env, const char* prompt_text )
     // read a character
     c = tty_read(env->tty);
     
-    // update width as late as possible so a user can resize even if the prompt is already visible
-    //if (eb.len == 1) 
-    if (term_update_dim(env->term)) {
-      ssize_t termw = term_get_width(env->term);
-      if (eb.termw != termw) {
-        debug_msg("resize due to terminal change; old termw: %zd, new termw: %zd\n", eb.termw, termw);
-        edit_resize(env,&eb);   
-      }
+    // update terminal in case of a resize
+    if (tty_term_resize_event(env->tty)) {
+      edit_resize(env,&eb);      
     }
 
     // Operations that may return
@@ -669,7 +649,6 @@ static char* edit_line( rp_env_t* env, const char* prompt_text )
     // Editing Operations
     else switch(c) {
       case KEY_EVENT_RESIZE:
-        debug_msg("event resize\n");
         edit_resize(env,&eb);
         break;
       case KEY_SHIFT_TAB:
