@@ -1,4 +1,4 @@
-<img align="right" width="400px" src="doc/completion-id.png"/>
+<img align="right" width="400px" src="doc/completion-macos.png"/>
 
 # Repline> <br>a portable readline alternative.
 
