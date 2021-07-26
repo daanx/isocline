@@ -189,6 +189,10 @@ void rp_enable_completion_preview( bool enable );
 // input so it aligns with the initial prompt.
 void rp_enable_multiline_indent(bool enable);
 
+// Disable or enable display of short help messages for history search etc.
+// (full help is always dispayed when pressing F1 regardless of this setting)
+void rp_enable_inline_help(bool enable);
+
 // Set the color used for interface elements:
 // - info: for example, numbers in the completion menu (`RP_DARKGRAY` by default)
 // - diminish: for example, non matching parts in a history search (`RP_LIGHTGRAY` by default)

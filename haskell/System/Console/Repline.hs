@@ -96,6 +96,7 @@ module System.Console.Repline(
       enableHistoryDuplicates,
       enableCompletionPreview,
       enableMultilineIndent,
+      enableInlineHelp,
       
       Color(..), 
       
@@ -346,6 +347,7 @@ foreign import ccall rp_enable_multiline  :: CCBool -> IO ()
 foreign import ccall rp_enable_beep       :: CCBool -> IO ()
 foreign import ccall rp_enable_color      :: CCBool -> IO ()
 foreign import ccall rp_enable_auto_tab   :: CCBool -> IO ()
+foreign import ccall rp_enable_inline_help:: CCBool -> IO ()
 foreign import ccall rp_enable_history_duplicates :: CCBool -> IO ()
 foreign import ccall rp_enable_completion_preview :: CCBool -> IO ()
 foreign import ccall rp_enable_multiline_indent   :: CCBool -> IO ()
@@ -403,6 +405,13 @@ enableHistoryDuplicates enable
 enableAutoTab :: Bool -> IO ()
 enableAutoTab enable
   = do rp_enable_auto_tab (cbool enable)
+
+
+-- | Disable or enable short inline help message (for history search etc.) (enabled by default).
+-- Pressing F1 always shows full help regardless of this setting. 
+enableInlineHelp :: Bool -> IO ()
+enableInlineHelp enable
+  = do rp_enable_inline_help (cbool enable)
 
 -- | Disable or enable preview of a completion selection (enabled by default)
 enableCompletionPreview :: Bool -> IO ()

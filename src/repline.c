@@ -166,6 +166,11 @@ rp_public void rp_enable_multiline_indent(bool enable) {
   env->no_multiline_indent = !enable;
 }
 
+rp_public void rp_enable_inline_help(bool enable) {
+  rp_env_t* env = rp_get_env(); if (env==NULL) return;
+  env->no_help = !enable;
+}
+
 static void set_iface_colors(rp_env_t* env, rp_color_t color_info, rp_color_t color_diminish, rp_color_t color_highlight) {
   env->color_info = (color_info == RP_COLOR_NONE ? RP_DARKGRAY : color_info);
   env->color_diminish = (color_diminish == RP_COLOR_NONE ? RP_LIGHTGRAY : color_diminish);
