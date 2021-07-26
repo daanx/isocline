@@ -106,13 +106,6 @@ rp_private void term_color(term_t* term, rp_color_t color) {
   term_writef(term, 64, RP_CSI "%dm", (int)color );
 }
 
-rp_private void term_save_cursor(term_t* term) {
-  term_write( term, "\x1B" "7" );
-}
-
-rp_private void term_restore_cursor(term_t* term) {
-  term_write( term, "\x1B" "8" );
-}
 
 // Unused for now
 /*
@@ -138,6 +131,14 @@ internal void term_clear(term_t* term, ssize_t n) {
   memset(buf,' ',(n >= RP_MAX_LINE ? RP_MAX_LINE-1 : n));
   buf[RP_MAX_LINE-1] = 0;
   term_write( term, buf );
+}
+
+rp_private void term_save_cursor(term_t* term) {
+  term_write( term, "\x1B" "7" );
+}
+
+rp_private void term_restore_cursor(term_t* term) {
+  term_write( term, "\x1B" "8" );
 }
 */
 
@@ -401,11 +402,11 @@ static bool term_write_console(term_t* term, const char* s, ssize_t n ) {
   return (written == (DWORD)(to_size_t(n)));
 }
 
-rp_private bool term_get_cursor_pos( term_t* term, ssize_t* row, ssize_t* col) {
+static bool term_get_cursor_pos( term_t* term, ssize_t* row, ssize_t* col) {
   *row = 0;
   *col = 0;
   CONSOLE_SCREEN_BUFFER_INFO info;
-  if (!GetConsoleScreenBufferInfo(term->hcon, &info)) return;
+  if (!GetConsoleScreenBufferInfo(term->hcon, &info)) return false;
   *row = (ssize_t)info.dwCursorPosition.Y + 1;
   *col = (ssize_t)info.dwCursorPosition.X + 1;
   return true;
@@ -608,17 +609,17 @@ static void term_write_esc( term_t* term, const char* s, ssize_t len ) {
 
     // support some less standard escape codes (currently not used by repline)
     case 'E':  // line down
-      term_get_cursor(term, &row, &col);
+      term_get_cursor_pos(term, &row, &col);
       row += esc_param(s+2, len, 1);
       term_move_cursor_to(term, row, 1);
       break;
     case 'F':  // line up
-      term_get_cursor(term, &row, &col);
+      term_get_cursor_pos(term, &row, &col);
       row -= esc_param(s+2, len, 1);
       term_move_cursor_to(term, row, 1);
       break;
     case 'G':  // absolute column
-      term_get_cursor(term, &row, &col);
+      term_get_cursor_pos(term, &row, &col);
       col = esc_param(s+2, len, 1);
       term_move_cursor_to(term, row, col);
       break;
@@ -759,7 +760,7 @@ static void term_init_raw(term_t* term) {
 
 #if !defined(_WIN32)
 
-rp_private bool term_get_cursor_pos( term_t* term, ssize_t* row, ssize_t* col) 
+static bool term_get_cursor_pos( term_t* term, ssize_t* row, ssize_t* col) 
 {
   // send request
   if (!term_write_console(term, "\x1B[6n", 4)) return false;

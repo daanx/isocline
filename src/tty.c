@@ -360,7 +360,7 @@ rp_private bool tty_term_resize_event(tty_t* tty) {
     if (!tty->term_resize_event) return false;
     tty->term_resize_event = false;  // reset.   
   }
-  return true;
+  return true;  // always return true on systems without a resize event (more expensive but still ok)
 }
 
 //-------------------------------------------------------------
@@ -563,6 +563,13 @@ static void tty_waitc_console(tty_t* tty)
   while (true) {
 		if (!ReadConsoleInputW( tty->hcon, &inp, 1, &count)) return;
     if (count != 1) return;
+
+    // resize?
+    if (inp.EventType == WINDOW_BUFFER_SIZE_EVENT) {
+      tty->term_resize_event = true;
+      continue;
+    }
+
     // wait for key down events 
     if (inp.EventType != KEY_EVENT) continue;
 
@@ -650,9 +657,9 @@ static void tty_waitc_console(tty_t* tty)
 rp_private void tty_start_raw(tty_t* tty) {
   if (tty->raw_enabled) return;
   GetConsoleMode(tty->hcon,&tty->hcon_orig_mode);
-  DWORD mode =  ENABLE_QUICK_EDIT_MODE; // | ENABLE_VIRTUAL_TERMINAL_INPUT ; // | ENABLE_PROCESSED_INPUT ;
+  DWORD mode =  ENABLE_QUICK_EDIT_MODE | ENABLE_WINDOW_INPUT; // | ENABLE_VIRTUAL_TERMINAL_INPUT ; // | ENABLE_PROCESSED_INPUT ;
   SetConsoleMode(tty->hcon, mode );
-  tty->raw_enabled = true;
+  tty->raw_enabled = true;  
 }
 
 rp_private void tty_end_raw(tty_t* tty) {
@@ -663,6 +670,7 @@ rp_private void tty_end_raw(tty_t* tty) {
 
 static bool tty_init_raw(tty_t* tty) {
   tty->hcon = GetStdHandle( STD_INPUT_HANDLE );  
+  tty->has_term_resize_event = true;
   return true;
 }
 

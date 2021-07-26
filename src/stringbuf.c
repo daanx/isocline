@@ -373,7 +373,15 @@ static bool str_get_current_pos_iter(
     rc->row = row;
     rc->col = str_column_width_n( s + row_start, pos - row_start );
     rc->first_on_row = (pos == row_start);
-    rc->last_on_row  = (pos >= row_start + row_len - (is_wrap ? 1 : 0)); /* wrapped cannot extend one beyond the current characters */
+    if (is_wrap) {
+      // if wrapped, we check if the next character is at row_len
+      ssize_t next = str_next_ofs(s, row_start + row_len, pos, NULL);
+      rc->last_on_row = (pos + next >= row_start + row_len);
+    }
+    else {
+      // normal last position is right after the last character
+      rc->last_on_row = (pos >= row_start + row_len); 
+    }
     debug_msg("edit; pos iter: pos: %zd (%c), row_start: %zd, rowlen: %zd\n", pos, s[pos], row_start, row_len);    
   }  
   return false; // always continue to count all rows
