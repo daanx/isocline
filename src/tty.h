@@ -22,7 +22,7 @@ struct tty_s;
 typedef struct tty_s tty_t;
 
 
-rp_private tty_t* tty_new(alloc_t* mem, int fin);
+rp_private tty_t* tty_new(alloc_t* mem, int fd_in);
 rp_private void   tty_free(tty_t* tty);
 
 rp_private bool   tty_is_utf8(tty_t* tty);

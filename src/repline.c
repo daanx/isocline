@@ -57,7 +57,7 @@ rp_public char* rp_readline(const char* prompt_text)
     if (env->tty != NULL) {
       // if the terminal is not interactive, but we are reading from the tty (keyboard), we display a prompt
       if (prompt_text != NULL) term_write(env->term, prompt_text);
-      term_write(env->term, (env->prompt_marker != NULL ? env->prompt_marker : "> "));    
+      term_write(env->term, env->prompt_marker);    
     }
     // read directly from stdin
     return rp_getline(env->mem);

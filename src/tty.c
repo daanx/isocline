@@ -27,21 +27,21 @@
 #define TTY_PUSH_MAX (64)
 
 struct tty_s {
-  int     fin;  
-  bool    raw_enabled;
-  bool    is_utf8;
-  code_t  pushbuf[TTY_PUSH_MAX];
+  int     fd_in;                    // input handle
+  bool    raw_enabled;              // is raw mode enabled?
+  bool    is_utf8;                  // is the input stream in utf-8 mode?
+  code_t  pushbuf[TTY_PUSH_MAX];    // push back buffer for full key codes
   ssize_t pushed;
-  uint8_t cpushbuf[TTY_PUSH_MAX];
+  uint8_t cpushbuf[TTY_PUSH_MAX];   // low level push back buffer for bytes
   ssize_t cpushed;
-  #if defined(_WIN32)
-  HANDLE  hcon;
-  DWORD   hcon_orig_mode;
+  #if defined(_WIN32)               
+  HANDLE  hcon;                     // console input handle
+  DWORD   hcon_orig_mode;           // original console mode
   #else
-  struct termios default_ios;
-  struct termios raw_ios;
+  struct termios default_ios;       // original terminal settings
+  struct termios raw_ios;           // raw terminal settings
   #endif
-  alloc_t* mem;
+  alloc_t* mem;                     // memory allocator
 };
 
 
@@ -79,10 +79,10 @@ rp_private bool code_is_unicode(code_t c, unicode_t* uchr) {
   }
 }
 
-
 rp_private bool code_is_virt_key(code_t c ) {
   return (KEY_NO_MODS(c) <= 0x20 || KEY_NO_MODS(c) >= KEY_VIRT);
 }
+
 
 //-------------------------------------------------------------
 // Read a key code
@@ -240,8 +240,8 @@ rp_private bool tty_cpop(tty_t* tty, uint8_t* c) {
 static void tty_cpush(tty_t* tty, const char* s) {
   ssize_t len = rp_strlen(s);
   if (tty->pushed + len > TTY_PUSH_MAX) {
-    assert(false);
     debug_msg("tty: cpush buffer full! (pushing %s)\n", s);
+    assert(false);
     return;
   }
   for (ssize_t i = 0; i < len; i++) {
@@ -255,9 +255,9 @@ static void tty_cpush(tty_t* tty, const char* s) {
 static void tty_cpushf(tty_t* tty, const char* fmt, ...) {
   va_list args;
   va_start(args,fmt);
-  char buf[128+1];
-  vsnprintf(buf,128,fmt,args);
-  buf[128] = 0;
+  char buf[TTY_PUSH_MAX+1];
+  vsnprintf(buf,TTY_PUSH_MAX,fmt,args);
+  buf[TTY_PUSH_MAX] = 0;
   tty_cpush(tty,buf);
   va_end(args);
   return;
@@ -272,7 +272,7 @@ rp_private void tty_cpush_char(tty_t* tty, uint8_t c) {
 
 
 //-------------------------------------------------------------
-// Push escape codes (used on Windows)
+// Push escape codes (used on Windows to insert keys)
 //-------------------------------------------------------------
 
 static unsigned csi_mods(code_t mods) {
@@ -317,18 +317,18 @@ static bool tty_init_utf8(tty_t* tty) {
   tty->is_utf8 = true;
   #else
   char* loc = setlocale(LC_ALL,"");
-  tty->is_utf8 = (loc != NULL && (strstr(loc,"UTF-8") != NULL || strstr(loc,"utf8") != NULL));
+  tty->is_utf8 = (loc != NULL && (rp_stristr(loc,"UTF-8") != NULL || rp_stristr(loc,"UTF8") != NULL));
   debug_msg("tty: utf8: %s (loc=%s)\n", tty->is_utf8 ? "true" : "false", loc);
   #endif
   return true;
 }
 
-rp_private tty_t* tty_new(alloc_t* mem, int fin) 
+rp_private tty_t* tty_new(alloc_t* mem, int fd_in) 
 {
   tty_t* tty = mem_zalloc_tp(mem, tty_t);
   tty->mem = mem;
-  tty->fin = (fin < 0 ? STDIN_FILENO : fin);
-  if (!(isatty(tty->fin) && tty_init_raw(tty) && tty_init_utf8(tty))) {
+  tty->fd_in = (fd_in < 0 ? STDIN_FILENO : fd_in);
+  if (!(isatty(tty->fd_in) && tty_init_raw(tty) && tty_init_utf8(tty))) {
     tty_free(tty);
     return NULL;
   }
@@ -353,7 +353,7 @@ rp_private bool tty_is_utf8(tty_t* tty) {
 
 static bool tty_readc(tty_t* tty, uint8_t* c) {
   if (tty_cpop(tty,c)) return true;
-  if (read(tty->fin, (char*)c, 1) != 1) return false;  
+  if (read(tty->fd_in, (char*)c, 1) != 1) return false;  
   return true;
 }
 
@@ -365,20 +365,23 @@ static bool tty_has_available(tty_t* tty) {
 
 rp_private void tty_start_raw(tty_t* tty) {
   if (tty->raw_enabled) return;
-  if (tcsetattr(tty->fin,TCSAFLUSH,&tty->raw_ios) < 0) return;
+  if (tcsetattr(tty->fd_in,TCSAFLUSH,&tty->raw_ios) < 0) return;
   tty->raw_enabled = true;
 }
 
 rp_private void tty_end_raw(tty_t* tty) {
   if (!tty->raw_enabled) return;
   tty->cpushed = 0;
-  if (tcsetattr(tty->fin,TCSAFLUSH,&tty->default_ios) < 0) return;
+  if (tcsetattr(tty->fd_in,TCSAFLUSH,&tty->default_ios) < 0) return;
   tty->raw_enabled = false;
 }
 
 static bool tty_init_raw(tty_t* tty) 
 {  
-  if (tcgetattr(tty->fin,&tty->default_ios) == -1) return false;
+  // Note: we set the terminal output to raw here as well
+  // See <https://man7.org/linux/man-pages/man3/termios.3.html> for what
+  // each of these options means.
+  if (tcgetattr(tty->fd_in,&tty->default_ios) == -1) return false;
   tty->raw_ios = tty->default_ios; 
   tty->raw_ios.c_iflag &= ~(unsigned long)(BRKINT | ICRNL | INPCK | ISTRIP | IXON);
   tty->raw_ios.c_oflag &= ~(unsigned long)OPOST;
@@ -395,6 +398,8 @@ static bool tty_init_raw(tty_t* tty)
 
 //-------------------------------------------------------------
 // Windows
+// For best portability we push CSI escape sequences directly
+// to the character stream (instead of returning key codes).
 //-------------------------------------------------------------
 
 static bool tty_has_available(tty_t* tty) {
@@ -461,17 +466,17 @@ static void tty_waitc_console(tty_t* tty)
     
     if (chr == 0) { 
       switch (virt) {
-        case VK_LEFT:   tty_cpush_csi_xterm(tty,mods,'D'); return; 
-        case VK_RIGHT:  tty_cpush_csi_xterm(tty,mods,'C'); return;
-        case VK_UP:     tty_cpush_csi_xterm(tty,mods,'A'); return; 
-        case VK_DOWN:   tty_cpush_csi_xterm(tty,mods,'B'); return; 
-        case VK_HOME:   tty_cpush_csi_xterm(tty,mods,'H'); return; 
-        case VK_END:    tty_cpush_csi_xterm(tty,mods,'F'); return; 
-        case VK_DELETE: tty_cpush_csi_vt(tty,mods,3); return; 
+        case VK_UP:     tty_cpush_csi_xterm(tty, mods, 'A'); return;
+        case VK_DOWN:   tty_cpush_csi_xterm(tty, mods, 'B'); return;
+        case VK_RIGHT:  tty_cpush_csi_xterm(tty, mods, 'C'); return;
+        case VK_LEFT:   tty_cpush_csi_xterm(tty, mods, 'D'); return;
+        case VK_END:    tty_cpush_csi_xterm(tty, mods, 'F'); return; 
+        case VK_HOME:   tty_cpush_csi_xterm(tty, mods, 'H'); return;
+        case VK_DELETE: tty_cpush_csi_vt(tty,mods,3); return;
         case VK_PRIOR:  tty_cpush_csi_vt(tty,mods,5); return;   //page up
         case VK_NEXT:   tty_cpush_csi_vt(tty,mods,6); return;   //page down
         case VK_TAB:    tty_cpush_csi_unicode(tty,mods,9);  return; 
-        case VK_RETURN: tty_cpush_csi_unicode(tty,mods,13); return;         
+        case VK_RETURN: tty_cpush_csi_unicode(tty,mods,13); return;
         default: {
           uint32_t vtcode = 0;
           if (virt >= VK_F1 && virt <= VK_F5) {

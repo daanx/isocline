@@ -7,6 +7,7 @@
 
 #include <stdio.h>
 #include <string.h>
+#include <inttypes.h>
 
 #include "common.h"
 #include "stringbuf.h"
@@ -689,6 +690,51 @@ rp_private ssize_t sbuf_for_each_row( stringbuf_t* sbuf, ssize_t termw, ssize_t 
 }
 
 
+// Duplicate and decode from utf-8 (for non-utf8 terminals)
+rp_private char* sbuf_strdup_from_utf8(stringbuf_t* sbuf) {
+  ssize_t len = sbuf_len(sbuf);
+  if (sbuf == NULL || len <= 0) return NULL;
+  char* s = mem_zalloc_tp_n(sbuf->mem, char, len);
+  if (s == NULL) return NULL;
+  ssize_t dest = 0;
+  for (ssize_t i = 0; i < len; ) {
+    ssize_t ofs = sbuf_next_ofs(sbuf, i, NULL);
+    if (ofs <= 0) {
+      // invalid input
+      break;
+    }
+    else if (ofs == 1) {
+      // regular character
+      s[dest++] = sbuf->buf[i];
+    }
+    else if (sbuf->buf[i] == '\x1B') {
+      // skip escape sequences
+    }
+    else {
+      // decode unicode
+      ssize_t nread;
+      unicode_t uchr = unicode_from_qutf8(sbuf->buf + i, ofs, &nread);
+      uint8_t c;
+      if (unicode_is_raw(uchr, &c)) {
+        // raw byte, output as is (this will take care of locale specific input)
+        s[dest++] = (char)c;
+      }
+      else if (uchr <= 0x7F) {
+        // allow ascii
+        s[dest++] = (char)uchr;
+      }
+      else {
+        // skip unknown unicode characters..
+        // todo: convert according to locale?
+      }
+    }
+    i += ofs;
+  }
+  assert(dest <= len);
+  s[dest] = 0;
+  return s;
+}
+
 //-------------------------------------------------------------
 // String helpers
 //-------------------------------------------------------------
@@ -737,19 +783,34 @@ rp_public bool rp_istarts_with( const char* s, const char* prefix ) {
   return (prefix[i] == 0);
 }
 
-rp_private int rp_stricmp(const char* s1, const char* s2) {
+static int rp_strnicmp(const char* s1, const char* s2, ssize_t n) {
   if (s1 == NULL && s2 == NULL) return 0;
   if (s1 == NULL) return -1;
   if (s2 == NULL) return 1;
   ssize_t i;
-  for (i = 0; s1[i] != 0; i++) {  // note: if s2[i] == 0 the loop will stop as c1 != c2
+  for (i = 0; s1[i] != 0 && i < n; i++) {  // note: if s2[i] == 0 the loop will stop as c1 != c2
     char c1 = rp_tolower(s1[i]);
     char c2 = rp_tolower(s2[i]);
     if (c1 < c2) return -1;
     if (c1 > c2) return 1;
   }
-  assert(s1[i] == 0);
-  return (s2[i] == 0 ? 0 : -1);
+  return ((i >= n || s2[i] == 0) ? 0 : -1);
+}
+
+rp_private int rp_stricmp(const char* s1, const char* s2) {
+  ssize_t len1 = rp_strlen(s1);
+  ssize_t len2 = rp_strlen(s2);
+  return rp_strnicmp(s1, s2, (len1 >= len2 ? len1 : len2));
+}
+
+rp_private const char* rp_stristr(const char* s, const char* pat) {
+  if (s==NULL) return NULL;
+  if (pat==NULL || pat[0] == 0) return s;
+  ssize_t patlen = rp_strlen(pat);
+  for (ssize_t i = 0; s[i] != 0; i++) {
+    if (rp_strnicmp(s + i, pat, patlen) == 0) return (s+i);
+  }
+  return NULL;
 }
 
 
@@ -762,3 +823,9 @@ rp_private bool rp_atoz(const char* s, ssize_t* pi) {
 rp_private bool rp_atoz2(const char* s, ssize_t* pi, ssize_t* pj) {
   return (sscanf(s, "%zd;%zd", pi, pj) == 2);
 }
+
+// parse unsigned 32-bit (leave pu unchanged on error)
+rp_private bool rp_atou32(const char* s, uint32_t* pu) {
+  return (sscanf(s, "%" SCNu32, pu) == 1);
+}
+

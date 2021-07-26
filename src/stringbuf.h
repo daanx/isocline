@@ -31,6 +31,7 @@ rp_private const char* sbuf_string( stringbuf_t* sbuf );
 rp_private char    sbuf_char_at(stringbuf_t* sbuf, ssize_t pos);
 rp_private char*   sbuf_strdup_at( stringbuf_t* sbuf, ssize_t pos );
 rp_private char*   sbuf_strdup( stringbuf_t* sbuf );
+rp_private char*   sbuf_strdup_from_utf8(stringbuf_t* sbuf);  // decode to locale
 
 
 rp_private ssize_t sbuf_appendf(stringbuf_t* sb, ssize_t max_needed, const char* fmt, ...);
@@ -69,12 +70,14 @@ rp_private ssize_t sbuf_find_ws_word_end( stringbuf_t* sbuf, ssize_t pos );
 rp_private char rp_tolower(char c);
 
 // ascii compare case-insensitive
-rp_private int rp_stricmp(const char* s1, const char* s2);
+rp_private int  rp_stricmp(const char* s1, const char* s2);
+rp_private const char* rp_stristr(const char* s, const char* pat);
 
 // parse a decimal 
 rp_private bool rp_atoz(const char* s, ssize_t* i);
 // parse two decimals separated by a semicolon
 rp_private bool rp_atoz2(const char* s, ssize_t* i, ssize_t* j);
+rp_private bool rp_atou32(const char* s, uint32_t* pu);
 
 // row/column info
 typedef struct rowcol_s {
@@ -87,18 +90,19 @@ typedef struct rowcol_s {
 } rowcol_t;
 
 // find row/col position
-rp_private ssize_t sbuf_get_pos_at_rc( stringbuf_t* sbuf, ssize_t termw, ssize_t promptw, ssize_t cpromptw, ssize_t row, ssize_t col );
-
+rp_private ssize_t sbuf_get_pos_at_rc( stringbuf_t* sbuf, ssize_t termw, ssize_t promptw, ssize_t cpromptw, 
+                                       ssize_t row, ssize_t col );
 // get row/col for a given position
-rp_private ssize_t sbuf_get_rc_at_pos( stringbuf_t* sbuf, ssize_t termw, ssize_t promptw, ssize_t cpromptw, ssize_t pos, rowcol_t* rc );
-
+rp_private ssize_t sbuf_get_rc_at_pos( stringbuf_t* sbuf, ssize_t termw, ssize_t promptw, ssize_t cpromptw, 
+                                       ssize_t pos, rowcol_t* rc );
 
 // row iteration
 typedef bool (row_fun_t)(const char* s,
                           ssize_t row, ssize_t row_start, ssize_t row_len, 
                           bool is_wrap, const void* arg, void* res);
 
-rp_private ssize_t sbuf_for_each_row( stringbuf_t* sbuf, ssize_t termw, ssize_t promptw, ssize_t cpromptw, row_fun_t* fun, void* arg, void* res );
+rp_private ssize_t sbuf_for_each_row( stringbuf_t* sbuf, ssize_t termw, ssize_t promptw, ssize_t cpromptw, 
+                                      row_fun_t* fun, void* arg, void* res );
 
 
 //-------------------------------------------------------------

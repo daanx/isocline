@@ -39,7 +39,7 @@ static void editor_append_completion(rp_env_t* env, editor_t* eb, ssize_t idx, s
   if (display == NULL) return;
   if (numbered) {
     char buf[32];
-    snprintf(buf, 32, "\x1B[%dm%s%zd \x1B[0m", env->color_info, (selected ? (eb->is_utf8 ? "\xE2\x86\x92" : "*") : " "), 1 + idx);
+    snprintf(buf, 32, "\x1B[%dm%s%zd \x1B[0m", env->color_info, (selected ? (tty_is_utf8(env->tty) ? "\xE2\x86\x92" : "*") : " "), 1 + idx);
     sbuf_append(eb->extra, buf);
     width -= 3;
   }

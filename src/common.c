@@ -73,7 +73,7 @@ rp_private unicode_t unicode_from_raw(uint8_t c) {
   return (RP_UNICODE_RAW + c);
 }
 
-static bool unicode_is_raw_utf8(unicode_t u, uint8_t* c) {
+rp_private bool unicode_is_raw(unicode_t u, uint8_t* c) {
   if (u >= RP_UNICODE_RAW && u <= RP_UNICODE_RAW + 0xFF) {
     *c = (uint8_t)(u - RP_UNICODE_RAW);
     return true;
@@ -98,7 +98,7 @@ rp_private void unicode_to_qutf8(unicode_t u, uint8_t buf[5]) {
     buf[2] = (0x80 | (((uint8_t)u) & 0x3F));
   }
   else if (u <= 0x10FFFF) {
-    if (unicode_is_raw_utf8(u, &buf[0])) {
+    if (unicode_is_raw(u, &buf[0])) {
       buf[1] = 0;
     }
     else {

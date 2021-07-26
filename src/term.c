@@ -24,23 +24,25 @@
 
 #define RP_CSI      "\x1B["
 
+// The terminal screen
 struct term_s {
-  int         fout;
-  ssize_t     width;
-  ssize_t     height;
-  bool        nocolor;
-  bool        silent;
-  bool        raw_enabled;
-  bool        buffered;
-  stringbuf_t* buf;
-  alloc_t*    mem;  
+  int         fd_out;             // output handle
+  ssize_t     width;              // screen column width
+  ssize_t     height;             // screen row height
+  bool        nocolor;            // show colors?
+  bool        silent;             // enable beep?
+  bool        raw_enabled;        // is raw mode active?
+  bool        buffered;           // are we buffering output (to reduce flicker)?
+  bool        is_utf8;            // utf-8 output? determined by the tty
+  stringbuf_t* buf;               // buffer for buffered output
+  alloc_t*    mem;                // allocator
   #ifdef _WIN32
-  HANDLE      hcon;
-  WORD        hcon_default_attr;  
-  WORD        hcon_orig_attr;
-  DWORD       hcon_orig_mode;
-  UINT        hcon_orig_cp;  
-  COORD       hcon_save_cursor;
+  HANDLE      hcon;               // output console handler
+  WORD        hcon_default_attr;  // default text attributes
+  WORD        hcon_orig_attr;     // original text attributes
+  DWORD       hcon_orig_mode;     // original console mode
+  UINT        hcon_orig_cp;       // original console code-page (locale)
+  COORD       hcon_save_cursor;   // saved cursor position (for escape sequence emulation)
   #endif
 };
 
@@ -218,17 +220,18 @@ rp_private bool term_end_buffered(term_t* term) {
 
 static void term_init_raw(term_t* term);
 
-rp_private term_t* term_new(alloc_t* mem, tty_t* tty, bool nocolor, bool silent, int fout ) 
+rp_private term_t* term_new(alloc_t* mem, tty_t* tty, bool nocolor, bool silent, int fd_out ) 
 {
   term_t* term = mem_zalloc_tp(mem, term_t);
   if (term == NULL) return NULL;
 
-  term->fout   = (fout < 0 ? STDOUT_FILENO : fout);
+  term->fd_out   = (fd_out < 0 ? STDOUT_FILENO : fd_out);
   term->nocolor = nocolor;
   term->silent = silent;  
   term->mem    = mem;
   term->width  = 80;
   term->height = 25;
+  term->is_utf8 = tty_is_utf8(tty);
   
   // read COLUMS/LINES from the environment for a better initial guess.
   const char* env_columns = getenv("COLUMNS");
@@ -282,7 +285,7 @@ rp_private void term_free(term_t* term) {
 
 #if !defined(_WIN32)
 static bool term_write_console(term_t* term, const char* s, ssize_t n) {
-  return (write(term->fout, s, to_size_t(n)) == n);
+  return (write(term->fd_out, s, to_size_t(n)) == n);
 }
 
 static bool term_write_esc(term_t* term, const char* s, ssize_t len) {
@@ -293,8 +296,34 @@ static bool term_write_esc(term_t* term, const char* s, ssize_t len) {
       // ignore color
       return true;
     }
-  }
+  }  
   return term_write_console(term, s, len);
+}
+
+static bool term_write_utf8(term_t* term, const char* s, ssize_t len) {
+  ssize_t nread;
+  unicode_t uchr = unicode_from_qutf8(s, len, &nread);
+  uint8_t c;
+  if (unicode_is_raw(uchr,&c)) {
+    // write bytes as is; this also ensure that on non-utf8 terminals characters between 0x80-0xFF
+    // go through _as is_ due to the qutf8 encoding.
+    char buf[2];
+    buf[0] = (char)c;
+    buf[1] = 0;
+    return term_write_console(term, buf, 1);
+  }
+  else if (!term->is_utf8) {
+    // on non-utf8 terminals send unicode escape sequences and hope for the best
+    // todo: we could try to convert to the locale first?
+    char buf[64+1];
+    snprintf(buf, "\x1B[%uu", uchr);
+    buf[64] = 0;
+    return term_write_console(term, buf, rp_strlen(buf));
+  }
+  else {
+    // write utf-8 as is
+    return term_write_console(term, s, len);
+  }
 }
 
 static bool term_write_direct(term_t* term, const char* s, ssize_t len ) {
@@ -305,20 +334,26 @@ static bool term_write_direct(term_t* term, const char* s, ssize_t len ) {
     // strip CSI color sequences
     ssize_t pos = 0;
     while (pos < len) {
-      // handle non-escape sequences in bulk
-      ssize_t nonesc = 0;
+      // handle ascii sequences in bulk
+      ssize_t ascii = 0;
       ssize_t next;
-      while ((next = str_next_ofs(s, len, pos+nonesc, NULL)) > 0 && s[pos + nonesc] != '\x1B') {
-        nonesc += next;
+      while ((next = str_next_ofs(s, len, pos+ascii, NULL)) > 0 && 
+              s[pos + ascii] != '\x1B' && s[pos + ascii] <= '\x7F' ) 
+      {
+        ascii += next;
       }
-      if (nonesc > 0) {
-        term_write_console(term, s+pos, nonesc);
-        pos += nonesc;
+      if (ascii > 0) {
+        term_write_console(term, s+pos, ascii);
+        pos += ascii;
       }
       if (next <= 0) break;
 
+      // handle utf8 sequences (for non-utf8 terminals)
+      if (s[pos] >= '\x80') {
+        term_write_utf8(term, s+pos, next);
+      }
       // handle escape sequence (note: str_next_ofs considers whole CSI escape sequences at a time)
-      if (next > 1 && s[pos] == '\x1B') {
+      else if (next > 1 && s[pos] == '\x1B') {
         term_write_esc(term, s+pos, next);
       }
       else {
@@ -602,7 +637,8 @@ static bool term_write_direct(term_t* term, const char* s, ssize_t len ) {
   term_cursor_visible(term,false); // reduce flicker
   ssize_t pos = 0;
   while( pos < len ) {
-    // handle non-control in bulk
+    // handle non-control in bulk (including utf-8 sequences)
+    // (We don't need to handle utf-8 separately as we set the codepage to always be in utf-8 mode)
     ssize_t nonctrl = 0;
     ssize_t next;
     while( (next = str_next_ofs( s, len, pos+nonctrl, NULL )) > 0 && (uint8_t)s[pos + nonctrl] >= ' ') {

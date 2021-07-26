@@ -29,7 +29,6 @@ typedef struct editor_s {
   ssize_t       cur_rows;     // current used rows to display our content (including extra content)
   ssize_t       cur_row;      // current row that has the cursor (0 based, relative to the prompt)
   bool          modified;     // has a modification happened? (used for history navigation for example)  
-  bool          is_utf8;      // terminal is utf8
   ssize_t       history_idx;  // current index in the history 
   editstate_t*  undo;         // undo buffer  
   editstate_t*  redo;         // redo buffer
@@ -195,7 +194,7 @@ static bool edit_refresh_rows_iter(
 
   term_write_n( term, s + row_start, row_len );  
   if (row < info->last_row) {
-    if (is_wrap && info->eb->is_utf8) { 
+    if (is_wrap && tty_is_utf8(info->env->tty)) { 
       term_color( term, RP_DARKGRAY );
       #ifndef __APPLE__
       term_write( term, "\xE2\x86\x90");  // left arrow 
@@ -570,8 +569,7 @@ static char* edit_line( rp_env_t* env, const char* prompt_text )
   eb.pos      = 0;
   eb.cur_rows = 1; 
   eb.cur_row  = 0; 
-  eb.modified = false;
-  eb.is_utf8  = tty_is_utf8(env->tty);
+  eb.modified = false;  
   eb.prompt_text   = (prompt_text != NULL ? prompt_text : "");
   eb.history_idx   = 0;
   editstate_init(&eb.undo);
@@ -750,16 +748,26 @@ static char* edit_line( rp_env_t* env, const char* prompt_text )
   edit_refresh(env,&eb);
 
   // save result
-  char* res = ((c == KEY_CTRL_D && sbuf_len(eb.input) == 0) || c == KEY_CTRL_C) ? NULL : sbuf_strdup(eb.input);
+  char* res; 
+  if ((c == KEY_CTRL_D && sbuf_len(eb.input) == 0) || c == KEY_CTRL_C) {
+    res = NULL;
+  }
+  else if (!tty_is_utf8(env->tty)) {
+    res = sbuf_strdup_from_utf8(eb.input);
+  }
+  else {
+    res = sbuf_strdup(eb.input);
+  }
 
   // free resources 
   editstate_done(env->mem, &eb.undo);
   editstate_done(env->mem, &eb.redo);
   
   // update history
-  history_update(env->history, res);
-  if (res != NULL && (res[0] == 0 || res[1] == 0)) rp_history_remove_last();  // no empty or single-char entries
+  history_update(env->history, sbuf_string(eb.input));
+  if (res == NULL || sbuf_len(eb.input) <= 1) { rp_history_remove_last(); } // no empty or single-char entries
   history_save(env->history);
+
   return res;
 }
 
