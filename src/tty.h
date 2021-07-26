@@ -25,13 +25,14 @@ typedef struct tty_s tty_t;
 rp_private tty_t* tty_new(alloc_t* mem, int fd_in);
 rp_private void   tty_free(tty_t* tty);
 
-rp_private bool   tty_is_utf8(tty_t* tty);
+rp_private bool   tty_is_utf8(const tty_t* tty);
 rp_private void   tty_start_raw(tty_t* tty);
 rp_private void   tty_end_raw(tty_t* tty);
 rp_private code_t tty_read(tty_t* tty);
 rp_private bool   tty_readc_noblock(tty_t* tty, uint8_t* c);   // used in term.c
+rp_private bool   tty_readc(tty_t* tty, uint8_t* c);   // used in term.c
 rp_private void   tty_code_pushback( tty_t* tty, code_t c );
-
+rp_private bool   tty_has_resize_event( const tty_t* tty );
 rp_private bool   code_is_ascii_char(code_t c, char* chr );
 rp_private bool   code_is_unicode(code_t c, unicode_t* uchr);
 rp_private bool   code_is_virt_key(code_t c );
@@ -131,8 +132,8 @@ static inline code_t key_unicode( unicode_t u ) {
 #define KEY_F(n)          (KEY_F1 + (n) - 1)
 
 #define KEY_EVENT_BASE    (0x02000000U)
-#define KEY_EVENT_RESIZE  (KEY_EVENT_BASE+0)  // not use for now
-#define KEY_EVENT_AUTOTAB (KEY_EVENT_BASE+1)  // for auto completion
+#define KEY_EVENT_RESIZE  (KEY_EVENT_BASE+1)  // not use for now
+#define KEY_EVENT_AUTOTAB (KEY_EVENT_BASE+2)  // for auto completion
 
 // Convenience
 #define KEY_CTRL_UP       (WITH_CTRL(KEY_UP))

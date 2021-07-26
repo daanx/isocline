@@ -28,6 +28,7 @@ typedef struct editor_s {
   ssize_t       pos;          // current cursor position in the input
   ssize_t       cur_rows;     // current used rows to display our content (including extra content)
   ssize_t       cur_row;      // current row that has the cursor (0 based, relative to the prompt)
+  ssize_t       termw;
   bool          modified;     // has a modification happened? (used for history navigation for example)  
   ssize_t       history_idx;  // current index in the history 
   editstate_t*  undo;         // undo buffer  
@@ -105,8 +106,7 @@ static bool editor_pos_is_at_end(editor_t* eb ) {
 //-------------------------------------------------------------
 
 
-static void edit_get_prompt_width( rp_env_t* env, editor_t* eb, bool in_extra, ssize_t* termw, ssize_t* promptw, ssize_t* cpromptw ) {
-  if (termw!=NULL) *termw = term_get_width( env->term );
+static void edit_get_prompt_width( rp_env_t* env, editor_t* eb, bool in_extra, ssize_t* promptw, ssize_t* cpromptw ) {
   if (in_extra) {
     *promptw = 0;
     *cpromptw = 0;
@@ -121,15 +121,15 @@ static void edit_get_prompt_width( rp_env_t* env, editor_t* eb, bool in_extra, s
 }
 
 static ssize_t edit_get_rowcol( rp_env_t* env, editor_t* eb, rowcol_t* rc ) {
-  ssize_t termw, promptw, cpromptw;
-  edit_get_prompt_width(env, eb, false, &termw, &promptw, &cpromptw);
-  return sbuf_get_rc_at_pos( eb->input, termw, promptw, cpromptw, eb->pos, rc );
+  ssize_t promptw, cpromptw;
+  edit_get_prompt_width(env, eb, false, &promptw, &cpromptw);
+  return sbuf_get_rc_at_pos( eb->input, eb->termw, promptw, cpromptw, eb->pos, rc );
 }
 
 static void edit_set_pos_at_rowcol( rp_env_t* env, editor_t* eb, ssize_t row, ssize_t col ) {
-  ssize_t termw, promptw, cpromptw;
-  edit_get_prompt_width(env, eb, false, &termw, &promptw, &cpromptw);
-  ssize_t pos = sbuf_get_pos_at_rc( eb->input, termw, promptw, cpromptw, row, col );
+  ssize_t promptw, cpromptw;
+  edit_get_prompt_width(env, eb, false, &promptw, &cpromptw);
+  ssize_t pos = sbuf_get_pos_at_rc( eb->input, eb->termw, promptw, cpromptw, row, col );
   if (pos < 0) return;
   eb->pos = pos;
   edit_refresh(env, eb);
@@ -179,9 +179,9 @@ typedef struct refresh_info_s {
 static bool edit_refresh_rows_iter(
     const char* s,
     ssize_t row, ssize_t row_start, ssize_t row_len, 
-    bool is_wrap, const void* arg, void* res)
+    ssize_t startw, bool is_wrap, const void* arg, void* res)
 {
-  rp_unused(res);
+  rp_unused(res); rp_unused(startw);
   const refresh_info_t* info = (const refresh_info_t*)(arg);
   term_t* term = info->env->term;
 
@@ -209,7 +209,7 @@ static bool edit_refresh_rows_iter(
 }
 
 static void edit_refresh_rows(rp_env_t* env, editor_t* eb, 
-                                  ssize_t termw, ssize_t promptw, ssize_t cpromptw,
+                                  ssize_t promptw, ssize_t cpromptw,
                                   bool in_extra, ssize_t first_row, ssize_t last_row) 
 {
   refresh_info_t info;
@@ -218,21 +218,22 @@ static void edit_refresh_rows(rp_env_t* env, editor_t* eb,
   info.in_extra = in_extra;
   info.first_row  = first_row;
   info.last_row   = last_row;
-  sbuf_for_each_row( (in_extra ? eb->extra : eb->input), termw, promptw, cpromptw,
+  sbuf_for_each_row( (in_extra ? eb->extra : eb->input), eb->termw, promptw, cpromptw,
                             &edit_refresh_rows_iter, &info, NULL );
 }
 
-
+static void rp_pause(rp_env_t* env) {
+  // tty_read(env->tty);
+}
 
 static void edit_refresh(rp_env_t* env, editor_t* eb) 
 {
-  ssize_t termw, promptw, cpromptw;
-  edit_get_prompt_width( env, eb, false, &termw, &promptw, &cpromptw );
-
+  ssize_t promptw, cpromptw;
+  edit_get_prompt_width( env, eb, false, &promptw, &cpromptw );
   rowcol_t rc;
-  const ssize_t rows_input = sbuf_get_rc_at_pos( eb->input, termw, promptw, cpromptw, eb->pos, &rc );
+  const ssize_t rows_input = sbuf_get_rc_at_pos( eb->input, eb->termw, promptw, cpromptw, eb->pos, &rc );
   rowcol_t rc_extra;
-  ssize_t rows_extra = sbuf_get_rc_at_pos( eb->extra, termw, 0, 0, 0 /*pos*/, &rc_extra );
+  ssize_t rows_extra = sbuf_get_rc_at_pos( eb->extra, eb->termw, 0, 0, 0 /*pos*/, &rc_extra );
   if (sbuf_len(eb->extra) == 0) rows_extra = 0;
   ssize_t rows = rows_input + rows_extra; 
   debug_msg("edit: start refresh: rows %zd, pos: %zd,%zd (previous rows %zd, row %zd)\n", rows, rc.row, rc.col, eb->cur_rows, eb->cur_row);
@@ -247,17 +248,18 @@ static void edit_refresh(rp_env_t* env, editor_t* eb)
     last_row = first_row + termh - 1;
   }
  
+  
   term_start_buffered(env->term);        // reduce flicker
   term_up(env->term, eb->cur_row);
   
   // render rows
-  edit_refresh_rows( env, eb, termw, promptw, cpromptw, false, first_row, last_row );
+  edit_refresh_rows( env, eb, promptw, cpromptw, false, first_row, last_row );
   if (rows_extra > 0) {
     ssize_t first_rowx = (first_row > rows_input ? first_row - rows_input : 0);
     ssize_t last_rowx = last_row - rows_input; assert(last_rowx >= 0);
-    edit_refresh_rows(env, eb, termw, 0, 0, true, first_rowx, last_rowx);
+    edit_refresh_rows(env, eb, 0, 0, true, first_rowx, last_rowx);
   }
-
+  
   // overwrite trailing rows we do not use anymore
   ssize_t rrows = last_row - first_row + 1;  // rendered rows
   if (rrows < termh && rows < eb->cur_rows) {
@@ -274,13 +276,14 @@ static void edit_refresh(rp_env_t* env, editor_t* eb)
   term_start_of_line(env->term);
   term_up(env->term, first_row + rrows - 1 - rc.row );
   term_right(env->term, rc.col + (rc.row == 0 ? promptw : cpromptw));
+
+  // stop buffering
   term_end_buffered(env->term);
 
   // update previous
   eb->cur_rows = rows;
   eb->cur_row = rc.row;
 }
-
 
 // clear current output
 static void edit_clear(rp_env_t* env, editor_t* eb ) {
@@ -294,7 +297,7 @@ static void edit_clear(rp_env_t* env, editor_t* eb ) {
   }
   
   // move cursor back 
-  term_up(env->term, eb->cur_rows );  
+  term_up(env->term, eb->cur_rows - eb->cur_row );  
 }
 
 
@@ -305,6 +308,43 @@ static void edit_clear_screen(rp_env_t* env, editor_t* eb ) {
   eb->cur_rows = cur_rows;
   edit_refresh(env,eb);
 }
+
+// Terminal window resized
+static void edit_resize(rp_env_t* env, editor_t* eb ) {
+  term_update_dim(env->term);
+  ssize_t newtermw = term_get_width(env->term);
+  if (eb->termw != newtermw) {
+    ssize_t promptw, cpromptw;
+    edit_get_prompt_width( env, eb, false, &promptw, &cpromptw );
+    rowcol_t rc;
+    const ssize_t rows_input = sbuf_get_wrapped_rc_at_pos( eb->input, eb->termw, newtermw, promptw, cpromptw, eb->pos, &rc );
+    rowcol_t rc_extra;
+    ssize_t rows_extra = sbuf_get_wrapped_rc_at_pos( eb->extra, eb->termw, newtermw, 0, 0, 0 /*pos*/, &rc_extra );
+    if (sbuf_len(eb->extra) == 0) rows_extra = 0;
+    ssize_t rows = rows_input + rows_extra;
+    debug_msg("edit: resize: new row(s): %zd, %zd, previous: %zd, %zd\n", rc.row, rows, eb->cur_row, eb->cur_rows);
+    eb->cur_row = rc.row;
+    eb->cur_rows = rows;
+    eb->termw = newtermw;     
+  }
+  edit_refresh(env,eb); 
+  
+  /*
+  ssize_t termw, promptw, cpromptw;
+  edit_get_prompt_width( env, eb, false, &termw, &promptw, &cpromptw );
+  termw -= 1;
+  rowcol_t rc;
+  const ssize_t rows_input = sbuf_get_rc_at_pos( eb->input, termw, promptw, cpromptw, eb->pos, &rc );
+  rowcol_t rc_extra;
+  ssize_t rows_extra = sbuf_get_rc_at_pos( eb->extra, termw, 0, 0, 0 , &rc_extra );
+  if (sbuf_len(eb->extra) == 0) rows_extra = 0;
+  ssize_t rows = rows_input + rows_extra; 
+  debug_msg("edit: resized: rows %zd, pos: %zd,%zd (previous rows %zd, row %zd)\n", rows, rc.row, rc.col, eb->cur_rows, eb->cur_row);
+  eb->cur_row = rc.row;
+  eb->cur_rows = rows;  
+  */
+  
+} 
 
 
 //-------------------------------------------------------------
@@ -566,6 +606,7 @@ static char* edit_line( rp_env_t* env, const char* prompt_text )
   eb.mem      = env->mem;
   eb.input    = env->input;  // borrow to avoid reallocation
   eb.extra    = env->extra;
+  eb.termw    = term_get_width(env->term);  
   eb.pos      = 0;
   eb.cur_rows = 1; 
   eb.cur_row  = 0; 
@@ -591,9 +632,12 @@ static char* edit_line( rp_env_t* env, const char* prompt_text )
     
     // update width as late as possible so a user can resize even if the prompt is already visible
     //if (eb.len == 1) 
-    if (term_update_dim(env->term,env->tty)) {
-      // eb.cur_rows = env->term.height;
-      edit_refresh(env,&eb);   
+    if (term_update_dim(env->term)) {
+      ssize_t termw = term_get_width(env->term);
+      if (eb.termw != termw) {
+        debug_msg("resize due to terminal change; old termw: %zd, new termw: %zd\n", eb.termw, termw);
+        edit_resize(env,&eb);   
+      }
     }
 
     // Operations that may return
@@ -624,6 +668,10 @@ static char* edit_line( rp_env_t* env, const char* prompt_text )
     }
     // Editing Operations
     else switch(c) {
+      case KEY_EVENT_RESIZE:
+        debug_msg("event resize\n");
+        edit_resize(env,&eb);
+        break;
       case KEY_SHIFT_TAB:
       case KEY_LINEFEED: // '\n' (ctrl+J, shift+enter)
         if (!env->singleline_only) { edit_insert_char(env,&eb,'\n'); }

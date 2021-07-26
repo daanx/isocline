@@ -313,6 +313,7 @@ static ssize_t str_for_each_row( const char* s, ssize_t len, ssize_t termw, ssiz
   ssize_t rcount = 0;
   ssize_t rcol = 0;
   ssize_t rstart = 0;  
+  ssize_t startw  = promptw; 
   for(i = 0; i < len; ) {
     ssize_t w;
     ssize_t next = str_next_ofs(s, len, i, &w);    
@@ -321,11 +322,12 @@ static ssize_t str_for_each_row( const char* s, ssize_t len, ssize_t termw, ssiz
       assert(false);
       break;
     }
-    ssize_t termcol = rcol + w + (rcount == 0 ? promptw : cpromptw) + 1 /* for the cursor */;
-    if (termw != 0 && i != 0 && termcol > termw) {  
+    startw = (rcount == 0 ? promptw : cpromptw);
+    ssize_t termcol = rcol + w + startw + 1 /* for the cursor */;
+    if (termw != 0 && i != 0 && termcol >= termw) {  
       // wrap
       if (fun != NULL) {
-        if (fun(s,rcount,rstart,i - rstart,true,arg,res)) return rcount;
+        if (fun(s,rcount,rstart,i - rstart,startw,true,arg,res)) return rcount;
       }
       rcount++;
       rstart = i;
@@ -334,7 +336,7 @@ static ssize_t str_for_each_row( const char* s, ssize_t len, ssize_t termw, ssiz
     if (s[i] == '\n') {
       // newline
       if (fun != NULL) {
-        if (fun(s,rcount,rstart,i - rstart,false,arg,res)) return rcount;
+        if (fun(s,rcount,rstart,i - rstart,startw,false,arg,res)) return rcount;
       }
       rcount++;
       rstart = i+1;
@@ -345,7 +347,7 @@ static ssize_t str_for_each_row( const char* s, ssize_t len, ssize_t termw, ssiz
     rcol += w;
   }
   if (fun != NULL) {
-    if (fun(s,rcount,rstart,i - rstart,false,arg,res)) return rcount;
+    if (fun(s,rcount,rstart,i - rstart,startw,false,arg,res)) return rcount;
   }
   return rcount+1;
 }
@@ -358,9 +360,9 @@ static ssize_t str_for_each_row( const char* s, ssize_t len, ssize_t termw, ssiz
 static bool str_get_current_pos_iter(
     const char* s,
     ssize_t row, ssize_t row_start, ssize_t row_len, 
-    bool is_wrap, const void* arg, void* res)
+    ssize_t startw, bool is_wrap, const void* arg, void* res)
 {
-  rp_unused(is_wrap);
+  rp_unused(is_wrap); rp_unused(startw);
   rowcol_t* rc = (rowcol_t*)res;
   ssize_t pos = *((ssize_t*)arg);
 
@@ -371,10 +373,8 @@ static bool str_get_current_pos_iter(
     rc->row = row;
     rc->col = str_column_width_n( s + row_start, pos - row_start );
     rc->first_on_row = (pos == row_start);
-    //ssize_t adjust = (is_wrap  /* wrap has no newline at end */ || 
-    //                 (row_len > 0 && s[row_start + row_len - 1] == 0) /* end of user input */ ? 1 : 0);
-    rc->last_on_row  = (pos == row_start + row_len);
-    // debug_msg("edit: pos iter%s%s, row %zd, pos: %zd, row_start: %zd, rowlen: %zd\n", in_extra ? " inextra" : "", is_wrap ? " wrap" : "", row, eb->pos, row_start, row_len);
+    rc->last_on_row  = (pos >= row_start + row_len - (is_wrap ? 1 : 0)); /* wrapped cannot extend one beyond the current characters */
+    debug_msg("edit; pos iter: pos: %zd (%c), row_start: %zd, rowlen: %zd\n", pos, s[pos], row_start, row_len);    
   }  
   return false; // always continue to count all rows
 }
@@ -385,6 +385,83 @@ static ssize_t str_get_rc_at_pos(const char* s, ssize_t len, ssize_t termw, ssiz
   return rows;
 }
 
+
+
+//-------------------------------------------------------------
+// String: get row/column position for a resized terminal
+// with potentially "hard-wrapped" rows
+//-------------------------------------------------------------
+typedef struct wrapped_arg_s {
+  ssize_t  pos;
+  ssize_t  newtermw;
+} wrapped_arg_t;
+
+typedef struct wrowcol_s {
+  rowcol_t rc;
+  ssize_t  hrows;  // count of hard-wrapped extra rows
+} wrowcol_t;
+
+static bool str_get_current_wrapped_pos_iter(
+    const char* s,
+    ssize_t row, ssize_t row_start, ssize_t row_len, 
+    ssize_t startw, bool is_wrap, const void* arg, void* res)
+{
+  rp_unused(is_wrap);
+  wrowcol_t*     wrc = (wrowcol_t*)res;
+  const wrapped_arg_t* warg = (const wrapped_arg_t*)arg;
+
+  // iterate through the row and record the postion and hard-wraps
+  ssize_t hwidth = startw;
+  ssize_t i = 0;
+  while( i <= row_len ) {  // include rowlen as the cursor position can be just after the last character
+    // get next position and column width
+    ssize_t cw;
+    ssize_t next = str_next_ofs( s + row_start, row_len, i, &cw);
+
+    if (next > 0) {
+      if (hwidth + cw >= warg->newtermw) {
+        // hardwrap
+        hwidth = 0;
+        wrc->hrows++;
+        debug_msg("str: found hardwrap: row: %zd, hrows: %zd\n", row, wrc->hrows);      
+      }
+    }
+    else {
+      next++; // ensure we terminate (as we go up to rowlen)
+    }
+
+    // did we find our position?
+    if (warg->pos == row_start+i) {
+      debug_msg("str: found position: row: %zd, hrows: %zd\n", row, wrc->hrows);
+      wrc->rc.row_start = row_start;
+      wrc->rc.row_len   = row_len;
+      wrc->rc.row       = wrc->hrows + row;
+      wrc->rc.col       = hwidth;
+      wrc->rc.first_on_row = (i==0);
+      wrc->rc.last_on_row  = (i+next >= row_len - (is_wrap ? 1 : 0)); 
+    }
+
+    // advance
+    hwidth += cw;
+    i += next;    
+  }
+  return false; // always continue to count all rows
+}
+
+
+static ssize_t str_get_wrapped_rc_at_pos(const char* s, ssize_t len, ssize_t termw, ssize_t newtermw, ssize_t promptw, ssize_t cpromptw, ssize_t pos, rowcol_t* rc) {
+  wrapped_arg_t warg;
+  warg.pos = pos;
+  warg.newtermw = newtermw;
+  wrowcol_t wrc;
+  memset(&wrc,0,sizeof(wrc));
+  ssize_t rows = str_for_each_row(s, len, termw, promptw, cpromptw, &str_get_current_wrapped_pos_iter, &warg, &wrc);
+  debug_msg("edit: wrapped pos: (%zd,%zd) rows %zd %s %s, hrows: %zd\n", wrc.rc.row, wrc.rc.col, rows, wrc.rc.first_on_row ? "first" : "", wrc.rc.last_on_row ? "last" : "", wrc.hrows);
+  *rc = wrc.rc;
+  return (rows + wrc.hrows);
+}
+
+
 //-------------------------------------------------------------
 // Set position
 //-------------------------------------------------------------
@@ -392,9 +469,9 @@ static ssize_t str_get_rc_at_pos(const char* s, ssize_t len, ssize_t termw, ssiz
 static bool str_set_pos_iter(
     const char* s,
     ssize_t row, ssize_t row_start, ssize_t row_len, 
-    bool is_wrap, const void* arg, void* res)
+    ssize_t startw, bool is_wrap, const void* arg, void* res)
 {
-  rp_unused(arg); rp_unused(is_wrap);
+  rp_unused(arg); rp_unused(is_wrap); rp_unused(startw);
   rowcol_t* rc = (rowcol_t*)arg;
   if (rc->row != row) return false; // keep searching
   // we found our row
@@ -684,6 +761,12 @@ rp_private ssize_t sbuf_get_pos_at_rc( stringbuf_t* sbuf, ssize_t termw, ssize_t
 rp_private ssize_t sbuf_get_rc_at_pos( stringbuf_t* sbuf, ssize_t termw, ssize_t promptw, ssize_t cpromptw, ssize_t pos, rowcol_t* rc ) {
   return str_get_rc_at_pos( sbuf->buf, sbuf->count, termw, promptw, cpromptw, pos, rc);
 }
+
+rp_private ssize_t sbuf_get_wrapped_rc_at_pos( stringbuf_t* sbuf, ssize_t termw, ssize_t newtermw, ssize_t promptw, ssize_t cpromptw, ssize_t pos, rowcol_t* rc ) {
+  return str_get_wrapped_rc_at_pos( sbuf->buf, sbuf->count, termw, newtermw, promptw, cpromptw, pos, rc);
+}
+
+
 
 rp_private ssize_t sbuf_for_each_row( stringbuf_t* sbuf, ssize_t termw, ssize_t promptw, ssize_t cpromptw, row_fun_t* fun, void* arg, void* res ) {
   return str_for_each_row( sbuf->buf, sbuf->count, termw, promptw, cpromptw, fun, arg, res);

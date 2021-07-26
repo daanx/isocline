@@ -22,6 +22,8 @@
 #include <termios.h>
 #include <unistd.h>
 #include <sys/ioctl.h>
+#include <signal.h>
+#include <errno.h>
 #endif
 
 #define TTY_PUSH_MAX (64)
@@ -30,6 +32,7 @@ struct tty_s {
   int     fd_in;                    // input handle
   bool    raw_enabled;              // is raw mode enabled?
   bool    is_utf8;                  // is the input stream in utf-8 mode?
+  bool    has_resize_event;         // are resize events generated?
   code_t  pushbuf[TTY_PUSH_MAX];    // push back buffer for full key codes
   ssize_t pushed;
   uint8_t cpushbuf[TTY_PUSH_MAX];   // low level push back buffer for bytes
@@ -312,6 +315,7 @@ static void tty_cpush_csi_unicode( tty_t* tty, code_t mods, uint32_t unicode ) {
 //-------------------------------------------------------------
 
 static bool tty_init_raw(tty_t* tty);
+static void tty_done_raw(tty_t* tty);
 
 static bool tty_init_utf8(tty_t* tty) {
   #ifdef _WIN32
@@ -339,12 +343,18 @@ rp_private tty_t* tty_new(alloc_t* mem, int fd_in)
 rp_private void tty_free(tty_t* tty) {
   if (tty==NULL) return;
   tty_end_raw(tty);
+  tty_done_raw(tty);
   mem_free(tty->mem,tty);
 }
 
-rp_private bool tty_is_utf8(tty_t* tty) {
+rp_private bool tty_is_utf8(const tty_t* tty) {
   if (tty == NULL) return true;
   return (tty->is_utf8);
+}
+
+rp_private bool tty_has_resize_event(const tty_t* tty) {
+  if (tty == NULL) return true;
+  return (false); // tty->has_resize_event);
 }
 
 //-------------------------------------------------------------
@@ -354,8 +364,13 @@ rp_private bool tty_is_utf8(tty_t* tty) {
 
 static bool tty_readc(tty_t* tty, uint8_t* c) {
   if (tty_cpop(tty,c)) return true;
-  if (read(tty->fd_in, (char*)c, 1) != 1) return false;  
-  return true;
+  *c = 0;
+  ssize_t nread = read(tty->fd_in, (char*)c, 1);
+  if (nread < 0 && errno == EINTR) {
+    // probably SIGWINCH; push a resize event
+    tty_code_pushback( tty, KEY_EVENT_RESIZE );
+  }
+  return (nread == 1);
 }
 
 static bool tty_has_available(tty_t* tty) {
@@ -364,9 +379,105 @@ static bool tty_has_available(tty_t* tty) {
   return (ioctl(0, FIONREAD, &n) == 0 && n > 0);
 }
 
+
+// We install various signal handlers to restore the terminal
+// in case of a terminating signal. This is also used to 
+// catch terminal window resizes.
+// This is not strictly needed so this can be disabled on 
+// (older) platforms that do not support signal handling well.
+#if defined(SIGWINCH) && defined(SA_RESTART)  // ensure basic signal functionality is defined
+
+// store the tty in a global so we access it on unexpected termination
+static tty_t* sig_tty; // = NULL
+
+// Catch all termination signals (and SIGWINCH)
+typedef struct sighandler_s {
+  int signum;
+  struct sigaction previous;
+} sighandler_t;
+
+static sighandler_t sighandlers[] = {
+  //{ SIGWINCH, {0} },
+  { SIGTERM,  {0} }, 
+  { SIGINT,   {0} }, 
+  { SIGQUIT,  {0} }, 
+  { SIGHUP,   {0} },
+  { SIGSEGV,  {0} }, 
+  { SIGTRAP,  {0} }, 
+  { SIGBUS,   {0} }, 
+  { SIGTSTP,  {0} },
+  { SIGTTIN,  {0} }, 
+  { SIGTTOU,  {0} },
+  { 0,        {0} }
+};
+
+static bool sigaction_is_valid( struct sigaction* sa ) {
+  return (sa->sa_sigaction != NULL && sa->sa_handler != SIG_DFL && sa->sa_handler != SIG_IGN);
+}
+
+// Generic signal handler
+static void sig_handler(int signum, siginfo_t* siginfo, void* uap ) {
+  if (signum == SIGWINCH) {
+    // SIGWINCH does not set SA_RESTART and a read operation will return EINTR
+    // which allows a refresh of the terminal.
+  }
+  else {
+    // the rest are termination signals; restore the terminal mode. (`tcsetattr` is signal-safe)
+    if (sig_tty != NULL && sig_tty->raw_enabled) {
+      tcsetattr(sig_tty->fd_in, TCSAFLUSH, &sig_tty->default_ios);
+      sig_tty->raw_enabled = false;
+    }
+  }
+  // call previous handler
+  sighandler_t* sh = sighandlers;
+  while( sh->signum != 0 && sh->signum != signum) { sh++; }
+  if (sh->signum == signum) {
+    if (sigaction_is_valid(&sh->previous)) {
+      (sh->previous.sa_sigaction)(signum, siginfo, uap);
+    }
+  }
+}
+
+static void signals_install(tty_t* tty) {
+  sig_tty = tty;
+  sig_tty->has_resize_event = true;
+  // generic signal handler
+  struct sigaction handler;
+  memset(&handler,0,sizeof(handler));
+  sigemptyset(&handler.sa_mask);
+  handler.sa_sigaction = &sig_handler;
+  // install for all signals
+  for( sighandler_t* sh = sighandlers; sh->signum != 0; sh++ ) {
+    handler.sa_flags = (sh->signum == SIGWINCH ? 0 : SA_RESTART);
+    if (sigaction( sh->signum, &handler, &sh->previous ) < 0) {
+      sh->previous.sa_sigaction = NULL;
+      if (sh->signum == SIGWINCH) { sig_tty->has_resize_event = false; }
+    };
+  }
+}
+
+static void signals_restore(void) {
+  // restore all signal handlers
+  for( sighandler_t* sh = sighandlers; sh->signum != 0; sh++ ) {
+    if (sigaction_is_valid(&sh->previous)) {
+      sigaction( sh->signum, &sh->previous, NULL );
+    };
+  }
+  sig_tty = NULL;
+}
+#else
+static void signals_install(tty_t* tty) {
+  rp_unused(tty);
+  // nothing
+}
+static void signals_restore(void) {
+  // nothing
+}
+#endif
+
 rp_private void tty_start_raw(tty_t* tty) {
   if (tty->raw_enabled) return;
-  if (tcsetattr(tty->fd_in,TCSAFLUSH,&tty->raw_ios) < 0) return;
+  if (tcsetattr(tty->fd_in,TCSAFLUSH,&tty->raw_ios) < 0) return;  
   tty->raw_enabled = true;
 }
 
@@ -389,9 +500,17 @@ static bool tty_init_raw(tty_t* tty)
   tty->raw_ios.c_cflag |= CS8;
   tty->raw_ios.c_lflag &= ~(unsigned long)(ECHO | ICANON | IEXTEN | ISIG);
   tty->raw_ios.c_cc[VTIME] = 0;
-  tty->raw_ios.c_cc[VMIN] = 1;   
+  tty->raw_ios.c_cc[VMIN] = 1;
+
+  // store in global so our signal handlers can restore the terminal mode
+  signals_install(tty);
   
   return true;
+}
+
+static void tty_done_raw(tty_t* tty) {
+  rp_unused(tty);
+  signals_restore();
 }
 
 
@@ -534,6 +653,10 @@ rp_private void tty_end_raw(tty_t* tty) {
 static bool tty_init_raw(tty_t* tty) {
   tty->hcon = GetStdHandle( STD_INPUT_HANDLE );  
   return true;
+}
+
+static void tty_done_raw(tty_t* tty) {
+  rp_unused(tty);
 }
 
 #endif

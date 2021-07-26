@@ -20,6 +20,7 @@
 #define STDOUT_FILENO 1
 #else
 #include <unistd.h>
+#include <errno.h>
 #include <sys/ioctl.h>
 #endif
 
@@ -36,6 +37,7 @@ struct term_s {
   bool        buffered;           // are we buffering output (to reduce flicker)?
   bool        is_utf8;            // utf-8 output? determined by the tty
   stringbuf_t* buf;               // buffer for buffered output
+  tty_t*      tty;                // used on posix to get the cursor position
   alloc_t*    mem;                // allocator
   #ifdef _WIN32
   HANDLE      hcon;               // output console handler
@@ -104,6 +106,13 @@ rp_private void term_color(term_t* term, rp_color_t color) {
   term_writef(term, 64, RP_CSI "%dm", (int)color );
 }
 
+rp_private void term_save_cursor(term_t* term) {
+  term_write( term, "\x1B" "7" );
+}
+
+rp_private void term_restore_cursor(term_t* term) {
+  term_write( term, "\x1B" "8" );
+}
 
 // Unused for now
 /*
@@ -230,6 +239,7 @@ rp_private term_t* term_new(alloc_t* mem, tty_t* tty, bool nocolor, bool silent,
   term->nocolor = nocolor;
   term->silent = silent;  
   term->mem    = mem;
+  term->tty    = tty;
   term->width  = 80;
   term->height = 25;
   term->is_utf8 = tty_is_utf8(tty);
@@ -242,7 +252,7 @@ rp_private term_t* term_new(alloc_t* mem, tty_t* tty, bool nocolor, bool silent,
   
   // initialize raw terminal output and terminal dimensions
   term_init_raw(term);
-  term_update_dim(term,tty);
+  term_update_dim(term);
   return term;
 }
 
@@ -286,7 +296,17 @@ rp_private void term_free(term_t* term) {
 
 #if !defined(_WIN32)
 static bool term_write_console(term_t* term, const char* s, ssize_t n) {
-  return (write(term->fd_out, s, to_size_t(n)) == n);
+  ssize_t count = 0; 
+  while( count < n ) {
+    ssize_t nwritten = write(term->fd_out, s + count, to_size_t(n - count));
+    if (nwritten > 0) {
+      count += nwritten;
+    }
+    else if (errno != EINTR && errno != EAGAIN) {
+      return false;
+    }
+  }
+  return true;
 }
 
 static bool term_write_esc(term_t* term, const char* s, ssize_t len) {
@@ -381,13 +401,14 @@ static bool term_write_console(term_t* term, const char* s, ssize_t n ) {
   return (written == (DWORD)(to_size_t(n)));
 }
 
-static void term_get_cursor(term_t* term, ssize_t* row, ssize_t* col) {
+rp_private bool term_get_cursor_pos( term_t* term, ssize_t* row, ssize_t* col) {
   *row = 0;
   *col = 0;
   CONSOLE_SCREEN_BUFFER_INFO info;
   if (!GetConsoleScreenBufferInfo(term->hcon, &info)) return;
   *row = (ssize_t)info.dwCursorPosition.Y + 1;
   *col = (ssize_t)info.dwCursorPosition.X + 1;
+  return true;
 }
 
 static void term_move_cursor_to( term_t* term, ssize_t row, ssize_t col ) {
@@ -663,8 +684,8 @@ static bool term_write_direct(term_t* term, const char* s, ssize_t len ) {
   term_cursor_visible(term,true);
   assert(pos == len);
   return (pos == len); 
-}
 
+}
 #endif
 
 
@@ -678,11 +699,13 @@ static bool term_write_direct(term_t* term, const char* s, ssize_t len ) {
 
 rp_private void term_start_raw(term_t* term) {
   if (term->raw_enabled) return; 
+  term_write(term,"\x1B[?7l");
   term->raw_enabled = true;  
 }
 
 rp_private void term_end_raw(term_t* term) {
   if (!term->raw_enabled) return;
+  term_write(term,"\x1B[?7h");
   term->raw_enabled = false;
 }
 
@@ -736,23 +759,25 @@ static void term_init_raw(term_t* term) {
 
 #if !defined(_WIN32)
 
-static bool term_get_cursor_pos( term_t* term, tty_t* tty, ssize_t* row, ssize_t* col) 
+rp_private bool term_get_cursor_pos( term_t* term, ssize_t* row, ssize_t* col) 
 {
   // send request
-  if (!term_write(term, RP_CSI "6n")) return false;
- 
+  if (!term_write_console(term, "\x1B[6n", 4)) return false;
+  debug_msg("term: read tty esponse\n");
+
   // parse response ESC[%d;%dR
   char buf[64];
   ssize_t len = 0;
   uint8_t c = 0;
-  if (!tty_readc_noblock(tty,&c) || c != '\x1B') return false;
-  if (!tty_readc_noblock(tty,&c) || c != '[')    return false;
+  if (!tty_readc(term->tty,&c) || c != '\x1B') return false;
+  if (!tty_readc_noblock(term->tty,&c) || c != '[')    return false;
   while( len < 63 ) {
-    if (!tty_readc_noblock(tty,&c)) return false;
+    if (!tty_readc_noblock(term->tty,&c)) return false;
     if (!((c >= '0' && c <= '9') || (c == ';'))) break;
     buf[len++] = (char)c; 
   }
   buf[len] = 0;
+  debug_msg("term: parse cursor response: %s\n", buf);
   return rp_atoz2(buf,row,col);
 }
 
@@ -760,7 +785,7 @@ static void term_set_cursor_pos( term_t* term, ssize_t row, ssize_t col ) {
   term_writef( term, 128, RP_CSI "%zd;%zdH", row, col );
 }
 
-rp_private bool term_update_dim(term_t* term, tty_t* tty) {
+rp_private bool term_update_dim(term_t* term) {
   ssize_t cols = 0;
   ssize_t rows = 0;
   struct winsize ws;
@@ -774,11 +799,11 @@ rp_private bool term_update_dim(term_t* term, tty_t* tty) {
     debug_msg("term: ioctl term-size failed: %d,%d\n", ws.ws_row, ws.ws_col);
     ssize_t col0 = 0;
     ssize_t row0 = 0;
-    if (term_get_cursor_pos(term,tty,&row0,&col0)) {
+    if (term_get_cursor_pos(term,&row0,&col0)) {
       term_set_cursor_pos(term,999,999);
       ssize_t col1 = 0;
       ssize_t row1 = 0;
-      if (term_get_cursor_pos(term,tty,&row1,&col1)) {
+      if (term_get_cursor_pos(term,&row1,&col1)) {
         cols = col1;
         rows = row1;
       }
@@ -791,8 +816,8 @@ rp_private bool term_update_dim(term_t* term, tty_t* tty) {
   }
 
   // update width and return if it changed.
-  debug_msg("terminal dim: %d,%d\n", rows, cols);  
   bool changed = (term->width != cols || term->height != rows);
+  debug_msg("terminal dim: %zd,%zd: %s\n", rows, cols, changed ? "changed" : "unchanged");  
   term->width = cols;
   term->height = rows;
   return changed;  
@@ -800,8 +825,7 @@ rp_private bool term_update_dim(term_t* term, tty_t* tty) {
 
 #else
 
-rp_private bool term_update_dim(term_t* term, tty_t* tty) {
-  rp_unused(tty);
+rp_private bool term_update_dim(term_t* term) {
   if (term->hcon == 0) {
     term->hcon = GetConsoleWindow();
   }

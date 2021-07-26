@@ -30,7 +30,13 @@ rp_private bool term_write_n(term_t* term, const char* s, ssize_t n);
 rp_private bool term_write(term_t* term, const char* s);
 rp_private bool term_write_repeat(term_t* term, const char* s, ssize_t count );
 rp_private void term_beep(term_t* term);
-rp_private bool term_update_dim(term_t* term, tty_t* tty);
+
+rp_private bool term_update_dim(term_t* term);
+rp_private bool term_get_cursor_pos( term_t* term, ssize_t* row, ssize_t* col);
+
+rp_private void term_save_cursor(term_t* term);
+rp_private void term_restore_cursor(term_t* term);
+
 rp_private ssize_t term_get_width(term_t* term);
 rp_private ssize_t term_get_height(term_t* term);
 

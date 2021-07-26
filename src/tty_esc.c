@@ -328,7 +328,13 @@ static code_t tty_read_csi(tty_t* tty, uint8_t c1, uint8_t peek, code_t mods0) {
     // xterm 
     code = esc_decode_xterm(final);
   }
-  if (code == KEY_NONE) { debug_msg("tty: ignore escape sequence: ESC %c1 %d;%d %c\n", c1, num1, num2, final); }
+  else if (c1 == '[' && final == 'R') {
+    // cursor position
+    code = KEY_NONE;
+  }
+  if (code == KEY_NONE && final != 'R') { 
+    debug_msg("tty: ignore escape sequence: ESC %c %d;%d %c\n", c1, num1, num2, final); 
+  }
   return (code != KEY_NONE ? (code | modifiers) : KEY_NONE);
 }
 
