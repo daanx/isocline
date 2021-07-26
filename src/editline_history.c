@@ -139,7 +139,7 @@ again:
     sbuf_append_n( eb->extra, hentry + match_pos, match_len );
     sbuf_appendf(eb->extra, 128, "\x1B[24m\x1B[21m\x1B[%dm", env->color_diminish ); // no underline dark gray
     sbuf_append(eb->extra, hentry + match_pos + match_len );
-    sbuf_appendf(eb->extra, 128, "\x1B[%dm\n(use tab for the next match and backspace to go back)", env->color_info );
+    sbuf_appendf(eb->extra, 128, "\x1B[%dm\n(use tab for the next match)", env->color_info );
     sbuf_append(eb->extra, "\x1B[0m\n" );
   }
   edit_refresh(env, eb);
