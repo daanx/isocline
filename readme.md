@@ -13,7 +13,7 @@ Repline is a pure C library that can be used as readline alternative.
 - License: MIT. 
 - Comes with a [Haskell] binding (`System.Console.Repline`).
 
-<img align="right" width="400px" src="doc/history-win.png"/>
+<img align="right" width="350px" src="doc/history-win.png"/>
 
 Enjoy,
   Daan
