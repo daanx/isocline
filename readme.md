@@ -1,4 +1,5 @@
 <img align="right" width="500px" src="doc/completion-id.png"/>
+<img align="right" width="500px" src="doc/history-wsl.png"/>
 
 # Repline> <br>a portable readline alternative.
 
