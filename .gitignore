@@ -2,6 +2,7 @@ out/
 build/
 dist/
 .vs/
+.vscode/
 .stack-work/
 .DS_Store
 *.user
