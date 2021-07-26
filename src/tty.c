@@ -175,7 +175,8 @@ static code_t modify_code( code_t code ) {
     code = KEY_BACKSP | mods;
   }
   // ctrl+'_' is translated to '\x1F' on Linux, translate it back 
-  else if (key == key_char('\x1F') && mods == 0) {
+  else if (key == key_char('\x1F') && (mods & KEY_MOD_ALT) == 0) {
+    key = '_';
     code = WITH_CTRL(key_char('_'));
   }
   // treat ctrl/shift + enter always as KEY_LINEFEED for portability
