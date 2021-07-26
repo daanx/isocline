@@ -331,7 +331,9 @@ static bool edit_resize(rp_env_t* env, editor_t* eb ) {
   
   // update the newly calculated row and rows
   eb->cur_row = rc.row;
-  eb->cur_rows = rows;
+  if (rows > eb->cur_rows) {
+    eb->cur_rows = rows;
+  }
   eb->termw = newtermw;     
   edit_refresh(env,eb); 
   return true;

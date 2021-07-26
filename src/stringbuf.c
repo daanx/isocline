@@ -427,7 +427,7 @@ static bool str_get_current_wrapped_pos_iter(
     ssize_t next = str_next_ofs( s + row_start, row_len, i, &cw);
 
     if (next > 0) {
-      if (hwidth + cw >= warg->newtermw) {
+      if (hwidth + cw + (is_wrap ? 1 : 0) >= warg->newtermw) {
         // hardwrap
         hwidth = 0;
         wrc->hrows++;
