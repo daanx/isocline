@@ -222,12 +222,10 @@ static void edit_refresh_rows(rp_env_t* env, editor_t* eb,
                             &edit_refresh_rows_iter, &info, NULL );
 }
 
-static void rp_pause(rp_env_t* env) {
-  // tty_read(env->tty);
-}
 
 static void edit_refresh(rp_env_t* env, editor_t* eb) 
 {
+  // calculate the new cursor row and total rows needed
   ssize_t promptw, cpromptw;
   edit_get_prompt_width( env, eb, false, &promptw, &cpromptw );
   rowcol_t rc;
@@ -249,7 +247,10 @@ static void edit_refresh(rp_env_t* env, editor_t* eb)
   }
  
   
-  term_start_buffered(env->term);        // reduce flicker
+  // reduce flicker
+  term_start_buffered(env->term);        
+
+  // back up to the first line
   term_up(env->term, eb->cur_row);
   
   // render rows
@@ -309,12 +310,15 @@ static void edit_clear_screen(rp_env_t* env, editor_t* eb ) {
   edit_refresh(env,eb);
 }
 
+
 // Terminal window resized
 static bool edit_resize(rp_env_t* env, editor_t* eb ) {
+  // update dimensions
   term_update_dim(env->term);
   ssize_t newtermw = term_get_width(env->term);
   if (eb->termw == newtermw) return false;
 
+  // recalculate the row layout assuming the hardwrapping for the new terminal width
   ssize_t promptw, cpromptw;
   edit_get_prompt_width( env, eb, false, &promptw, &cpromptw );
   rowcol_t rc;
@@ -324,6 +328,8 @@ static bool edit_resize(rp_env_t* env, editor_t* eb ) {
   if (sbuf_len(eb->extra) == 0) rows_extra = 0;
   ssize_t rows = rows_input + rows_extra;
   debug_msg("edit: resize: new row(s): %zd, %zd, previous: %zd, %zd\n", rc.row, rows, eb->cur_row, eb->cur_rows);
+  
+  // update the newly calculated row and rows
   eb->cur_row = rc.row;
   eb->cur_rows = rows;
   eb->termw = newtermw;     

@@ -446,7 +446,6 @@ static void sig_handler(int signum, siginfo_t* siginfo, void* uap ) {
 
 static void signals_install(tty_t* tty) {
   sig_tty = tty;
-  sig_tty->has_term_resize_event = true;
   // generic signal handler
   struct sigaction handler;
   memset(&handler,0,sizeof(handler));
@@ -455,10 +454,16 @@ static void signals_install(tty_t* tty) {
   handler.sa_flags = SA_RESTART;
   // install for all signals
   for( sighandler_t* sh = sighandlers; sh->signum != 0; sh++ ) {
-    if (sigaction( sh->signum, &handler, &sh->previous ) < 0) {
-      sh->previous.sa_sigaction = NULL;
-      if (sh->signum == SIGWINCH) { sig_tty->has_term_resize_event = false; }
-    };
+    if (sigaction( sh->signum, NULL, &sh->previous) == 0) {          // get previous
+      if (sh->previous.sa_handler != SIG_IGN) {                      // if not to be ignored
+        if (sigaction( sh->signum, &handler, &sh->previous ) < 0) {  // install our handler
+          sh->previous.sa_sigaction = NULL;       // do not restore on error
+        }
+        else if (sh->signum == SIGWINCH) {
+          sig_tty->has_term_resize_event = true;
+        };
+      }
+    }    
   }
 }
 
