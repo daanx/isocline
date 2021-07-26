@@ -4,10 +4,11 @@ dist/
 .vs/
 .stack-work/
 .DS_Store
-history.txt
 *.user
 *.exe
 *.hi
 *.o
 *_stub.h
 *.lock
+history.txt
+repline.debug.txt

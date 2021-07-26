@@ -65,17 +65,22 @@ rp_private bool rp_strncpy( char* dest, ssize_t dest_size /* including 0 */, con
 //-------------------------------------------------------------
 // Unicode
 // QUTF-8: See <https://github.com/koka-lang/koka/blob/master/kklib/include/kklib/string.h>
+// Raw bytes are code points 0xEE000 - 0xEE0FF
 //-------------------------------------------------------------
-#define RP_RAW_PLANE      ((unicode_t)(0xE0000U))
-#define RP_RAW_UTF8_OFS   (RP_RAW_PLANE + 0xE000U)
-#define RP_RAW_UTF16_OFS  (RP_RAW_PLANE)               // unused
+#define RP_UNICODE_RAW   ((unicode_t)(0xEE000U))
 
 rp_private unicode_t unicode_from_raw(uint8_t c) {
-  return (RP_RAW_PLANE + RP_RAW_UTF8_OFS + c);
+  return (RP_UNICODE_RAW + c);
 }
 
-static bool unicode_is_raw_utf8(unicode_t u) {
-  return (u >= RP_RAW_PLANE + RP_RAW_UTF8_OFS && u <= RP_RAW_PLANE + RP_RAW_UTF8_OFS + 0xFF);
+static bool unicode_is_raw_utf8(unicode_t u, uint8_t* c) {
+  if (u >= RP_UNICODE_RAW && u <= RP_UNICODE_RAW + 0xFF) {
+    *c = (uint8_t)(u - RP_UNICODE_RAW);
+    return true;
+  }
+  else {
+    return false;
+  }
 }
 
 rp_private void unicode_to_qutf8(unicode_t u, uint8_t buf[5]) {
@@ -93,8 +98,7 @@ rp_private void unicode_to_qutf8(unicode_t u, uint8_t buf[5]) {
     buf[2] = (0x80 | (((uint8_t)u) & 0x3F));
   }
   else if (u <= 0x10FFFF) {
-    if (unicode_is_raw_utf8(u)) {
-      buf[0] = (uint8_t)(u - RP_RAW_PLANE - RP_RAW_UTF8_OFS);
+    if (unicode_is_raw_utf8(u, &buf[0])) {
       buf[1] = 0;
     }
     else {
