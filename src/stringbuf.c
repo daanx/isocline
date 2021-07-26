@@ -713,7 +713,7 @@ rp_private char* sbuf_strdup_from_utf8(stringbuf_t* sbuf) {
     else {
       // decode unicode
       ssize_t nread;
-      unicode_t uchr = unicode_from_qutf8(sbuf->buf + i, ofs, &nread);
+      unicode_t uchr = unicode_from_qutf8( (const uint8_t*)(sbuf->buf + i), ofs, &nread);
       uint8_t c;
       if (unicode_is_raw(uchr, &c)) {
         // raw byte, output as is (this will take care of locale specific input)

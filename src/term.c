@@ -8,6 +8,7 @@
 #include <stdio.h>
 #include <stdarg.h>
 #include <stdlib.h>  // getenv
+#include <inttypes.h>
 
 #include "common.h"
 #include "tty.h"
@@ -302,7 +303,7 @@ static bool term_write_esc(term_t* term, const char* s, ssize_t len) {
 
 static bool term_write_utf8(term_t* term, const char* s, ssize_t len) {
   ssize_t nread;
-  unicode_t uchr = unicode_from_qutf8(s, len, &nread);
+  unicode_t uchr = unicode_from_qutf8((const uint8_t*)s, len, &nread);
   uint8_t c;
   if (unicode_is_raw(uchr,&c)) {
     // write bytes as is; this also ensure that on non-utf8 terminals characters between 0x80-0xFF
@@ -316,7 +317,7 @@ static bool term_write_utf8(term_t* term, const char* s, ssize_t len) {
     // on non-utf8 terminals send unicode escape sequences and hope for the best
     // todo: we could try to convert to the locale first?
     char buf[64+1];
-    snprintf(buf, "\x1B[%uu", uchr);
+    snprintf(buf, 64, "\x1B[%" PRIu32, uchr);
     buf[64] = 0;
     return term_write_console(term, buf, rp_strlen(buf));
   }
