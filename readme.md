@@ -1,5 +1,4 @@
-<img align="right" width="500px" src="doc/completion-id.png"/>
-<img align="right" width="500px" src="doc/history-wsl.png"/>
+<img align="right" width="400px" src="doc/completion-id.png"/>
 
 # Repline> <br>a portable readline alternative.
 
@@ -11,11 +10,15 @@ Repline is a pure C library that can be used as readline alternative.
   subset of ANSI escape sequences.
 - Features: extensive multi-line editing mode (`shift-tab`), colors, history, completion, unicode, 
   undo/redo, incremental history search, graceful fallback, custom allocator, etc.
-- License: MIT.
+- License: MIT. 
 - Comes with a [Haskell] binding (`System.Console.Repline`).
+
+<img align="right" width="400px" src="doc/history-win.png"/>
 
 Enjoy,
   Daan
+  
+  
 
 # Usage
 
