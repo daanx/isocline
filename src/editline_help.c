@@ -129,15 +129,14 @@ static const char* help_initial[] = {
 static void edit_show_help(rp_env_t* env, editor_t* eb) {
   edit_clear(env, eb);
   for( ssize_t i = 0; help_initial[i] != NULL; i++ ) {
-    term_write(env->term, help_initial[i]);
-    term_write(env->term,"\r\n");
+    term_writeln(env->term, help_initial[i]);
   }
   for (ssize_t i = 0; help[i] != NULL && help[i+1] != NULL; i += 2) {
     if (help[i][0] == 0) {      
-      term_writef(env->term, 256, "\x1B[90m%s\x1B[0m\r\n", help[i+1]);
+      term_writef(env->term, 256, "\x1B[90m%s\x1B[0m\n", help[i+1]);
     }
     else {
-      term_writef(env->term, 256, "  \x1B[97m%-13s\x1B[0m%s%s\r\n", help[i], (help[i+1][0] == 0 ? "" : ": "), help[i+1]);
+      term_writef(env->term, 256, "  \x1B[97m%-13s\x1B[0m%s%s\n", help[i], (help[i+1][0] == 0 ? "" : ": "), help[i+1]);
     }
   }
   

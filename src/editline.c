@@ -52,7 +52,7 @@ rp_private char* rp_editline(rp_env_t* env, const char* prompt_text) {
   char* line = edit_line(env,prompt_text);
   term_end_raw(env->term);
   tty_end_raw(env->tty);
-  term_write(env->term,"\r\n");
+  term_writeln(env->term,"");
   return line;
 }
 
@@ -203,7 +203,7 @@ static bool edit_refresh_rows_iter(
       #endif
       term_attr_reset( term );
     }
-    term_write(term, "\r\n");
+    term_writeln(term, "");
   }
   return (row >= info->last_row);  
 }
@@ -268,7 +268,7 @@ static void edit_refresh(rp_env_t* env, editor_t* eb)
     while (rrows < termh && clear > 0) {
       clear--;
       rrows++;
-      term_write(env->term, "\r\n");
+      term_writeln(env->term,"");
       term_clear_line(env->term);
     }
   }
@@ -294,7 +294,7 @@ static void edit_clear(rp_env_t* env, editor_t* eb ) {
   // overwrite all rows
   for( ssize_t i = 0; i < eb->cur_rows; i++) {
     term_clear_line(env->term);
-    term_write(env->term, "\r\n");    
+    term_writeln(env->term, "");    
   }
   
   // move cursor back 

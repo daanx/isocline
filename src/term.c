@@ -106,6 +106,11 @@ rp_private void term_color(term_t* term, rp_color_t color) {
   term_writef(term, 64, RP_CSI "%dm", (int)color );
 }
 
+rp_private bool term_writeln(term_t* term, const char* s) {
+  bool ok = term_write(term,s);
+  if (ok) { ok = term_write(term,"\n"); }
+  return ok;
+}
 
 // Unused for now
 /*
@@ -186,12 +191,13 @@ rp_private bool term_write_repeat(term_t* term, const char* s, ssize_t count) {
 }
 
 rp_private bool term_write(term_t* term, const char* s) {
-  // todo: strip colors on nocolor
+  if (s == NULL || s[0] == 0) return true;
   ssize_t n = rp_strlen(s);
   return term_write_n(term,s,n);
 }
 
 rp_private bool term_write_n(term_t* term, const char* s, ssize_t n) {
+  if (s == NULL || n <= 0) return true;
   if (!term->buffered) {
     return term_write_direct(term,s,n);
   }
@@ -724,7 +730,7 @@ rp_private void term_start_raw(term_t* term) {
   }
 	GetConsoleMode( term->hcon, &term->hcon_orig_mode );
   term->hcon_orig_cp = GetConsoleOutputCP(); 
-  SetConsoleOutputCP(65001);  // set to UTF-8
+  SetConsoleOutputCP(CP_UTF8);
   SetConsoleMode( term->hcon, ENABLE_PROCESSED_OUTPUT   // for \r \n and \b
                              #ifdef ENABLE_LVB_GRID_WORLDWIDE 
                              | ENABLE_LVB_GRID_WORLDWIDE // for underline

@@ -228,23 +228,22 @@ again:
     edit_get_rowcol(env,eb,&rc);
     edit_clear(env,eb);
     edit_write_prompt(env,eb,0,false);
-    term_write(env->term, "\r\n");
+    term_writeln(env->term, "");
     for(ssize_t i = 0; i < count; i++) {
       const char* display = completions_get_display(env->completions, i);
       if (display != NULL) {
-        // term_writef(env->term, "\x1B[90m%3d \x1B[0m%s\r\n", i+1, (cm->display != NULL ? cm->display : cm->replacement ));          
-        term_write(env->term, display);         
-        term_write(env->term, "\r\n"); 
+        // term_writef(env->term, "\x1B[90m%3d \x1B[0m%s\n", i+1, (cm->display != NULL ? cm->display : cm->replacement ));          
+        term_writeln(env->term, display);
       }
     }
     if (count >= RP_MAX_COMPLETIONS_TO_SHOW) {
-      term_writef(env->term, 256, "\x1B[%dm... and more.\x1B[0m\r\n", env->color_info);
+      term_writef(env->term, 256, "\x1B[%dm... and more.\x1B[0m\n", env->color_info);
     }
     else {
-      term_writef(env->term, 256, "\x1B[%dm(%zd possible completions)\x1B[0m\r\n", env->color_info, count );
+      term_writef(env->term, 256, "\x1B[%dm(%zd possible completions)\x1B[0m\n", env->color_info, count );
     }
     for(ssize_t i = 0; i < rc.row+1; i++) {
-      term_write(env->term, " \r\n");
+      term_write(env->term, " \n");
     }
     eb->cur_rows = 0;
     edit_refresh(env,eb);      

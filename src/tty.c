@@ -386,8 +386,7 @@ static bool tty_has_available(tty_t* tty) {
 
 
 // We install various signal handlers to restore the terminal settings
-// in case of a terminating signal. This is also used to 
-// catch terminal window resizes.
+// in case of a terminating signal. This is also used to catch terminal window resizes.
 // This is not strictly needed so this can be disabled on 
 // (older) platforms that do not support signal handling well.
 #if defined(SIGWINCH) && defined(SA_RESTART)  // ensure basic signal functionality is defined
@@ -501,15 +500,16 @@ rp_private void tty_end_raw(tty_t* tty) {
 
 static bool tty_init_raw(tty_t* tty) 
 {  
-  // Note: we set the terminal output to raw here as well
-  // See <https://man7.org/linux/man-pages/man3/termios.3.html> for what
-  // each of these options means.
+  // Set input to raw mode. See <https://man7.org/linux/man-pages/man3/termios.3.html>.
   if (tcgetattr(tty->fd_in,&tty->default_ios) == -1) return false;
   tty->raw_ios = tty->default_ios; 
+  // input: no break signal, no \r to \n, no parity check, no 8-bit to 7-bit, no flow control
   tty->raw_ios.c_iflag &= ~(unsigned long)(BRKINT | ICRNL | INPCK | ISTRIP | IXON);
-  tty->raw_ios.c_oflag &= ~(unsigned long)OPOST;
+  // control: allow 8-bit
   tty->raw_ios.c_cflag |= CS8;
+  // local: no echo, no line-by-line (canonical), no extended input processing, no signals for ^z,^c
   tty->raw_ios.c_lflag &= ~(unsigned long)(ECHO | ICANON | IEXTEN | ISIG);
+  // 1 byte at a time, no delay.
   tty->raw_ios.c_cc[VTIME] = 0;
   tty->raw_ios.c_cc[VMIN] = 1;
 
@@ -657,7 +657,11 @@ static void tty_waitc_console(tty_t* tty)
 rp_private void tty_start_raw(tty_t* tty) {
   if (tty->raw_enabled) return;
   GetConsoleMode(tty->hcon,&tty->hcon_orig_mode);
-  DWORD mode =  ENABLE_QUICK_EDIT_MODE | ENABLE_WINDOW_INPUT; // | ENABLE_VIRTUAL_TERMINAL_INPUT ; // | ENABLE_PROCESSED_INPUT ;
+  DWORD mode = ENABLE_QUICK_EDIT_MODE   // cut&paste allowed 
+             | ENABLE_WINDOW_INPUT      // to catch resize events 
+             // | ENABLE_VIRTUAL_TERMINAL_INPUT 
+             // | ENABLE_PROCESSED_INPUT
+             ;
   SetConsoleMode(tty->hcon, mode );
   tty->raw_enabled = true;  
 }
