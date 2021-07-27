@@ -123,7 +123,7 @@ SS3:   ESC 'O' 1 ';' modifiers [A-Za-z]
 // Decode escape sequences
 //-------------------------------------------------------------
 
-static code_t esc_decode_vt( uint32_t vt_code ) {
+static code_t esc_decode_vt(uint32_t vt_code ) {
   switch(vt_code) {
     case 1: return KEY_HOME; 
     case 2: return KEY_INS;
@@ -224,11 +224,11 @@ static code_t esc_decode_ss3( uint8_t ss3_code ) {
   return KEY_NONE;
 }
 
-static void tty_read_csi_num(tty_t* tty, uint8_t* ppeek, uint32_t* num) {
+static void tty_read_csi_num(tty_t* tty, uint8_t* ppeek, size_t* num) {
   *num = 1; // default
   ssize_t count = 0;
-  uint32_t i = 0;
-  while (*ppeek >= '0' && *ppeek <= '9' && count < 16) {    
+  size_t i = 0;
+  while (*ppeek >= '0' && *ppeek <= '9' && count < 40 /* enough for 128 bit size_t */) {    
     uint8_t digit = *ppeek - '0';
     if (!tty_readc_noblock(tty,ppeek)) break;  // peek is not modified in this case 
     count++;
@@ -237,11 +237,11 @@ static void tty_read_csi_num(tty_t* tty, uint8_t* ppeek, uint32_t* num) {
   if (count > 0) *num = i;
 }
 
-static code_t tty_read_csi(tty_t* tty, uint8_t c1, uint8_t peek, code_t mods0) {
+static code_t tty_read_csi(tty_t* tty, uint8_t c1, uint8_t peek, code_t mods0, void** data) {
   // CSI starts with 0x9b (c1=='[') | ESC [ (c1=='[') | ESC [Oo?] (c1 == 'O')  /* = SS3 */
   
   // check for extra starter '[' (Linux sends ESC [ [ 15 ~  for F5 for example)
-  if (c1 == '[' && strchr("[Oo?", (char)peek) != NULL) {
+  if (c1 == '[' && strchr("[Oo", (char)peek) != NULL) {
     uint8_t cx = peek;
     if (tty_readc_noblock(tty, &peek)) {
       c1 = cx;
@@ -259,8 +259,8 @@ static code_t tty_read_csi(tty_t* tty, uint8_t c1, uint8_t peek, code_t mods0) {
   }
 
   // up to 2 parameters that default to 1
-  uint32_t num1 = 1;
-  uint32_t num2 = 1;
+  size_t num1 = 1;
+  size_t num2 = 1;
   tty_read_csi_num(tty,&peek,&num1);
   if (peek == ';') {
     if (!tty_readc_noblock(tty,&peek)) return KEY_NONE;
@@ -314,11 +314,11 @@ static code_t tty_read_csi(tty_t* tty, uint8_t c1, uint8_t peek, code_t mods0) {
   code_t code = KEY_NONE;
   if (final == '~') {
     // vt codes
-    code = esc_decode_vt(num1);
+    code = esc_decode_vt((uint32_t)num1);
   }
   else if (final == 'u' && c1 == '[') {
     // unicode
-    code = key_unicode(num1);
+    code = key_unicode((unicode_t)num1);
   }
   else if (c1 == 'O' && ((final >= 'A' && final <= 'Z') || (final >= 'a' && final <= 'z'))) {
     // ss3
@@ -332,13 +332,20 @@ static code_t tty_read_csi(tty_t* tty, uint8_t c1, uint8_t peek, code_t mods0) {
     // cursor position
     code = KEY_NONE;
   }
+  else if (c1 == '[' && special == '?' && final == 'x') {
+    // event
+    code = KEY_EVENT_BASE + (code_t)num1;
+    if (data != NULL) { *data = (void*)num2; }
+    debug_msg("tty: event: %zu (data: 0x%zx)\n", num1, num2, final);
+  }
+
   if (code == KEY_NONE && final != 'R') { 
-    debug_msg("tty: ignore escape sequence: ESC %c %d;%d %c\n", c1, num1, num2, final); 
+    debug_msg("tty: ignore escape sequence: ESC %c %zu;%zu %c\n", c1, num1, num2, final); 
   }
   return (code != KEY_NONE ? (code | modifiers) : KEY_NONE);
 }
 
-rp_private code_t tty_read_esc(tty_t* tty) {
+rp_private code_t tty_read_esc(tty_t* tty, void** data) {
   code_t  mods = 0;
   uint8_t peek = 0;
   
@@ -354,7 +361,7 @@ rp_private code_t tty_read_esc(tty_t* tty) {
   // CSI ?
   if (peek == '[') {
     if (!tty_readc_noblock(tty, &peek)) goto alt;
-    return tty_read_csi(tty, '[', peek, mods);  // ESC [ ...
+    return tty_read_csi(tty, '[', peek, mods, data);  // ESC [ ...
   }
 
   // SS3?
@@ -366,7 +373,7 @@ rp_private code_t tty_read_esc(tty_t* tty) {
       mods |= KEY_MOD_CTRL;
     }
     // treat all as standard SS3 'O'
-    return tty_read_csi(tty,'O',peek,mods);  // ESC [Oo?] ...
+    return tty_read_csi(tty,'O',peek,mods, data);  // ESC [Oo?] ...
   }
 
 alt:  

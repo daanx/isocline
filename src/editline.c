@@ -620,8 +620,9 @@ static char* edit_line( rp_env_t* env, const char* prompt_text )
   // process keys
   code_t c;          // current key code
   while(true) {    
-    // read a character
-    c = tty_read(env->tty);
+    // read a character (and potential event data)
+    void* evdata = NULL;
+    c = tty_read(env->tty, &evdata);
     
     // update terminal in case of a resize
     if (tty_term_resize_event(env->tty)) {
@@ -643,8 +644,8 @@ static char* edit_line( rp_env_t* env, const char* prompt_text )
       if (eb.pos == 0 && editor_pos_is_at_end(&eb)) break; // ctrl+D on empty quits with NULL
       edit_delete_char(env,&eb);     // otherwise it is like delete
     } 
-    else if (c == KEY_CTRL_C) {
-      break; // ctrl+C quits with NULL
+    else if (c == KEY_CTRL_C || c == KEY_EVENT_STOP) {
+      break; // ctrl+C or asyc STOP event quits with NULL
     }
     else if (c == KEY_ESC) {
       if (eb.pos == 0 && editor_pos_is_at_end(&eb)) break;  // ESC on empty input returns with empty input
@@ -654,18 +655,26 @@ static char* edit_line( rp_env_t* env, const char* prompt_text )
       edit_delete_all(env,&eb);
       break; // ctrl+G cancels (and returns empty input)
     }
+
     // Editing Operations
     else switch(c) {
+      // events
       case KEY_EVENT_RESIZE:
         edit_resize(env,&eb);
         break;
-      case KEY_SHIFT_TAB:
-      case KEY_LINEFEED: // '\n' (ctrl+J, shift+enter)
-        if (!env->singleline_only) { edit_insert_char(env,&eb,'\n'); }
+      case KEY_EVENT_WRITELN:
+        if (evdata != NULL) {
+          edit_clear(env, &eb);
+          term_writeln(env->term, (const char*)evdata);
+          edit_refresh(env, &eb);
+          mem_free(env->mem, evdata);
+        }
         break;
       case KEY_EVENT_AUTOTAB:
-        edit_generate_completions(env,&eb,true);
+        edit_generate_completions(env, &eb, true);
         break;
+
+      // completion, history, help, undo
       case KEY_TAB:
       case WITH_ALT('?'):
         edit_generate_completions(env,&eb,false);
@@ -674,6 +683,27 @@ static char* edit_line( rp_env_t* env, const char* prompt_text )
       case KEY_CTRL_S:
         edit_history_search_with_current_word(env,&eb);
         break;
+      case KEY_CTRL_P:
+        edit_history_prev(env, &eb);
+        break;
+      case KEY_CTRL_N:
+        edit_history_next(env, &eb);
+        break;
+      case KEY_CTRL_L:
+        edit_clear_screen(env, &eb);
+        break;
+      case KEY_CTRL_Z:
+      case WITH_CTRL('_'):
+        edit_undo_restore(env, &eb);
+        break;
+      case KEY_CTRL_Y:
+        edit_redo_restore(env, &eb);
+        break;
+      case KEY_F1:
+        edit_show_help(env, &eb);
+        break;
+
+      // navigation
       case KEY_LEFT:
       case KEY_CTRL_B:
         edit_cursor_left(env,&eb);
@@ -718,6 +748,8 @@ static char* edit_line( rp_env_t* env, const char* prompt_text )
       case WITH_ALT('>'):
         edit_cursor_to_end(env,&eb);
         break;
+
+      // deletion
       case KEY_BACKSP:
         edit_backspace(env,&eb);
         break;
@@ -732,34 +764,20 @@ static char* edit_line( rp_env_t* env, const char* prompt_text )
       case WITH_ALT(KEY_BACKSP):
         edit_delete_to_start_of_word(env,&eb);
         break;      
-        // edit_delete_word?
       case KEY_CTRL_U:
         edit_delete_to_start_of_line(env,&eb);
         break;
       case KEY_CTRL_K:
         edit_delete_to_end_of_line(env,&eb);
         break;
-      case KEY_CTRL_P:
-        edit_history_prev(env,&eb);
-        break;
-      case KEY_CTRL_N:
-        edit_history_next(env,&eb);
-        break;
-      case KEY_CTRL_L: 
-        edit_clear_screen(env,&eb);
-        break;
       case KEY_CTRL_T:
         edit_swap_char(env,&eb);
         break;
-      case KEY_CTRL_Z:
-      case WITH_CTRL('_'):
-        edit_undo_restore(env,&eb);
-        break;
-      case KEY_CTRL_Y:
-        edit_redo_restore(env,&eb);
-        break;        
-      case KEY_F1:
-        edit_show_help(env,&eb);
+
+      // Editing
+      case KEY_SHIFT_TAB:
+      case KEY_LINEFEED: // '\n' (ctrl+J, shift+enter)
+        if (!env->singleline_only) { edit_insert_char(env, &eb, '\n'); }
         break;
       default: {
         char chr;
@@ -784,7 +802,7 @@ static char* edit_line( rp_env_t* env, const char* prompt_text )
 
   // save result
   char* res; 
-  if ((c == KEY_CTRL_D && sbuf_len(eb.input) == 0) || c == KEY_CTRL_C) {
+  if ((c == KEY_CTRL_D && sbuf_len(eb.input) == 0) || c == KEY_CTRL_C || c == KEY_EVENT_STOP) {
     res = NULL;
   }
   else if (!tty_is_utf8(env->tty)) {

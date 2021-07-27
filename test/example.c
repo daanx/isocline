@@ -53,6 +53,7 @@ int main()
 // A custom completer function.
 // Use `rp_add_completion( env, display, replacement)` to add actual completions.
 static void word_completer(rp_completion_env_t* cenv, const char* prefix ) {
+  rp_interrupt();
   if (prefix[0] != 0 && rp_istarts_with("hello repline",prefix)) {
     for(int i = 0; i < 100000; i++) {
       char buf[32];

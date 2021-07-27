@@ -28,9 +28,9 @@ rp_private void   tty_free(tty_t* tty);
 rp_private bool   tty_is_utf8(const tty_t* tty);
 rp_private void   tty_start_raw(tty_t* tty);
 rp_private void   tty_end_raw(tty_t* tty);
-rp_private code_t tty_read(tty_t* tty);
+rp_private code_t tty_read(tty_t* tty, void** data);
 
-rp_private void   tty_code_pushback( tty_t* tty, code_t c );
+rp_private void   tty_code_pushback( tty_t* tty, code_t c, void* data );
 rp_private bool   code_is_ascii_char(code_t c, char* chr );
 rp_private bool   code_is_unicode(code_t c, unicode_t* uchr);
 rp_private bool   code_is_virt_key(code_t c );
@@ -45,7 +45,13 @@ rp_private bool   tty_readc(tty_t* tty, uint8_t* c);
 // shared between tty.c and tty_esc.c: low level character push
 rp_private void   tty_cpush_char(tty_t* tty, uint8_t c);
 rp_private bool   tty_cpop(tty_t* tty, uint8_t* c);
-rp_private code_t tty_read_esc(tty_t* tty); // in tty_esc.c
+rp_private code_t tty_read_esc(tty_t* tty, void** data); // in tty_esc.c
+
+
+// for async events
+typedef code_t    event_code_t;
+
+rp_private bool  tty_event(event_code_t ev, void* data);
 
 //-------------------------------------------------------------
 // Key codes: a code_t is 32 bits.
@@ -136,8 +142,10 @@ static inline code_t key_unicode( unicode_t u ) {
 #define KEY_F(n)          (KEY_F1 + (n) - 1)
 
 #define KEY_EVENT_BASE    (0x02000000U)
-#define KEY_EVENT_RESIZE  (KEY_EVENT_BASE+1)  // not use for now
-#define KEY_EVENT_AUTOTAB (KEY_EVENT_BASE+2)  // for auto completion
+#define KEY_EVENT_RESIZE  (KEY_EVENT_BASE+1)
+#define KEY_EVENT_AUTOTAB (KEY_EVENT_BASE+2)
+#define KEY_EVENT_STOP    (KEY_EVENT_BASE+3)
+#define KEY_EVENT_WRITELN (KEY_EVENT_BASE+4)
 
 // Convenience
 #define KEY_CTRL_UP       (WITH_CTRL(KEY_UP))

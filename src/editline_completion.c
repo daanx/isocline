@@ -155,7 +155,8 @@ again:
   }
 
   // read here; if not a valid key, push it back and return to main event loop
-  code_t c = tty_read(env->tty);
+  void* evdata = NULL;
+  code_t c = tty_read(env->tty, &evdata);
   sbuf_clear(eb->extra);
   if (c >= '1' && c <= '9' && (ssize_t)(c - '1') < count) {
     selected = (c - '1');
@@ -209,7 +210,7 @@ again:
     c = 0;      
     edit_complete(env, eb, selected);    
     if (env->complete_autotab) {
-      tty_code_pushback(env->tty,KEY_EVENT_AUTOTAB); // immediately try to complete again        
+      tty_code_pushback(env->tty,KEY_EVENT_AUTOTAB,NULL); // immediately try to complete again        
     }
   }
   else if (!env->complete_nopreview && !code_is_virt_key(c)) {
@@ -250,7 +251,7 @@ again:
   }
   // done
   completions_clear(env->completions);      
-  if (c != 0) tty_code_pushback(env->tty,c);
+  if (c != 0) tty_code_pushback(env->tty,c,evdata);
 }
 
 static void edit_generate_completions(rp_env_t* env, editor_t* eb, bool autotab) {
@@ -265,7 +266,7 @@ static void edit_generate_completions(rp_env_t* env, editor_t* eb, bool autotab)
   else if (count == 1) {
     // complete if only one match    
     if (edit_complete(env,eb,0 /*idx*/) && env->complete_autotab) {
-      tty_code_pushback(env->tty,KEY_EVENT_AUTOTAB);
+      tty_code_pushback(env->tty,KEY_EVENT_AUTOTAB,NULL);
     }    
   }
   else {

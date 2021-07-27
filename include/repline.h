@@ -242,6 +242,18 @@ bool rp_istarts_with( const char* s, const char* prefix );
 
 
 //--------------------------------------------------------------
+// Async events, experimental
+//--------------------------------------------------------------
+
+void rp_event_stop(void);
+void rp_event_refresh(void);
+void rp_event_writeln(const char* s);
+
+void rp_write(const char* s);
+void rp_writeln(const char* s);
+
+
+//--------------------------------------------------------------
 // Register allocation functions for custom allocators
 //--------------------------------------------------------------
 

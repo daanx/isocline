@@ -188,6 +188,36 @@ rp_public void rp_free( void* p ) {
 }
 
 
+//-------------------------------------------------------------
+// Async events
+//-------------------------------------------------------------
+
+rp_public void rp_event_stop(void) {
+  rp_env_t* env = rp_get_env(); if (env==NULL) return;
+  tty_event(KEY_EVENT_STOP, NULL);
+}
+
+rp_public void rp_event_refresh(void) {
+  rp_env_t* env = rp_get_env(); if (env==NULL) return;
+  tty_event(KEY_EVENT_RESIZE, NULL);
+}
+
+rp_public void rp_event_writeln(const char* s) {
+  rp_env_t* env = rp_get_env(); if (env==NULL) return;
+  tty_event(KEY_EVENT_WRITELN, mem_strdup(env->mem, s));
+}
+
+rp_public void rp_write(const char* s) {
+  rp_env_t* env = rp_get_env(); if (env==NULL) return;
+  term_write(env->term, s);
+}
+
+rp_public void rp_writeln(const char* s) {
+  rp_env_t* env = rp_get_env(); if (env==NULL) return;
+  term_writeln(env->term, s);
+}
+
+
 
 //-------------------------------------------------------------
 // Initialize

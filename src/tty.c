@@ -24,6 +24,9 @@
 #include <sys/ioctl.h>
 #include <signal.h>
 #include <errno.h>
+#if !defined(FIONREAD)
+#include <fcntl.h>
+#endif
 #endif
 
 #define TTY_PUSH_MAX (64)
@@ -35,7 +38,8 @@ struct tty_s {
   bool    has_term_resize_event;    // are resize events generated?
   bool    term_resize_event;        // did a term resize happen?
   code_t  pushbuf[TTY_PUSH_MAX];    // push back buffer for full key codes
-  ssize_t pushed;
+  void*   pushbufd[TTY_PUSH_MAX];   // push back buffer for associated data (only used for events)
+  ssize_t pushed;                   // count of element pushed
   uint8_t cpushbuf[TTY_PUSH_MAX];   // low level push back buffer for bytes
   ssize_t cpushed;
   #if defined(_WIN32)               
@@ -53,9 +57,9 @@ struct tty_s {
 // Forward declarations of platform dependent primitives below
 //-------------------------------------------------------------
 
-static bool tty_has_available(tty_t* tty);   // characters available?
-static bool tty_readc(tty_t* tty, uint8_t* c);  // read one byte
-static bool tty_code_pop( tty_t* tty, code_t* code ); 
+rp_private bool tty_readc_noblock(tty_t* tty, uint8_t* c);  // does not modify `c` when no input (false is returned)
+rp_private bool tty_readc(tty_t* tty, uint8_t* c);          
+static bool tty_code_pop( tty_t* tty, code_t* code, void** data ); 
 
 //-------------------------------------------------------------
 // Key code helpers
@@ -93,12 +97,6 @@ rp_private bool code_is_virt_key(code_t c ) {
 //-------------------------------------------------------------
 static code_t modify_code( code_t code );
 
-
-rp_private bool tty_readc_noblock(tty_t* tty, uint8_t* c) {
-  if (!tty_has_available(tty)) return false;  // do not modify c if nothing available (see `tty_readc_csi_num`)  
-  return tty_readc(tty,c);
-}
-
 static code_t tty_read_utf8( tty_t* tty, uint8_t c0 ) {
   uint8_t buf[5];
   memset(buf, 0, 5);
@@ -129,16 +127,21 @@ static code_t tty_read_utf8( tty_t* tty, uint8_t c0 ) {
   // push back unused bytes (in the case of invalid utf8)
   while (count > read) {
     count--;
-    tty_cpush_char(tty, buf[count]);
+    if (count >= 0 && count <= 4) {  // to help the static analyzer
+      tty_cpush_char(tty, buf[count]);
+    }
   }
   return code;
 }
 
-// read a single char/key
-rp_private code_t tty_read(tty_t* tty) {
+// read a single char/key (data is used for events only)
+rp_private code_t tty_read(tty_t* tty, void** data) 
+{
+  if (data != NULL) *data = NULL;
+
   // is there a pushed back code?
   code_t code;
-  if (tty_code_pop(tty,&code)) {
+  if (tty_code_pop(tty,&code,data)) {
     return code;
   }
 
@@ -148,7 +151,7 @@ rp_private code_t tty_read(tty_t* tty) {
   
   if (c == KEY_ESC) {
     // escape sequence?
-    code = tty_read_esc(tty);
+    code = tty_read_esc(tty, data);
   }
   else if (c <= 0x7F) {
     // ascii
@@ -213,17 +216,19 @@ static code_t modify_code( code_t code ) {
 // High level code pushback
 //-------------------------------------------------------------
 
-static bool tty_code_pop( tty_t* tty, code_t* code ) {
+static bool tty_code_pop( tty_t* tty, code_t* code, void** data ) {
   if (tty->pushed <= 0) return false;
   tty->pushed--;
   *code = tty->pushbuf[tty->pushed];
+  if (data != NULL) *data = tty->pushbufd[tty->pushed];
   return true;
 }
 
-rp_private void tty_code_pushback( tty_t* tty, code_t c ) {   
+rp_private void tty_code_pushback( tty_t* tty, code_t c, void* data ) {   
   // note: must be signal safe
   if (tty->pushed >= TTY_PUSH_MAX) return;
   tty->pushbuf[tty->pushed] = c;
+  tty->pushbufd[tty->pushed] = data;
   tty->pushed++;
 }
 
@@ -373,16 +378,42 @@ static bool tty_readc(tty_t* tty, uint8_t* c) {
   *c = 0;
   ssize_t nread = read(tty->fd_in, (char*)c, 1);
   if (nread < 0 && errno == EINTR) {
-    // tty_code_pushback( tty, KEY_EVENT_RESIZE ); // to support dynamic resizing; disabled for now
+    // can happen on SIGWINCH signal for terminal resize
+    // this mechanism is also used to send async events.
   }
   return (nread == 1);
 }
 
-static bool tty_has_available(tty_t* tty) {
-  if (tty->cpushed > 0) return true;
-  int n = 0;
-  return (ioctl(0, FIONREAD, &n) == 0 && n > 0);
+rp_private bool tty_readc_noblock(tty_t* tty, uint8_t* c) {
+  // in our pushback buffer?
+  if (tty_cpop(tty, c)) return true;
+  
+  #if defined(FIONREAD)
+  // peek if any char is available.
+  int navail = 0;
+  if (ioctl(0, FIONREAD, &navail) == 0 || navail >= 1) {
+    return tty_readc(tty, c);
+  }
+  #elif defined(O_NONBLOCK)
+  // set temporarily to non-blocking read mode
+  int fstatus = fcntl(tty->fd_in, F_GETFL, 0);
+  if (fstatus != -1) {
+    if (fcntl(tty->fd_in, F_SETFL, (fstatus | O_NONBLOCK)) != -1) {
+      char buf[2] = { 0, 0 };
+      ssize_t nread = read(tty->fd_in, buf, 1);
+      fcntl(tty->fd_in, F_SETFL, fstatus);
+      if (nread >= 1) {
+        *c = (uint8_t)buf[0];
+        return true;
+      }
+    }
+  }
+  #else
+  # error "define non-blocking read for this platform"
+  #endif
+  return false;  
 }
+
 
 
 // We install various signal handlers to restore the terminal settings
@@ -449,13 +480,14 @@ static void signals_install(tty_t* tty) {
   struct sigaction handler;
   memset(&handler,0,sizeof(handler));
   sigemptyset(&handler.sa_mask);
-  handler.sa_sigaction = &sig_handler;
-  handler.sa_flags = SA_RESTART;
+  handler.sa_sigaction = &sig_handler; 
+  handler.sa_flags = 0;
   // install for all signals
   for( sighandler_t* sh = sighandlers; sh->signum != 0; sh++ ) {
-    if (sigaction( sh->signum, NULL, &sh->previous) == 0) {          // get previous
-      if (sh->previous.sa_handler != SIG_IGN) {                      // if not to be ignored
-        if (sigaction( sh->signum, &handler, &sh->previous ) < 0) {  // install our handler
+    if (sigaction( sh->signum, NULL, &sh->previous) == 0) {            // get previous
+      if (sh->previous.sa_handler != SIG_IGN) {                        // if not to be ignored
+        // handler.sa_flags = (sh->signum == SIGWINCH ? 0 : SA_RESTART);  // use SIGWINCH to interrupt for events
+        if (sigaction( sh->signum, &handler, &sh->previous ) < 0) {    // install our handler
           sh->previous.sa_sigaction = NULL;       // do not restore on error
         }
         else if (sh->signum == SIGWINCH) {
@@ -475,6 +507,24 @@ static void signals_restore(void) {
   }
   sig_tty = NULL;
 }
+
+// support async events by inserting directly in the console input stream
+rp_private bool tty_event(event_code_t ev, void* ev_data) {
+  if (sig_tty == NULL) return false;
+  #if defined(TIOCSTI)
+  char buf[64+1];
+  snprintf(buf, 64, "\x1B[?%u;%zux", (unsigned)(ev - KEY_EVENT_BASE), (size_t)ev_data);
+  for (const char* p = buf; *p != 0; p++) {
+    if (ioctl(sig_tty->fd_in, TIOCSTI, p) != 0) {
+      return false;
+    }
+  }
+  return true;
+  #else
+  return false;
+  #endif  
+}
+
 #else
 static void signals_install(tty_t* tty) {
   rp_unused(tty);
@@ -483,6 +533,12 @@ static void signals_install(tty_t* tty) {
 static void signals_restore(void) {
   // nothing
 }
+
+rp_private bool tty_event(event_code_t ev, void* ev_data) {
+  rp_unused(ev); rp_unused(ev_data);
+  return false;
+}
+
 #endif
 
 rp_private void tty_start_raw(tty_t* tty) {
@@ -533,13 +589,6 @@ static void tty_done_raw(tty_t* tty) {
 // to the character stream (instead of returning key codes).
 //-------------------------------------------------------------
 
-static bool tty_has_available(tty_t* tty) {
-  if (tty->cpushed > 0) return true;
-  DWORD  count = 0;
-  GetNumberOfConsoleInputEvents(tty->hcon, &count);  
-  return (count > 0);
-}
-
 static void tty_waitc_console(tty_t* tty);
 
 static bool tty_readc(tty_t* tty, uint8_t* c) {
@@ -553,6 +602,16 @@ static bool tty_readc(tty_t* tty, uint8_t* c) {
   return tty_cpop(tty,c);
 }
 
+rp_private bool tty_readc_noblock(tty_t* tty, uint8_t* c) {  // don't modify `c` if there is no input
+  // in our pushback buffer?
+  if (tty_cpop(tty, c)) return true;
+  // any events in the input queue?
+  DWORD count = 0;
+  GetNumberOfConsoleInputEvents(tty->hcon, &count);
+  if (count > 0) return tty_readc(tty, c);
+  return false;
+}
+
 // Read from the console input events and push escape codes into the tty cbuffer.
 static void tty_waitc_console(tty_t* tty) 
 {
@@ -564,7 +623,7 @@ static void tty_waitc_console(tty_t* tty)
 		if (!ReadConsoleInputW( tty->hcon, &inp, 1, &count)) return;
     if (count != 1) return;
 
-    // resize?
+    // resize event?
     if (inp.EventType == WINDOW_BUFFER_SIZE_EVENT) {
       tty->term_resize_event = true;
       continue;
@@ -653,6 +712,33 @@ static void tty_waitc_console(tty_t* tty)
     }
   }
 }  
+
+// Async event by inserting directly in the console input stream
+static bool tty_win_send_char(HANDLE hcon, char c) {
+  INPUT_RECORD input;
+  memset(&input, 0, sizeof(input));
+  input.EventType = KEY_EVENT;
+  input.Event.KeyEvent.bKeyDown = TRUE;
+  input.Event.KeyEvent.uChar.UnicodeChar = (WCHAR)c;
+  DWORD nwritten = 0;
+  if (!WriteConsoleInputW(hcon, &input, 1, &nwritten) || nwritten != 1) return false;
+  input.Event.KeyEvent.bKeyDown = FALSE;
+  if (!WriteConsoleInputW(hcon, &input, 1, &nwritten) || nwritten != 1) return false;
+  return true;
+}
+
+rp_private bool tty_event(event_code_t ev, void* ev_data) {
+  // get console
+  HANDLE hcon = GetStdHandle(STD_INPUT_HANDLE);
+  // and send an event escape code:  ESC[? <event> ; <data> x
+  char buf[64+1];
+  snprintf(buf, 64, "\x1B[?%u;%zux", (unsigned)(ev - KEY_EVENT_BASE), (size_t)ev_data);
+  for (const char* p = buf; *p != 0; p++) {
+    if (!tty_win_send_char(hcon, *p)) return false;
+  }
+  return true;
+}
+
 
 rp_private void tty_start_raw(tty_t* tty) {
   if (tty->raw_enabled) return;
