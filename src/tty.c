@@ -385,7 +385,7 @@ static bool tty_has_available(tty_t* tty) {
 }
 
 
-// We install various signal handlers to restore the terminal
+// We install various signal handlers to restore the terminal settings
 // in case of a terminating signal. This is also used to 
 // catch terminal window resizes.
 // This is not strictly needed so this can be disabled on 
@@ -403,17 +403,17 @@ typedef struct sighandler_s {
 
 static sighandler_t sighandlers[] = {
   { SIGWINCH, {0} },
-  { SIGTERM,  {0} }, 
-  { SIGINT,   {0} }, 
-  { SIGQUIT,  {0} }, 
-  { SIGHUP,   {0} },
-  { SIGSEGV,  {0} }, 
-  { SIGTRAP,  {0} }, 
-  { SIGBUS,   {0} }, 
-  { SIGTSTP,  {0} },
-  { SIGTTIN,  {0} }, 
-  { SIGTTOU,  {0} },
-  { 0,        {0} }
+  { SIGTERM , {0} }, 
+  { SIGINT  , {0} }, 
+  { SIGQUIT , {0} }, 
+  { SIGHUP  , {0} },
+  { SIGSEGV , {0} }, 
+  { SIGTRAP , {0} }, 
+  { SIGBUS  , {0} }, 
+  { SIGTSTP , {0} },
+  { SIGTTIN , {0} }, 
+  { SIGTTOU , {0} },
+  { 0       , {0} }
 };
 
 static bool sigaction_is_valid( struct sigaction* sa ) {
