@@ -546,12 +546,12 @@ static void edit_swap_char( rp_env_t* env, editor_t* eb ) {
 }
 
 static void edit_multiline_eol(rp_env_t* env, editor_t* eb) {
-  if (eb->pos < 0 || eb->pos >= sbuf_len(eb->input)) return;
+  if (eb->pos <= 0) return;
   if (sbuf_string(eb->input)[eb->pos-1] != env->multiline_eol) return;
   editor_start_modify(eb);
   // replace line continuation with a real newline
-  sbuf_delete_at( eb->input, eb->pos, 1);
-  sbuf_insert_at( eb->input, "\n", eb->pos);  
+  sbuf_delete_at( eb->input, eb->pos-1, 1);
+  sbuf_insert_at( eb->input, "\n", eb->pos-1);  
   edit_refresh(env,eb);
 }
 
@@ -630,7 +630,10 @@ static char* edit_line( rp_env_t* env, const char* prompt_text )
 
     // Operations that may return
     if (c == KEY_ENTER) {
-      if (!env->singleline_only && eb.pos > 0 && sbuf_string(eb.input)[eb.pos-1] == env->multiline_eol && edit_pos_is_at_row_end(env,&eb)) {
+      if (!env->singleline_only && eb.pos > 0 && 
+           sbuf_string(eb.input)[eb.pos-1] == env->multiline_eol && 
+            edit_pos_is_at_row_end(env,&eb)) 
+      {
         // replace line-continuation with newline
         edit_multiline_eol(env,&eb);        
       }
