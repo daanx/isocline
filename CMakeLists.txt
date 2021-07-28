@@ -31,6 +31,7 @@ if(RP_SEPARATE_OBJS)
               src/completions.c
               src/completers.c
               src/editline.c
+              src/highlight.c
               src/history.c
               src/stringbuf.c
               src/term.c

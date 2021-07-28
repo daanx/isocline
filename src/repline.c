@@ -15,6 +15,7 @@
 #if !defined(RP_SEPARATE_OBJS)
 # define _CRT_SECURE_NO_WARNINGS  // for msvc
 # include "editline.c"
+# include "highlight.c"
 # include "undo.c"
 # include "history.c"
 # include "completers.c"

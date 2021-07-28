@@ -57,6 +57,7 @@ static inline ssize_t to_ssize_t(size_t sz) { return (sz <= SIZE_MAX/2 ? (ssize_
 rp_private ssize_t rp_strlen(const char* s);
 rp_private void    rp_memmove(void* dest, const void* src, ssize_t n);
 rp_private void    rp_memcpy(void* dest, const void* src, ssize_t n);
+rp_private void    rp_memset(void* dest, uint8_t value, ssize_t n);
 rp_private bool    rp_memnmove(void* dest, ssize_t dest_size, const void* src, ssize_t n);
 rp_private bool    rp_strcpy(char* dest, ssize_t dest_size /* including 0 */, const char* src);
 rp_private bool    rp_strncpy(char* dest, ssize_t dest_size /* including 0 */, const char* src, ssize_t n);

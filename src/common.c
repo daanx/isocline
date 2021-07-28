@@ -29,10 +29,15 @@ rp_private void rp_memmove( void* dest, const void* src, ssize_t n ) {
 
 rp_private void rp_memcpy( void* dest, const void* src, ssize_t n ) {
   assert(dest!=NULL && src != NULL);
-  if (n <= 0) return;
+  if (dest == NULL || src == NULL || n <= 0) return;
   memcpy(dest,src,to_size_t(n));
 }
 
+rp_private void rp_memset(void* dest, uint8_t value, ssize_t n) {
+  assert(dest!=NULL);
+  if (dest == NULL || n <= 0) return;
+  memset(dest,(int8_t)value,to_size_t(n));
+}
 
 rp_private bool rp_memnmove( void* dest, ssize_t dest_size, const void* src, ssize_t n ) {
   assert(dest!=NULL && src != NULL);

@@ -107,7 +107,7 @@ rp_private bool highlight_init( rp_highlight_env_t* henv, const char* s, rp_high
   if (len > 0) {
     if (!highlight_ensure_extra(henv,len)) return false;
     henv->attr_len = len;
-    memset(henv->attrs, 0, henv->attr_len * sizeof(attr_t));
+    rp_memset(henv->attrs, 0, henv->attr_len * ssizeof(attr_t));
     if (highlighter != NULL) {
       (*highlighter)( henv, s );
     }
