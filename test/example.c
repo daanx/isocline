@@ -119,8 +119,9 @@ static void completer(rp_completion_env_t* cenv, const char* prefix )
 // a given position. Here we use some convenience functions to easily highlight
 // simple tokens but a full-fledged highlighter probably needs regular expressions.
 static void highlighter(rp_highlight_env_t* henv, const char* input, void* arg) {
-  long len = (long)strlen(input);
+  (void)(arg); // unused
   // for all characters in the input..
+  long len = (long)strlen(input);
   for (long i = 0; i < len; ) {
     static const char* keywords[] = { "fun", "return", "static", "const", "if", "else", NULL };
     static const char* types[]    = { "int", "double", "char", "void", NULL };
