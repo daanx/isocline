@@ -14,7 +14,7 @@ static bool edit_complete(rp_env_t* env, editor_t* eb, ssize_t idx) {
   editor_start_modify(eb);
   ssize_t newpos = completions_apply(env->completions, idx, eb->input, eb->pos);
   if (newpos < 0) {
-    editor_undo_restore(eb);
+    editor_undo_restore(eb,false);
     return false;
   }
   eb->pos = newpos;
@@ -26,7 +26,7 @@ static bool edit_complete_longest_prefix(rp_env_t* env, editor_t* eb ) {
   editor_start_modify(eb);
   ssize_t newpos = completions_apply_longest_prefix( env->completions, eb->input, eb->pos );
   if (newpos < 0) {
-    editor_undo_restore(eb);
+    editor_undo_restore(eb,false);
     return false;
   }
   eb->pos = newpos;
@@ -148,7 +148,7 @@ again:
   }
   if (!env->complete_nopreview && selected >= 0 && selected <= count_displayed) {
     edit_complete(env,eb,selected);
-    editor_undo_restore(eb);
+    editor_undo_restore(eb,false);
   }
   else {
     edit_refresh(env, eb);
@@ -260,7 +260,7 @@ static void edit_generate_completions(rp_env_t* env, editor_t* eb, bool autotab)
   bool more_available = (count >= RP_MAX_COMPLETIONS_TO_TRY);
   if (count <= 0) {
     // no completions
-    if (!autotab) term_beep(env->term); 
+    if (!autotab) { term_beep(env->term); }
   }
   else if (count == 1) {
     // complete if only one match    

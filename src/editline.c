@@ -79,15 +79,15 @@ static void editor_undo_capture(editor_t* eb ) {
 static void editor_restore(editor_t* eb, editstate_t** from, editstate_t** to ) {
   if (*from == NULL) return;
   const char* input;
-  editor_capture( eb, to );
+  if (to != NULL) { editor_capture( eb, to ); }
   if (!editstate_restore( eb->mem, from, &input, &eb->pos )) return;
   sbuf_replace( eb->input, input );
   mem_free(eb->mem, input);
   eb->modified = false;
 }
 
-static void editor_undo_restore(editor_t* eb ) {
-  editor_restore(eb, &eb->undo, &eb->redo);
+static void editor_undo_restore(editor_t* eb, bool with_redo ) {
+  editor_restore(eb, &eb->undo, (with_redo ? &eb->redo : NULL));
 }
 
 static void editor_redo_restore(editor_t* eb ) {
@@ -379,12 +379,33 @@ static bool edit_resize(rp_env_t* env, editor_t* eb ) {
 static void edit_refresh_hint(rp_env_t* env, editor_t* eb) {
   if (!env->no_hint) {
     // see if we can hint
-    const ssize_t count = completions_generate(env, env->completions, sbuf_string(eb->input), eb->pos, 2);
+    ssize_t count = completions_generate(env, env->completions, sbuf_string(eb->input), eb->pos, 2);
     if (count == 1) {
       const char* help = NULL;
       const char* hint = completions_get_hint(env->completions, 0, &help);
       if (hint != NULL) {
         sbuf_replace(eb->hint, hint);        
+        // do auto-tabbing?
+        if (env->complete_autotab) {
+          stringbuf_t* sb = sbuf_new(env->mem);  // temporary buffer for completion
+          if (sb != NULL) { 
+            sbuf_replace( sb, sbuf_string(eb->input) ); 
+            ssize_t pos = eb->pos;
+            const char* extra_hint = hint;
+            do {
+              ssize_t newpos = sbuf_insert_at( sb, extra_hint, pos );
+              if (newpos <= 0) break;
+              pos = newpos;
+              count = completions_generate(env, env->completions, sbuf_string(sb), pos, 2);
+              if (count == 1) {
+                extra_hint = completions_get_hint(env->completions, 0, NULL);
+                sbuf_append(eb->hint, extra_hint);
+              }
+            }
+            while(count == 1);       
+            sbuf_free(sb);
+          }          
+        }
       }
     }
   }
@@ -399,7 +420,7 @@ static void edit_history_prev(rp_env_t* env, editor_t* eb);
 static void edit_history_next(rp_env_t* env, editor_t* eb);
 
 static void edit_undo_restore(rp_env_t* env, editor_t* eb) {
-  editor_undo_restore(eb);
+  editor_undo_restore(eb, true);
   edit_refresh(env,eb);
 }
 
@@ -671,7 +692,13 @@ static char* edit_line( rp_env_t* env, const char* prompt_text )
     }
 
     // clear hint only after a potential resize (for correct row calculations)
+    const bool had_hint = (sbuf_len(eb.hint) > 0);
     sbuf_clear(eb.hint);
+
+    // if the user tries to move into a hint with left-cursor or end, we complete it first
+    if ((c == KEY_RIGHT || c == KEY_END) && had_hint) {
+      edit_generate_completions(env, &eb, true);      
+    }
 
     // Operations that may return
     if (c == KEY_ENTER) {
