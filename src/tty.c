@@ -387,7 +387,7 @@ rp_private bool tty_readc_noblock(tty_t* tty, uint8_t* c) {
   #if defined(FIONREAD)
   // peek if any char is available.
   int navail = 0;
-  if (ioctl(0, FIONREAD, &navail) == 0 || navail >= 1) {
+  if (ioctl(0, FIONREAD, &navail) == 0 && navail >= 1) {
     return tty_readc(tty, c);
   }
   #elif defined(O_NONBLOCK)

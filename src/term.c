@@ -382,7 +382,7 @@ static bool term_write_direct(term_t* term, const char* s, ssize_t len ) {
       ssize_t ascii = 0;
       ssize_t next;
       while ((next = str_next_ofs(s, len, pos+ascii, NULL)) > 0 && 
-              s[pos + ascii] != '\x1B' && s[pos + ascii] <= '\x7F' ) 
+              s[pos + ascii] != '\x1B' && (uint8_t)s[pos + ascii] <= 0x7F ) 
       {
         ascii += next;
       }
@@ -393,7 +393,7 @@ static bool term_write_direct(term_t* term, const char* s, ssize_t len ) {
       if (next <= 0) break;
 
       // handle utf8 sequences (for non-utf8 terminals)
-      if (s[pos] >= '\x80') {
+      if ((uint8_t)s[pos] >= 0x80) {
         term_write_utf8(term, s+pos, next);
       }
       // handle escape sequence (note: str_next_ofs considers whole CSI escape sequences at a time)

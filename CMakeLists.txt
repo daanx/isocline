@@ -103,7 +103,7 @@ if (RP_COMPILER_ID MATCHES "AppleClang|Clang|GNU|Intel")
     list(APPEND rp_cflags -Wimplicit-int-conversion -Wsign-conversion)
   endif()
   if (RP_COMPILER_ID MATCHES "GNU")
-    list(APPEND rp_cflags -Wint-conversion -Wsign-conversion)
+    list(APPEND rp_cflags -Wint-conversion -Wsign-conversion -Wno-missing-braces)
   endif()
 endif()
 
