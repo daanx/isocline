@@ -245,7 +245,7 @@ static void edit_refresh(rp_env_t* env, editor_t* eb)
 
   // highlight current input
   if (!env->no_highlight) {
-    highlight_init( eb->henv, sbuf_string(eb->input), env->highlighter );
+    highlight_init( eb->henv, sbuf_string(eb->input), env->highlighter, env->highlighter_arg );
   }
   
   // insert hint  

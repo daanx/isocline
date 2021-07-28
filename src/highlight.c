@@ -100,7 +100,7 @@ static void highlight_fillout( rp_highlight_env_t* henv ) {
   }
 }
 
-rp_private bool highlight_init( rp_highlight_env_t* henv, const char* s, rp_highlight_fun_t* highlighter ) {
+rp_private bool highlight_init( rp_highlight_env_t* henv, const char* s, rp_highlight_fun_t* highlighter, void* arg ) {
   if (henv == NULL) return false;
   highlight_clear(henv);
   const ssize_t len = rp_strlen(s);
@@ -109,7 +109,7 @@ rp_private bool highlight_init( rp_highlight_env_t* henv, const char* s, rp_high
     henv->attr_len = len;
     rp_memset(henv->attrs, 0, henv->attr_len * ssizeof(attr_t));
     if (highlighter != NULL) {
-      (*highlighter)( henv, s );
+      (*highlighter)( henv, s, arg );
     }
   }
   highlight_fillout(henv);

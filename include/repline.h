@@ -164,7 +164,7 @@ struct rp_highlight_env_s;
 typedef struct rp_highlight_env_s rp_highlight_env_t;
 
 // A syntax highlighter callback that is called by readline to syntax highlight user input.
-typedef void (rp_highlight_fun_t)(rp_highlight_env_t* henv, const char* input);
+typedef void (rp_highlight_fun_t)(rp_highlight_env_t* henv, const char* input, void* arg);
 
 // Set a syntax highlighter.
 // There can only be one highlight function, setting it again disables the previous one.
@@ -226,6 +226,10 @@ void rp_enable_inline_help(bool enable);
 // Disable or enable hinting (enabled by default)
 // Shows a hint inline when there is a single possible completion.
 void rp_enable_hint(bool enable);
+
+// Disable or enable syntax highlighting (enabled by default).
+// This applies regardless whether a syntax highlighter callback was set (`rp_set_highlighter`)
+void rp_enable_highlight(bool enable);
 
 // Set the color used for interface elements:
 //

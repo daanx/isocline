@@ -172,9 +172,20 @@ rp_public void rp_enable_hint(bool enable) {
   env->no_hint = !enable;
 }
 
+rp_public void rp_enable_highlight(bool enable) {
+  rp_env_t* env = rp_get_env(); if (env==NULL) return;
+  env->no_highlight = !enable;
+}
+
 rp_public void rp_enable_inline_help(bool enable) {
   rp_env_t* env = rp_get_env(); if (env==NULL) return;
   env->no_help = !enable;
+}
+
+rp_public void rp_set_highlighter(rp_highlight_fun_t* highlighter, void* arg) {
+  rp_env_t* env = rp_get_env(); if (env==NULL) return;
+  env->highlighter = highlighter;
+  env->highlighter_arg = arg;
 }
 
 static void set_iface_colors(rp_env_t* env, rp_color_t color_info, rp_color_t color_diminish, rp_color_t color_highlight, rp_color_t color_hint) {
