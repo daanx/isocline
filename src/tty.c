@@ -32,23 +32,23 @@
 #define TTY_PUSH_MAX (64)
 
 struct tty_s {
-  int     fd_in;                    // input handle
-  bool    raw_enabled;              // is raw mode enabled?
-  bool    is_utf8;                  // is the input stream in utf-8 mode?
-  bool    has_term_resize_event;    // are resize events generated?
-  bool    term_resize_event;        // did a term resize happen?
-  code_t  pushbuf[TTY_PUSH_MAX];    // push back buffer for full key codes
-  ssize_t pushed;                   // count of element pushed
-  uint8_t cpushbuf[TTY_PUSH_MAX];   // low level push back buffer for bytes
-  ssize_t cpushed;
+  int       fd_in;                  // input handle
+  bool      raw_enabled;            // is raw mode enabled?
+  bool      is_utf8;                // is the input stream in utf-8 mode?
+  bool      has_term_resize_event;  // are resize events generated?
+  bool      term_resize_event;      // did a term resize happen?
+  alloc_t*  mem;                    // memory allocator
+  code_t    pushbuf[TTY_PUSH_MAX];  // push back buffer for full key codes  
+  ssize_t   push_count;               
+  uint8_t   cpushbuf[TTY_PUSH_MAX]; // low level push back buffer for bytes
+  ssize_t   cpush_count;
   #if defined(_WIN32)               
-  HANDLE  hcon;                     // console input handle
-  DWORD   hcon_orig_mode;           // original console mode
+  HANDLE    hcon;                   // console input handle
+  DWORD     hcon_orig_mode;         // original console mode
   #else
-  struct termios default_ios;       // original terminal settings
-  struct termios raw_ios;           // raw terminal settings
+  struct termios  orig_ios;         // original terminal settings
+  struct termios  raw_ios;          // raw terminal settings
   #endif
-  alloc_t* mem;                     // memory allocator
 };
 
 
@@ -58,7 +58,6 @@ struct tty_s {
 
 rp_private bool tty_readc_noblock(tty_t* tty, uint8_t* c);  // does not modify `c` when no input (false is returned)
 rp_private bool tty_readc(tty_t* tty, uint8_t* c);          
-static bool tty_code_pop( tty_t* tty, code_t* code); 
 
 //-------------------------------------------------------------
 // Key code helpers
@@ -133,10 +132,13 @@ static code_t tty_read_utf8( tty_t* tty, uint8_t c0 ) {
   return code;
 }
 
+// pop a code from the pushback buffer.
+static bool tty_code_pop(tty_t* tty, code_t* code);
+
 // read a single char/key (data is used for events only)
 rp_private code_t tty_read(tty_t* tty) 
 {
-  // is there a pushed back code?
+  // is there a push_count back code?
   code_t code;
   if (tty_code_pop(tty,&code)) {
     return code;
@@ -159,7 +161,7 @@ rp_private code_t tty_read(tty_t* tty)
     code = tty_read_utf8(tty,c);
   }
   else {
-    // c >= 0x80 but tty is not utf8; use raw plane
+    // c >= 0x80 but tty is not utf8; use raw plane so we can translate it back in the end
     code = key_unicode( unicode_from_raw(c) );
   }
 
@@ -214,17 +216,17 @@ static code_t modify_code( code_t code ) {
 //-------------------------------------------------------------
 
 static bool tty_code_pop( tty_t* tty, code_t* code ) {
-  if (tty->pushed <= 0) return false;
-  tty->pushed--;
-  *code = tty->pushbuf[tty->pushed];
+  if (tty->push_count <= 0) return false;
+  tty->push_count--;
+  *code = tty->pushbuf[tty->push_count];
   return true;
 }
 
 rp_private void tty_code_pushback( tty_t* tty, code_t c ) {   
   // note: must be signal safe
-  if (tty->pushed >= TTY_PUSH_MAX) return;
-  tty->pushbuf[tty->pushed] = c;
-  tty->pushed++;
+  if (tty->push_count >= TTY_PUSH_MAX) return;
+  tty->pushbuf[tty->push_count] = c;
+  tty->push_count++;
 }
 
 
@@ -233,27 +235,27 @@ rp_private void tty_code_pushback( tty_t* tty, code_t c ) {
 //-------------------------------------------------------------
 
 rp_private bool tty_cpop(tty_t* tty, uint8_t* c) {  
-  if (tty->cpushed <= 0) {  // do not modify c on failure (see `tty_decode_unicode`)
+  if (tty->cpush_count <= 0) {  // do not modify c on failure (see `tty_decode_unicode`)
     return false;
   }
   else {
-    tty->cpushed--;
-    *c = tty->cpushbuf[tty->cpushed];
+    tty->cpush_count--;
+    *c = tty->cpushbuf[tty->cpush_count];
     return true;
   }
 }
 
 static void tty_cpush(tty_t* tty, const char* s) {
   ssize_t len = rp_strlen(s);
-  if (tty->pushed + len > TTY_PUSH_MAX) {
+  if (tty->push_count + len > TTY_PUSH_MAX) {
     debug_msg("tty: cpush buffer full! (pushing %s)\n", s);
     assert(false);
     return;
   }
   for (ssize_t i = 0; i < len; i++) {
-    tty->cpushbuf[tty->cpushed + i] = (uint8_t)( s[len - i - 1] );
+    tty->cpushbuf[tty->cpush_count + i] = (uint8_t)( s[len - i - 1] );
   }
-  tty->cpushed += len;
+  tty->cpush_count += len;
   return;
 }
 
@@ -408,8 +410,6 @@ rp_private bool tty_readc_noblock(tty_t* tty, uint8_t* c) {
   return false;  
 }
 
-
-
 // We install various signal handlers to restore the terminal settings
 // in case of a terminating signal. This is also used to catch terminal window resizes.
 // This is not strictly needed so this can be disabled on 
@@ -454,7 +454,7 @@ static void sig_handler(int signum, siginfo_t* siginfo, void* uap ) {
   else {
     // the rest are termination signals; restore the terminal mode. (`tcsetattr` is signal-safe)
     if (sig_tty != NULL && sig_tty->raw_enabled) {
-      tcsetattr(sig_tty->fd_in, TCSAFLUSH, &sig_tty->default_ios);
+      tcsetattr(sig_tty->fd_in, TCSAFLUSH, &sig_tty->orig_ios);
       sig_tty->raw_enabled = false;
     }
   }
@@ -520,16 +520,16 @@ rp_private void tty_start_raw(tty_t* tty) {
 
 rp_private void tty_end_raw(tty_t* tty) {
   if (!tty->raw_enabled) return;
-  tty->cpushed = 0;
-  if (tcsetattr(tty->fd_in,TCSAFLUSH,&tty->default_ios) < 0) return;
+  tty->cpush_count = 0;
+  if (tcsetattr(tty->fd_in,TCSAFLUSH,&tty->orig_ios) < 0) return;
   tty->raw_enabled = false;
 }
 
 static bool tty_init_raw(tty_t* tty) 
 {  
   // Set input to raw mode. See <https://man7.org/linux/man-pages/man3/termios.3.html>.
-  if (tcgetattr(tty->fd_in,&tty->default_ios) == -1) return false;
-  tty->raw_ios = tty->default_ios; 
+  if (tcgetattr(tty->fd_in,&tty->orig_ios) == -1) return false;
+  tty->raw_ios = tty->orig_ios; 
   // input: no break signal, no \r to \n, no parity check, no 8-bit to 7-bit, no flow control
   tty->raw_ios.c_iflag &= ~(unsigned long)(BRKINT | ICRNL | INPCK | ISTRIP | IXON);
   // control: allow 8-bit
