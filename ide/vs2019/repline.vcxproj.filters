@@ -56,6 +56,9 @@
     <ClCompile Include="..\..\src\editline_history.c">
       <Filter>Source Files</Filter>
     </ClCompile>
+    <ClCompile Include="..\..\src\highlight.c">
+      <Filter>Source Files</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="..\..\src\common.h">
@@ -80,6 +83,9 @@
       <Filter>Header Files</Filter>
     </ClInclude>
     <ClInclude Include="..\..\src\completions.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\src\highlight.h">
       <Filter>Header Files</Filter>
     </ClInclude>
   </ItemGroup>

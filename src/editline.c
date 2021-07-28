@@ -16,12 +16,15 @@
 #include "history.h"
 #include "completions.h"
 #include "undo.h"
-
+#include "highlight.h"
 
 //-------------------------------------------------------------
 // The editor state
 //-------------------------------------------------------------
 
+
+
+// editor state
 typedef struct editor_s {
   stringbuf_t*  input;        // current user input
   stringbuf_t*  extra;        // extra displayed info (for completion menu etc)
@@ -35,16 +38,12 @@ typedef struct editor_s {
   editstate_t*  undo;         // undo buffer  
   editstate_t*  redo;         // redo buffer
   const char*   prompt_text;  // text of the prompt before the prompt marker  
-  alloc_t* mem;
+  rp_highlight_env_t* henv;   // syntax highlighting
+  alloc_t*      mem;          // allocator
 } editor_t;
 
 
-typedef struct attr_s {
-  int8_t     underline;
-  int8_t     reverse;
-  rp_color_t color;
-  rp_color_t bgcolor;
-} attr_t;
+
 
 
 //-------------------------------------------------------------
@@ -175,40 +174,12 @@ static void edit_write_prompt( rp_env_t* env, editor_t* eb, ssize_t row, bool in
 // Refresh
 //-------------------------------------------------------------
 
-static void edit_update_attr(term_t* term, attr_t term_attr, attr_t* cur_attr, attr_t new_attr) {
-  if (new_attr.color != 0 && cur_attr->color != new_attr.color) {
-    cur_attr->color = new_attr.color;
-  }
-  if (new_attr.bgcolor != 0 && cur_attr->bgcolor != new_attr.bgcolor) {
-    cur_attr->bgcolor = new_attr.bgcolor;
-  }
-  if (new_attr.reverse != 0 && cur_attr->reverse != new_attr.reverse) {
-    cur_attr->reverse = new_attr.reverse;
-  }
-  if (new_attr.underline != 0 && cur_attr->underline != new_attr.underline) {
-    cur_attr->underline = new_attr.underline;
-  }
-  if (term_attr.color != cur_attr->color) {
-    term_color(term, cur_attr->color);
-  }
-  if (term_attr.color != cur_attr->bgcolor) {
-    term_bgcolor(term, cur_attr->bgcolor);
-  }
-  if (term_attr.underline != cur_attr->underline) {
-    term_underline(term, cur_attr->underline > 0);
-  }
-  if (term_attr.reverse != cur_attr->reverse) {
-    term_reverse(term, cur_attr->reverse > 0);
-  }
-}
-
 typedef struct refresh_info_s {
   rp_env_t* env;
   editor_t* eb;
   bool      in_extra;
   ssize_t   first_row;
   ssize_t   last_row;
-  const attr_t* attrs;
 } refresh_info_t;
 
 static bool edit_refresh_rows_iter(
@@ -216,10 +187,9 @@ static bool edit_refresh_rows_iter(
     ssize_t row, ssize_t row_start, ssize_t row_len, 
     ssize_t startw, bool is_wrap, const void* arg, void* res)
 {
-  rp_unused(startw);
+  rp_unused(res); rp_unused(startw);
   const refresh_info_t* info = (const refresh_info_t*)(arg);
   term_t* term = info->env->term;
-  attr_t* cur_attr = (attr_t*)res;
 
   // debug_msg("edit: line refresh: row %zd, len: %zd\n", row, row_len);
   if (row < info->first_row) return false;
@@ -229,18 +199,12 @@ static bool edit_refresh_rows_iter(
   edit_write_prompt(info->env, info->eb, row, info->in_extra);
 
   // write output
-  // term_write_n( term, s + row_start, row_len );
-  attr_t term_attr;
-  memset(&term_attr, 0, sizeof(term_attr)); // at default
-  for (ssize_t i = row_start; i < row_start + row_len; i++) {
-    char c = s[i];
-    if (info->attrs != NULL && !utf8_is_cont((uint8_t)c)) {
-      edit_update_attr(term, term_attr, cur_attr, info->attrs[i]);
-      term_attr = *cur_attr;
-    }
-    term_write_char(term, c);
+  if (info->env->no_highlight || info->eb->henv == NULL) {
+    term_write_n( term, s + row_start, row_len );
   }
-  term_attr_reset(term);
+  else {
+    highlight_term_write( info->eb->henv, term, s, row_start, row_len );
+  }
 
   // write line ending
   if (row < info->last_row) {
@@ -258,29 +222,9 @@ static bool edit_refresh_rows_iter(
   return (row >= info->last_row);  
 }
 
-/*
-static void edit_highlight( const char* s, attr_t* attrs ) {
-  bool word_start = true;
-  for( ssize_t i = 0; s[i] != 0; i++ ) {
-    if (word_start && rp_starts_with(s+i,"fun")) {
-      attrs[i].color = RP_NAVY;
-      i += 2;
-    }
-    else if (word_start && rp_starts_with(s+i,"int")) {
-      attrs[i].color = RP_TEAL;
-      i += 2;
-    }
-    else {      
-      attrs[i].color = RP_COLOR_DEFAULT;
-    }    
-    word_start = (s[i] == ' ');
-  }
-}
-*/
-
 static void edit_refresh_rows(rp_env_t* env, editor_t* eb, 
                                ssize_t promptw, ssize_t cpromptw, bool in_extra, 
-                                ssize_t first_row, ssize_t last_row, const attr_t* attrs) 
+                                ssize_t first_row, ssize_t last_row) 
 {
   refresh_info_t info;
   info.env        = env;
@@ -288,13 +232,8 @@ static void edit_refresh_rows(rp_env_t* env, editor_t* eb,
   info.in_extra   = in_extra;
   info.first_row  = first_row;
   info.last_row   = last_row;
-  info.attrs      = attrs;
-  attr_t cur_attr;
-  memset(&cur_attr, 0, sizeof(cur_attr));
-  cur_attr.color = RP_COLOR_DEFAULT;
-  cur_attr.bgcolor = RP_COLOR_DEFAULT;
   sbuf_for_each_row( (in_extra ? eb->extra : eb->input), eb->termw, promptw, cpromptw,
-                            &edit_refresh_rows_iter, &info, &cur_attr );
+                            &edit_refresh_rows_iter, &info, NULL);
 }
 
 
@@ -304,16 +243,15 @@ static void edit_refresh(rp_env_t* env, editor_t* eb)
   ssize_t promptw, cpromptw;
   edit_get_prompt_width( env, eb, false, &promptw, &cpromptw );
 
-  // text attributes
-  attr_t* attrs = mem_zalloc_tp_n(env->mem, attr_t, sbuf_len(eb->input) + sbuf_len(eb->hint) + 1);
-  // todo: allow highlighting
-  // edit_highlight( sbuf_string(eb->input), attrs );
-
+  // highlight current input
+  if (!env->no_highlight) {
+    highlight_init( eb->henv, sbuf_string(eb->input), env->highlighter );
+  }
+  
   // insert hint  
   if (sbuf_len(eb->hint) > 0) {
-    rp_memmove(attrs + eb->pos + sbuf_len(eb->hint), attrs + eb->pos, ssizeof(attr_t)*(sbuf_len(eb->input) - eb->pos));
-    for (ssize_t i = 0; i < sbuf_len(eb->hint); i++) {
-      attrs[eb->pos + i].color = RP_DARKGRAY;
+    if (!env->no_highlight) {
+      highlight_insert_at( eb->henv, eb->pos, sbuf_len(eb->hint), env->color_hint);
     }
     sbuf_insert_at(eb->input, sbuf_string(eb->hint), eb->pos);
   }
@@ -344,11 +282,11 @@ static void edit_refresh(rp_env_t* env, editor_t* eb)
   term_up(env->term, eb->cur_row);
   
   // render rows
-  edit_refresh_rows( env, eb, promptw, cpromptw, false, first_row, last_row, attrs );
+  edit_refresh_rows( env, eb, promptw, cpromptw, false, first_row, last_row );
   if (rows_extra > 0) {
     ssize_t first_rowx = (first_row > rows_input ? first_row - rows_input : 0);
     ssize_t last_rowx = last_row - rows_input; assert(last_rowx >= 0);
-    edit_refresh_rows(env, eb, 0, 0, true, first_rowx, last_rowx, NULL);
+    edit_refresh_rows(env, eb, 0, 0, true, first_rowx, last_rowx);
   }
   
   // overwrite trailing rows we do not use anymore
@@ -374,9 +312,6 @@ static void edit_refresh(rp_env_t* env, editor_t* eb)
   // restore input by removing the hint
   sbuf_delete_at(eb->input, eb->pos, sbuf_len(eb->hint));
 
-  // free attributes
-  mem_free(env->mem, attrs);
-
   // update previous
   eb->cur_rows = rows;
   eb->cur_row = rc.row;
@@ -398,6 +333,7 @@ static void edit_clear(rp_env_t* env, editor_t* eb ) {
 }
 
 
+// clear screen and refresh
 static void edit_clear_screen(rp_env_t* env, editor_t* eb ) {
   ssize_t cur_rows = eb->cur_rows;
   eb->cur_rows = term_get_height(env->term) - 1;
@@ -407,7 +343,7 @@ static void edit_clear_screen(rp_env_t* env, editor_t* eb ) {
 }
 
 
-// Terminal window resized
+// refresh after a terminal window resized (but before doing further edit operations!)
 static bool edit_resize(rp_env_t* env, editor_t* eb ) {
   // update dimensions
   term_update_dim(env->term);
@@ -439,7 +375,7 @@ static bool edit_resize(rp_env_t* env, editor_t* eb ) {
   return true;
 } 
 
-
+// refresh with possible hint
 static void edit_refresh_hint(rp_env_t* env, editor_t* eb) {
   if (!env->no_hint) {
     // see if we can hint
@@ -710,6 +646,7 @@ static char* edit_line( rp_env_t* env, const char* prompt_text )
   eb.modified = false;  
   eb.prompt_text   = (prompt_text != NULL ? prompt_text : "");
   eb.history_idx   = 0;
+  eb.henv     = (env->no_highlight ? NULL : highlight_new(env->mem) );
   editstate_init(&eb.undo);
   editstate_init(&eb.redo);
   sbuf_clear(eb.input);
@@ -922,6 +859,7 @@ static char* edit_line( rp_env_t* env, const char* prompt_text )
   // free resources 
   editstate_done(env->mem, &eb.undo);
   editstate_done(env->mem, &eb.redo);
+  highlight_free(eb.henv);
   sbuf_clear(eb.input);
   sbuf_clear(eb.extra);
   sbuf_clear(eb.hint);

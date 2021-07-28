@@ -169,6 +169,7 @@
       <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">true</ExcludedFromBuild>
       <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Release|x64'">true</ExcludedFromBuild>
     </ClCompile>
+    <ClCompile Include="..\..\src\highlight.c" />
     <ClCompile Include="..\..\src\history.c" />
     <ClCompile Include="..\..\src\repline.c" />
     <ClCompile Include="..\..\src\stringbuf.c" />
@@ -183,6 +184,7 @@
     <ClInclude Include="..\..\src\common.h" />
     <ClInclude Include="..\..\src\completions.h" />
     <ClInclude Include="..\..\src\env.h" />
+    <ClInclude Include="..\..\src\highlight.h" />
     <ClInclude Include="..\..\src\history.h" />
     <ClInclude Include="..\..\src\stringbuf.h" />
     <ClInclude Include="..\..\src\term.h" />

@@ -42,6 +42,8 @@ struct rp_env_s {
   bool            no_multiline_indent; // indent continuation lines to line up under the initial prompt 
   bool            no_help;          // show short help line for history search etc.
   bool            no_hint;          // allow hinting?
+  bool            no_highlight;     // enable highlighting?
+  rp_highlight_fun_t* highlighter;  // highlight callback
   rp_color_t      color_info;       // information color, for example numbers in the completion menu. (=RP_DARKGRAY)
   rp_color_t      color_diminish;   // diminish color, for example the non-highlighted part in a history search (=RP_DARKGRAY)
   rp_color_t      color_highlight;  // highlighted color, for example, the current match in a history search (=RP_DEFAULT_COLOR)

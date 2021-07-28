@@ -130,14 +130,15 @@ void rp_complete_word( rp_completion_env_t* cenv, const char* prefix, rp_complet
 // See `rp_complete_word` which uses the default values for `non_word_chars`, `quote_chars` and `\` for escape characters.
 void rp_complete_quoted_word( rp_completion_env_t* cenv, const char* prefix, rp_completer_fun_t fun, const char* non_word_chars, char escape_char, const char* quote_chars );
 
+
 //--------------------------------------------------------------
-// Customization
+// Basic syntax highlighting
 //--------------------------------------------------------------
 
 // Available ANSI colors.
 typedef enum rp_color_e {
   RP_COLOR_NONE = 0,
-  RP_BLACK      = 30,
+  RP_BLACK = 30,
   RP_MAROON,
   RP_GREEN,
   RP_ORANGE,
@@ -146,8 +147,8 @@ typedef enum rp_color_e {
   RP_TEAL,
   RP_LIGHTGRAY,
   RP_LIGHTGREY = RP_LIGHTGRAY,
-  RP_DARKGRAY  = 90,
-  RP_DARKGREY  = RP_DARKGRAY,
+  RP_DARKGRAY = 90,
+  RP_DARKGREY = RP_DARKGRAY,
   RP_RED,
   RP_LIME,
   RP_YELLOW,
@@ -157,6 +158,34 @@ typedef enum rp_color_e {
   RP_WHITE,
   RP_COLOR_DEFAULT = 39    // default terminal color
 } rp_color_t;
+
+// A syntax highlight environment
+struct rp_highlight_env_s;
+typedef struct rp_highlight_env_s rp_highlight_env_t;
+
+// A syntax highlighter callback that is called by readline to syntax highlight user input.
+typedef void (rp_highlight_fun_t)(rp_highlight_env_t* henv, const char* input);
+
+// Set a syntax highlighter.
+// There can only be one highlight function, setting it again disables the previous one.
+void rp_set_highlighter(rp_highlight_fun_t* highlighter, void* arg);
+
+// Set the color of characters starting at position `pos` to `color`.
+void rp_highlight_color(rp_highlight_env_t* henv, long pos, rp_color_t color );
+
+// Set the background color of characters starting at position `pos` to `bgcolor`.
+void rp_highlight_bgcolor(rp_highlight_env_t* henv, long pos, rp_color_t bgcolor);
+
+// Enable/Disable underlining for characters starting at position `pos`.
+void rp_highlight_underline(rp_highlight_env_t* henv, long pos, bool enable );
+
+// Enable/Disable reverse video for characters starting at position `pos`.
+void rp_highlight_reverse(rp_highlight_env_t* henv, long pos, bool enable);
+
+
+//--------------------------------------------------------------
+// Customization
+//--------------------------------------------------------------
 
 // Set a prompt marker and a potential marker for extra lines with multiline input. 
 // Pass NULL for the `prompt_marker` for the default marker ("> ").
