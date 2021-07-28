@@ -394,7 +394,7 @@ static void edit_refresh_hint(rp_env_t* env, editor_t* eb) {
             const char* extra_hint = hint;
             do {
               ssize_t newpos = sbuf_insert_at( sb, extra_hint, pos );
-              if (newpos <= 0) break;
+              if (newpos <= pos) break;
               pos = newpos;
               count = completions_generate(env, env->completions, sbuf_string(sb), pos, 2);
               if (count == 1) {

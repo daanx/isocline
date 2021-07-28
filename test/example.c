@@ -40,7 +40,8 @@ int main()
   // try to auto complete after a completion as long as the completion is unique
   rp_enable_auto_tab(true );
 
-  rp_set_iface_colors( RP_MAROON, RP_DARKGRAY, RP_YELLOW, RP_TEAL );
+  // change interface colors (info, diminish, emphasis, hint)
+  // rp_set_iface_colors( RP_YELLOW, RP_DARKGRAY, RP_WHITE, RP_GREEN );
 
   // run until empty input
   char* input;
@@ -140,7 +141,7 @@ static void highlighter(rp_highlight_env_t* henv, const char* input, void* arg) 
     }
     else if (rp_starts_with(input + i,"//")) {       // line comment
       rp_highlight_color(henv, i, RP_DARKGRAY);
-      while (i < len && input[i] != '\n') i++;
+      while (i < len && input[i] != '\n') { i++; }
     }
     else {
       rp_highlight_color(henv, i, RP_COLOR_DEFAULT);  // anything else (including utf8 continuation bytes)

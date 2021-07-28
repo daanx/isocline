@@ -33,7 +33,13 @@ struct rp_env_s {
   const char*     prompt_marker;    // the prompt marker (defaults to "> ")
   const char*     cprompt_marker;   // prompt marker for continuation lines (defaults to `prompt_marker`)
   rp_color_t      prompt_color;     // color used to display the prompt
-  char            multiline_eol;    // character used for multiline input ("\")
+  rp_highlight_fun_t* highlighter;  // highlight callback
+  void*           highlighter_arg;  // user state for the highlighter.
+  rp_color_t      color_info;       // information color, for example numbers in the completion menu. (=RP_DARKGRAY)
+  rp_color_t      color_diminish;   // diminish color, for example the non-highlighted part in a history search (=RP_DARKGRAY)
+  rp_color_t      color_emphasis;   // highlighted color, for example, the current match in a history search (=RP_DEFAULT_COLOR)
+  rp_color_t      color_hint;       // hint color.
+  char            multiline_eol;    // character used for multiline input ("\") (set to 0 to disable)
   bool            initialized;      // are we initialized?
   bool            noedit;           // is rich editing possible (tty != NULL)
   bool            singleline_only;  // allow only single line editing?
@@ -43,12 +49,6 @@ struct rp_env_s {
   bool            no_help;          // show short help line for history search etc.
   bool            no_hint;          // allow hinting?
   bool            no_highlight;     // enable highlighting?
-  rp_highlight_fun_t* highlighter;  // highlight callback
-  void*           highlighter_arg;  // user state for the highlighter.
-  rp_color_t      color_info;       // information color, for example numbers in the completion menu. (=RP_DARKGRAY)
-  rp_color_t      color_diminish;   // diminish color, for example the non-highlighted part in a history search (=RP_DARKGRAY)
-  rp_color_t      color_highlight;  // highlighted color, for example, the current match in a history search (=RP_DEFAULT_COLOR)
-  rp_color_t      color_hint;       // hint color.
 };
 
 rp_private char*      rp_editline(rp_env_t* env, const char* prompt_text);

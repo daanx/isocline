@@ -188,16 +188,16 @@ rp_public void rp_set_highlighter(rp_highlight_fun_t* highlighter, void* arg) {
   env->highlighter_arg = arg;
 }
 
-static void set_iface_colors(rp_env_t* env, rp_color_t color_info, rp_color_t color_diminish, rp_color_t color_highlight, rp_color_t color_hint) {
+static void set_iface_colors(rp_env_t* env, rp_color_t color_info, rp_color_t color_diminish, rp_color_t color_emphasis, rp_color_t color_hint) {
   env->color_info = (color_info == RP_COLOR_NONE ? RP_DARKGRAY : color_info);
   env->color_diminish = (color_diminish == RP_COLOR_NONE ? RP_LIGHTGRAY : color_diminish);
-  env->color_highlight = (color_highlight == RP_COLOR_NONE ? RP_WHITE : color_highlight);
+  env->color_emphasis = (color_emphasis == RP_COLOR_NONE ? RP_WHITE : color_emphasis);
   env->color_hint = (color_hint == RP_COLOR_NONE ? RP_DARKGRAY : color_hint);
 }
 
-rp_public void rp_set_iface_colors( rp_color_t color_info, rp_color_t color_diminish, rp_color_t color_highlight, rp_color_t color_hint ) {
+rp_public void rp_set_iface_colors( rp_color_t color_info, rp_color_t color_diminish, rp_color_t color_emphasis, rp_color_t color_hint ) {
   rp_env_t* env = rp_get_env(); if (env==NULL) return;
-  set_iface_colors(env, color_info, color_diminish, color_highlight, color_hint);
+  set_iface_colors(env, color_info, color_diminish, color_emphasis, color_hint);
 }
 
 rp_public void rp_free( void* p ) {

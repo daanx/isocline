@@ -249,12 +249,12 @@ void rp_enable_highlight(bool enable);
 //
 // - info: for example, numbers in the completion menu (`RP_DARKGRAY` by default)
 // - diminish: for example, non matching parts in a history search (`RP_LIGHTGRAY` by default)
-// - highlight: for example, the matching part in a history search (`RP_WHITE` by default)
+// - emphasis: for example, the matching part in a history search (`RP_WHITE` by default)
 // - hint: for hints.
 //
 // Use `RP_COLOR_NONE` to use the default color. (but `RP_COLOR_DEFAULT` for the default terminal text color!)
 
-void rp_set_iface_colors( rp_color_t color_info, rp_color_t color_diminish, rp_color_t color_highlight, rp_color_t color_hint );
+void rp_set_iface_colors( rp_color_t color_info, rp_color_t color_diminish, rp_color_t color_emphasis, rp_color_t color_hint );
 
 //--------------------------------------------------------------
 // Advanced Completion
