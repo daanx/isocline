@@ -258,6 +258,26 @@ static bool edit_refresh_rows_iter(
   return (row >= info->last_row);  
 }
 
+/*
+static void edit_highlight( const char* s, attr_t* attrs ) {
+  bool word_start = true;
+  for( ssize_t i = 0; s[i] != 0; i++ ) {
+    if (word_start && rp_starts_with(s+i,"fun")) {
+      attrs[i].color = RP_NAVY;
+      i += 2;
+    }
+    else if (word_start && rp_starts_with(s+i,"int")) {
+      attrs[i].color = RP_TEAL;
+      i += 2;
+    }
+    else {      
+      attrs[i].color = RP_COLOR_DEFAULT;
+    }    
+    word_start = (s[i] == ' ');
+  }
+}
+*/
+
 static void edit_refresh_rows(rp_env_t* env, editor_t* eb, 
                                ssize_t promptw, ssize_t cpromptw, bool in_extra, 
                                 ssize_t first_row, ssize_t last_row, const attr_t* attrs) 
@@ -287,6 +307,7 @@ static void edit_refresh(rp_env_t* env, editor_t* eb)
   // text attributes
   attr_t* attrs = mem_zalloc_tp_n(env->mem, attr_t, sbuf_len(eb->input) + sbuf_len(eb->hint) + 1);
   // todo: allow highlighting
+  // edit_highlight( sbuf_string(eb->input), attrs );
 
   // insert hint  
   if (sbuf_len(eb->hint) > 0) {
@@ -392,7 +413,6 @@ static bool edit_resize(rp_env_t* env, editor_t* eb ) {
   term_update_dim(env->term);
   ssize_t newtermw = term_get_width(env->term);
   if (eb->termw == newtermw) return false;
-
   
   // recalculate the row layout assuming the hardwrapping for the new terminal width
   ssize_t promptw, cpromptw;
