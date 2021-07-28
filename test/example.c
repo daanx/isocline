@@ -69,21 +69,18 @@ static void word_completer(rp_completion_env_t* cenv, const char* prefix ) {
   }
   else if (strcmp(prefix,"id") == 0) {
     // rp_add_completion(cenv,"C++ - [](auto x){ return x; }", "c++", 2, 0);
-    rp_add_completion(cenv,"D — (x) => x", "d");                
-    rp_add_completion(cenv,"Haskell — \\x -> x", "haskell");
-    rp_add_completion(cenv,"Idris — \\x => x", "idris");
-    rp_add_completion(cenv,"Koka — fn(x){ x }", "koka");    
-    rp_add_completion(cenv,"Ocaml — fun x -> x", "ocaml");
+    rp_add_completion(cenv,"D — (x) => x",       "(x) => x");                
+    rp_add_completion(cenv,"Haskell — \\x -> x", "\\x -> x");
+    rp_add_completion(cenv,"Idris — \\x => x",   "\\x => x");
+    rp_add_completion(cenv,"Koka — fn(x){ x }",  "fn(x){ x }");    
+    rp_add_completion(cenv,"Ocaml — fun x -> x", "fun x -> x");
   }
   else if (strcmp(prefix,"ex") == 0) {
     rp_add_completion(cenv, NULL, "excellent");
   }
-  else if (prefix[0] != 0 && rp_istarts_with("print",prefix)) {  
-    rp_add_completion(cenv,NULL,"print");
-    rp_add_completion(cenv,NULL,"println"); 
-    rp_add_completion(cenv,NULL,"prints");
-    rp_add_completion(cenv,NULL,"printsln");
-    rp_add_completion(cenv,NULL,"prompt");    
+  else {
+    static const char* completions[] = { "print", "println", "printer", "printsln", "prompt", NULL };
+    rp_add_completions(cenv, prefix, completions);
   }
 }
 
@@ -92,7 +89,7 @@ static void word_completer(rp_completion_env_t* cenv, const char* prefix ) {
 static void completer(rp_completion_env_t* cenv, const char* prefix ) 
 {
   // try to complete file names from the roots "." and "/usr/local"
-  rp_complete_filename( cenv, prefix, 0, ".;/usr/local", NULL /* any extension */ );   
+  rp_complete_filename(cenv, prefix, 0, ".;/usr/local;c:\\Program Files" , NULL /* any extension */);
 
   // and also use our custom completer  
   rp_complete_word( cenv, prefix, &word_completer );        

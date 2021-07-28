@@ -111,7 +111,7 @@ rp_private void unicode_to_qutf8(unicode_t u, uint8_t buf[5]) {
 }
 
 // is this a utf8 continuation byte?
-static inline bool is_cont(uint8_t c) {
+rp_private bool utf8_is_cont(uint8_t c) {
   return ((c & 0xC0) == 0x80);
 }
 
@@ -130,14 +130,14 @@ rp_private unicode_t unicode_from_qutf8(const uint8_t* s, ssize_t len, ssize_t* 
     goto fail;
   }
   // 2 bytes
-  else if (c0 <= 0xDF && len >= 2 && is_cont(s[1])) { 
+  else if (c0 <= 0xDF && len >= 2 && utf8_is_cont(s[1])) { 
     if (count != NULL) *count = 2;
     return (((c0 & 0x1F) << 6) | (s[1] & 0x3F));
   }
   // 3 bytes: reject overlong and surrogate halves
   else if (len >= 3 && 
-           ((c0 == 0xE0 && s[1] >= 0xA0 && s[1] <= 0xBF && is_cont(s[2])) ||
-            (c0 >= 0xE1 && c0 <= 0xEC && is_cont(s[1]) && is_cont(s[2])) 
+           ((c0 == 0xE0 && s[1] >= 0xA0 && s[1] <= 0xBF && utf8_is_cont(s[2])) ||
+            (c0 >= 0xE1 && c0 <= 0xEC && utf8_is_cont(s[1]) && utf8_is_cont(s[2])) 
           ))
   {
     if (count != NULL) *count = 3;
@@ -145,9 +145,9 @@ rp_private unicode_t unicode_from_qutf8(const uint8_t* s, ssize_t len, ssize_t* 
   }
   // 4 bytes: reject overlong
   else if (len >= 4 && 
-           (((c0 == 0xF0 && s[1] >= 0x90 && s[1] <= 0xBF && is_cont(s[2]) && is_cont(s[3])) ||
-            (c0 >= 0xF1 && c0 <= 0xF3 && is_cont(s[1]) && is_cont(s[2]) && is_cont(s[3])) ||
-            (c0 == 0xF4 && s[1] >= 0x80 && s[1] <= 0x8F && is_cont(s[2]) && is_cont(s[3]))) 
+           (((c0 == 0xF0 && s[1] >= 0x90 && s[1] <= 0xBF && utf8_is_cont(s[2]) && utf8_is_cont(s[3])) ||
+            (c0 >= 0xF1 && c0 <= 0xF3 && utf8_is_cont(s[1]) && utf8_is_cont(s[2]) && utf8_is_cont(s[3])) ||
+            (c0 == 0xF4 && s[1] >= 0x80 && s[1] <= 0x8F && utf8_is_cont(s[2]) && utf8_is_cont(s[3]))) 
           )) 
   {
     if (count != NULL) *count = 4;

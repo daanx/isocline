@@ -88,6 +88,7 @@ char* rp_readline_with_completer(const char* prompt_text, rp_completer_fun_t* co
 // If `false` is returned, the callback should try to return and not add more completions (for improved latency).
 bool rp_add_completion( rp_completion_env_t* cenv, const char* display, const char* completion );
 
+bool rp_add_completions(rp_completion_env_t* cenv, const char* prefix, const char** completions);
 
 // Complete a filename given a semi-colon separated list of root directories `roots` and 
 // semi-colon separated list of possible extensions (excluding directories). 
@@ -193,6 +194,10 @@ void rp_enable_multiline_indent(bool enable);
 // (full help is always dispayed when pressing F1 regardless of this setting)
 void rp_enable_inline_help(bool enable);
 
+// Disable or enable hinting (enabled by default)
+// Shows a hint inline when there is a single possible completion.
+void rp_enable_hint(bool enable);
+
 // Set the color used for interface elements:
 // - info: for example, numbers in the completion menu (`RP_DARKGRAY` by default)
 // - diminish: for example, non matching parts in a history search (`RP_LIGHTGRAY` by default)
@@ -242,12 +247,8 @@ bool rp_istarts_with( const char* s, const char* prefix );
 
 
 //--------------------------------------------------------------
-// Async events, experimental
+// Terminal, experimental
 //--------------------------------------------------------------
-
-void rp_event_stop(void);
-void rp_event_refresh(void);
-void rp_event_writeln(const char* s);
 
 void rp_write(const char* s);
 void rp_writeln(const char* s);

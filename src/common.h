@@ -82,6 +82,8 @@ rp_private unicode_t unicode_from_qutf8(const uint8_t* s, ssize_t len, ssize_t* 
 rp_private unicode_t unicode_from_raw(uint8_t c);
 rp_private bool      unicode_is_raw(unicode_t u, uint8_t* c);
 
+rp_private bool      utf8_is_cont(uint8_t c);
+
 //-------------------------------------------------------------
 // Debug
 //-------------------------------------------------------------

@@ -13,6 +13,7 @@
 #include "stringbuf.h"
 #include "completions.h"
 
+
 //-------------------------------------------------------------
 // Word completion (quoted and with escape characters)
 //-------------------------------------------------------------

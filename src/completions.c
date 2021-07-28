@@ -111,6 +111,16 @@ rp_private const char* completions_get_display( completions_t* cms, ssize_t inde
   return (cm->display != NULL ? cm->display : cm->replacement);
 }
 
+rp_private const char* completions_get_hint(completions_t* cms, ssize_t index, const char** help) {
+  completion_t* cm = completions_get(cms, index);
+  if (cm == NULL) return NULL;
+  ssize_t len = rp_strlen(cm->replacement);
+  if (len < cm->delete_before) return NULL;
+  const char* hint = (cm->replacement + cm->delete_before);
+  if (*hint == 0 || utf8_is_cont((uint8_t)(*hint))) return NULL;  // utf8 boundary?
+  return hint;
+}
+
 static void completions_set_completer(completions_t* cms, rp_completer_fun_t* completer, void* arg) {
   cms->completer = completer;
   cms->completer_arg = arg;
@@ -220,6 +230,15 @@ rp_private ssize_t completions_apply_longest_prefix(completions_t* cms, stringbu
 //-------------------------------------------------------------
 // Completer functions
 //-------------------------------------------------------------
+
+rp_public bool rp_add_completions(rp_completion_env_t* cenv, const char* prefix, const char** completions) {
+  for (const char** pc = completions; *pc != NULL; pc++) {
+    if (rp_istarts_with(*pc, prefix)) {
+      if (!rp_add_completion(cenv, NULL, *pc)) return false;
+    }
+  }
+  return true;
+}
 
 rp_public bool rp_add_completion( rp_completion_env_t* cenv, const char* display, const char* replacement ) {
   return rp_add_completion_ex(cenv,display,replacement,0,0);

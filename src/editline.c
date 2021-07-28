@@ -25,6 +25,7 @@
 typedef struct editor_s {
   stringbuf_t*  input;        // current user input
   stringbuf_t*  extra;        // extra displayed info (for completion menu etc)
+  stringbuf_t*  hint;         // hint displayed as part of the input
   ssize_t       pos;          // current cursor position in the input
   ssize_t       cur_rows;     // current used rows to display our content (including extra content)
   ssize_t       cur_row;      // current row that has the cursor (0 based, relative to the prompt)
@@ -228,6 +229,11 @@ static void edit_refresh(rp_env_t* env, editor_t* eb)
   // calculate the new cursor row and total rows needed
   ssize_t promptw, cpromptw;
   edit_get_prompt_width( env, eb, false, &promptw, &cpromptw );
+
+  // insert hint  
+  sbuf_insert_at(eb->input, sbuf_string(eb->hint), eb->pos);
+
+  // calculate rows and row/col position
   rowcol_t rc;
   const ssize_t rows_input = sbuf_get_rc_at_pos( eb->input, eb->termw, promptw, cpromptw, eb->pos, &rc );
   rowcol_t rc_extra;
@@ -280,6 +286,9 @@ static void edit_refresh(rp_env_t* env, editor_t* eb)
 
   // stop buffering
   term_end_buffered(env->term);
+
+  // restore input by removing the hint
+  sbuf_delete_at(eb->input, eb->pos, sbuf_len(eb->hint));
 
   // update previous
   eb->cur_rows = rows;
@@ -340,6 +349,24 @@ static bool edit_resize(rp_env_t* env, editor_t* eb ) {
 } 
 
 
+static void edit_refresh_hint(rp_env_t* env, editor_t* eb) {
+  if (!env->no_hint) {
+    // see if we can hint
+    const ssize_t count = completions_generate(env, env->completions, sbuf_string(eb->input), eb->pos, 2);
+    if (count == 1) {
+      const char* help = NULL;
+      const char* hint = completions_get_hint(env->completions, 0, &help);
+      if (hint != NULL) {
+        sbuf_clear(eb->hint);
+        sbuf_appendf(eb->hint, 64, "\x1B[90m");
+        sbuf_append(eb->hint, hint);
+        sbuf_append(eb->hint, "\x1B[0m");
+      }
+    }
+  }
+  edit_refresh(env, eb);
+}
+
 //-------------------------------------------------------------
 // Edit operations
 //-------------------------------------------------------------
@@ -364,13 +391,7 @@ static void edit_cursor_left(rp_env_t* env, editor_t* eb) {
   rowcol_t rc;
   edit_get_rowcol( env, eb, &rc);  
   eb->pos = prev;  
-  if (!rc.first_on_row) {
-    // if we were not at a start column we do not need a full refresh
-    term_left(env->term,cwidth);
-  }
-  else {
-    edit_refresh(env,eb);
-  }
+  edit_refresh(env,eb);  
 }
 
 static void edit_cursor_right(rp_env_t* env, editor_t* eb) {
@@ -380,13 +401,7 @@ static void edit_cursor_right(rp_env_t* env, editor_t* eb) {
   rowcol_t rc;
   edit_get_rowcol( env, eb, &rc);  
   eb->pos = next;  
-  if (!rc.last_on_row) {
-    // if we were not at the end column we do not need a full refresh
-    term_right(env->term,cwidth);
-  }
-  else {
-    edit_refresh(env,eb);
-  }
+  edit_refresh(env,eb);
 }
 
 static void edit_cursor_line_end(rp_env_t* env, editor_t* eb) {
@@ -559,14 +574,14 @@ static void edit_insert_unicode(rp_env_t* env, editor_t* eb, unicode_t u) {
   editor_start_modify(eb);
   ssize_t nextpos = sbuf_insert_unicode_at(eb->input, u, eb->pos);
   if (nextpos >= 0) eb->pos = nextpos;
-  edit_refresh(env, eb);
+  edit_refresh_hint(env, eb);
 }
 
 static void edit_insert_char(rp_env_t* env, editor_t* eb, char c) {
   editor_start_modify(eb);
   ssize_t nextpos = sbuf_insert_char_at( eb->input, c, eb->pos );
   if (nextpos >= 0) eb->pos = nextpos;
-  edit_refresh(env,eb);  
+  edit_refresh_hint(env,eb);  
 }
 
 //-------------------------------------------------------------
@@ -599,6 +614,7 @@ static char* edit_line( rp_env_t* env, const char* prompt_text )
   eb.mem      = env->mem;
   eb.input    = env->input;  // borrow to avoid reallocation
   eb.extra    = env->extra;
+  eb.hint     = sbuf_new(env->mem);
   eb.termw    = term_get_width(env->term);  
   eb.pos      = 0;
   eb.cur_rows = 1; 
@@ -610,6 +626,7 @@ static char* edit_line( rp_env_t* env, const char* prompt_text )
   editstate_init(&eb.redo);
   sbuf_clear(eb.input);
   sbuf_clear(eb.extra);
+  sbuf_clear(eb.hint);
 
   // show prompt
   edit_write_prompt(env, &eb, 0, false); 
@@ -627,6 +644,9 @@ static char* edit_line( rp_env_t* env, const char* prompt_text )
     if (tty_term_resize_event(env->tty)) {
       edit_resize(env,&eb);      
     }
+
+    // clear hint only after a potential resize (for correct row calculations)
+    sbuf_clear(eb.hint);
 
     // Operations that may return
     if (c == KEY_ENTER) {
@@ -806,14 +826,17 @@ static char* edit_line( rp_env_t* env, const char* prompt_text )
     res = sbuf_strdup(eb.input);
   }
 
-  // free resources 
-  editstate_done(env->mem, &eb.undo);
-  editstate_done(env->mem, &eb.redo);
-  
   // update history
   history_update(env->history, sbuf_string(eb.input));
   if (res == NULL || sbuf_len(eb.input) <= 1) { rp_history_remove_last(); } // no empty or single-char entries
   history_save(env->history);
+
+  // free resources 
+  editstate_done(env->mem, &eb.undo);
+  editstate_done(env->mem, &eb.redo);
+  sbuf_clear(eb.input);
+  sbuf_clear(eb.extra);
+  sbuf_clear(eb.hint);
 
   return res;
 }

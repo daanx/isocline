@@ -166,6 +166,11 @@ rp_public void rp_enable_multiline_indent(bool enable) {
   env->no_multiline_indent = !enable;
 }
 
+rp_public void rp_enable_hint(bool enable) {
+  rp_env_t* env = rp_get_env(); if (env==NULL) return;
+  env->no_hint = !enable;
+}
+
 rp_public void rp_enable_inline_help(bool enable) {
   rp_env_t* env = rp_get_env(); if (env==NULL) return;
   env->no_help = !enable;
@@ -219,6 +224,7 @@ static void rp_env_free(rp_env_t* env) {
   tty_free(env->tty);
   sbuf_free(env->input);
   sbuf_free(env->extra);
+  sbuf_free(env->hint);
   mem_free(env->mem, env->cprompt_marker);
   mem_free(env->mem,env->prompt_marker);
   env->prompt_marker = NULL;
@@ -252,8 +258,9 @@ static rp_env_t* rp_env_create( rp_malloc_fun_t* _malloc, rp_realloc_fun_t* _rea
   env->completions = completions_new(env->mem);
   env->input       = sbuf_new(env->mem);
   env->extra       = sbuf_new(env->mem);
+  env->hint        = sbuf_new(env->mem);
 
-  if (env->extra == NULL || env->input == NULL 
+  if (env->extra == NULL || env->input == NULL || env->hint == NULL
       || env->tty == NULL || env->term==NULL
       || env->completions == NULL || env->history == NULL
       || !term_is_interactive(env->term)) 
