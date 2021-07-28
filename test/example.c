@@ -11,6 +11,8 @@
 // completion function defined below
 static void completer(rp_completion_env_t* cenv, const char* prefix );
 
+static void highlighter(rp_highlight_env_t* henv, const char* input, void* arg);
+
 // main example
 int main() 
 {
@@ -32,6 +34,8 @@ int main()
 
   // try to auto complete after a completion as long as the completion is unique
   rp_enable_auto_tab(true );
+
+  rp_set_highlighter(highlighter, NULL);
 
   //rp_set_iface_colors( env, RP_MAROON, RP_DARKGRAY, RP_YELLOW );
 
@@ -97,3 +101,25 @@ static void completer(rp_completion_env_t* cenv, const char* prefix )
   // rp_complete_quoted_word( cenv, prefix, &word_completer, " !=+,`@#&^*.()\r\t\n", '\\', "'\"" );        
 }
   
+static void highlighter(rp_highlight_env_t* henv, const char* input, void* arg) {
+  size_t len = strlen(input);
+  for (size_t i = 0; i < len; ) {
+    long tlen;
+    if (rp_match_token(input, i, &rp_char_is_idletter, "fun")) {
+      rp_highlight_color(henv, i, RP_YELLOW);
+      i += 3;
+    }
+    if (rp_match_token(input, i, &rp_char_is_idletter, "int")) {
+      rp_highlight_color(henv, i, RP_CYAN);
+      i += 3;
+    }
+    else if ((tlen = rp_is_token_start(input, i, &rp_char_is_digit)) > 0) {
+      rp_highlight_color(henv, i, RP_PURPLE);
+      i += tlen;
+    }
+    else {
+      rp_highlight_color(henv, i, RP_COLOR_DEFAULT);
+      i++;
+    }
+  }
+}

@@ -8,6 +8,7 @@
 #include <string.h>
 #include "common.h"
 #include "term.h"
+#include "stringbuf.h"
 
 //-------------------------------------------------------------
 // Syntax highlighting
@@ -199,4 +200,57 @@ rp_public void rp_highlight_reverse(rp_highlight_env_t* henv, long pos, bool ena
   if (henv==NULL) return;
   if (pos < 0 || pos >= henv->attr_len) return;
   henv->attrs[pos].underline = (enable ? 1 : -1);
+}
+
+// Convenience function for highlighting with escape sequences.
+rp_public void rp_highlight_esc(rp_highlight_env_t* henv, const char* input, rp_highlight_esc_fun_t* highlight, void* arg) {
+  if (henv == NULL || henv->attr_len <= 0) return;
+  if (input == NULL || highlight == NULL)  return;
+  char* s = (*highlight)(input, arg);
+  if (s == NULL) return;
+  // go through `s` and simulate ansi color escape sequences
+  ssize_t len = rp_strlen(s);
+  ssize_t i = 0;    // position in highlighted input
+  long    pos = 0;  // position in original input
+  while( i < len) {
+    ssize_t next = str_next_ofs(s, len, i, NULL);
+    if (next <= 0) break;
+    if (s[i] == input[pos]) {
+      // matches with original input
+      pos += (long)next;      
+    }
+    else {
+      // new escaped input
+      ssize_t code = 0;
+      if (s[i] == '\x1B' && s[i+1] == '[' && s[i+next-1] == 'm' && rp_atoz(s+i+2,&code)) {
+        // CSI escape
+        if (code == 4) {
+          rp_highlight_underline(henv, pos, true);
+        }
+        else if (code == 24) {
+          rp_highlight_underline(henv, pos, false);
+        }
+        else if (code == 7) {
+          rp_highlight_reverse(henv, pos, true);
+        }
+        else if (code == 27) {
+          rp_highlight_reverse(henv, pos, false);
+        }
+        else if ((code >= 30 && code <= 37) || code == 39 || (code >= 90 && code <= 97)) {
+          rp_highlight_color(henv, pos, (rp_color_t)code);
+        }
+        else if ((code >= 40 && code <= 47) || code == 49 || (code >= 100 && code <= 107)) {
+          rp_highlight_bgcolor(henv, pos, (rp_color_t)(code - 10));
+        }
+        else if (code == 0) {
+          rp_highlight_color(henv, pos, RP_COLOR_DEFAULT);
+          rp_highlight_bgcolor(henv, pos, RP_COLOR_DEFAULT);
+          rp_highlight_underline(henv, pos, false);
+          rp_highlight_reverse(henv, pos, false);
+        }
+      }
+    }
+    i += next;
+  }
+  mem_free(henv->mem, s);
 }

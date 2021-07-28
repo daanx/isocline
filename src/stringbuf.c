@@ -874,6 +874,10 @@ rp_public bool rp_istarts_with( const char* s, const char* prefix ) {
   return (prefix[i] == 0);
 }
 
+static int rp_strncmp(const char* s1, const char* s2, ssize_t n) {
+  return strncmp(s1, s2, to_size_t(n));
+}
+
 static int rp_strnicmp(const char* s1, const char* s2, ssize_t n) {
   if (s1 == NULL && s2 == NULL) return 0;
   if (s1 == NULL) return -1;
@@ -919,4 +923,66 @@ rp_private bool rp_atoz2(const char* s, ssize_t* pi, ssize_t* pj) {
 rp_private bool rp_atou32(const char* s, uint32_t* pu) {
   return (sscanf(s, "%" SCNu32, pu) == 1);
 }
+
+
+// Convenience: character class for whitespace `[ \t\r\n]`.
+rp_public bool rp_char_is_white(const char* s, long len) {
+  if (s == NULL || len != 1) return false;
+  const char c = *s;
+  return (c==' ' || c == '\t' || c == '\n' || c == '\r');
+}
+
+// Convenience: character class for digits (`[0-9]`).
+rp_public bool rp_char_is_digit(const char* s, long len) {
+  if (s == NULL || len != 1) return false;
+  const char c = *s;
+  return (c >= '0' && c <= '9');
+}
+
+// Convenience: character class for letters (`[A-Za-z]` and any unicode > 0x80).
+rp_public bool rp_char_is_letter(const char* s, long len) {
+  if (s == NULL || len <= 0) return false;
+  const char c = *s;
+  return ((uint8_t)c >= 0x80 || (c >= 'A' && c <= 'Z') || (c >= 'a' && c <= 'z'));
+}
+
+// Convenience: character class for identifier letters (`[A-Za-z0-9_-]` and any unicode > 0x80).
+rp_public bool rp_char_is_idletter(const char* s, long len) {
+  if (s == NULL || len <= 0) return false;
+  const char c = *s;
+  return ((uint8_t)c >= 0x80 || (c >= 'A' && c <= 'Z') || (c >= 'a' && c <= 'z') || (c >= '0' && c <= '9') || (c == '_') || (c == '-'));
+}
+
+// Convenience: character class for filename letters (`[^ \t\r\n`@$><=;|&{(]`).
+rp_public bool rp_char_is_filename_letter(const char* s, long len) {
+  if (s == NULL || len <= 0) return false;
+  const char c = *s;
+  return ((uint8_t)c >= 0x80 || (strchr(" \t\r\n`@$><=;|&{}()[]", c) == NULL));
+}
+
+// Convenience: If this is a token start, return the length.
+rp_public long rp_is_token_start(const char* s, long pos, rp_is_char_class_fun_t* is_token_char) {
+  if (s == NULL || pos < 0 || is_token_char == NULL) return -1;
+  ssize_t len = rp_strlen(s);
+  if (pos >= len) return -1;
+  if (pos > 0 && is_token_char(s + pos -1, 1)) return -1; // token start?
+  ssize_t i = pos;
+  while ( i < len ) {
+    ssize_t next = str_next_ofs(s, len, i, NULL);
+    if (next <= 0) return -1;
+    if (!is_token_char(s + i, (long)next)) break;
+    i += next;
+  }
+  return (long)(i - pos);
+}
+
+// Convenience: Does this match the specified token? 
+// Ensures not to match prefixes or suffixes. 
+// E.g. `rp_match_token("function",0,&rp_char_is_letter,"fun")` returns false.
+rp_public bool rp_match_token(const char* s, long pos, rp_is_char_class_fun_t* is_token_char, const char* token) {
+  ssize_t n = rp_is_token_start(s, pos, is_token_char);
+  if (n <= 0 || token == NULL) return false;
+  return (n == rp_strlen(token) && rp_strncmp(s + pos, token, n) == 0);
+}
+
 

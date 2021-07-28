@@ -142,6 +142,7 @@ typedef enum rp_color_e {
   RP_MAROON,
   RP_GREEN,
   RP_ORANGE,
+  RP_BROWN = RP_ORANGE,
   RP_NAVY,
   RP_PURPLE,
   RP_TEAL,
@@ -181,6 +182,19 @@ void rp_highlight_underline(rp_highlight_env_t* henv, long pos, bool enable );
 
 // Enable/Disable reverse video for characters starting at position `pos`.
 void rp_highlight_reverse(rp_highlight_env_t* henv, long pos, bool enable);
+
+
+// Convenience callback for a function that highlights `s` using ANSI CSI SGR escape sequences (`ESC [ <code> m`)
+// The returned string should be allocated and is free'd by the caller.
+// See: <https://en.wikipedia.org/wiki/ANSI_escape_code#SGR_(Select_Graphic_Rendition)_parameters>
+typedef char* (rp_highlight_esc_fun_t)(const char* s, void* arg);
+
+// Convenience function for highlighting with ANSI CSI SGR escape sequences (`ESC [ <code> m`).
+// Can be called in a `rp_highlight_fun_t` callback to colorize the `input` using the 
+// the provided `highlight` function that returns the original `input` interspersed with 
+// ANSI CSI SGR color sequences. User state is passed through the `arg`. 
+// See: <https://en.wikipedia.org/wiki/ANSI_escape_code#SGR_(Select_Graphic_Rendition)_parameters>
+void rp_highlight_esc(rp_highlight_env_t* henv, const char* input, rp_highlight_esc_fun_t* highlight, void* arg);
 
 
 //--------------------------------------------------------------
@@ -282,6 +296,32 @@ bool rp_starts_with( const char* s, const char* prefix );
 // Convenience: does a string `s` starts with a given `prefix` ignoring (ascii) case?
 bool rp_istarts_with( const char* s, const char* prefix );
 
+
+// Convenience: function that returns whether a (utf8) character is in a certain class
+typedef bool (rp_is_char_class_fun_t)(const char* s, long len);
+
+// Convenience: character class for whitespace `[ \t\r\n]`.
+bool rp_char_is_white(const char* s, long len);
+
+// Convenience: character class for letters (`[A-Za-z]` and any unicode > 0x80).
+bool rp_char_is_letter(const char* s, long len);
+
+// Convenience: character class for digits (`[0-9]`).
+bool rp_char_is_digit(const char* s, long len);
+
+// Convenience: character class for identifier letters (`[A-Za-z0-9_-]` and any unicode > 0x80).
+bool rp_char_is_idletter(const char* s, long len);
+
+// Convenience: character class for filename letters (`[^ \t\r\n`@$><=;|&{}()[]`).
+bool rp_char_is_filename_letter(const char* s, long len);
+
+// Convenience: If this is a token start, return the length.
+long rp_is_token_start(const char* s, long pos, rp_is_char_class_fun_t* is_token_char);
+
+// Convenience: Does this match the spefied token? 
+// Ensures not to match prefixes or suffixes. 
+// E.g. `rp_match_token("function",0,&rp_char_is_letter,"fun")` returns false.
+bool rp_match_token(const char* s, long pos, rp_is_char_class_fun_t* is_token_char, const char* token);
 
 //--------------------------------------------------------------
 // Terminal, experimental
