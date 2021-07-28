@@ -17,12 +17,13 @@ static void highlighter(rp_highlight_env_t* henv, const char* input, void* arg);
 // main example
 int main() 
 {
-  printf("\nRepline sample program:\n"
-         "- Type 'exit' to quit. (or use ctrl+d).\n"
-         "- Press F1 for help on editing commands.\n"
-         "- Use shift+tab for multiline input. (or ctrl+enter, or ctrl+j)\n"
-         "- Type 'id' (or 'ex', 'f', or 'h') followed by tab for completion.\n"
-         "\n");
+  // rp_writeln handles basic escape sequences in a portable way
+  rp_writeln(
+    "\n\x1B[33mRepline sample program:\x1B[0m\n"
+    "- Type 'exit' to quit. (or use ctrl+d).\n"
+    "- Press F1 for help on editing commands.\n"
+    "- Use shift+tab for multiline input. (or ctrl+enter, or ctrl+j)\n"
+    "- Type 'p' (or 'id', 'f', or 'h') followed by tab for completion.\n");
 
   // enable history; use a NULL filename to not persist history to disk
   rp_set_history("history.txt", -1 /* default entries (= 200) */);
