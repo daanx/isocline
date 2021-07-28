@@ -101,15 +101,31 @@ rp_private void term_underline(term_t* term, bool on) {
   term_write(term, on ? RP_CSI "4m" : RP_CSI "24m" );
 }
 
+rp_private void term_reverse(term_t* term, bool on) {
+  term_write(term, on ? RP_CSI "7m" : RP_CSI "27m");
+}
+
 rp_private void term_color(term_t* term, rp_color_t color) {
-  if (color == RP_COLOR_NONE || color == RP_COLOR_DEFAULT) return;
+  if (color == RP_COLOR_NONE) return;
   term_writef(term, 64, RP_CSI "%dm", (int)color );
+}
+
+rp_private void term_bgcolor(term_t* term, rp_color_t color) {
+  if (color == RP_COLOR_NONE) return;
+  term_writef(term, 64, RP_CSI "%dm", (int)color + 10);
 }
 
 rp_private bool term_writeln(term_t* term, const char* s) {
   bool ok = term_write(term,s);
   if (ok) { ok = term_write(term,"\n"); }
   return ok;
+}
+
+rp_private bool term_write_char(term_t* term, char c) {
+  char buf[2];
+  buf[0] = c;
+  buf[1] = 0;
+  return term_write_n(term, buf, 1 );
 }
 
 // Unused for now

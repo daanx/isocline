@@ -39,6 +39,12 @@ typedef struct editor_s {
 } editor_t;
 
 
+typedef struct attr_s {
+  int8_t     underline;
+  int8_t     reverse;
+  rp_color_t color;
+  rp_color_t bgcolor;
+} attr_t;
 
 
 //-------------------------------------------------------------
@@ -169,12 +175,40 @@ static void edit_write_prompt( rp_env_t* env, editor_t* eb, ssize_t row, bool in
 // Refresh
 //-------------------------------------------------------------
 
+static void edit_update_attr(term_t* term, attr_t term_attr, attr_t* cur_attr, attr_t new_attr) {
+  if (new_attr.color != 0 && cur_attr->color != new_attr.color) {
+    cur_attr->color = new_attr.color;
+  }
+  if (new_attr.bgcolor != 0 && cur_attr->bgcolor != new_attr.bgcolor) {
+    cur_attr->bgcolor = new_attr.bgcolor;
+  }
+  if (new_attr.reverse != 0 && cur_attr->reverse != new_attr.reverse) {
+    cur_attr->reverse = new_attr.reverse;
+  }
+  if (new_attr.underline != 0 && cur_attr->underline != new_attr.underline) {
+    cur_attr->underline = new_attr.underline;
+  }
+  if (term_attr.color != cur_attr->color) {
+    term_color(term, cur_attr->color);
+  }
+  if (term_attr.color != cur_attr->bgcolor) {
+    term_bgcolor(term, cur_attr->bgcolor);
+  }
+  if (term_attr.underline != cur_attr->underline) {
+    term_underline(term, cur_attr->underline > 0);
+  }
+  if (term_attr.reverse != cur_attr->reverse) {
+    term_reverse(term, cur_attr->reverse > 0);
+  }
+}
+
 typedef struct refresh_info_s {
   rp_env_t* env;
   editor_t* eb;
   bool      in_extra;
   ssize_t   first_row;
   ssize_t   last_row;
+  const attr_t* attrs;
 } refresh_info_t;
 
 static bool edit_refresh_rows_iter(
@@ -182,9 +216,10 @@ static bool edit_refresh_rows_iter(
     ssize_t row, ssize_t row_start, ssize_t row_len, 
     ssize_t startw, bool is_wrap, const void* arg, void* res)
 {
-  rp_unused(res); rp_unused(startw);
+  rp_unused(startw);
   const refresh_info_t* info = (const refresh_info_t*)(arg);
   term_t* term = info->env->term;
+  attr_t* cur_attr = (attr_t*)res;
 
   // debug_msg("edit: line refresh: row %zd, len: %zd\n", row, row_len);
   if (row < info->first_row) return false;
@@ -193,10 +228,24 @@ static bool edit_refresh_rows_iter(
   term_clear_line(term);
   edit_write_prompt(info->env, info->eb, row, info->in_extra);
 
-  term_write_n( term, s + row_start, row_len );  
+  // write output
+  // term_write_n( term, s + row_start, row_len );
+  attr_t term_attr;
+  memset(&term_attr, 0, sizeof(term_attr)); // at default
+  for (ssize_t i = row_start; i < row_start + row_len; i++) {
+    char c = s[i];
+    if (info->attrs != NULL && !utf8_is_cont((uint8_t)c)) {
+      edit_update_attr(term, term_attr, cur_attr, info->attrs[i]);
+      term_attr = *cur_attr;
+    }
+    term_write_char(term, c);
+  }
+  term_attr_reset(term);
+
+  // write line ending
   if (row < info->last_row) {
     if (is_wrap && tty_is_utf8(info->env->tty)) { 
-      term_color( term, RP_DARKGRAY );
+      term_color(term, RP_DARKGRAY);
       #ifndef __APPLE__
       term_write( term, "\xE2\x86\x90");  // left arrow 
       #else
@@ -210,17 +259,22 @@ static bool edit_refresh_rows_iter(
 }
 
 static void edit_refresh_rows(rp_env_t* env, editor_t* eb, 
-                                  ssize_t promptw, ssize_t cpromptw,
-                                  bool in_extra, ssize_t first_row, ssize_t last_row) 
+                               ssize_t promptw, ssize_t cpromptw, bool in_extra, 
+                                ssize_t first_row, ssize_t last_row, const attr_t* attrs) 
 {
   refresh_info_t info;
-  info.env = env;
-  info.eb  = eb;
-  info.in_extra = in_extra;
+  info.env        = env;
+  info.eb         = eb;
+  info.in_extra   = in_extra;
   info.first_row  = first_row;
   info.last_row   = last_row;
+  info.attrs      = attrs;
+  attr_t cur_attr;
+  memset(&cur_attr, 0, sizeof(cur_attr));
+  cur_attr.color = RP_COLOR_DEFAULT;
+  cur_attr.bgcolor = RP_COLOR_DEFAULT;
   sbuf_for_each_row( (in_extra ? eb->extra : eb->input), eb->termw, promptw, cpromptw,
-                            &edit_refresh_rows_iter, &info, NULL );
+                            &edit_refresh_rows_iter, &info, &cur_attr );
 }
 
 
@@ -230,8 +284,18 @@ static void edit_refresh(rp_env_t* env, editor_t* eb)
   ssize_t promptw, cpromptw;
   edit_get_prompt_width( env, eb, false, &promptw, &cpromptw );
 
+  // text attributes
+  attr_t* attrs = mem_zalloc_tp_n(env->mem, attr_t, sbuf_len(eb->input) + sbuf_len(eb->hint) + 1);
+  // todo: allow highlighting
+
   // insert hint  
-  sbuf_insert_at(eb->input, sbuf_string(eb->hint), eb->pos);
+  if (sbuf_len(eb->hint) > 0) {
+    rp_memmove(attrs + eb->pos + sbuf_len(eb->hint), attrs + eb->pos, ssizeof(attr_t)*(sbuf_len(eb->input) - eb->pos));
+    for (ssize_t i = 0; i < sbuf_len(eb->hint); i++) {
+      attrs[eb->pos + i].color = RP_DARKGRAY;
+    }
+    sbuf_insert_at(eb->input, sbuf_string(eb->hint), eb->pos);
+  }
 
   // calculate rows and row/col position
   rowcol_t rc;
@@ -252,7 +316,6 @@ static void edit_refresh(rp_env_t* env, editor_t* eb)
     last_row = first_row + termh - 1;
   }
  
-  
   // reduce flicker
   term_start_buffered(env->term);        
 
@@ -260,11 +323,11 @@ static void edit_refresh(rp_env_t* env, editor_t* eb)
   term_up(env->term, eb->cur_row);
   
   // render rows
-  edit_refresh_rows( env, eb, promptw, cpromptw, false, first_row, last_row );
+  edit_refresh_rows( env, eb, promptw, cpromptw, false, first_row, last_row, attrs );
   if (rows_extra > 0) {
     ssize_t first_rowx = (first_row > rows_input ? first_row - rows_input : 0);
     ssize_t last_rowx = last_row - rows_input; assert(last_rowx >= 0);
-    edit_refresh_rows(env, eb, 0, 0, true, first_rowx, last_rowx);
+    edit_refresh_rows(env, eb, 0, 0, true, first_rowx, last_rowx, NULL);
   }
   
   // overwrite trailing rows we do not use anymore
@@ -289,6 +352,9 @@ static void edit_refresh(rp_env_t* env, editor_t* eb)
 
   // restore input by removing the hint
   sbuf_delete_at(eb->input, eb->pos, sbuf_len(eb->hint));
+
+  // free attributes
+  mem_free(env->mem, attrs);
 
   // update previous
   eb->cur_rows = rows;
@@ -327,9 +393,11 @@ static bool edit_resize(rp_env_t* env, editor_t* eb ) {
   ssize_t newtermw = term_get_width(env->term);
   if (eb->termw == newtermw) return false;
 
+  
   // recalculate the row layout assuming the hardwrapping for the new terminal width
   ssize_t promptw, cpromptw;
   edit_get_prompt_width( env, eb, false, &promptw, &cpromptw );
+  sbuf_insert_at(eb->input, sbuf_string(eb->hint), eb->pos); // insert used hint    
   rowcol_t rc;
   const ssize_t rows_input = sbuf_get_wrapped_rc_at_pos( eb->input, eb->termw, newtermw, promptw, cpromptw, eb->pos, &rc );
   rowcol_t rc_extra;
@@ -345,6 +413,9 @@ static bool edit_resize(rp_env_t* env, editor_t* eb ) {
   }
   eb->termw = newtermw;     
   edit_refresh(env,eb); 
+
+  // remove hint again
+  sbuf_delete_at(eb->input, eb->pos, sbuf_len(eb->hint)); 
   return true;
 } 
 
@@ -357,10 +428,7 @@ static void edit_refresh_hint(rp_env_t* env, editor_t* eb) {
       const char* help = NULL;
       const char* hint = completions_get_hint(env->completions, 0, &help);
       if (hint != NULL) {
-        sbuf_clear(eb->hint);
-        sbuf_appendf(eb->hint, 64, "\x1B[90m");
-        sbuf_append(eb->hint, hint);
-        sbuf_append(eb->hint, "\x1B[0m");
+        sbuf_replace(eb->hint, hint);        
       }
     }
   }

@@ -475,7 +475,7 @@ static void signals_install(tty_t* tty) {
   memset(&handler,0,sizeof(handler));
   sigemptyset(&handler.sa_mask);
   handler.sa_sigaction = &sig_handler; 
-  handler.sa_flags = 0;
+  handler.sa_flags = SA_RESTART;
   // install for all signals
   for( sighandler_t* sh = sighandlers; sh->signum != 0; sh++ ) {
     if (sigaction( sh->signum, NULL, &sh->previous) == 0) {            // get previous

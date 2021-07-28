@@ -112,6 +112,7 @@ rp_private const char* completions_get_display( completions_t* cms, ssize_t inde
 }
 
 rp_private const char* completions_get_hint(completions_t* cms, ssize_t index, const char** help) {
+  rp_unused(help);
   completion_t* cm = completions_get(cms, index);
   if (cm == NULL) return NULL;
   ssize_t len = rp_strlen(cm->replacement);

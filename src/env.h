@@ -45,6 +45,7 @@ struct rp_env_s {
   rp_color_t      color_info;       // information color, for example numbers in the completion menu. (=RP_DARKGRAY)
   rp_color_t      color_diminish;   // diminish color, for example the non-highlighted part in a history search (=RP_DARKGRAY)
   rp_color_t      color_highlight;  // highlighted color, for example, the current match in a history search (=RP_DEFAULT_COLOR)
+  rp_color_t      color_hint;       // hint color.
 };
 
 rp_private char*      rp_editline(rp_env_t* env, const char* prompt_text);

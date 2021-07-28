@@ -29,6 +29,7 @@ rp_private void term_enable_color(term_t* term, bool enable);
 rp_private bool term_write_n(term_t* term, const char* s, ssize_t n);
 rp_private bool term_write(term_t* term, const char* s);
 rp_private bool term_writeln(term_t* term, const char* s);
+rp_private bool term_write_char(term_t* term, char c);
 
 rp_private bool term_write_repeat(term_t* term, const char* s, ssize_t count );
 rp_private void term_beep(term_t* term);
@@ -57,11 +58,12 @@ internal void term_clear_screen(term_t* term);
 internal void term_clear(term_t* term, ssize_t n);
 internal void term_bold(term_t* term);
 internal void term_italic(term_t* term);
-internal void term_bgcolor(term_t* term, rp_color_t color);
 */
 
 rp_private void term_attr_reset(term_t* term);
 rp_private void term_underline(term_t* term, bool on);
+rp_private void term_reverse(term_t* term, bool on);
 rp_private void term_color(term_t* term, rp_color_t color);
+rp_private void term_bgcolor(term_t* term, rp_color_t color);
 
 #endif // RP_TERM_H

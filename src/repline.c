@@ -176,15 +176,16 @@ rp_public void rp_enable_inline_help(bool enable) {
   env->no_help = !enable;
 }
 
-static void set_iface_colors(rp_env_t* env, rp_color_t color_info, rp_color_t color_diminish, rp_color_t color_highlight) {
+static void set_iface_colors(rp_env_t* env, rp_color_t color_info, rp_color_t color_diminish, rp_color_t color_highlight, rp_color_t color_hint) {
   env->color_info = (color_info == RP_COLOR_NONE ? RP_DARKGRAY : color_info);
   env->color_diminish = (color_diminish == RP_COLOR_NONE ? RP_LIGHTGRAY : color_diminish);
   env->color_highlight = (color_highlight == RP_COLOR_NONE ? RP_WHITE : color_highlight);
+  env->color_hint = (color_hint == RP_COLOR_NONE ? RP_DARKGRAY : color_hint);
 }
 
-rp_public void rp_set_iface_colors( rp_color_t color_info, rp_color_t color_diminish, rp_color_t color_highlight ) {
+rp_public void rp_set_iface_colors( rp_color_t color_info, rp_color_t color_diminish, rp_color_t color_highlight, rp_color_t color_hint ) {
   rp_env_t* env = rp_get_env(); if (env==NULL) return;
-  set_iface_colors(env, color_info, color_diminish, color_highlight);
+  set_iface_colors(env, color_info, color_diminish, color_highlight, color_hint);
 }
 
 rp_public void rp_free( void* p ) {
@@ -238,6 +239,9 @@ static void rp_env_free(rp_env_t* env) {
 
 static rp_env_t* rp_env_create( rp_malloc_fun_t* _malloc, rp_realloc_fun_t* _realloc, rp_free_fun_t* _free )  
 {
+  if (_malloc == NULL)  _malloc = &malloc;
+  if (_realloc == NULL) _realloc = &realloc;
+  if (_free == NULL)    _free = &free;
   // allocate
   alloc_t* mem = (alloc_t*)_malloc(sizeof(alloc_t));
   if (mem == NULL) return NULL;
@@ -246,7 +250,7 @@ static rp_env_t* rp_env_create( rp_malloc_fun_t* _malloc, rp_realloc_fun_t* _rea
   mem->free = _free;
   rp_env_t* env = mem_zalloc_tp(mem, rp_env_t);
   if (env==NULL) {
-    _free(mem);
+    mem->free(mem);
     return NULL;
   }
   env->mem = mem;
@@ -269,7 +273,7 @@ static rp_env_t* rp_env_create( rp_malloc_fun_t* _malloc, rp_realloc_fun_t* _rea
   }
   env->multiline_eol = '\\';
   env->prompt_color  = RP_COLOR_DEFAULT;
-  set_iface_colors(env,RP_COLOR_NONE, RP_COLOR_NONE, RP_COLOR_NONE);
+  set_iface_colors(env,RP_COLOR_NONE, RP_COLOR_NONE, RP_COLOR_NONE, RP_COLOR_NONE);
   set_prompt_marker(env, NULL, NULL);
   return env;
 }
@@ -285,7 +289,7 @@ static void rp_atexit(void) {
 
 rp_private rp_env_t* rp_get_env(void) {  
   if (rpenv==NULL) {
-    rpenv = rp_env_create( &malloc, &realloc, &free );
+    rpenv = rp_env_create( NULL, NULL, NULL );
     if (rpenv != NULL) { atexit( &rp_atexit ); }
   }
   return rpenv;
