@@ -147,8 +147,7 @@ again:
   edit_refresh(env, eb);
 
   // Process commands
-  void* evdata = NULL;
-  code_t c = (hentry == NULL ? KEY_ESC : tty_read(env->tty, &evdata));
+  code_t c = (hentry == NULL ? KEY_ESC : tty_read(env->tty));
   sbuf_clear(eb->extra);
   if (c == KEY_ESC || c == KEY_BELL /* ^G */ || c == KEY_CTRL_C) {
     c = 0;  
@@ -223,7 +222,7 @@ again:
   hsearch_done(env->mem,hs);
   eb->prompt_text = prompt_text;
   edit_refresh(env,eb);
-  if (c != 0) tty_code_pushback(env->tty, c, evdata);
+  if (c != 0) tty_code_pushback(env->tty, c);
 }
 
 // Start an incremental search with the current word 

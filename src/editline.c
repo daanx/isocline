@@ -620,9 +620,8 @@ static char* edit_line( rp_env_t* env, const char* prompt_text )
   // process keys
   code_t c;          // current key code
   while(true) {    
-    // read a character (and potential event data)
-    void* evdata = NULL;
-    c = tty_read(env->tty, &evdata);
+    // read a character
+    c = tty_read(env->tty);
     
     // update terminal in case of a resize
     if (tty_term_resize_event(env->tty)) {
@@ -645,7 +644,7 @@ static char* edit_line( rp_env_t* env, const char* prompt_text )
       edit_delete_char(env,&eb);     // otherwise it is like delete
     } 
     else if (c == KEY_CTRL_C || c == KEY_EVENT_STOP) {
-      break; // ctrl+C or asyc STOP event quits with NULL
+      break; // ctrl+C or STOP event quits with NULL
     }
     else if (c == KEY_ESC) {
       if (eb.pos == 0 && editor_pos_is_at_end(&eb)) break;  // ESC on empty input returns with empty input
@@ -659,16 +658,8 @@ static char* edit_line( rp_env_t* env, const char* prompt_text )
     // Editing Operations
     else switch(c) {
       // events
-      case KEY_EVENT_RESIZE:
+      case KEY_EVENT_RESIZE:  // not used
         edit_resize(env,&eb);
-        break;
-      case KEY_EVENT_WRITELN:
-        if (evdata != NULL) {
-          edit_clear(env, &eb);
-          term_writeln(env->term, (const char*)evdata);
-          edit_refresh(env, &eb);
-          mem_free(env->mem, evdata);
-        }
         break;
       case KEY_EVENT_AUTOTAB:
         edit_generate_completions(env, &eb, true);
