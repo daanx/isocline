@@ -360,7 +360,7 @@ static bool term_write_utf8(term_t* term, const char* s, ssize_t len) {
     // on non-utf8 terminals send unicode escape sequences and hope for the best
     // todo: we could try to convert to the locale first?
     char buf[64+1];
-    snprintf(buf, 64, "\x1B[%" PRIu32, uchr);
+    snprintf(buf, 64, "\x1B[%" PRIu32 "u", uchr);
     buf[64] = 0;
     return term_write_console(term, buf, rp_strlen(buf));
   }

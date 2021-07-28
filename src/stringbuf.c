@@ -960,8 +960,8 @@ rp_public bool rp_char_is_filename_letter(const char* s, long len) {
   return ((uint8_t)c >= 0x80 || (strchr(" \t\r\n`@$><=;|&{}()[]", c) == NULL));
 }
 
-// Convenience: If this is a token start, return the length.
-rp_public long rp_is_token_start(const char* s, long pos, rp_is_char_class_fun_t* is_token_char) {
+// Convenience: If this is a token start, returns the length (or <= 0 if not found).
+rp_public long rp_is_token(const char* s, long pos, rp_is_char_class_fun_t* is_token_char) {
   if (s == NULL || pos < 0 || is_token_char == NULL) return -1;
   ssize_t len = rp_strlen(s);
   if (pos >= len) return -1;
@@ -977,12 +977,31 @@ rp_public long rp_is_token_start(const char* s, long pos, rp_is_char_class_fun_t
 }
 
 // Convenience: Does this match the specified token? 
-// Ensures not to match prefixes or suffixes. 
-// E.g. `rp_match_token("function",0,&rp_char_is_letter,"fun")` returns false.
-rp_public bool rp_match_token(const char* s, long pos, rp_is_char_class_fun_t* is_token_char, const char* token) {
-  ssize_t n = rp_is_token_start(s, pos, is_token_char);
-  if (n <= 0 || token == NULL) return false;
-  return (n == rp_strlen(token) && rp_strncmp(s + pos, token, n) == 0);
+// Ensures not to match prefixes or suffixes, and returns the length of the match (in bytes).
+// E.g. `rp_match_token("function",0,&rp_char_is_letter,"fun")` returns 0.
+rp_public long rp_match_token(const char* s, long pos, rp_is_char_class_fun_t* is_token_char, const char* token) {
+  long n = rp_is_token(s, pos, is_token_char);
+  if (n > 0 && token != NULL && n == rp_strlen(token) && rp_strncmp(s + pos, token, n) == 0) {
+    return n;
+  }
+  else {
+    return 0;
+  }
 }
 
+
+// Convenience: Do any of the specified tokens match? 
+// Ensures not to match prefixes or suffixes, and returns the length of the match (in bytes).
+// Ensures not to match prefixes or suffixes. 
+// E.g. `rp_match_any_token("function",0,&rp_char_is_letter,{"fun","func",NULL})` returns 0.
+rp_public long rp_match_any_token(const char* s, long pos, rp_is_char_class_fun_t* is_token_char, const char** tokens) {
+  long n = rp_is_token(s, pos, is_token_char);
+  if (n <= 0 || tokens == NULL) return 0;
+  for (const char** token = tokens; *token != NULL; token++) {
+    if (n == rp_strlen(*token) && rp_strncmp(s + pos, *token, n) == 0) {
+      return n;
+    }
+  }
+  return 0;
+}
 

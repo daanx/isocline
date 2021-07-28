@@ -316,12 +316,18 @@ bool rp_char_is_idletter(const char* s, long len);
 bool rp_char_is_filename_letter(const char* s, long len);
 
 // Convenience: If this is a token start, return the length.
-long rp_is_token_start(const char* s, long pos, rp_is_char_class_fun_t* is_token_char);
+long rp_is_token(const char* s, long pos, rp_is_char_class_fun_t* is_token_char);
 
 // Convenience: Does this match the spefied token? 
-// Ensures not to match prefixes or suffixes. 
-// E.g. `rp_match_token("function",0,&rp_char_is_letter,"fun")` returns false.
-bool rp_match_token(const char* s, long pos, rp_is_char_class_fun_t* is_token_char, const char* token);
+// Ensures not to match prefixes or suffixes, and returns the length of the match (in bytes).
+// E.g. `rp_match_token("function",0,&rp_char_is_letter,"fun")` returns 0.
+long rp_match_token(const char* s, long pos, rp_is_char_class_fun_t* is_token_char, const char* token);
+
+// Convenience: Do any of the specified tokens match? 
+// Ensures not to match prefixes or suffixes, and returns the length of the match (in bytes).
+// E.g. `rp_match_any_token("function",0,&rp_char_is_letter,{"fun","func",NULL})` returns 0.
+long rp_match_any_token(const char* s, long pos, rp_is_char_class_fun_t* is_token_char, const char** tokens);
+
 
 //--------------------------------------------------------------
 // Terminal, experimental

@@ -199,7 +199,7 @@ static bool edit_refresh_rows_iter(
   edit_write_prompt(info->env, info->eb, row, info->in_extra);
 
   // write output
-  if (info->env->no_highlight || info->eb->henv == NULL) {
+  if (info->in_extra || info->env->no_highlight || info->eb->henv == NULL) {
     term_write_n( term, s + row_start, row_len );
   }
   else {

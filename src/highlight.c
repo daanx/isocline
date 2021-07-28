@@ -139,7 +139,7 @@ static void term_update_attr(term_t* term, attr_t term_attr, attr_t new_attr, at
   if (term_attr.color != cur_attr->color) {
     term_color(term, cur_attr->color);
   }
-  if (term_attr.color != cur_attr->bgcolor) {
+  if (term_attr.bgcolor != cur_attr->bgcolor) {
     term_bgcolor(term, cur_attr->bgcolor);
   }
   if (term_attr.underline != cur_attr->underline) {
@@ -156,7 +156,7 @@ rp_private void highlight_term_write( rp_highlight_env_t* henv, term_t* term, co
     term_write_n( term, s + start, len );    
   }
   else {
-    attr_t term_attr = attr_zero;  // = unknown  
+    attr_t term_attr = attr_default;
     for (ssize_t i = start; i < start + len; i++) {
       char c = s[i];
       if (i >= 0 && i < henv->attr_len && !utf8_is_cont((uint8_t)c)) {

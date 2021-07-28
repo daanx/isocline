@@ -11,6 +11,7 @@
 // completion function defined below
 static void completer(rp_completion_env_t* cenv, const char* prefix );
 
+// highlighter function defined below
 static void highlighter(rp_highlight_env_t* henv, const char* input, void* arg);
 
 // main example
@@ -23,11 +24,14 @@ int main()
          "- Type 'id' (or 'ex', 'f', or 'h') followed by tab for completion.\n"
          "\n");
 
+  // enable history; use a NULL filename to not persist history to disk
+  rp_set_history("history.txt", -1 /* default entries (= 200) */);
+
   // enable completion with a default completion function
   rp_set_default_completer(&completer, NULL);
 
-  // enable history; use a NULL filename to not persist history to disk
-  rp_set_history("history.txt", -1 /* default entries (= 200) */);
+  // enable syntax highlighting with a highlight function
+  rp_set_highlighter(highlighter, NULL);
 
   // set a nice color for the prompt and the prompt marker (>)
   rp_set_prompt_color(RP_GREEN);
@@ -35,9 +39,7 @@ int main()
   // try to auto complete after a completion as long as the completion is unique
   rp_enable_auto_tab(true );
 
-  rp_set_highlighter(highlighter, NULL);
-
-  //rp_set_iface_colors( env, RP_MAROON, RP_DARKGRAY, RP_YELLOW );
+  rp_set_iface_colors( RP_MAROON, RP_DARKGRAY, RP_YELLOW, RP_TEAL );
 
   // run until empty input
   char* input;
@@ -54,10 +56,21 @@ int main()
   return 0;
 }
 
+// -------------------------------------------------------------------------------
+// Completion
+// -------------------------------------------------------------------------------
+
 // A custom completer function.
 // Use `rp_add_completion( env, display, replacement)` to add actual completions.
-static void word_completer(rp_completion_env_t* cenv, const char* prefix ) {
+static void word_completer(rp_completion_env_t* cenv, const char* prefix ) 
+{
+  // complete with list of words; only if the input is a prefix it will be completed
+  static const char* completions[] = { "print", "println", "printer", "printsln", "prompt", NULL };
+  rp_add_completions(cenv, prefix, completions);
+
+  // examples of more customized completions
   if (prefix[0] != 0 && rp_istarts_with("hello repline",prefix)) {
+    // many completions for hello repline
     for(int i = 0; i < 100000; i++) {
       char buf[32];
       snprintf(buf,32,"hello repline (%d)", i+1);
@@ -65,6 +78,7 @@ static void word_completer(rp_completion_env_t* cenv, const char* prefix ) {
     }
   }
   else if (strcmp(prefix,"f") == 0) {  
+    // unicode for f completion
     rp_add_completion(cenv,NULL,"banana 🍌 etc.");
     rp_add_completion(cenv,NULL,"〈pear〉with brackets"); 
     rp_add_completion(cenv,NULL,"猕猴桃 wide");
@@ -72,20 +86,13 @@ static void word_completer(rp_completion_env_t* cenv, const char* prefix ) {
     rp_add_completion(cenv, NULL, "zero\xE2\x80\x8Dwidth-joiner");    
   }
   else if (strcmp(prefix,"id") == 0) {
-    // rp_add_completion(cenv,"C++ - [](auto x){ return x; }", "c++", 2, 0);
+    // display vs. replacement
     rp_add_completion(cenv,"D — (x) => x",       "(x) => x");                
     rp_add_completion(cenv,"Haskell — \\x -> x", "\\x -> x");
     rp_add_completion(cenv,"Idris — \\x => x",   "\\x => x");
     rp_add_completion(cenv,"Koka — fn(x){ x }",  "fn(x){ x }");    
     rp_add_completion(cenv,"Ocaml — fun x -> x", "fun x -> x");
-  }
-  else if (strcmp(prefix,"ex") == 0) {
-    rp_add_completion(cenv, NULL, "excellent");
-  }
-  else {
-    static const char* completions[] = { "print", "println", "printer", "printsln", "prompt", NULL };
-    rp_add_completions(cenv, prefix, completions);
-  }
+  }  
 }
 
 // A completer function is called by repline to complete on input.
@@ -100,25 +107,41 @@ static void completer(rp_completion_env_t* cenv, const char* prefix )
   
   // rp_complete_quoted_word( cenv, prefix, &word_completer, " !=+,`@#&^*.()\r\t\n", '\\', "'\"" );        
 }
-  
+
+
+// -------------------------------------------------------------------------------
+// Syntax highlighting
+// -------------------------------------------------------------------------------
+
+// A highlight function is called by repline when input can be highlighted.
+// Use `rp_highlight_color` (or `bgcolor`, `underline`) to highlight characters from
+// a given position. Here we use some convenience functions to easily highlight
+// simple tokens but a full-fledged highlighter probably needs regular expressions.
 static void highlighter(rp_highlight_env_t* henv, const char* input, void* arg) {
-  size_t len = strlen(input);
-  for (size_t i = 0; i < len; ) {
-    long tlen;
-    if (rp_match_token(input, i, &rp_char_is_idletter, "fun")) {
+  long len = (long)strlen(input);
+  // for all characters in the input..
+  for (long i = 0; i < len; ) {
+    static const char* keywords[] = { "fun", "return", "static", "const", "if", "else", NULL };
+    static const char* types[]    = { "int", "double", "char", "void", NULL };
+    long tlen;  // token length
+    if ((tlen = rp_match_any_token(input, i, &rp_char_is_idletter, keywords)) > 0) {
       rp_highlight_color(henv, i, RP_YELLOW);
-      i += 3;
+      i += tlen;
     }
-    if (rp_match_token(input, i, &rp_char_is_idletter, "int")) {
+    else if ((tlen = rp_match_any_token(input, i, &rp_char_is_idletter, types)) > 0) {
       rp_highlight_color(henv, i, RP_CYAN);
-      i += 3;
+      i += tlen;
     }
-    else if ((tlen = rp_is_token_start(input, i, &rp_char_is_digit)) > 0) {
+    else if ((tlen = rp_is_token(input, i, &rp_char_is_digit)) > 0) {  // digits
       rp_highlight_color(henv, i, RP_PURPLE);
       i += tlen;
     }
+    else if (rp_starts_with(input + i,"//")) {       // line comment
+      rp_highlight_color(henv, i, RP_DARKGRAY);
+      while (i < len && input[i] != '\n') i++;
+    }
     else {
-      rp_highlight_color(henv, i, RP_COLOR_DEFAULT);
+      rp_highlight_color(henv, i, RP_COLOR_DEFAULT);  // anything else (including utf8 continuation bytes)
       i++;
     }
   }
