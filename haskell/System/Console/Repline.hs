@@ -47,7 +47,7 @@ main
 
 interaction :: IO ()
 interaction 
-  = do s <- `readlineWithCompleter` \"hαskell\" completer
+  = do s <- `readlineEx` \"hαskell\" (Just completer) Nothing 
        putStrLn (\"You wrote:\\n\" ++ s)
        if (s == \"\" || s == \"exit\") then return () else interaction
                      
@@ -59,8 +59,9 @@ completer compl input
        return ()
 @
 
-A larger [example](https://github.com/daanx/repline/blob/main/test/Example.hs) 
-with more extenstive custom completion can be found in the [Github repository](https://github.com/daanx/repline).
+See a larger [example](https://github.com/daanx/repline/blob/main/test/Example.hs) 
+with syntax highlighting and more extenstive custom completion 
+in the [Github repository](https://github.com/daanx/repline).
 
 Enjoy,
 -- Daan
@@ -68,7 +69,7 @@ Enjoy,
 module System.Console.Repline( 
       -- * Readline
       readline, 
-      readlineWithCompleter,      
+      readlineEx,      
       
       -- * History
       setHistory,
@@ -86,8 +87,7 @@ module System.Console.Repline(
 
       -- * Syntax Highlighting 
       TextAttr(..),
-      setHighlighterAttr,
-      setHighlighterEsc,
+      makeAttrHighlighter,
       attrDefault,
       withAttr,
       withAttrColor,
@@ -103,8 +103,6 @@ module System.Console.Repline(
       -- * Configuration
       setPromptMarker,
       setPromptColor,
-      setReplineColors,
-      
       enableAutoTab,
       enableColor,
       enableBeep,
@@ -117,15 +115,21 @@ module System.Console.Repline(
       enableInlineHelp,
       
       Color(..), 
-      
+      Style(..),
+      setStyleColor,
+      getStyleColor,
+            
       -- * Advanced
       setDefaultCompleter,      
       readlineMaybe,
-      readlineWithCompleterMaybe,   
+      readlineExMaybe,
+      getPromptMarker,
+      getContinuationPromptMarker,
 
       -- * Low-level highlighting
       Highlight,      
-      setHighlighter,
+      setDefaultHighlighter,      
+      setDefaultAttrHighlighter,
       highlightEsc,
       highlightColor,
       highlightBgColor,
@@ -164,13 +168,24 @@ type CCompleterFun = Ptr RpCompletions -> CString -> IO ()
 type CompleterFun  = Completions -> String -> IO ()
 
 
+data RpHighlightEnv
+
+-- | Abstract highlight environment
+newtype Highlight = Highlight (Ptr RpHighlightEnv)    
+
+type CHighlightFun = Ptr RpHighlightEnv -> CString -> Ptr () -> IO ()
+type HighlightFun  = Highlight -> String -> IO ()
+
+
+
 ----------------------------------------------------------------------------
 -- Basic readline
 ----------------------------------------------------------------------------
 
 foreign import ccall rp_free      :: (Ptr a) -> IO () 
+foreign import ccall rp_malloc    :: CSize -> IO (Ptr a)
 foreign import ccall rp_readline  :: CString -> IO CString
-foreign import ccall rp_readline_with_completer  :: CString -> FunPtr CCompleterFun -> (Ptr a) -> IO CString
+foreign import ccall rp_readline_ex  :: CString -> FunPtr CCompleterFun -> (Ptr ()) -> FunPtr CHighlightFun -> (Ptr ()) -> IO CString
 
 -- | @readline prompt@: Read (multi-line) input from the user with rich editing abilities. 
 -- Takes the prompt text as an argument. The full prompt is the combination
@@ -193,27 +208,30 @@ readlineMaybe prompt
        return res
 
 
--- | @readlineWithCompleter prompt completer@: as 'readline' but
--- uses the given @completer@ function to complete words on @tab@ (instead of the default completer). 
--- See also 'readline' and 'setDefaultCompleter'.
-readlineWithCompleter :: String -> (Completions -> String -> IO ()) -> IO String
-readlineWithCompleter prompt completer 
-  = do mbRes <- readlineWithCompleterMaybe prompt completer
+-- | @readlineEx prompt mbCompleter mbHighlighter@: as 'readline' but
+-- uses the given @mbCompleter@ function to complete words on @tab@ (instead of the default completer). 
+-- and the given @mbHighlighter@ function to highlight the input (instead of the default highlighter).
+-- See also 'readline' and 'readlineExMaybe'.
+readlineEx :: String -> Maybe (Completions -> String -> IO ()) -> Maybe (Highlight -> String -> IO ()) -> IO String
+readlineEx prompt completer highlighter
+  = do mbRes <- readlineExMaybe prompt completer highlighter
        case mbRes of
          Just s  -> return s
          Nothing -> return ""
 
 
--- | As 'readlineWithCompleter' but returns 'Nothing' on end-of-file or other errors (ctrl-C/ctrl-D).
--- See also 'readlineWithCompleter'.
-readlineWithCompleterMaybe :: String -> (Completions -> String -> IO ()) -> IO (Maybe String) 
-readlineWithCompleterMaybe prompt completer 
+-- | As 'readlineEx' but returns 'Nothing' on end-of-file or other errors (ctrl-C/ctrl-D).
+-- See also 'readlineMaybe'.
+readlineExMaybe :: String -> Maybe (Completions -> String -> IO ()) -> Maybe (Highlight -> String -> IO ()) -> IO (Maybe String) 
+readlineExMaybe prompt completer highlighter
   = withUTF8String prompt $ \cprompt ->
-    do ccompleter <- makeCCompleter completer
-       cres <- rp_readline_with_completer cprompt ccompleter nullPtr
+    do ccompleter   <- makeCCompleter completer
+       chighlighter <- makeCHighlighter highlighter
+       cres <- rp_readline_ex cprompt ccompleter nullPtr chighlighter nullPtr
        res  <- peekUTF8StringMaybe cres
        rp_free cres
-       freeHaskellFunPtr ccompleter
+       when (ccompleter /= nullFunPtr)   $ freeHaskellFunPtr ccompleter
+       when (chighlighter /= nullFunPtr) $ freeHaskellFunPtr chighlighter
        return res
 
 ----------------------------------------------------------------------------
@@ -278,11 +296,12 @@ foreign import ccall rp_complete_quoted_word  :: Ptr RpCompletions -> CString ->
 -- This overwrites any previously set completer.
 setDefaultCompleter :: (Completions -> String -> IO ()) -> IO ()
 setDefaultCompleter completer 
-  = do ccompleter <- makeCCompleter completer
+  = do ccompleter <- makeCCompleter (Just completer)
        rp_set_default_completer ccompleter
 
-makeCCompleter :: CompleterFun -> IO (FunPtr CCompleterFun)
-makeCCompleter completer
+makeCCompleter :: Maybe CompleterFun -> IO (FunPtr CCompleterFun)
+makeCCompleter Nothing = return nullFunPtr
+makeCCompleter (Just completer)
   = rp_make_completer wrapper
   where
     wrapper :: Ptr RpCompletions -> CString -> IO ()
@@ -347,11 +366,12 @@ completeFileName (Completions rpc) prefx dirSep roots extensions
 -- > "hello w   -->  "hello world"
 --
 -- The call @('completeWord' compl prefx fun)@ is a short hand for 
--- @('completeQuotedWord' compl prefx fun \" \\t\\r\\n\" \'\\\\\' \"\'\\\"\")@.
+-- @('completeQuotedWord' compl prefx fun (not . separator) \'\\\\\' \"\'\\\"\")@.
+-- where @separator = \c -> c `elem` \" \\t\\r\\n,.;:/\\\\(){}[]\"@.
 completeWord :: Completions -> String -> (Completions -> String -> IO ()) -> IO () 
 completeWord (Completions rpc) prefx completer
   = withUTF8String prefx $ \cprefx ->
-    do ccompleter <- makeCCompleter completer
+    do ccompleter <- makeCCompleter (Just completer)
        rp_complete_word rpc cprefx ccompleter
        freeHaskellFunPtr ccompleter
   
@@ -370,7 +390,7 @@ completeQuotedWord (Completions rpc) prefx completer isWordChar escapeChar quote
     do let cescapeChar = case escapeChar of
                           Nothing -> toEnum 0
                           Just c  -> castCharToCChar c                      
-       ccompleter <- makeCCompleter completer
+       ccompleter <- makeCCompleter (Just completer)
        cisWordChar <- makeCharClassFun isWordChar
        rp_complete_quoted_word rpc cprefx ccompleter cisWordChar cescapeChar cquoteChars
        freeHaskellFunPtr cisWordChar
@@ -392,15 +412,7 @@ makeCharClassFun isInClass
 -- Syntax highlighting
 ----------------------------------------------------------------------------
 
-data RpHighlightEnv
-
--- | Abstract highlight environment
-newtype Highlight = Highlight (Ptr RpHighlightEnv)    
-
-type CHighlightFun = Ptr RpHighlightEnv -> CString -> Ptr () -> IO ()
-type HighlightFun  = Highlight -> String -> IO ()
-
-foreign import ccall rp_set_highlighter     :: FunPtr CHighlightFun -> Ptr () -> IO ()
+foreign import ccall rp_set_default_highlighter     :: FunPtr CHighlightFun -> Ptr () -> IO ()
 foreign import ccall "wrapper" rp_make_highlight_fun:: CHighlightFun -> IO (FunPtr CHighlightFun)
 
 foreign import ccall rp_highlight_color     :: Ptr RpHighlightEnv -> CLong -> CInt -> IO ()
@@ -411,50 +423,40 @@ foreign import ccall rp_highlight_reverse   :: Ptr RpHighlightEnv -> CLong -> CI
 type CHighlightEscFun = CString -> Ptr () -> IO CString
 type HighlightEscFun  = String -> String
 
-foreign import ccall rp_set_highlighter_esc :: FunPtr CHighlightEscFun -> IO ()
 foreign import ccall rp_highlight_esc       :: Ptr RpHighlightEnv -> CString -> FunPtr CHighlightEscFun -> Ptr () -> IO ()
 foreign import ccall "wrapper" rp_make_highlight_esc_fun:: CHighlightEscFun -> IO (FunPtr CHighlightEscFun)
 foreign import ccall rp_strdup              :: CString -> IO CString
 
 -- | Set a syntax highlighter.
 -- There can only be one highlight function, setting it again disables the previous one.
--- See also 'setHighlighterEsc'.
-setHighlighter :: (Highlight -> String -> IO ()) -> IO ()
-setHighlighter highlightFun
-  = do chlFun <- rp_make_highlight_fun chighlightFun 
-       rp_set_highlighter chlFun nullPtr
+setDefaultHighlighter :: (Highlight -> String -> IO ()) -> IO ()
+setDefaultHighlighter highlighter
+  = do chighlighter <- makeCHighlighter (Just highlighter)
+       rp_set_default_highlighter chighlighter nullPtr
   where
     chighlightFun henv cinput carg
       = do input <- peekUTF8String0 cinput
-           highlightFun (Highlight henv) input
+           highlighter (Highlight henv) input
 
 
--- | Set a syntax highlighter that uses a pure function to insert ANSI CSI SGR sequences
--- to highlight the code. This should function should _not_ add or delete characters
--- and only add basic CSI sequences to set the color, background color, underline, or reverse video.
--- See <https://en.wikipedia.org/wiki/ANSI_escape_code#SGR_(Select_Graphic_Rendition)_parameters>
--- There can only be one highlight function, setting it again disables the previous one.
--- 
--- See also `setHighlighterAttr` for a highlighter based on text attributes instead.
-setHighlighterEsc :: (String -> String) -> IO ()
-setHighlighterEsc highlight
-  = do cfun <- rp_make_highlight_esc_fun chighlight
-       rp_set_highlighter_esc cfun
+makeCHighlighter :: Maybe (Highlight -> String -> IO ()) -> IO (FunPtr CHighlightFun)
+makeCHighlighter Nothing = return nullFunPtr
+makeCHighlighter (Just highlighter)
+  = rp_make_highlight_fun wrapper
   where
-    chighlight cinput carg
+    wrapper henv cinput carg
       = do input <- peekUTF8String0 cinput
-           withUTF8String0 (highlight input) $ \coutput ->
-             rp_strdup coutput
+           highlighter (Highlight henv) input
 
--- | Use an escape sequence highlighter from inside `setHighlighter`.
--- It is recommended to use ` setHighlighterEsc` instead.
+
+-- | Use an escape sequence highlighter from inside a highlighter callback.
 highlightEsc :: Highlight -> String -> (String -> String) -> IO ()
 highlightEsc (Highlight henv) input highlight
   = withUTF8String0 input $ \cinput ->
-    do cfun <- rp_make_highlight_esc_fun chighlight
+    do cfun <- rp_make_highlight_esc_fun wrapper
        rp_highlight_esc henv cinput cfun nullPtr
   where
-    chighlight cinput carg
+    wrapper cinput carg
       = do input <- peekUTF8String0 cinput
            withUTF8String0 (highlight input) $ \coutput ->
              rp_strdup coutput
@@ -551,17 +553,22 @@ highlightSetAttr henv pos (TextAttr color bgcolor underline reverse)
        highlightUnderline henv pos underline
        highlightReverse henv pos reverse
 
--- | Set a syntax highlighter that uses a pure function to return a list
+-- | Set a syntax highlighter that uses a pure function that returns a list
 -- of text attributes for each character in the input.
 -- There can only be one highlight function, setting it again disables the previous one.
---
--- See also `setHighlighterEsc` for a highlight function based on escape sequences instead.
-setHighlighterAttr :: (String -> [TextAttr]) -> IO ()
-setHighlighterAttr highlight 
-  = setHighlighter highlightFun
+setDefaultAttrHighlighter :: (String -> [TextAttr]) -> IO ()
+setDefaultAttrHighlighter highlight 
+  = setDefaultHighlighter (makeAttrHighlighter highlight)
+
+
+-- | Create a highlighter from a pure function that returns a list
+-- of text attributes for each character in the input.
+makeAttrHighlighter :: (String -> [TextAttr]) -> (Highlight -> String -> IO ()) 
+makeAttrHighlighter highlight
+  = highlightWrapper
   where 
-    highlightFun :: Highlight -> String -> IO ()
-    highlightFun henv input
+    highlightWrapper :: Highlight -> String -> IO ()
+    highlightWrapper henv input
       = do let attrs = highlight input               
            foldM (setAttr henv) attrDefault (zip [0..] attrs)
            return ()
@@ -595,19 +602,22 @@ termWriteLn s
 ----------------------------------------------------------------------------
 -- Configuration
 ----------------------------------------------------------------------------
-foreign import ccall rp_set_prompt_color  :: CInt -> IO ()
-foreign import ccall rp_set_iface_colors  :: CInt -> CInt -> CInt -> CInt -> IO ()
+foreign import ccall rp_set_style_color   :: CInt -> CInt -> IO ()
+foreign import ccall rp_get_style_color   :: CInt -> IO CInt
+foreign import ccall rp_set_prompt_color  :: CInt -> IO CInt
 foreign import ccall rp_set_prompt_marker :: CString -> CString -> IO ()
-foreign import ccall rp_enable_multiline  :: CCBool -> IO ()
-foreign import ccall rp_enable_beep       :: CCBool -> IO ()
-foreign import ccall rp_enable_color      :: CCBool -> IO ()
-foreign import ccall rp_enable_auto_tab   :: CCBool -> IO ()
-foreign import ccall rp_enable_inline_help:: CCBool -> IO ()
-foreign import ccall rp_enable_hint       :: CCBool -> IO ()
-foreign import ccall rp_enable_highlight  :: CCBool -> IO ()
-foreign import ccall rp_enable_history_duplicates :: CCBool -> IO ()
-foreign import ccall rp_enable_completion_preview :: CCBool -> IO ()
-foreign import ccall rp_enable_multiline_indent   :: CCBool -> IO ()
+foreign import ccall rp_get_prompt_marker :: IO CString
+foreign import ccall rp_get_continuation_prompt_marker :: IO CString
+foreign import ccall rp_enable_multiline  :: CCBool -> IO CCBool
+foreign import ccall rp_enable_beep       :: CCBool -> IO CCBool
+foreign import ccall rp_enable_color      :: CCBool -> IO CCBool
+foreign import ccall rp_enable_auto_tab   :: CCBool -> IO CCBool
+foreign import ccall rp_enable_inline_help:: CCBool -> IO CCBool
+foreign import ccall rp_enable_hint       :: CCBool -> IO CCBool
+foreign import ccall rp_enable_highlight  :: CCBool -> IO CCBool
+foreign import ccall rp_enable_history_duplicates :: CCBool -> IO CCBool
+foreign import ccall rp_enable_completion_preview :: CCBool -> IO CCBool
+foreign import ccall rp_enable_multiline_indent   :: CCBool -> IO CCBool
 
 
 
@@ -615,17 +625,30 @@ cbool :: Bool -> CCBool
 cbool True  = toEnum 1
 cbool False = toEnum 0
 
+uncbool :: IO CCBool -> IO Bool
+uncbool action
+  = do i <- action
+       return (i /= toEnum 0)
+
+
 ccolor :: Color -> CInt
 ccolor clr = toEnum (fromEnum clr)
+
+unccolor :: IO CInt -> IO Color
+unccolor action
+  = do i <- action
+       return (toEnum (fromEnum i))
+
 
 clong :: Int -> CLong
 clong l = toEnum l
 
 
 -- | Set the color of the prompt.
-setPromptColor :: Color -> IO ()
+-- Returns the previous value.
+setPromptColor :: Color -> IO Color
 setPromptColor color
-  = rp_set_prompt_color (ccolor color)
+  = do unccolor $ rp_set_prompt_color (ccolor color)
 
 
 -- | @setPromptMarker marker multiline_marker@: Set the prompt @marker@ (by default @\"> \"@). 
@@ -637,74 +660,114 @@ setPromptMarker marker multiline_marker
     withUTF8String0 multiline_marker $ \cmultiline_marker ->
     do rp_set_prompt_marker cmarker cmultiline_marker
 
+
+-- | Get the current prompt marker.
+getPromptMarker :: IO String
+getPromptMarker 
+  = do cstr  <- rp_get_prompt_marker
+       if (nullPtr == cstr) 
+         then return ""
+         else do cstr2 <- rp_strdup cstr
+                 peekUTF8String0 cstr2
+
+-- | Get the current prompt continuation marker for multi-line input.
+getContinuationPromptMarker :: IO String
+getContinuationPromptMarker 
+  = do cstr <- rp_get_continuation_prompt_marker
+       if (nullPtr == cstr) 
+         then return ""
+         else do cstr2 <- rp_strdup cstr
+                 peekUTF8String0 cstr2
+
+
 -- | Disable or enable multi-line input (enabled by default).
-enableMultiline :: Bool -> IO ()
+-- Returns the previous value.
+enableMultiline :: Bool -> IO Bool
 enableMultiline enable
-  = do rp_enable_multiline (cbool enable)
+  = do uncbool $ rp_enable_multiline (cbool enable)
 
 -- | Disable or enable sound (enabled by default).
 -- | A beep is used when tab cannot find any completion for example.
-enableBeep :: Bool -> IO ()
+-- Returns the previous value.
+enableBeep :: Bool -> IO Bool
 enableBeep enable
-  = do rp_enable_beep (cbool enable)
+  = do uncbool $ rp_enable_beep (cbool enable)
 
 -- | Disable or enable color output (enabled by default).
-enableColor :: Bool -> IO ()
+-- Returns the previous value.
+enableColor :: Bool -> IO Bool
 enableColor enable
-  = do rp_enable_color (cbool enable)
+  = do uncbool $ rp_enable_color (cbool enable)
 
 -- | Disable or enable duplicate entries in the history (duplicate entries are not allowed by default).
-enableHistoryDuplicates :: Bool -> IO ()
+-- Returns the previous value.
+enableHistoryDuplicates :: Bool -> IO Bool
 enableHistoryDuplicates enable
-  = do rp_enable_history_duplicates (cbool enable)
+  = do uncbool $ rp_enable_history_duplicates (cbool enable)
 
 
 -- | Disable or enable automatic tab completion after a completion 
 -- to expand as far as possible if the completions are unique. (disabled by default).
-enableAutoTab :: Bool -> IO ()
+-- Returns the previous value.
+enableAutoTab :: Bool -> IO Bool
 enableAutoTab enable
-  = do rp_enable_auto_tab (cbool enable)
+  = do uncbool $ rp_enable_auto_tab (cbool enable)
 
 
 -- | Disable or enable short inline help message (for history search etc.) (enabled by default).
 -- Pressing F1 always shows full help regardless of this setting. 
-enableInlineHelp :: Bool -> IO ()
+-- Returns the previous value.
+enableInlineHelp :: Bool -> IO Bool
 enableInlineHelp enable
-  = do rp_enable_inline_help (cbool enable)
+  = do uncbool $ rp_enable_inline_help (cbool enable)
 
 -- | Disable or enable preview of a completion selection (enabled by default)
-enableCompletionPreview :: Bool -> IO ()
+-- Returns the previous value.
+enableCompletionPreview :: Bool -> IO Bool
 enableCompletionPreview enable
-  = do rp_enable_completion_preview (cbool enable)
+  = do uncbool $ rp_enable_completion_preview (cbool enable)
 
--- | Set the color used for interface elements:
---
--- - info: for example, numbers in the completion menu (`DarkGray` by default).
--- - diminish: for example, non matching parts in a history search (`LightGray` by default).
--- - emphasis: for example, the matching part in a history search (`White` by default).
--- - hint: for inline hints (`DarkGray` by default).
---
+-- | Styles for user interface elements
+data Style
+  = StyleInfo     -- ^ info: for example, numbers in the completion menu (`DarkGray` by default).
+  | StyleDiminish -- ^ diminish: for example, non matching parts in a history search (`LightGray` by default)
+  | StyleEmphasis -- ^ emphasis: for example, the matching part in a history search (`White` by default).
+  | StyleHint     -- ^ hint: for inline hints (`DarkGray` by default).
+  deriving (Show,Eq,Enum)
+
+cstyle :: Style -> CInt
+cstyle style = toEnum (fromEnum style)
+
+-- | Set the color used for interface elements.
 -- Use `ColorNone` to use the default color. (but `ColorDefault` for the default terminal text color!
-setReplineColors :: Color -> Color -> Color -> Color -> IO ()
-setReplineColors colorInfo colorDiminish colorEmphasis colorHint
-  = rp_set_iface_colors (ccolor colorInfo) (ccolor colorDiminish) (ccolor colorEmphasis) (ccolor colorHint)
+setStyleColor :: Style -> Color -> IO ()
+setStyleColor style color
+  = rp_set_style_color (cstyle style) (ccolor color)
+
+-- | Get the color used for interface elements.
+getStyleColor :: Style -> IO Color
+getStyleColor style 
+  = unccolor $ rp_get_style_color (cstyle style) 
 
 -- | Disable or enable automatic indentation to line up the
 -- multiline prompt marker with the initial prompt marker (enabled by default).
+-- Returns the previous value.
 -- See also 'setPromptMarker'.
-enableMultilineIndent :: Bool -> IO ()
+enableMultilineIndent :: Bool -> IO Bool
 enableMultilineIndent enable
-  = do rp_enable_multiline_indent (cbool enable)
+  = do uncbool $ rp_enable_multiline_indent (cbool enable)
 
 -- | Disable or enable automatic inline hinting (enabled by default)
-enableHint :: Bool -> IO ()
+-- Returns the previous value.
+enableHint :: Bool -> IO Bool
 enableHint enable
-  = do rp_enable_hint (cbool enable)
+  = do uncbool $ rp_enable_hint (cbool enable)
 
 -- | Disable or enable syntax highlighting (enabled by default).
-enableHighlight :: Bool -> IO ()
+-- Returns the previous value.
+enableHighlight :: Bool -> IO Bool
 enableHighlight enable
-  = do rp_enable_highlight (cbool enable)
+  = do uncbool $ rp_enable_highlight (cbool enable)
 
 
 ----------------------------------------------------------------------------

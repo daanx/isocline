@@ -43,8 +43,10 @@ rp_private void history_free(history_t* h) {
   mem_free(h->mem, h); // free ourselves
 }
 
-rp_private void history_enable_duplicates( history_t* h, bool enable ) {
+rp_private bool history_enable_duplicates( history_t* h, bool enable ) {
+  bool prev = h->allow_duplicates;
   h->allow_duplicates = enable;
+  return prev;
 }
 
 rp_private ssize_t  history_count(const history_t* h) {

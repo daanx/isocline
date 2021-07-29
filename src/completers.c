@@ -20,13 +20,13 @@
 
 // free variables for word completion
 typedef struct word_closure_s {
-  rp_is_char_class_fun_t* is_word_char;
-  char        escape_char;
-  char        quote;
-  long        delete_before_adjust;
-  rp_completion_fun_t* prev_complete;
+  char         escape_char;
+  char         quote;
+  long         delete_before_adjust;
   stringbuf_t* sbuf;
   void*        prev_env;
+  rp_is_char_class_fun_t* is_word_char;
+  rp_completion_fun_t*    prev_complete;
 } word_closure_t;
 
 

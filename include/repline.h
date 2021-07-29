@@ -178,15 +178,19 @@ typedef void (rp_highlight_fun_t)(rp_highlight_env_t* henv, const char* input, v
 void rp_set_default_highlighter(rp_highlight_fun_t* highlighter, void* arg);
 
 // Set the color of characters starting at position `pos` to `color`.
+// (Use a negative position to indicate a logical unicode character position).
 void rp_highlight_color(rp_highlight_env_t* henv, long pos, rp_color_t color );
 
 // Set the background color of characters starting at position `pos` to `bgcolor`.
+// (Use a negative position to indicate a logical unicode character position).
 void rp_highlight_bgcolor(rp_highlight_env_t* henv, long pos, rp_color_t bgcolor);
 
 // Enable/Disable underlining for characters starting at position `pos`.
+// (Use a negative position to indicate a logical unicode character position).
 void rp_highlight_underline(rp_highlight_env_t* henv, long pos, bool enable );
 
 // Enable/Disable reverse video for characters starting at position `pos`.
+// (Use a negative position to indicate a logical unicode character position).
 void rp_highlight_reverse(rp_highlight_env_t* henv, long pos, bool enable);
 
 
@@ -201,11 +205,6 @@ typedef char* (rp_highlight_esc_fun_t)(const char* s, void* arg);
 // ANSI CSI SGR color sequences. User state is passed through the `arg`. 
 // See: <https://en.wikipedia.org/wiki/ANSI_escape_code#SGR_(Select_Graphic_Rendition)_parameters>
 void rp_highlight_esc(rp_highlight_env_t* henv, const char* input, rp_highlight_esc_fun_t* highlight, void* arg);
-
-
-// Convenience: set directly a highlighter that calls an `rp_highlight_esc_fun_t` 
-// function to highlight using ANSI escape sequences.
-void rp_set_default_highlighter_esc(rp_highlight_esc_fun_t* highlight);
 
 
 //--------------------------------------------------------------
@@ -230,55 +229,78 @@ char* rp_readline_ex(const char* prompt_text, rp_completer_fun_t* completer, voi
 // Pass NULL for continuation prompt marker to make it equal to the `prompt_marker`.
 void rp_set_prompt_marker( const char* prompt_marker, const char* continuation_prompt_marker );
 
+// Get the current prompt marker.
+const char* rp_get_prompt_marker(void);
+
+// Get the current continuation prompt marker.
+const char* rp_get_contiuation_prompt_marker(void);
+
 // Set the color used for the prompt text and marker.
-void rp_set_prompt_color( rp_color_t color );
+// Returns the previous color.
+rp_color_t rp_set_prompt_color( rp_color_t color );
 
 // Disable or enable multi-line input (enabled by default).
-void rp_enable_multiline( bool enable );
+// Returns the previous setting.
+bool rp_enable_multiline( bool enable );
 
 // Disable or enable sound (enabled by default).
 // A beep is used when tab cannot find any completion for example.
-void rp_enable_beep( bool enable );
+// Returns the previous setting.
+bool rp_enable_beep( bool enable );
 
 // Disable or enable color output (enabled by default).
-void rp_enable_color( bool enable );
+// Returns the previous setting.
+bool rp_enable_color( bool enable );
 
 // Disable or enable duplicate entries in the history (disabled by default).
-void rp_enable_history_duplicates( bool enable );
+// Returns the previous setting.
+bool rp_enable_history_duplicates( bool enable );
 
 // Disable or enable automatic tab completion after a completion 
 // to expand as far as possible if the completions are unique. (disabled by default).
-void rp_enable_auto_tab( bool enable );
+// Returns the previous setting.
+bool rp_enable_auto_tab( bool enable );
 
 // Disable or enable preview of a completion selection (enabled by default)
-void rp_enable_completion_preview( bool enable );
+// Returns the previous setting.
+bool rp_enable_completion_preview( bool enable );
 
 // Disable or enable automatic identation of continuation lines in multiline
 // input so it aligns with the initial prompt.
-void rp_enable_multiline_indent(bool enable);
+// Returns the previous setting.
+bool rp_enable_multiline_indent(bool enable);
 
 // Disable or enable display of short help messages for history search etc.
 // (full help is always dispayed when pressing F1 regardless of this setting)
-void rp_enable_inline_help(bool enable);
+// Returns the previous setting.
+bool rp_enable_inline_help(bool enable);
 
 // Disable or enable hinting (enabled by default)
 // Shows a hint inline when there is a single possible completion.
-void rp_enable_hint(bool enable);
+// Returns the previous setting.
+bool rp_enable_hint(bool enable);
 
 // Disable or enable syntax highlighting (enabled by default).
 // This applies regardless whether a syntax highlighter callback was set (`rp_set_highlighter`)
-void rp_enable_highlight(bool enable);
+// Returns the previous setting.
+bool rp_enable_highlight(bool enable);
 
-// Set the color used for interface elements:
-//
-// - info: for example, numbers in the completion menu (`RP_DARKGRAY` by default)
-// - diminish: for example, non matching parts in a history search (`RP_LIGHTGRAY` by default)
-// - emphasis: for example, the matching part in a history search (`RP_WHITE` by default)
-// - hint: for hints.
-//
+
+// Styles for interface elements.
+typedef enum rp_style_e {
+  RP_STYLE_INFO,     // info: for example, numbers in the completion menu(`RP_DARKGRAY` by default)
+  RP_STYLE_DIMINISH, // diminish: for example, non matching parts in a history search (`RP_LIGHTGRAY` by default)
+  RP_STYLE_EMPHASIS, // emphasis: for example, the matching part in a history search (`RP_WHITE` by default)
+  RP_STYLE_HINT,     // hint: for hints.
+  RP_STYLE_LAST
+} rp_style_t;
+
+// Set the color used for interface elements.
 // Use `RP_COLOR_NONE` to use the default color. (but `RP_COLOR_DEFAULT` for the default terminal text color!)
+void rp_set_style_color( rp_style_t style, rp_color_t color );
 
-void rp_set_iface_colors( rp_color_t color_info, rp_color_t color_diminish, rp_color_t color_emphasis, rp_color_t color_hint );
+// Get the current interface colors.
+rp_color_t rp_get_style_color( rp_style_t iface_element );
 
 //--------------------------------------------------------------
 // Advanced Completion
@@ -402,6 +424,9 @@ void rp_init_custom_alloc( rp_malloc_fun_t* _malloc, rp_realloc_fun_t* _realloc,
 
 // Free a potentially custom alloc'd pointer (in particular, the result returned from `rp_readline`)
 void rp_free( void* p );
+
+// Allocate using the current memory allocator.
+void* rp_malloc(size_t sz);
 
 // Duplicate a string using the current memory allocator.
 const char* rp_strdup( const char* s );

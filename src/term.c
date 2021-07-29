@@ -295,12 +295,16 @@ rp_private bool term_is_interactive(const term_t* term) {
   return true;
 }
 
-rp_private void term_enable_beep(term_t* term, bool enable) {
+rp_private bool term_enable_beep(term_t* term, bool enable) {
+  bool prev = term->silent;
   term->silent = !enable;
+  return prev;
 }
 
-rp_private void term_enable_color(term_t* term, bool enable) {
+rp_private bool term_enable_color(term_t* term, bool enable) {
+  bool prev = !term->nocolor;
   term->nocolor = !enable;
+  return prev;
 }
 
 

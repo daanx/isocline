@@ -228,16 +228,6 @@ rp_public void rp_highlight_reverse(rp_highlight_env_t* henv, long pos, bool ena
 }
 
 
-static void highlight_esc( rp_highlight_env_t* henv, const char* input, void* arg ) {
-  rp_highlight_esc_fun_t* highlight = (rp_highlight_esc_fun_t*)arg;
-  rp_highlight_esc( henv, input, highlight, NULL);
-}
-
-rp_public void rp_set_default_highlighter_esc(rp_highlight_esc_fun_t* highlight) {
-  rp_set_default_highlighter( &highlight_esc, (void*)highlight );  // function ptr to void* ...
-}
-
-
 // Convenience function for highlighting with escape sequences.
 rp_public void rp_highlight_esc(rp_highlight_env_t* henv, const char* input, rp_highlight_esc_fun_t* highlight, void* arg) {
   if (henv == NULL || henv->attr_len <= 0) return;

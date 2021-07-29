@@ -14,21 +14,21 @@ main
   = do termWriteLn welcome                 -- like putStrLn but handles escape sequences portably
        setPromptColor Green                -- custom prompt color
        setHistory "history.txt" 200        -- history
-       setHighlighterAttr highlighter      -- syntax highlighting
        enableAutoTab True                  -- complete as far as possible
        interaction
   where
     welcome = "\n\x1B[33mHaskell Repline sample program:\x1B[0m\n" ++
               "- Type 'exit' to quit. (or use ctrl+d).\n" ++
               "- Press F1 for help on editing commands.\n" ++
-              "- Use ctrl+enter for multiline input (or alt-enter on macOS).\n" ++
-              "- Type 'id' (or 'ex', 'f', or 'h') followed by tab for completion.\n" ++
+              "- Use shift+tab for multiline input (or ctrl-enter).\n" ++
+              "- Type 'p' (or 'id', 'f', or 'h') followed by tab for completion.\n" ++
+              "- Type 'fun' or 'int' to see syntax highlighting\n" ++
               "- Use ctrl+r to search the history.\n" ++
               "\n"
 
 interaction :: IO ()
 interaction 
-  = do s <- readlineWithCompleter "hαskell" completer   -- or use `readline` without completion
+  = do s <- readlineEx "hαskell" (Just completer) (Just highlighter)
        putStrLn $ unlines ["--------",s,"--------"]
        if (s == "" || s == "exit") 
          then return ()
@@ -75,8 +75,11 @@ wordCompleter compl input0
 -- Parsec or regex's for syntax highlighting
 ----------------------------------------------------------------------------       
 
-highlighter :: String -> [TextAttr]
-highlighter input
+highlighter :: Highlight -> String -> IO ()
+highlighter = makeAttrHighlighter attrHighlighter
+
+attrHighlighter :: String -> [TextAttr]
+attrHighlighter input
   = tokenize input
   where
     tokenize [] = []
@@ -91,7 +94,7 @@ highlighter input
                              else withAttrDefault t)
                          ++ tokenize ds
       | isDigit c   = let (t,ds) = span isDigit s 
-                      in withAttrColor White t ++ tokenize ds
+                      in withAttrColor Blue t ++ tokenize ds
       | otherwise   = withAttrDefault [c] ++ tokenize cs
 
 

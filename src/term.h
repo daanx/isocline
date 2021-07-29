@@ -23,8 +23,8 @@ rp_private bool term_is_interactive(const term_t* term);
 rp_private void term_start_raw(term_t* term);
 rp_private void term_end_raw(term_t* term);
 
-rp_private void term_enable_beep(term_t* term, bool enable);
-rp_private void term_enable_color(term_t* term, bool enable);
+rp_private bool term_enable_beep(term_t* term, bool enable);
+rp_private bool term_enable_color(term_t* term, bool enable);
 
 rp_private bool term_write_n(term_t* term, const char* s, ssize_t n);
 rp_private bool term_write(term_t* term, const char* s);

@@ -106,34 +106,48 @@ static void set_prompt_marker(rp_env_t* env, const char* prompt_marker, const ch
   env->cprompt_marker = mem_strdup(env->mem, cprompt_marker);
 }
 
+rp_public const char* rp_get_prompt_marker(void) {
+  rp_env_t* env = rp_get_env(); if (env==NULL) return NULL;
+  return env->prompt_marker;
+}
+
+rp_public const char* rp_get_continuation_prompt_marker(void) {
+  rp_env_t* env = rp_get_env(); if (env==NULL) return NULL;
+  return env->cprompt_marker;
+}
+
 rp_public void rp_set_prompt_marker( const char* prompt_marker, const char* cprompt_marker ) {
   rp_env_t* env = rp_get_env(); if (env==NULL) return;
   set_prompt_marker(env, prompt_marker, cprompt_marker);
 }
 
-rp_public void rp_set_prompt_color( rp_color_t color ) {
-  rp_env_t* env = rp_get_env(); if (env==NULL) return;
+rp_public rp_color_t rp_set_prompt_color( rp_color_t color ) {
+  rp_env_t* env = rp_get_env(); if (env==NULL) return RP_COLOR_NONE;
+  rp_color_t prev = env->prompt_color;
   env->prompt_color = color;
+  return prev;
 }
 
-rp_public void rp_enable_multiline( bool enable ) {
-  rp_env_t* env = rp_get_env(); if (env==NULL) return;
+rp_public bool rp_enable_multiline( bool enable ) {
+  rp_env_t* env = rp_get_env(); if (env==NULL) return false;
+  bool prev = env->singleline_only;
   env->singleline_only = !enable;
+  return !prev;
 }
 
-rp_public void rp_enable_beep( bool enable ) {
-  rp_env_t* env = rp_get_env(); if (env==NULL) return;
-  term_enable_beep(env->term, enable);
+rp_public bool rp_enable_beep( bool enable ) {
+  rp_env_t* env = rp_get_env(); if (env==NULL) return false;
+  return term_enable_beep(env->term, enable);
 }
 
-rp_public void rp_enable_color( bool enable ) {
-  rp_env_t* env = rp_get_env(); if (env==NULL) return;
-  term_enable_color( env->term, enable );
+rp_public bool rp_enable_color( bool enable ) {
+  rp_env_t* env = rp_get_env(); if (env==NULL) return false;
+  return term_enable_color( env->term, enable );
 }
 
-rp_public void rp_enable_history_duplicates( bool enable ) {
-  rp_env_t* env = rp_get_env(); if (env==NULL) return;
-  history_enable_duplicates(env->history, enable);
+rp_public bool rp_enable_history_duplicates( bool enable ) {
+  rp_env_t* env = rp_get_env(); if (env==NULL) return false;
+  return history_enable_duplicates(env->history, enable);
 }
 
 rp_public void rp_set_history(const char* fname, long max_entries ) {
@@ -156,34 +170,46 @@ rp_public void rp_history_clear(void) {
   history_clear(env->history);
 }
 
-rp_public void rp_enable_auto_tab( bool enable ) {
-  rp_env_t* env = rp_get_env(); if (env==NULL) return;
+rp_public bool rp_enable_auto_tab( bool enable ) {
+  rp_env_t* env = rp_get_env(); if (env==NULL) return false;
+  bool prev = env->complete_autotab;
   env->complete_autotab = enable;
+  return prev;
 }
 
-rp_public void rp_enable_completion_preview( bool enable ) {
-  rp_env_t* env = rp_get_env(); if (env==NULL) return;
+rp_public bool rp_enable_completion_preview( bool enable ) {
+  rp_env_t* env = rp_get_env(); if (env==NULL) return false;
+  bool prev = env->complete_nopreview;
   env->complete_nopreview = !enable;
+  return !prev;
 }
 
-rp_public void rp_enable_multiline_indent(bool enable) {
-  rp_env_t* env = rp_get_env(); if (env==NULL) return;
+rp_public bool rp_enable_multiline_indent(bool enable) {
+  rp_env_t* env = rp_get_env(); if (env==NULL) return false;
+  bool prev = env->no_multiline_indent;
   env->no_multiline_indent = !enable;
+  return !prev;
 }
 
-rp_public void rp_enable_hint(bool enable) {
-  rp_env_t* env = rp_get_env(); if (env==NULL) return;
+rp_public bool rp_enable_hint(bool enable) {
+  rp_env_t* env = rp_get_env(); if (env==NULL) return false;
+  bool prev = env->no_hint;
   env->no_hint = !enable;
+  return !prev;
 }
 
-rp_public void rp_enable_highlight(bool enable) {
-  rp_env_t* env = rp_get_env(); if (env==NULL) return;
+rp_public bool rp_enable_highlight(bool enable) {
+  rp_env_t* env = rp_get_env(); if (env==NULL) return false;
+  bool prev = env->no_highlight;
   env->no_highlight = !enable;
+  return !prev;
 }
 
-rp_public void rp_enable_inline_help(bool enable) {
-  rp_env_t* env = rp_get_env(); if (env==NULL) return;
+rp_public bool rp_enable_inline_help(bool enable) {
+  rp_env_t* env = rp_get_env(); if (env==NULL) return false;
+  bool prev = env->no_help;
   env->no_help = !enable;
+  return !prev;
 }
 
 rp_public void rp_set_default_highlighter(rp_highlight_fun_t* highlighter, void* arg) {
@@ -192,21 +218,41 @@ rp_public void rp_set_default_highlighter(rp_highlight_fun_t* highlighter, void*
   env->highlighter_arg = arg;
 }
 
-static void set_iface_colors(rp_env_t* env, rp_color_t color_info, rp_color_t color_diminish, rp_color_t color_emphasis, rp_color_t color_hint) {
-  env->color_info = (color_info == RP_COLOR_NONE ? RP_DARKGRAY : color_info);
-  env->color_diminish = (color_diminish == RP_COLOR_NONE ? RP_LIGHTGRAY : color_diminish);
-  env->color_emphasis = (color_emphasis == RP_COLOR_NONE ? RP_WHITE : color_emphasis);
-  env->color_hint = (color_hint == RP_COLOR_NONE ? RP_DARKGRAY : color_hint);
+static void set_style_color(rp_env_t* env, rp_style_t iface_element, rp_color_t color) {
+  switch (iface_element) {
+    case RP_STYLE_INFO:     env->color_info = (color == RP_COLOR_NONE ? RP_DARKGRAY : color); break;
+    case RP_STYLE_DIMINISH: env->color_diminish = (color == RP_COLOR_NONE ? RP_LIGHTGRAY : color); break;
+    case RP_STYLE_EMPHASIS: env->color_emphasis = (color == RP_COLOR_NONE ? RP_WHITE : color); break;
+    case RP_STYLE_HINT:     env->color_hint = (color == RP_COLOR_NONE ? RP_DARKGRAY : color); break;
+    default: break;
+  }
 }
 
-rp_public void rp_set_iface_colors( rp_color_t color_info, rp_color_t color_diminish, rp_color_t color_emphasis, rp_color_t color_hint ) {
+rp_public void rp_set_style_color(rp_style_t iface_element, rp_color_t color) {
   rp_env_t* env = rp_get_env(); if (env==NULL) return;
-  set_iface_colors(env, color_info, color_diminish, color_emphasis, color_hint);
+  set_style_color(env, iface_element, color);
+}
+
+rp_public rp_color_t rp_get_style_color(rp_style_t iface_element) {
+  rp_env_t* env = rp_get_env(); if (env==NULL) return RP_COLOR_NONE;
+  switch (iface_element) {
+  case RP_STYLE_INFO:     return env->color_info;
+  case RP_STYLE_DIMINISH: return env->color_diminish;
+  case RP_STYLE_EMPHASIS: return env->color_emphasis;
+  case RP_STYLE_HINT:     return env->color_hint;
+  default: break;
+  }
+  return RP_COLOR_NONE;
 }
 
 rp_public void rp_free( void* p ) {
   rp_env_t* env = rp_get_env(); if (env==NULL) return;
   mem_free(env->mem, p);
+}
+
+rp_public void* rp_malloc(size_t sz) {
+  rp_env_t* env = rp_get_env(); if (env==NULL) return NULL;
+  return mem_malloc(env->mem, to_ssize_t(sz));
 }
 
 rp_public const char* rp_strdup( const char* s ) {
@@ -324,7 +370,9 @@ static rp_env_t* rp_env_create( rp_malloc_fun_t* _malloc, rp_realloc_fun_t* _rea
   }
   env->multiline_eol = '\\';
   env->prompt_color  = RP_COLOR_DEFAULT;
-  set_iface_colors(env,RP_COLOR_NONE, RP_COLOR_NONE, RP_COLOR_NONE, RP_COLOR_NONE);
+  for (rp_style_t style = 0; style < RP_STYLE_LAST; style++) {
+    set_style_color(env, style, RP_COLOR_NONE);  // set default colors
+  }
   set_prompt_marker(env, NULL, NULL);
   return env;
 }
