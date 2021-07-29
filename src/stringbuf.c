@@ -528,9 +528,14 @@ rp_private void sbuf_free( stringbuf_t* sbuf ) {
   mem_free(sbuf->mem, sbuf);
 }
 
+// free the sbuf and return the current string buffer as the result
 rp_private char* sbuf_free_dup(stringbuf_t* sbuf) {
-  if (sbuf == NULL || sbuf->buf == NULL) return NULL;
-  char* s = mem_realloc_tp(sbuf->mem, char, sbuf->buf, sbuf_len(sbuf)+1);
+  if (sbuf == NULL) return NULL;
+  char* s = NULL;
+  if (sbuf->buf != NULL) {
+    s = mem_realloc_tp(sbuf->mem, char, sbuf->buf, sbuf_len(sbuf)+1);
+    if (s == NULL) { s = sbuf->buf; }
+  }
   mem_free(sbuf->mem, sbuf);
   return s;
 }

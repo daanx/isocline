@@ -49,7 +49,7 @@ rp_public char* rp_readline(const char* prompt_text)
 {
   rp_env_t* env = rp_get_env();
   if (env == NULL) return NULL;
-  if (!env->noedit) {
+  if (false && !env->noedit) {
     // terminal editing enabled
     return rp_editline(env, prompt_text);   // in editline.c
   } 
