@@ -4,6 +4,7 @@
   under the terms of the MIT License. A copy of the license can be
   found in the "LICENSE" file at the root of this distribution.
 ---------------------------------------------------------------------------- -}
+
 import System.Console.Repline
 import Data.List (isPrefixOf)
 import Data.Char 
@@ -39,35 +40,31 @@ interaction
 -- Tab Completion
 ----------------------------------------------------------------------------       
 
-completer :: Completions -> String -> IO () 
+completer :: CompletionEnv -> String -> IO () 
 completer compl input
   = do completeFileName compl input Nothing [".","/usr/local"] [] {-any extension-}
-       completeWord compl input wordCompleter
+       completeWord compl input wordCompletions
   
-wordCompleter :: Completions-> String -> IO ()   
-wordCompleter compl input0
-  = do -- simple completion based on available words
-       let input = map toLower input0
-       addCompletionsFor compl input ["print","printer","println","printsln","prompt"]
-       -- add many hello repline completions
-       when (not (null input) && input `isPrefixOf` "hello repline ") $
-         do helloCompletions 1 100000
-       -- display versus replacement
-       when (input == "id") $
-         do addCompletion compl "D — (x) => x"       "(x) => x"                
-            addCompletion compl "Haskell — \\x -> x" "\\x -> x"
-            addCompletion compl "Idris — \\x => x"   "\\x => x"
-            addCompletion compl "Koka — fn(x){ x }"  "fn(x){ x }"    
-            addCompletion compl "Ocaml — fun x -> x" "fun x -> x"
-            return ()
-  where
-    helloCompletions :: Int -> Int -> IO ()
-    helloCompletions i max 
-      = if (i >= max) 
-          then return () 
-          else do continue <- addCompletion compl "" ("hello repline " ++ show i)
-                  helloCompletions (if continue then (i+1) else max) max
-
+wordCompletions :: String -> [Completion]
+wordCompletions input0
+  = let input = map toLower input0
+    in -- simple completion based on available words
+       (completionsFor input ["print","printer","println","printsln","prompt"])
+       ++
+       -- with display versus replacement
+       (if (input == "id") 
+         then map (\(d,r) -> completionWithDisplay d r) $ 
+              [ ("D — (x) => x",       "(x) => x")
+              , ("Haskell — \\x -> x", "\\x -> x")
+              , ("Idris — \\x => x",   "\\x => x")
+              , ("Koka — fn(x){ x }",  "fn(x){ x }")
+              , ("Ocaml — fun x -> x", "fun x -> x")]
+         else []) ++
+       -- add many hello repline completions; we should generate these lazily!
+       (if (not (null input) && input `isPrefixOf` "hello repline ") 
+         then map (\i -> completion ("hello repline " ++ show i)) [1..100000]
+         else [])
+  
 
 ----------------------------------------------------------------------------
 -- Syntax highlighting
@@ -75,11 +72,8 @@ wordCompleter compl input0
 -- Parsec or regex's for syntax highlighting
 ----------------------------------------------------------------------------       
 
-highlighter :: Highlight -> String -> IO ()
-highlighter = makeAttrHighlighter attrHighlighter
-
-attrHighlighter :: String -> [TextAttr]
-attrHighlighter input
+highlighter :: String -> [TextAttr]
+highlighter input
   = tokenize input
   where
     tokenize [] = []
@@ -96,6 +90,4 @@ attrHighlighter input
       | isDigit c   = let (t,ds) = span isDigit s 
                       in withAttrColor Blue t ++ tokenize ds
       | otherwise   = withAttrDefault [c] ++ tokenize cs
-
-
 

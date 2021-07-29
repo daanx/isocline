@@ -51,12 +51,15 @@ interaction
        putStrLn (\"You wrote:\\n\" ++ s)
        if (s == \"\" || s == \"exit\") then return () else interaction
                      
-completer :: `Completions` -> String -> IO () 
-completer compl input
-  = do `completeFileName` compl input Nothing [\".\",\"\/usr\/local\"] [\".hs\"]  -- use [] for any extension
-       `addCompletionsFor` compl (map toLower input) 
-          [\"print\",\"println\",\"prints\",\"printsln\",\"prompt\"]
-       return ()
+completer :: `CompletionEnv` -> String -> IO () 
+completer cenv input
+  = do `completeFileName` cenv input Nothing [\".\",\"\/usr\/local\"] [\".hs\"]  -- use [] for any extension
+       `completeWord` cenv input wcompleter
+
+wcompleter :: String -> [`Completion`]
+wcompleter input
+  = `completionsFor` (map toLower input) 
+      [\"print\",\"println\",\"prints\",\"printsln\",\"prompt\"]      
 @
 
 See a larger [example](https://github.com/daanx/repline/blob/main/test/Example.hs) 
@@ -78,12 +81,17 @@ module System.Console.Repline(
       historyAdd,
 
       -- * Completion
-      Completions,      
-      addCompletion,
-      addCompletionsFor,
+      CompletionEnv,      
       completeFileName,
       completeWord,
       completeQuotedWord,
+
+      Completion(..),
+      completion,
+      completionWithDisplay,
+      isPrefix,
+      completionsFor,
+      wordCompleter,
 
       -- * Syntax Highlighting 
       TextAttr(..),
@@ -121,13 +129,23 @@ module System.Console.Repline(
             
       -- * Advanced
       setDefaultCompleter,      
+      addCompletion,
+      addCompletions,
+      completeWordPrim,
+      completeQuotedWordPrim,
+
       readlineMaybe,
       readlineExMaybe,
+      readlinePrim,
+      readlinePrimMaybe,
+
       getPromptMarker,
       getContinuationPromptMarker,
+      stopCompleting,
+      hasCompletionEnv,
 
       -- * Low-level highlighting
-      Highlight,      
+      HighlightEnv,      
       setDefaultHighlighter,      
       setDefaultAttrHighlighter,
       highlightEsc,
@@ -159,22 +177,22 @@ import Data.Text.Encoding.Error  ( lenientDecode )
 -- C Types
 ----------------------------------------------------------------------------
 
-data RpCompletions  
+data RpCompletionEnv  
 
 -- | Abstract list of current completions.
-newtype Completions = Completions (Ptr RpCompletions)
+newtype CompletionEnv = CompletionEnv (Ptr RpCompletionEnv)
 
-type CCompleterFun = Ptr RpCompletions -> CString -> IO ()
-type CompleterFun  = Completions -> String -> IO ()
+type CCompleterFun = Ptr RpCompletionEnv -> CString -> IO ()
+type CompleterFun  = CompletionEnv -> String -> IO ()
 
 
 data RpHighlightEnv
 
 -- | Abstract highlight environment
-newtype Highlight = Highlight (Ptr RpHighlightEnv)    
+newtype HighlightEnv = HighlightEnv (Ptr RpHighlightEnv)    
 
 type CHighlightFun = Ptr RpHighlightEnv -> CString -> Ptr () -> IO ()
-type HighlightFun  = Highlight -> String -> IO ()
+type HighlightFun  = HighlightEnv -> String -> IO ()
 
 
 
@@ -187,16 +205,20 @@ foreign import ccall rp_malloc    :: CSize -> IO (Ptr a)
 foreign import ccall rp_readline  :: CString -> IO CString
 foreign import ccall rp_readline_ex  :: CString -> FunPtr CCompleterFun -> (Ptr ()) -> FunPtr CHighlightFun -> (Ptr ()) -> IO CString
 
+unmaybe :: IO (Maybe String) -> IO String
+unmaybe action
+  = do mb <- action
+       case mb of
+         Nothing -> return ""
+         Just s  -> return s
+
 -- | @readline prompt@: Read (multi-line) input from the user with rich editing abilities. 
 -- Takes the prompt text as an argument. The full prompt is the combination
 -- of the given prompt and the promp marker (@\"> \"@ by default) .
 -- See also 'readlineEx', 'readlineMaybe', 'enableMultiline', 'setPromptColor', and 'setPromptMarker'.
 readline :: String -> IO String  
 readline prompt
-  = do mbRes <- readlineMaybe prompt
-       case mbRes of
-         Just s  -> return s
-         Nothing -> return ""
+  = unmaybe $ readlineMaybe prompt
 
 -- | As 'readline' but returns 'Nothing' on end-of-file or other errors (ctrl-C/ctrl-D).
 readlineMaybe:: String -> IO (Maybe String)
@@ -207,23 +229,34 @@ readlineMaybe prompt
        rp_free cres
        return res
 
-
 -- | @readlineEx prompt mbCompleter mbHighlighter@: as 'readline' but
 -- uses the given @mbCompleter@ function to complete words on @tab@ (instead of the default completer). 
 -- and the given @mbHighlighter@ function to highlight the input (instead of the default highlighter).
 -- See also 'readline' and 'readlineExMaybe'.
-readlineEx :: String -> Maybe (Completions -> String -> IO ()) -> Maybe (Highlight -> String -> IO ()) -> IO String
+readlineEx :: String -> Maybe (CompletionEnv -> String -> IO ()) -> Maybe (String -> [TextAttr]) -> IO String
 readlineEx prompt completer highlighter
-  = do mbRes <- readlineExMaybe prompt completer highlighter
-       case mbRes of
-         Just s  -> return s
-         Nothing -> return ""
-
+  = unmaybe $ readlineExMaybe prompt completer highlighter
 
 -- | As 'readlineEx' but returns 'Nothing' on end-of-file or other errors (ctrl-C/ctrl-D).
 -- See also 'readlineMaybe'.
-readlineExMaybe :: String -> Maybe (Completions -> String -> IO ()) -> Maybe (Highlight -> String -> IO ()) -> IO (Maybe String) 
-readlineExMaybe prompt completer highlighter
+readlineExMaybe :: String -> Maybe (CompletionEnv -> String -> IO ()) -> Maybe (String -> [TextAttr]) -> IO (Maybe String) 
+readlineExMaybe prompt completer mbhighlighter
+  = readlinePrimMaybe prompt completer (case mbhighlighter of
+                                          Nothing -> Nothing
+                                          Just hl -> Just (makeAttrHighlighter hl))
+
+-- | @readlinePrim prompt mbCompleter mbHighlighter@: as 'readline' but
+-- uses the given @mbCompleter@ function to complete words on @tab@ (instead of the default completer). 
+-- and the given @mbHighlighter@ function to highlight the input (instead of the default highlighter).
+-- See also 'readlineEx' and 'readlinePrimMaybe'.
+readlinePrim :: String -> Maybe (CompletionEnv -> String -> IO ()) -> Maybe (HighlightEnv -> String -> IO ()) -> IO String
+readlinePrim prompt completer highlighter
+  = unmaybe $ readlinePrimMaybe prompt completer highlighter
+
+-- | As 'readlinePrim' but returns 'Nothing' on end-of-file or other errors (ctrl-C/ctrl-D).
+-- See also 'readlineMaybe'.
+readlinePrimMaybe :: String -> Maybe (CompletionEnv -> String -> IO ()) -> Maybe (HighlightEnv -> String -> IO ()) -> IO (Maybe String) 
+readlinePrimMaybe prompt completer highlighter
   = withUTF8String prompt $ \cprompt ->
     do ccompleter   <- makeCCompleter completer
        chighlighter <- makeCHighlighter highlighter
@@ -283,18 +316,57 @@ foreign import ccall rp_set_default_completer :: FunPtr CCompleterFun -> IO ()
 foreign import ccall "wrapper" rp_make_completer :: CCompleterFun -> IO (FunPtr CCompleterFun)
 foreign import ccall "wrapper" rp_make_charclassfun :: CCharClassFun -> IO (FunPtr CCharClassFun)
 
-foreign import ccall rp_add_completion        :: Ptr RpCompletions -> CString -> CString -> IO CChar
-foreign import ccall rp_complete_filename     :: Ptr RpCompletions -> CString -> CChar -> CString -> CString -> IO ()
-foreign import ccall rp_complete_word         :: Ptr RpCompletions -> CString -> FunPtr CCompleterFun -> IO ()
-foreign import ccall rp_complete_quoted_word  :: Ptr RpCompletions -> CString -> FunPtr CCompleterFun -> FunPtr CCharClassFun -> CChar -> CString -> IO ()
+foreign import ccall rp_add_completion        :: Ptr RpCompletionEnv -> CString -> CString -> IO CChar
+foreign import ccall rp_complete_filename     :: Ptr RpCompletionEnv -> CString -> CChar -> CString -> CString -> IO ()
+foreign import ccall rp_complete_word         :: Ptr RpCompletionEnv -> CString -> FunPtr CCompleterFun -> IO ()
+foreign import ccall rp_complete_quoted_word  :: Ptr RpCompletionEnv -> CString -> FunPtr CCompleterFun -> FunPtr CCharClassFun -> CChar -> CString -> IO ()
+
+foreign import ccall rp_has_completions       :: Ptr RpCompletionEnv -> IO CCBool
+foreign import ccall rp_stop_completing       :: Ptr RpCompletionEnv -> IO CCBool
+
+-- | A completion entry
+data Completion = Completion { 
+  display :: String,      -- ^ display of the completion in the completion menu
+  replacement :: String,  -- ^ actual replacement
+  help :: String          -- ^ help message (currently not supported)
+}
+
+-- | Create a completion with just a replacement
+completion :: String -> Completion
+completion replacement
+  = Completion "" replacement ""
+
+-- | Create a completion with a separate display string
+completionWithDisplay :: String -> String -> Completion
+completionWithDisplay display replacement
+  = Completion display replacement ""  
+
+-- | Is the given input a prefix of the completion replacement?
+isPrefix :: String -> Completion -> Bool
+isPrefix input compl
+  = isPrefixOf input (replacement compl)
+
+-- | @completionsFor input replacements@: Filter those @replacements@ that 
+-- start with the given @input@, and return them as completions.
+completionsFor :: String -> [String] -> [Completion]
+completionsFor input rs
+  = map completion (filter (isPrefixOf input) rs)
+
+-- | Convenience: creates a completer function directly from a list
+-- of candidate completion strings. Uses `completionsFor` to filter the 
+-- input and `completeWord` to handle quotes.
+-- For example: @'readlineEx' \"myprompt\" (Just ('wordCompleter' completer)) Nothing@.
+wordCompleter :: [String] -> (CompletionEnv -> String -> IO ()) 
+wordCompleter completions
+  = (\cenv input -> completeWord cenv input (\input -> completionsFor input completions))
 
 -- | @setDefaultCompleter completer@: Set a new tab-completion function @completer@ 
 -- that is called by Repline automatically. 
--- The callback is called with a 'Completions' context and the current user
+-- The callback is called with a 'CompletionEnv' context and the current user
 -- input up to the cursor.
 -- By default the 'completeFileName' completer is used.
 -- This overwrites any previously set completer.
-setDefaultCompleter :: (Completions -> String -> IO ()) -> IO ()
+setDefaultCompleter :: (CompletionEnv -> String -> IO ()) -> IO ()
 setDefaultCompleter completer 
   = do ccompleter <- makeCCompleter (Just completer)
        rp_set_default_completer ccompleter
@@ -304,33 +376,34 @@ makeCCompleter Nothing = return nullFunPtr
 makeCCompleter (Just completer)
   = rp_make_completer wrapper
   where
-    wrapper :: Ptr RpCompletions -> CString -> IO ()
+    wrapper :: Ptr RpCompletionEnv -> CString -> IO ()
     wrapper rpcomp cprefx
       = do prefx <- peekUTF8String0 cprefx
-           completer (Completions rpcomp) prefx
+           completer (CompletionEnv rpcomp) prefx
 
 
--- | @addCompletion compl display completion@: Inside a completer callback, add a new completion with a 
--- @display@ string and @completion@ string. If display is empty, the completion is used to 
--- display as well. If 'addCompletion' returns 'True' keep adding completions,
+-- | @addCompletion compl completion@: Inside a completer callback, add a new completion.
+-- If 'addCompletion' returns 'True' keep adding completions,
 -- but if it returns 'False' an effort should be made to return from the completer
 -- callback without adding more completions.
-addCompletion :: Completions -> String -> String -> IO Bool
-addCompletion (Completions rpc) display completion 
+addCompletion :: CompletionEnv -> Completion -> IO Bool
+addCompletion (CompletionEnv rpc) (Completion display replacement _)
   = withUTF8String0 display $ \cdisplay ->
-    withUTF8String completion $ \ccompletion ->
-    do cbool <- rp_add_completion rpc cdisplay ccompletion
+    withUTF8String replacement $ \crepl ->
+    do cbool <- rp_add_completion rpc cdisplay crepl
        return (fromEnum cbool /= 0)
     
--- | @addCompletionsFor compl input candidates@: add completions for any candidate
--- string in @candidates@ for which @input@ is a prefix.
-addCompletionsFor :: Completions -> String -> [String] -> IO Bool
-addCompletionsFor compl input candidates
-  = do results <- mapM add (filter (input `isPrefixOf`) candidates)
-       return (and results)
-  where
-    add completion 
-      = addCompletion compl completion completion
+-- | @addCompletions compl completions@: add multiple completions at once.
+-- If 'addCompletions' returns 'True' keep adding completions,
+-- but if it returns 'False' an effort should be made to return from the completer
+-- callback without adding more completions.
+addCompletions :: CompletionEnv -> [Completion] -> IO Bool
+addCompletions compl [] = return True
+addCompletions compl (c:cs)
+  = do continue <- addCompletion compl c
+       if (continue) 
+         then addCompletions compl cs
+         else return False
 
 -- | @completeFileName compls input dirSep roots extensions@: 
 -- Complete filenames with the given @input@, a possible directory separator @dirSep@, 
@@ -342,8 +415,8 @@ addCompletionsFor compl input candidates
 -- > /ho         --> /home/
 -- > /home/.ba   --> /home/.bashrc
 --
-completeFileName :: Completions -> String -> Maybe Char -> [FilePath] -> [String] -> IO ()
-completeFileName (Completions rpc) prefx dirSep roots extensions
+completeFileName :: CompletionEnv -> String -> Maybe Char -> [FilePath] -> [String] -> IO ()
+completeFileName (CompletionEnv rpc) prefx dirSep roots extensions
   = withUTF8String prefx $ \cprefx ->
     withUTF8String0 (concat (intersperse ";" roots)) $ \croots ->
     withUTF8String0 (concat (intersperse ";" extensions)) $ \cextensions ->
@@ -354,7 +427,7 @@ completeFileName (Completions rpc) prefx dirSep roots extensions
 
 -- | @completeWord compl input completer@: 
 -- Complete a /word/ taking care of automatically quoting and escaping characters.
--- Takes the 'Completions' environment @compl@, the current @input@, and a user defined 
+-- Takes the 'CompletionEnv' environment @compl@, the current @input@, and a user defined 
 -- @completer@ function that is called with adjusted input which is unquoted, unescaped,
 -- and limited to the /word/ just before the cursor.
 -- For example, with a @hello world@ completion, we get:
@@ -368,23 +441,64 @@ completeFileName (Completions rpc) prefx dirSep roots extensions
 -- The call @('completeWord' compl prefx fun)@ is a short hand for 
 -- @('completeQuotedWord' compl prefx fun (not . separator) \'\\\\\' \"\'\\\"\")@.
 -- where @separator = \c -> c `elem` \" \\t\\r\\n,.;:/\\\\(){}[]\"@.
-completeWord :: Completions -> String -> (Completions -> String -> IO ()) -> IO () 
-completeWord (Completions rpc) prefx completer
-  = withUTF8String prefx $ \cprefx ->
-    do ccompleter <- makeCCompleter (Just completer)
-       rp_complete_word rpc cprefx ccompleter
-       freeHaskellFunPtr ccompleter
+completeWord :: CompletionEnv -> String -> (String -> [Completion]) -> IO () 
+completeWord cenv input completer
+  = completeWordPrim cenv input cenvCompleter
+  where
+    cenvCompleter cenv input
+      = do addCompletions cenv (completer input)
+           return ()
   
 -- | @completeQuotedWord compl input completer isWordChar escapeChar quoteChars@: 
 -- Complete a /word/ taking care of automatically quoting and escaping characters.
--- Takes the 'Completions' environment @compl@, the current @input@, and a user defined 
+-- Takes the 'CompletionEnv' environment @compl@, the current @input@, and a user defined 
 -- @completer@ function that is called with adjusted input which is unquoted, unescaped,
 -- and limited to the /word/ just before the cursor.
 -- Unlike 'completeWord', this function takes an explicit function to determine /word/ characters,
 -- the /escape/ character, and a string of /quote/ characters.
 -- See also 'completeWord'.
-completeQuotedWord :: Completions -> String -> (Completions -> String -> IO ()) -> (Char -> Bool) -> Maybe Char -> String -> IO () 
-completeQuotedWord (Completions rpc) prefx completer isWordChar escapeChar quoteChars
+completeQuotedWord :: CompletionEnv -> String -> (String -> [Completion]) -> (Char -> Bool) -> Maybe Char -> String -> IO () 
+completeQuotedWord cenv input completer isWordChar escapeChar quoteChars
+  = completeQuotedWordPrim cenv input cenvCompleter isWordChar escapeChar quoteChars
+  where
+    cenvCompleter cenv input 
+      = do addCompletions cenv (completer input)
+           return ()
+
+
+-- | @completeWordPrim compl input completer@: 
+-- Complete a /word/ taking care of automatically quoting and escaping characters.
+-- Takes the 'CompletionEnv' environment @compl@, the current @input@, and a user defined 
+-- @completer@ function that is called with adjusted input which is unquoted, unescaped,
+-- and limited to the /word/ just before the cursor.
+-- For example, with a @hello world@ completion, we get:
+--
+-- > hel        -->  hello\ world
+-- > hello\ w   -->  hello\ world
+-- > hello w    -->                   # no completion, the word is just 'w'>
+-- > "hel       -->  "hello world" 
+-- > "hello w   -->  "hello world"
+--
+-- The call @('completeWordPrim' compl prefx fun)@ is a short hand for 
+-- @('completeQuotedWordPrim' compl prefx fun (not . separator) \'\\\\\' \"\'\\\"\")@.
+-- where @separator = \c -> c `elem` \" \\t\\r\\n,.;:/\\\\(){}[]\"@.
+completeWordPrim :: CompletionEnv -> String -> (CompletionEnv -> String -> IO ()) -> IO () 
+completeWordPrim (CompletionEnv rpc) prefx completer
+  = withUTF8String prefx $ \cprefx ->
+    do ccompleter <- makeCCompleter (Just completer)
+       rp_complete_word rpc cprefx ccompleter
+       freeHaskellFunPtr ccompleter
+  
+-- | @completeQuotedWordPrim compl input completer isWordChar escapeChar quoteChars@: 
+-- Complete a /word/ taking care of automatically quoting and escaping characters.
+-- Takes the 'CompletionEnv' environment @compl@, the current @input@, and a user defined 
+-- @completer@ function that is called with adjusted input which is unquoted, unescaped,
+-- and limited to the /word/ just before the cursor.
+-- Unlike 'completeWord', this function takes an explicit function to determine /word/ characters,
+-- the /escape/ character, and a string of /quote/ characters.
+-- See also 'completeWord'.
+completeQuotedWordPrim :: CompletionEnv -> String -> (CompletionEnv -> String -> IO ()) -> (Char -> Bool) -> Maybe Char -> String -> IO () 
+completeQuotedWordPrim (CompletionEnv rpc) prefx completer isWordChar escapeChar quoteChars
   = withUTF8String prefx $ \cprefx ->
     withUTF8String0 quoteChars $ \cquoteChars ->
     do let cescapeChar = case escapeChar of
@@ -405,6 +519,16 @@ makeCharClassFun isInClass
                 else do s <- peekCStringLen (cstr,len)
                         return (if null s then (cbool False) else cbool (isInClass (head s)))
     in rp_make_charclassfun charClassFun
+
+-- | If this returns 'True' an effort should be made to stop completing and return from the callback.
+stopCompleting :: CompletionEnv -> IO Bool
+stopCompleting (CompletionEnv rpc)
+  = uncbool $ rp_stop_completing rpc
+
+-- | Have any completions be generated so far?
+hasCompletionEnv :: CompletionEnv -> IO Bool
+hasCompletionEnv (CompletionEnv rpc)
+  = uncbool $ rp_has_completions rpc
 
 
 
@@ -429,29 +553,29 @@ foreign import ccall rp_strdup              :: CString -> IO CString
 
 -- | Set a syntax highlighter.
 -- There can only be one highlight function, setting it again disables the previous one.
-setDefaultHighlighter :: (Highlight -> String -> IO ()) -> IO ()
+setDefaultHighlighter :: (HighlightEnv -> String -> IO ()) -> IO ()
 setDefaultHighlighter highlighter
   = do chighlighter <- makeCHighlighter (Just highlighter)
        rp_set_default_highlighter chighlighter nullPtr
   where
     chighlightFun henv cinput carg
       = do input <- peekUTF8String0 cinput
-           highlighter (Highlight henv) input
+           highlighter (HighlightEnv henv) input
 
 
-makeCHighlighter :: Maybe (Highlight -> String -> IO ()) -> IO (FunPtr CHighlightFun)
+makeCHighlighter :: Maybe (HighlightEnv -> String -> IO ()) -> IO (FunPtr CHighlightFun)
 makeCHighlighter Nothing = return nullFunPtr
 makeCHighlighter (Just highlighter)
   = rp_make_highlight_fun wrapper
   where
     wrapper henv cinput carg
       = do input <- peekUTF8String0 cinput
-           highlighter (Highlight henv) input
+           highlighter (HighlightEnv henv) input
 
 
 -- | Use an escape sequence highlighter from inside a highlighter callback.
-highlightEsc :: Highlight -> String -> (String -> String) -> IO ()
-highlightEsc (Highlight henv) input highlight
+highlightEsc :: HighlightEnv -> String -> (String -> String) -> IO ()
+highlightEsc (HighlightEnv henv) input highlight
   = withUTF8String0 input $ \cinput ->
     do cfun <- rp_make_highlight_esc_fun wrapper
        rp_highlight_esc henv cinput cfun nullPtr
@@ -466,32 +590,32 @@ highlightEsc (Highlight henv) input highlight
 -- at position @pos@ in the input (from inside a highlighter).
 -- All following characters will have this color until another
 -- color is set again.
-highlightColor :: Highlight -> Int -> Color -> IO ()
-highlightColor (Highlight henv) pos color 
+highlightColor :: HighlightEnv -> Int -> Color -> IO ()
+highlightColor (HighlightEnv henv) pos color 
   = do rp_highlight_color henv (clong (-pos)) (ccolor color)
 
 -- | @highlightBgColor henv pos bgcolor@: Set the background color of a character
 -- at position @pos@ in the input (from inside a highlighter).
 -- All following characters will have this background color until another
 -- background color is set again.
-highlightBgColor :: Highlight -> Int -> Color -> IO ()
-highlightBgColor (Highlight henv) pos color 
+highlightBgColor :: HighlightEnv -> Int -> Color -> IO ()
+highlightBgColor (HighlightEnv henv) pos color 
   = do rp_highlight_bgcolor henv (clong (-pos)) (ccolor color)
 
 -- | @highlightUnderline henv pos bgcolor@: Set underline of a character
 -- at position @pos@ in the input (from inside a highlighter).
 -- All following characters will have this underlining until another
 -- underlining is set again.
-highlightUnderline :: Highlight -> Int -> Bool -> IO ()
-highlightUnderline (Highlight henv) pos enable
+highlightUnderline :: HighlightEnv -> Int -> Bool -> IO ()
+highlightUnderline (HighlightEnv henv) pos enable
   = do rp_highlight_underline henv (clong (-pos)) (cbool enable) 
 
 -- | @highlightReverse henv pos bgcolor@: Set reverse video mode of a character
 -- at position @pos@ in the input (from inside a highlighter).
 -- All following characters will have this reverse mode until another
 -- reverse mode is set again.
-highlightReverse :: Highlight -> Int -> Bool -> IO ()
-highlightReverse (Highlight henv) pos enable
+highlightReverse :: HighlightEnv -> Int -> Bool -> IO ()
+highlightReverse (HighlightEnv henv) pos enable
   = do rp_highlight_reverse henv (clong (-pos)) (cbool enable) 
 
 
@@ -535,7 +659,7 @@ withAttrDefault s = withAttr attrDefault s
 -- | @highlightSetAttrDiff henv pos current attr@: Set new text attribute @attr@ 
 -- at position @pos@; but only set any properties
 -- that differ from the @current@ text attributes.
-highlightSetAttrDiff :: Highlight -> Int -> TextAttr -> TextAttr -> IO ()
+highlightSetAttrDiff :: HighlightEnv -> Int -> TextAttr -> TextAttr -> IO ()
 highlightSetAttrDiff henv pos current attr
   = do when (attrColor current /= attrColor attr)         $ highlightColor henv pos (attrColor attr)
        when (attrBgColor current /= attrBgColor attr)     $ highlightBgColor henv pos (attrBgColor attr)
@@ -545,7 +669,7 @@ highlightSetAttrDiff henv pos current attr
 
 -- | @highlightSetAttr henv pos attr@: Set new text attribute @attr@ 
 -- at position @pos@. 
-highlightSetAttr :: Highlight -> Int -> TextAttr -> IO ()
+highlightSetAttr :: HighlightEnv -> Int -> TextAttr -> IO ()
 highlightSetAttr henv pos (TextAttr color bgcolor underline reverse) 
   = do -- todo: add one function to set all at once at the C side
        highlightColor henv pos color
@@ -563,17 +687,17 @@ setDefaultAttrHighlighter highlight
 
 -- | Create a highlighter from a pure function that returns a list
 -- of text attributes for each character in the input.
-makeAttrHighlighter :: (String -> [TextAttr]) -> (Highlight -> String -> IO ()) 
+makeAttrHighlighter :: (String -> [TextAttr]) -> (HighlightEnv -> String -> IO ()) 
 makeAttrHighlighter highlight
   = highlightWrapper
   where 
-    highlightWrapper :: Highlight -> String -> IO ()
+    highlightWrapper :: HighlightEnv -> String -> IO ()
     highlightWrapper henv input
       = do let attrs = highlight input               
            foldM (setAttr henv) attrDefault (zip [0..] attrs)
            return ()
     
-    setAttr :: Highlight -> TextAttr -> (Int,TextAttr) -> IO TextAttr
+    setAttr :: HighlightEnv -> TextAttr -> (Int,TextAttr) -> IO TextAttr
     setAttr henv current (pos,attr) 
       = do highlightSetAttrDiff henv pos current attr
            return attr
