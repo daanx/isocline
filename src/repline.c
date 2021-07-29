@@ -49,7 +49,7 @@ rp_public char* rp_readline(const char* prompt_text)
 {
   rp_env_t* env = rp_get_env();
   if (env == NULL) return NULL;
-  if (false && !env->noedit) {
+  if (!env->noedit) {
     // terminal editing enabled
     return rp_editline(env, prompt_text);   // in editline.c
   } 
@@ -71,8 +71,8 @@ rp_public char* rp_readline(const char* prompt_text)
 
 
 //-------------------------------------------------------------
-// Read a line from stdin if there is no editing support 
-// (like from a pipe, file, or dumb terminal).
+// Read a line from the stdin stream if there is no editing 
+// support (like from a pipe, file, or dumb terminal).
 //-------------------------------------------------------------
 
 static char* rp_getline(alloc_t* mem)
@@ -186,7 +186,7 @@ rp_public void rp_enable_inline_help(bool enable) {
   env->no_help = !enable;
 }
 
-rp_public void rp_set_highlighter(rp_highlight_fun_t* highlighter, void* arg) {
+rp_public void rp_set_default_highlighter(rp_highlight_fun_t* highlighter, void* arg) {
   rp_env_t* env = rp_get_env(); if (env==NULL) return;
   env->highlighter = highlighter;
   env->highlighter_arg = arg;
@@ -234,6 +234,31 @@ rp_public void rp_writeln(const char* s) {
   term_writeln(env->term, s);
 }
 
+
+//-------------------------------------------------------------
+// Readline with temporary completer and highlighter
+//-------------------------------------------------------------
+
+rp_public char* rp_readline_ex(const char* prompt_text,
+                                rp_completer_fun_t* completer, void* completer_arg,
+                                 rp_highlight_fun_t* highlighter, void* highlighter_arg )
+{
+  rp_env_t* env = rp_get_env(); if (env == NULL) return NULL;
+  // save previous
+  rp_completer_fun_t* prev_completer;
+  void* prev_completer_arg;
+  completions_get_completer(env->completions, &prev_completer, &prev_completer_arg);
+  rp_highlight_fun_t* prev_highlighter = env->highlighter;
+  void* prev_highlighter_arg = env->highlighter_arg;
+  // call with current
+  if (completer != NULL)   { rp_set_default_completer(completer, completer_arg); }
+  if (highlighter != NULL) { rp_set_default_highlighter(highlighter, highlighter_arg); }
+  char* res = rp_readline(prompt_text);
+  // restore previous
+  rp_set_default_completer(prev_completer, prev_completer_arg);
+  rp_set_default_highlighter(prev_highlighter, prev_highlighter_arg);
+  return res;
+}
 
 
 //-------------------------------------------------------------

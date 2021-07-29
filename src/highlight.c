@@ -185,12 +185,11 @@ static long pos_adjust( rp_highlight_env_t* henv, long pos ) {
   long ucount = -pos;
   long cpos = 0;
   long upos = 0;
-  ssize_t next;
   while ( upos < ucount ) {
     ssize_t next = str_next_ofs(henv->input, henv->attr_len, cpos, NULL);
     if (next <= 0) return -1;
     upos++;
-    cpos += next;
+    cpos += (long)next;
   }
   assert(cpos < henv->attr_len);
   return cpos;
@@ -234,8 +233,8 @@ static void highlight_esc( rp_highlight_env_t* henv, const char* input, void* ar
   rp_highlight_esc( henv, input, highlight, NULL);
 }
 
-rp_public void rp_set_highlighter_esc(rp_highlight_esc_fun_t* highlight) {
-  rp_set_highlighter( &highlight_esc, highlight );
+rp_public void rp_set_default_highlighter_esc(rp_highlight_esc_fun_t* highlight) {
+  rp_set_default_highlighter( &highlight_esc, (void*)highlight );  // function ptr to void* ...
 }
 
 

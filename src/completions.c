@@ -127,13 +127,17 @@ static void completions_set_completer(completions_t* cms, rp_completer_fun_t* co
   cms->completer_arg = arg;
 }
 
-static void completions_get_completer(completions_t* cms, rp_completer_fun_t** completer, void** arg) {
+rp_private void completions_get_completer(completions_t* cms, rp_completer_fun_t** completer, void** arg) {
   *completer = cms->completer;
   *arg = cms->completer_arg;
 }
 
 rp_public bool rp_has_completions( rp_completion_env_t* cenv ) {
   return (cenv->env->completions->count > 0);
+}
+
+rp_public bool rp_stop_completing(rp_completion_env_t* cenv) {
+  return (cenv->env->completions->completer_max <= 0);
 }
 
 
@@ -258,21 +262,6 @@ rp_public void rp_set_default_completer(rp_completer_fun_t* completer, void* arg
   rp_env_t* env = rp_get_env(); if (env == NULL) return;
   completions_set_completer(env->completions, completer, arg);
 }
-
-
-rp_public char* rp_readline_with_completer(const char* prompt_text, 
-                                           rp_completer_fun_t* completer, void* completer_arg ) 
-{
-  rp_env_t* env = rp_get_env(); if (env == NULL) return NULL;
-  rp_completer_fun_t* prev_completer;
-  void* prev_completer_arg;
-  completions_get_completer(env->completions, &prev_completer, &prev_completer_arg);
-  rp_set_default_completer( completer, completer_arg);
-  char* res = rp_readline( prompt_text );
-  rp_set_default_completer( prev_completer, prev_completer_arg);
-  return res;
-}
-
 
 rp_private ssize_t completions_generate(struct rp_env_s* env, completions_t* cms, const char* input, ssize_t pos, ssize_t max) {
   completions_clear(cms);

@@ -74,13 +74,7 @@ typedef void (rp_completer_fun_t)(rp_completion_env_t* cenv, const char* prefix 
 void rp_set_default_completer( rp_completer_fun_t* completer, void* arg);
 
 
-// Read input from the user using rich editing abilities, 
-// using a particular completion funcion for this call only.
-// See also: `rp_readline`, `rp_set_prompt_marker`, `rp_set_prompt_color`.
-char* rp_readline_with_completer(const char* prompt_text, rp_completer_fun_t* completer, void* completer_arg );   
-
-
-// In a completion callback, use this function to add completions.
+// In a completion callback (usually from `rp_complete_word`), use this function to add a completion.
 // The `display` is used to display the completion in the completion menu.
 // (both `display` and `completion` are copied by repline and do not need to be preserved or allocated).
 //
@@ -88,6 +82,12 @@ char* rp_readline_with_completer(const char* prompt_text, rp_completer_fun_t* co
 // If `false` is returned, the callback should try to return and not add more completions (for improved latency).
 bool rp_add_completion( rp_completion_env_t* cenv, const char* display, const char* completion );
 
+// In a completion callback (usually from `rp_complete_word`), use this function to add completions.
+// The `completions` array should be terminated with a NULL element, and all elements
+// are added as completions if they start with `prefix`.
+//
+// Returns `true` if the callback should continue trying to find more possible completions.
+// If `false` is returned, the callback should try to return and not add more completions (for improved latency).
 bool rp_add_completions(rp_completion_env_t* cenv, const char* prefix, const char** completions);
 
 // Complete a filename given a semi-colon separated list of root directories `roots` and 
@@ -102,6 +102,7 @@ bool rp_add_completions(rp_completion_env_t* cenv, const char* prefix, const cha
 // /ho         --> /home/
 // /home/.ba   --> /home/.bashrc
 // ```
+// (This already uses `rp_complete_quoted_word` so do not call it from inside a word handler).
 void rp_complete_filename( rp_completion_env_t* cenv, const char* prefix, char dir_separator, const char* roots, const char* extensions );
 
 // Complete a _word_; calls the user provided function `fun` to complete while taking
@@ -120,7 +121,6 @@ void rp_complete_filename( rp_completion_env_t* cenv, const char* prefix, char d
 // with proper quotes and escapes.
 // See `rp_complete_quoted_word` to customize the word boundary, quotes etc.
 void rp_complete_word( rp_completion_env_t* cenv, const char* prefix, rp_completer_fun_t* fun );
-
 
 
 // Function that returns whether a (utf8) character (of length `len`) is in a certain character class
@@ -175,7 +175,7 @@ typedef void (rp_highlight_fun_t)(rp_highlight_env_t* henv, const char* input, v
 
 // Set a syntax highlighter.
 // There can only be one highlight function, setting it again disables the previous one.
-void rp_set_highlighter(rp_highlight_fun_t* highlighter, void* arg);
+void rp_set_default_highlighter(rp_highlight_fun_t* highlighter, void* arg);
 
 // Set the color of characters starting at position `pos` to `color`.
 void rp_highlight_color(rp_highlight_env_t* henv, long pos, rp_color_t color );
@@ -205,7 +205,21 @@ void rp_highlight_esc(rp_highlight_env_t* henv, const char* input, rp_highlight_
 
 // Convenience: set directly a highlighter that calls an `rp_highlight_esc_fun_t` 
 // function to highlight using ANSI escape sequences.
-void rp_set_highlighter_esc(rp_highlight_esc_fun_t* highlight);
+void rp_set_default_highlighter_esc(rp_highlight_esc_fun_t* highlight);
+
+
+//--------------------------------------------------------------
+// Readline with a specific completer and highlighter
+//--------------------------------------------------------------
+
+// Read input from the user using rich editing abilities, 
+// using a particular completion function and highlighter for this call only.
+// both can be NULL in which case the defaults are used.
+// See also: `rp_readline`, `rp_set_prompt_marker`, `rp_set_prompt_color`,
+// `rp_set_default_compteter`, `rp_set_default_highlighter`.
+char* rp_readline_ex(const char* prompt_text, rp_completer_fun_t* completer, void* completer_arg,
+                                              rp_highlight_fun_t* highlighter, void* highlighter_arg);
+
 
 //--------------------------------------------------------------
 // Customization
@@ -281,6 +295,9 @@ void* rp_completion_arg( rp_completion_env_t* cenv );
 // Do we have already some completions?
 bool rp_has_completions( rp_completion_env_t* cenv );
 
+// Do we already have enough completions and should we return if possible? (for improved latency)
+bool rp_stop_completing(rp_completion_env_t* cenv);
+
 
 // Primitive completion, cannot be used with most transformers (like `rp_complete_word` and `rp_complete_quoted_word`).
 // When completed, `delete_before` _bytes_ are deleted before the cursor position,
@@ -341,18 +358,20 @@ bool rp_char_is_idletter(const char* s, long len);
 bool rp_char_is_filename_letter(const char* s, long len);
 
 
-// Convenience: If this is a token start, return the length.
+// Convenience: If this is a token start, return the length. Otherwise return 0.
 long rp_is_token(const char* s, long pos, rp_is_char_class_fun_t* is_token_char);
 
 // Convenience: Does this match the spefied token? 
 // Ensures not to match prefixes or suffixes, and returns the length of the match (in bytes).
 // E.g. `rp_match_token("function",0,&rp_char_is_letter,"fun")` returns 0.
+// while `rp_match_token("fun x",0,&rp_char_is_letter,"fun"})` returns 3.
 long rp_match_token(const char* s, long pos, rp_is_char_class_fun_t* is_token_char, const char* token);
 
 
 // Convenience: Do any of the specified tokens match? 
 // Ensures not to match prefixes or suffixes, and returns the length of the match (in bytes).
 // E.g. `rp_match_any_token("function",0,&rp_char_is_letter,{"fun","func",NULL})` returns 0.
+// while `rp_match_any_token("func x",0,&rp_char_is_letter,{"fun","func",NULL})` returns 4.
 long rp_match_any_token(const char* s, long pos, rp_is_char_class_fun_t* is_token_char, const char** tokens);
 
 

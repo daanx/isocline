@@ -32,7 +32,7 @@ int main()
   rp_set_default_completer(&completer, NULL);
 
   // enable syntax highlighting with a highlight function
-  rp_set_highlighter(highlighter, NULL);
+  rp_set_default_highlighter(highlighter, NULL);
 
   // set a nice color for the prompt and the prompt marker (>)
   rp_set_prompt_color(RP_GREEN);

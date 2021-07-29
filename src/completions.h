@@ -30,6 +30,7 @@ rp_private void        completions_sort(completions_t* cms);
 rp_private void        completions_set_completer(completions_t* cms, rp_completer_fun_t* completer, void* arg);
 rp_private const char* completions_get_display(completions_t* cms , ssize_t index);
 rp_private const char* completions_get_hint(completions_t* cms, ssize_t index, const char** help);
+rp_private void        completions_get_completer(completions_t* cms, rp_completer_fun_t** completer, void** arg);
 
 rp_private ssize_t     completions_apply(completions_t* cms, ssize_t index, stringbuf_t* sbuf, ssize_t pos);
 rp_private ssize_t     completions_apply_longest_prefix(completions_t* cms, stringbuf_t* sbuf, ssize_t pos);

@@ -40,7 +40,6 @@ static bool word_add_completion_ex(rp_env_t* env, void* closure, const char* dis
   }
   else {
     // escape white space if it was not quoted
-    ssize_t len = sbuf_len(wenv->sbuf);
     ssize_t pos = 0;
     ssize_t next;
     while ( (next = sbuf_next_ofs(wenv->sbuf, pos, NULL)) > 0 ) 
