@@ -190,7 +190,7 @@ foreign import ccall rp_readline_ex  :: CString -> FunPtr CCompleterFun -> (Ptr 
 -- | @readline prompt@: Read (multi-line) input from the user with rich editing abilities. 
 -- Takes the prompt text as an argument. The full prompt is the combination
 -- of the given prompt and the promp marker (@\"> \"@ by default) .
--- See also 'readlineWithCompleter', 'readlineMaybe', 'enableMultiline', 'setPromptColor', and 'setPromptMarker'.
+-- See also 'readlineEx', 'readlineMaybe', 'enableMultiline', 'setPromptColor', and 'setPromptMarker'.
 readline :: String -> IO String  
 readline prompt
   = do mbRes <- readlineMaybe prompt
