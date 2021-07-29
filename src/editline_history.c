@@ -95,6 +95,7 @@ static void edit_history_search(rp_env_t* env, editor_t* eb, char* initial ) {
   }
 
   // set a search prompt
+  bool old_hint = rp_enable_hint(false);
   ssize_t old_pos = eb->pos;
   const char* prompt_text = eb->prompt_text;
   eb->prompt_text = "history search";
@@ -226,6 +227,7 @@ again:
   // done
   hsearch_done(env->mem,hs);
   eb->prompt_text = prompt_text;
+  rp_enable_hint(old_hint);
   edit_refresh(env,eb);
   if (c != 0) tty_code_pushback(env->tty, c);
 }

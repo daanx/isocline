@@ -62,13 +62,13 @@ static void editor_append_completion(rp_env_t* env, editor_t* eb, ssize_t idx, s
 }
 
 // 2 and 3 column output up to 80 wide
-#define RP_DISPLAY2_MAX    35
+#define RP_DISPLAY2_MAX    34
 #define RP_DISPLAY2_COL    (3+RP_DISPLAY2_MAX)
-#define RP_DISPLAY2_WIDTH  (2*RP_DISPLAY2_COL + 2)    // 78
+#define RP_DISPLAY2_WIDTH  (2*RP_DISPLAY2_COL + 2)    // 75
 
-#define RP_DISPLAY3_MAX    22
+#define RP_DISPLAY3_MAX    21
 #define RP_DISPLAY3_COL    (3+RP_DISPLAY3_MAX)
-#define RP_DISPLAY3_WIDTH  (3*RP_DISPLAY3_COL + 2*2)  // 79
+#define RP_DISPLAY3_WIDTH  (3*RP_DISPLAY3_COL + 2*2)  // 76
 
 static void editor_append_completion2(rp_env_t* env, editor_t* eb, ssize_t idx1, ssize_t idx2, ssize_t selected ) {  
   editor_append_completion(env, eb, idx1, RP_DISPLAY2_COL, true, (idx1 == selected) );
