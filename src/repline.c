@@ -205,6 +205,16 @@ rp_public void rp_free( void* p ) {
   mem_free(env->mem, p);
 }
 
+rp_public const char* rp_strdup( const char* s ) {
+  if (s==NULL) return NULL;
+  rp_env_t* env = rp_get_env(); if (env==NULL) return NULL;
+  ssize_t len = rp_strlen(s);
+  char* p = mem_malloc_tp_n( env->mem, char, len + 1 );
+  if (p == NULL) return NULL;
+  rp_memcpy( p, s, len );
+  p[len] = 0;
+  return p;
+}
 
 //-------------------------------------------------------------
 // Terminal

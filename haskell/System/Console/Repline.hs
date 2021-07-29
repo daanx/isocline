@@ -84,6 +84,22 @@ module System.Console.Repline(
       completeWord,
       completeQuotedWord,
 
+      -- * Syntax Highlighting 
+      TextAttr(..),
+      setHighlighterAttr,
+      setHighlighterEsc,
+      attrDefault,
+      withAttr,
+      withAttrColor,
+      withAttrBgColor,
+      withAttrUnderline,
+      withAttrReverse,
+      withAttrDefault,
+
+      -- * Terminal
+      termWrite,
+      termWriteLn,
+      
       -- * Configuration
       setPromptMarker,
       setPromptColor,
@@ -96,6 +112,8 @@ module System.Console.Repline(
       enableHistoryDuplicates,
       enableCompletionPreview,
       enableMultilineIndent,
+      enableHint,
+      enableHighlight,
       enableInlineHelp,
       
       Color(..), 
@@ -103,11 +121,24 @@ module System.Console.Repline(
       -- * Advanced
       setDefaultCompleter,      
       readlineMaybe,
-      readlineWithCompleterMaybe      
+      readlineWithCompleterMaybe,   
+
+      -- * Low-level highlighting
+      Highlight,      
+      setHighlighter,
+      highlightEsc,
+      highlightColor,
+      highlightBgColor,
+      highlightUnderline,
+      highlightReverse,
+      highlightSetAttr,
+      highlightSetAttrDiff
+
     ) where
 
 
 import Data.List( intersperse, isPrefixOf )
+import Control.Monad( when, foldM )
 import Control.Exception( bracket )
 import Foreign.C.String( CString, peekCString, peekCStringLen, withCString, castCharToCChar )
 import Foreign.Ptr
@@ -219,78 +250,6 @@ historyAdd :: String -> IO ()
 historyAdd entry
   = withUTF8String0 entry $ \centry ->
     do rp_history_add centry 
-
-
-
-----------------------------------------------------------------------------
--- Syntax highlighting
-----------------------------------------------------------------------------
-
-data RpHighlightEnv
-
--- | Abstract highlight environment
-newtype Highlight = Highlight (Ptr RpHighlightEnv)    
-
-
-type CHighlightFun = Ptr RpHighlightEnv -> CString -> Ptr () -> IO ()
-type HighlightFun  = Highlight -> String -> IO ()
-
-foreign import ccall rp_set_highlighter     :: FunPtr CHighlightFun -> Ptr () -> IO ()
-foreign import ccall "wrapper" rp_make_highlight_fun:: CHighlightFun -> IO (FunPtr CHighlightFun)
-
-foreign import ccall rp_highlight_color     :: Ptr RpHighlightEnv -> CLong -> CInt -> IO ()
-foreign import ccall rp_highlight_bgcolor   :: Ptr RpHighlightEnv -> CLong -> CInt -> IO ()
-foreign import ccall rp_highlight_underline :: Ptr RpHighlightEnv -> CLong -> CInt -> IO ()
-foreign import ccall rp_highlight_reverse   :: Ptr RpHighlightEnv -> CLong -> CInt -> IO ()
-
-
-type CHighlightEscFun = CString -> Ptr () -> IO CString
-type HighlightEscFun  = String -> String
-
-foreign import ccall rp_set_highlighter_esc :: FunPtr CHighlightEscFun -> IO ()
-foreign import ccall rp_highlight_esc       :: Ptr RpHighlightEnv -> CString -> FunPtr CHighlightEscFun -> Ptr () -> IO ()
-foreign import ccall "wrapper" rp_make_highlight_esc_fun:: CHighlightEscFun -> IO (FunPtr CHighlightEscFun)
-
--- | Set a syntax highlighter.
--- | There can only be one highlight function, setting it again disables the previous one.
-setHighlighter :: (Highlight -> String -> IO ()) -> IO ()
-setHighlighter highlightFun
-  = do chlFun <- rp_make_highlight_fun chighlightFun 
-       rp_set_highlighter chlFun nullPtr
-  where
-    chighlightFun henv cinput carg
-      = do input <- peekUTF8String0
-           highlightFun (Highlight henv) input
-
-
--- | Set a syntax highlighter that uses a pure function to insert ANSI CSI SGR sequences
--- to highlight the code.
--- There can only be one highlight function, setting it again disables the previous one.
-setHighlighterEsc :: (String -> String) -> IO ()
-setHighlighterEsc highlight
-  = do cfun <- rp_make_highlight_fun chighlight
-       rp_set_highlighter_esc cfun
-  where
-    chighlight cinput carg
-      = do input <- peekUTF8String0
-           return (highlight input)
-
--- | Use an escape sequence highlighter from inside `setHighlighter`.
--- It is recommended to use ` setHighlighterEsc` instead.
-highlightEsc :: Highlight -> String -> (String -> String) -> IO ()
-highlightEsc (Highlight henv) input highlight
-  = withUTF8String0 input $ \cinput ->
-    do cfun <- rp_make_highlight_esc_fun chighlight
-       rp_highlight_esc henv cinput cfun nullPtr
-  where
-    chighlight cinput carg
-      = do input <- peekUTF8String0
-           return (highlight input)
-
-
-highlightColor :: Highlight -> Int -> Color -> IO ()
-highlightColor (Highlight henv) pos color 
-  = do rp_highlight_color henv (clong (-pos)) (ccolor color)
 
 
 ----------------------------------------------------------------------------
@@ -428,6 +387,211 @@ makeCharClassFun isInClass
     in rp_make_charclassfun charClassFun
 
 
+
+----------------------------------------------------------------------------
+-- Syntax highlighting
+----------------------------------------------------------------------------
+
+data RpHighlightEnv
+
+-- | Abstract highlight environment
+newtype Highlight = Highlight (Ptr RpHighlightEnv)    
+
+type CHighlightFun = Ptr RpHighlightEnv -> CString -> Ptr () -> IO ()
+type HighlightFun  = Highlight -> String -> IO ()
+
+foreign import ccall rp_set_highlighter     :: FunPtr CHighlightFun -> Ptr () -> IO ()
+foreign import ccall "wrapper" rp_make_highlight_fun:: CHighlightFun -> IO (FunPtr CHighlightFun)
+
+foreign import ccall rp_highlight_color     :: Ptr RpHighlightEnv -> CLong -> CInt -> IO ()
+foreign import ccall rp_highlight_bgcolor   :: Ptr RpHighlightEnv -> CLong -> CInt -> IO ()
+foreign import ccall rp_highlight_underline :: Ptr RpHighlightEnv -> CLong -> CInt -> IO ()
+foreign import ccall rp_highlight_reverse   :: Ptr RpHighlightEnv -> CLong -> CInt -> IO ()
+
+type CHighlightEscFun = CString -> Ptr () -> IO CString
+type HighlightEscFun  = String -> String
+
+foreign import ccall rp_set_highlighter_esc :: FunPtr CHighlightEscFun -> IO ()
+foreign import ccall rp_highlight_esc       :: Ptr RpHighlightEnv -> CString -> FunPtr CHighlightEscFun -> Ptr () -> IO ()
+foreign import ccall "wrapper" rp_make_highlight_esc_fun:: CHighlightEscFun -> IO (FunPtr CHighlightEscFun)
+foreign import ccall rp_strdup              :: CString -> IO CString
+
+-- | Set a syntax highlighter.
+-- There can only be one highlight function, setting it again disables the previous one.
+-- See also 'setHighlighterEsc'.
+setHighlighter :: (Highlight -> String -> IO ()) -> IO ()
+setHighlighter highlightFun
+  = do chlFun <- rp_make_highlight_fun chighlightFun 
+       rp_set_highlighter chlFun nullPtr
+  where
+    chighlightFun henv cinput carg
+      = do input <- peekUTF8String0 cinput
+           highlightFun (Highlight henv) input
+
+
+-- | Set a syntax highlighter that uses a pure function to insert ANSI CSI SGR sequences
+-- to highlight the code. This should function should _not_ add or delete characters
+-- and only add basic CSI sequences to set the color, background color, underline, or reverse video.
+-- See <https://en.wikipedia.org/wiki/ANSI_escape_code#SGR_(Select_Graphic_Rendition)_parameters>
+-- There can only be one highlight function, setting it again disables the previous one.
+-- 
+-- See also `setHighlighterAttr` for a highlighter based on text attributes instead.
+setHighlighterEsc :: (String -> String) -> IO ()
+setHighlighterEsc highlight
+  = do cfun <- rp_make_highlight_esc_fun chighlight
+       rp_set_highlighter_esc cfun
+  where
+    chighlight cinput carg
+      = do input <- peekUTF8String0 cinput
+           withUTF8String0 (highlight input) $ \coutput ->
+             rp_strdup coutput
+
+-- | Use an escape sequence highlighter from inside `setHighlighter`.
+-- It is recommended to use ` setHighlighterEsc` instead.
+highlightEsc :: Highlight -> String -> (String -> String) -> IO ()
+highlightEsc (Highlight henv) input highlight
+  = withUTF8String0 input $ \cinput ->
+    do cfun <- rp_make_highlight_esc_fun chighlight
+       rp_highlight_esc henv cinput cfun nullPtr
+  where
+    chighlight cinput carg
+      = do input <- peekUTF8String0 cinput
+           withUTF8String0 (highlight input) $ \coutput ->
+             rp_strdup coutput
+
+
+-- | @highlightColor henv pos color@: Set the color of a character
+-- at position @pos@ in the input (from inside a highlighter).
+-- All following characters will have this color until another
+-- color is set again.
+highlightColor :: Highlight -> Int -> Color -> IO ()
+highlightColor (Highlight henv) pos color 
+  = do rp_highlight_color henv (clong (-pos)) (ccolor color)
+
+-- | @highlightBgColor henv pos bgcolor@: Set the background color of a character
+-- at position @pos@ in the input (from inside a highlighter).
+-- All following characters will have this background color until another
+-- background color is set again.
+highlightBgColor :: Highlight -> Int -> Color -> IO ()
+highlightBgColor (Highlight henv) pos color 
+  = do rp_highlight_bgcolor henv (clong (-pos)) (ccolor color)
+
+-- | @highlightUnderline henv pos bgcolor@: Set underline of a character
+-- at position @pos@ in the input (from inside a highlighter).
+-- All following characters will have this underlining until another
+-- underlining is set again.
+highlightUnderline :: Highlight -> Int -> Bool -> IO ()
+highlightUnderline (Highlight henv) pos enable
+  = do rp_highlight_underline henv (clong (-pos)) (cbool enable) 
+
+-- | @highlightReverse henv pos bgcolor@: Set reverse video mode of a character
+-- at position @pos@ in the input (from inside a highlighter).
+-- All following characters will have this reverse mode until another
+-- reverse mode is set again.
+highlightReverse :: Highlight -> Int -> Bool -> IO ()
+highlightReverse (Highlight henv) pos enable
+  = do rp_highlight_reverse henv (clong (-pos)) (cbool enable) 
+
+
+-- | Text attributes for a single character.
+data TextAttr = TextAttr{ 
+  attrColor     :: Color, -- ^ color
+  attrBgColor   :: Color, -- ^ background color
+  attrUnderline :: Bool,  -- ^ underline
+  attrReverse   :: Bool   -- ^ reverse video
+}
+
+-- | Default text attribute.
+attrDefault :: TextAttr
+attrDefault = TextAttr ColorDefault ColorDefault False False 
+
+-- | Use the given text attribute for each character in the string. 
+withAttr :: TextAttr -> String -> [TextAttr]
+withAttr attr s = map (const attr) s
+
+-- | Use the given color for each character in the string
+withAttrColor :: Color -> String -> [TextAttr]
+withAttrColor color s = withAttr (attrDefault{ attrColor = color }) s
+
+-- | Use the given background color for each character in the string
+withAttrBgColor :: Color -> String -> [TextAttr]
+withAttrBgColor color s = withAttr (attrDefault{ attrBgColor = color }) s
+
+-- | Use underline for each character in the string
+withAttrUnderline :: String -> [TextAttr]
+withAttrUnderline  s = withAttr (attrDefault{ attrUnderline = True}) s
+
+-- | Use reverse video for each character in the string
+withAttrReverse :: String -> [TextAttr]
+withAttrReverse  s = withAttr (attrDefault{ attrReverse = True}) s
+
+-- | Use the default text attributes for each character in the string.
+withAttrDefault :: String -> [TextAttr]
+withAttrDefault s = withAttr attrDefault s
+
+
+-- | @highlightSetAttrDiff henv pos current attr@: Set new text attribute @attr@ 
+-- at position @pos@; but only set any properties
+-- that differ from the @current@ text attributes.
+highlightSetAttrDiff :: Highlight -> Int -> TextAttr -> TextAttr -> IO ()
+highlightSetAttrDiff henv pos current attr
+  = do when (attrColor current /= attrColor attr)         $ highlightColor henv pos (attrColor attr)
+       when (attrBgColor current /= attrBgColor attr)     $ highlightBgColor henv pos (attrBgColor attr)
+       when (attrUnderline current /= attrUnderline attr) $ highlightUnderline henv pos (attrUnderline attr)
+       when (attrReverse current /= attrReverse attr)     $ highlightReverse henv pos (attrReverse attr)
+       return ()
+
+-- | @highlightSetAttr henv pos attr@: Set new text attribute @attr@ 
+-- at position @pos@. 
+highlightSetAttr :: Highlight -> Int -> TextAttr -> IO ()
+highlightSetAttr henv pos (TextAttr color bgcolor underline reverse) 
+  = do -- todo: add one function to set all at once at the C side
+       highlightColor henv pos color
+       highlightBgColor henv pos bgcolor
+       highlightUnderline henv pos underline
+       highlightReverse henv pos reverse
+
+-- | Set a syntax highlighter that uses a pure function to return a list
+-- of text attributes for each character in the input.
+-- There can only be one highlight function, setting it again disables the previous one.
+--
+-- See also `setHighlighterEsc` for a highlight function based on escape sequences instead.
+setHighlighterAttr :: (String -> [TextAttr]) -> IO ()
+setHighlighterAttr highlight 
+  = setHighlighter highlightFun
+  where 
+    highlightFun :: Highlight -> String -> IO ()
+    highlightFun henv input
+      = do let attrs = highlight input               
+           foldM (setAttr henv) attrDefault (zip [0..] attrs)
+           return ()
+    
+    setAttr :: Highlight -> TextAttr -> (Int,TextAttr) -> IO TextAttr
+    setAttr henv current (pos,attr) 
+      = do highlightSetAttrDiff henv pos current attr
+           return attr
+
+
+----------------------------------------------------------------------------
+-- Terminal
+----------------------------------------------------------------------------
+
+foreign import ccall rp_write  :: CString -> IO ()
+foreign import ccall rp_writeln :: CString -> IO ()
+
+-- | Write output to the terminal where ANSI CSI sequences are
+-- handled portably across platforms (including Windows).
+termWrite :: String -> IO ()
+termWrite s
+  = withUTF8String0 s $ \cs -> rp_write cs
+
+-- | Write output with a ending newline to the terminal where 
+-- ANSI CSI sequences are handled portably across platforms (including Windows).
+termWriteLn :: String -> IO ()
+termWriteLn s
+  = withUTF8String0 s $ \cs -> rp_writeln cs  
+
+
 ----------------------------------------------------------------------------
 -- Configuration
 ----------------------------------------------------------------------------
@@ -439,6 +603,8 @@ foreign import ccall rp_enable_beep       :: CCBool -> IO ()
 foreign import ccall rp_enable_color      :: CCBool -> IO ()
 foreign import ccall rp_enable_auto_tab   :: CCBool -> IO ()
 foreign import ccall rp_enable_inline_help:: CCBool -> IO ()
+foreign import ccall rp_enable_hint       :: CCBool -> IO ()
+foreign import ccall rp_enable_highlight  :: CCBool -> IO ()
 foreign import ccall rp_enable_history_duplicates :: CCBool -> IO ()
 foreign import ccall rp_enable_completion_preview :: CCBool -> IO ()
 foreign import ccall rp_enable_multiline_indent   :: CCBool -> IO ()
@@ -529,6 +695,17 @@ setReplineColors colorInfo colorDiminish colorEmphasis colorHint
 enableMultilineIndent :: Bool -> IO ()
 enableMultilineIndent enable
   = do rp_enable_multiline_indent (cbool enable)
+
+-- | Disable or enable automatic inline hinting (enabled by default)
+enableHint :: Bool -> IO ()
+enableHint enable
+  = do rp_enable_hint (cbool enable)
+
+-- | Disable or enable syntax highlighting (enabled by default).
+enableHighlight :: Bool -> IO ()
+enableHighlight enable
+  = do rp_enable_highlight (cbool enable)
+
 
 ----------------------------------------------------------------------------
 -- Colors

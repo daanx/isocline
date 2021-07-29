@@ -384,6 +384,9 @@ void rp_init_custom_alloc( rp_malloc_fun_t* _malloc, rp_realloc_fun_t* _realloc,
 // Free a potentially custom alloc'd pointer (in particular, the result returned from `rp_readline`)
 void rp_free( void* p );
 
+// Duplicate a string using the current memory allocator.
+const char* rp_strdup( const char* s );
+
 #ifdef __cplusplus
 }
 #endif
