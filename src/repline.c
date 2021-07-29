@@ -55,10 +55,14 @@ rp_public char* rp_readline(const char* prompt_text)
   } 
   else {
     // no editing capability (pipe, dumb terminal, etc)
-    if (env->tty != NULL) {
+    if (env->tty != NULL && env->term != NULL) {
       // if the terminal is not interactive, but we are reading from the tty (keyboard), we display a prompt
-      if (prompt_text != NULL) term_write(env->term, prompt_text);
+      term_start_raw(env->term);  // set utf8 mode on windows
+      if (prompt_text != NULL) {
+        term_write(env->term, prompt_text);
+      }
       term_write(env->term, env->prompt_marker);    
+      term_end_raw(env->term);
     }
     // read directly from stdin
     return rp_getline(env->mem);
