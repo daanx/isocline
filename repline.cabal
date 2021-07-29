@@ -26,6 +26,7 @@ extra-source-files:
     src/editline_completion.c
     src/editline_help.c
     src/editline_history.c
+    src/highlight.c
     src/history.c
     src/repline.c
     src/stringbuf.c
@@ -37,6 +38,7 @@ extra-source-files:
     src/common.h
     src/completions.h
     src/env.h
+    src/highlight.h
     src/history.h
     src/stringbuf.h
     src/term.h

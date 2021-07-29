@@ -38,14 +38,14 @@ wordCompleter :: Completions-> String -> IO ()
 wordCompleter compl input0
   = do let input = map toLower input0
        addCompletionsFor compl input ["print","println","prints","printsln","prompt"]
-       when (input `isPrefixOf` "hello repline") $
+       when (input `isPrefixOf` "hello repline ") $
          do helloCompletions 1 100000
        when (input == "id") $
-         do addCompletion compl "D — (x) => x"       "d"                
-            addCompletion compl "Haskell — \\x -> x" "haskell"
-            addCompletion compl "Idris — \\x => x"   "idris"
-            addCompletion compl "Koka — fn(x){ x }"  "koka"    
-            addCompletion compl "Ocaml — fun x -> x" "ocaml"
+         do addCompletion compl "D — (x) => x"       "(x) => x"                
+            addCompletion compl "Haskell — \\x -> x" "\\x -> x"
+            addCompletion compl "Idris — \\x => x"   "\\x => x"
+            addCompletion compl "Koka — fn(x){ x }"  "fn(x){ x }"    
+            addCompletion compl "Ocaml — fun x -> x" "fun x -> x"
             return ()
   where
     helloCompletions :: Int -> Int -> IO ()

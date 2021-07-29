@@ -109,7 +109,7 @@ module System.Console.Repline(
 
 import Data.List( intersperse, isPrefixOf )
 import Control.Exception( bracket )
-import Foreign.C.String( CString, peekCString, withCString, castCharToCChar )
+import Foreign.C.String( CString, peekCString, peekCStringLen, withCString, castCharToCChar )
 import Foreign.Ptr
 import Foreign.C.Types
 
@@ -220,16 +220,96 @@ historyAdd entry
   = withUTF8String0 entry $ \centry ->
     do rp_history_add centry 
 
+
+
+----------------------------------------------------------------------------
+-- Syntax highlighting
+----------------------------------------------------------------------------
+
+data RpHighlightEnv
+
+-- | Abstract highlight environment
+newtype Highlight = Highlight (Ptr RpHighlightEnv)    
+
+
+type CHighlightFun = Ptr RpHighlightEnv -> CString -> Ptr () -> IO ()
+type HighlightFun  = Highlight -> String -> IO ()
+
+foreign import ccall rp_set_highlighter     :: FunPtr CHighlightFun -> Ptr () -> IO ()
+foreign import ccall "wrapper" rp_make_highlight_fun:: CHighlightFun -> IO (FunPtr CHighlightFun)
+
+foreign import ccall rp_highlight_color     :: Ptr RpHighlightEnv -> CLong -> CInt -> IO ()
+foreign import ccall rp_highlight_bgcolor   :: Ptr RpHighlightEnv -> CLong -> CInt -> IO ()
+foreign import ccall rp_highlight_underline :: Ptr RpHighlightEnv -> CLong -> CInt -> IO ()
+foreign import ccall rp_highlight_reverse   :: Ptr RpHighlightEnv -> CLong -> CInt -> IO ()
+
+
+type CHighlightEscFun = CString -> Ptr () -> IO CString
+type HighlightEscFun  = String -> String
+
+foreign import ccall rp_set_highlighter_esc :: FunPtr CHighlightEscFun -> IO ()
+foreign import ccall rp_highlight_esc       :: Ptr RpHighlightEnv -> CString -> FunPtr CHighlightEscFun -> Ptr () -> IO ()
+foreign import ccall "wrapper" rp_make_highlight_esc_fun:: CHighlightEscFun -> IO (FunPtr CHighlightEscFun)
+
+-- | Set a syntax highlighter.
+-- | There can only be one highlight function, setting it again disables the previous one.
+setHighlighter :: (Highlight -> String -> IO ()) -> IO ()
+setHighlighter highlightFun
+  = do chlFun <- rp_make_highlight_fun chighlightFun 
+       rp_set_highlighter chlFun nullPtr
+  where
+    chighlightFun henv cinput carg
+      = do input <- peekUTF8String0
+           highlightFun (Highlight henv) input
+
+
+-- | Set a syntax highlighter that uses a pure function to insert ANSI CSI SGR sequences
+-- to highlight the code.
+-- There can only be one highlight function, setting it again disables the previous one.
+setHighlighterEsc :: (String -> String) -> IO ()
+setHighlighterEsc highlight
+  = do cfun <- rp_make_highlight_fun chighlight
+       rp_set_highlighter_esc cfun
+  where
+    chighlight cinput carg
+      = do input <- peekUTF8String0
+           return (highlight input)
+
+-- | Use an escape sequence highlighter from inside `setHighlighter`.
+-- It is recommended to use ` setHighlighterEsc` instead.
+highlightEsc :: Highlight -> String -> (String -> String) -> IO ()
+highlightEsc (Highlight henv) input highlight
+  = withUTF8String0 input $ \cinput ->
+    do cfun <- rp_make_highlight_esc_fun chighlight
+       rp_highlight_esc henv cinput cfun nullPtr
+  where
+    chighlight cinput carg
+      = do input <- peekUTF8String0
+           return (highlight input)
+
+
+highlightColor :: Highlight -> Int -> Color -> IO ()
+highlightColor (Highlight henv) pos color 
+  = do rp_highlight_color henv (clong (-pos)) (ccolor color)
+
+
 ----------------------------------------------------------------------------
 -- Completion
 ----------------------------------------------------------------------------
+-- use our own CBool for compatibility with an older base
+type CCBool = CInt
+
+type CCharClassFun = CString -> CLong -> IO CCBool
+type CharClassFun  = Char -> Bool
 
 foreign import ccall rp_set_default_completer :: FunPtr CCompleterFun -> IO ()
 foreign import ccall "wrapper" rp_make_completer :: CCompleterFun -> IO (FunPtr CCompleterFun)
+foreign import ccall "wrapper" rp_make_charclassfun :: CCharClassFun -> IO (FunPtr CCharClassFun)
+
 foreign import ccall rp_add_completion        :: Ptr RpCompletions -> CString -> CString -> IO CChar
 foreign import ccall rp_complete_filename     :: Ptr RpCompletions -> CString -> CChar -> CString -> CString -> IO ()
 foreign import ccall rp_complete_word         :: Ptr RpCompletions -> CString -> FunPtr CCompleterFun -> IO ()
-foreign import ccall rp_complete_quoted_word  :: Ptr RpCompletions -> CString -> FunPtr CCompleterFun -> CString -> CChar -> CString -> IO ()
+foreign import ccall rp_complete_quoted_word  :: Ptr RpCompletions -> CString -> FunPtr CCompleterFun -> FunPtr CCharClassFun -> CChar -> CString -> IO ()
 
 -- | @setDefaultCompleter completer@: Set a new tab-completion function @completer@ 
 -- that is called by Repline automatically. 
@@ -316,32 +396,43 @@ completeWord (Completions rpc) prefx completer
        rp_complete_word rpc cprefx ccompleter
        freeHaskellFunPtr ccompleter
   
--- | @completeQuotedWord compl input completer nonWordChars escapeChar quoteChars@: 
+-- | @completeQuotedWord compl input completer isWordChar escapeChar quoteChars@: 
 -- Complete a /word/ taking care of automatically quoting and escaping characters.
 -- Takes the 'Completions' environment @compl@, the current @input@, and a user defined 
 -- @completer@ function that is called with adjusted input which is unquoted, unescaped,
 -- and limited to the /word/ just before the cursor.
--- Unlike 'completeWord', this function takes an explicit string of /non-word/ characters,
+-- Unlike 'completeWord', this function takes an explicit function to determine /word/ characters,
 -- the /escape/ character, and a string of /quote/ characters.
 -- See also 'completeWord'.
-completeQuotedWord :: Completions -> String -> (Completions -> String -> IO ()) -> String -> Maybe Char -> String -> IO () 
-completeQuotedWord (Completions rpc) prefx completer nonWordChars escapeChar quoteChars
+completeQuotedWord :: Completions -> String -> (Completions -> String -> IO ()) -> (Char -> Bool) -> Maybe Char -> String -> IO () 
+completeQuotedWord (Completions rpc) prefx completer isWordChar escapeChar quoteChars
   = withUTF8String prefx $ \cprefx ->
-    withUTF8String0 nonWordChars $ \cnonWordChars ->
     withUTF8String0 quoteChars $ \cquoteChars ->
     do let cescapeChar = case escapeChar of
                           Nothing -> toEnum 0
-                          Just c  -> castCharToCChar c
+                          Just c  -> castCharToCChar c                      
        ccompleter <- makeCCompleter completer
-       rp_complete_quoted_word rpc cprefx ccompleter cnonWordChars cescapeChar cquoteChars
+       cisWordChar <- makeCharClassFun isWordChar
+       rp_complete_quoted_word rpc cprefx ccompleter cisWordChar cescapeChar cquoteChars
+       freeHaskellFunPtr cisWordChar
        freeHaskellFunPtr ccompleter
   
+makeCharClassFun :: (Char -> Bool) -> IO (FunPtr CCharClassFun)
+makeCharClassFun isInClass
+  = let charClassFun :: CString -> CLong -> IO CCBool
+        charClassFun cstr clen 
+          = let len = (fromIntegral clen :: Int)
+            in if (len <= 0) then return (cbool False)
+                else do s <- peekCStringLen (cstr,len)
+                        return (if null s then (cbool False) else cbool (isInClass (head s)))
+    in rp_make_charclassfun charClassFun
+
 
 ----------------------------------------------------------------------------
 -- Configuration
 ----------------------------------------------------------------------------
 foreign import ccall rp_set_prompt_color  :: CInt -> IO ()
-foreign import ccall rp_set_iface_colors  :: CInt -> CInt -> CInt -> IO ()
+foreign import ccall rp_set_iface_colors  :: CInt -> CInt -> CInt -> CInt -> IO ()
 foreign import ccall rp_set_prompt_marker :: CString -> CString -> IO ()
 foreign import ccall rp_enable_multiline  :: CCBool -> IO ()
 foreign import ccall rp_enable_beep       :: CCBool -> IO ()
@@ -352,8 +443,7 @@ foreign import ccall rp_enable_history_duplicates :: CCBool -> IO ()
 foreign import ccall rp_enable_completion_preview :: CCBool -> IO ()
 foreign import ccall rp_enable_multiline_indent   :: CCBool -> IO ()
 
--- use our own CBool for compatibility with an older base
-type CCBool = CInt
+
 
 cbool :: Bool -> CCBool
 cbool True  = toEnum 1
@@ -361,6 +451,9 @@ cbool False = toEnum 0
 
 ccolor :: Color -> CInt
 ccolor clr = toEnum (fromEnum clr)
+
+clong :: Int -> CLong
+clong l = toEnum l
 
 
 -- | Set the color of the prompt.
@@ -419,13 +512,16 @@ enableCompletionPreview enable
   = do rp_enable_completion_preview (cbool enable)
 
 -- | Set the color used for interface elements:
--- - info: for example, numbers in the completion menu (`DarkGray` by default)
--- - diminish: for example, non matching parts in a history search (`LightGray` by default)
--- - highlight: for example, the matching part in a history search (`White` by default)
+--
+-- - info: for example, numbers in the completion menu (`DarkGray` by default).
+-- - diminish: for example, non matching parts in a history search (`LightGray` by default).
+-- - emphasis: for example, the matching part in a history search (`White` by default).
+-- - hint: for inline hints (`DarkGray` by default).
+--
 -- Use `ColorNone` to use the default color. (but `ColorDefault` for the default terminal text color!
-setReplineColors :: Color -> Color -> Color -> IO ()
-setReplineColors colorInfo colorDiminish colorHighlight
-  = rp_set_iface_colors (ccolor colorInfo) (ccolor colorDiminish) (ccolor colorHighlight)
+setReplineColors :: Color -> Color -> Color -> Color -> IO ()
+setReplineColors colorInfo colorDiminish colorEmphasis colorHint
+  = rp_set_iface_colors (ccolor colorInfo) (ccolor colorDiminish) (ccolor colorEmphasis) (ccolor colorHint)
 
 -- | Disable or enable automatic indentation to line up the
 -- multiline prompt marker with the initial prompt marker (enabled by default).

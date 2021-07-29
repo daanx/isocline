@@ -203,6 +203,10 @@ typedef char* (rp_highlight_esc_fun_t)(const char* s, void* arg);
 void rp_highlight_esc(rp_highlight_env_t* henv, const char* input, rp_highlight_esc_fun_t* highlight, void* arg);
 
 
+// Convenience: set directly a highlighter that calls an `rp_highlight_esc_fun_t` 
+// function to highlight using ANSI escape sequences.
+void rp_set_highlighter_esc(rp_highlight_esc_fun_t* highlight);
+
 //--------------------------------------------------------------
 // Customization
 //--------------------------------------------------------------

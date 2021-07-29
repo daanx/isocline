@@ -31,6 +31,7 @@ struct rp_highlight_env_s {
   ssize_t  attr_capacity;  
   ssize_t  attr_len;
   attr_t   cur_attr;
+  const char* input;        // only valid during initial highlight  
   alloc_t* mem;
 };
 
@@ -110,7 +111,9 @@ rp_private bool highlight_init( rp_highlight_env_t* henv, const char* s, rp_high
     henv->attr_len = len;
     rp_memset(henv->attrs, 0, henv->attr_len * ssizeof(attr_t));
     if (highlighter != NULL) {
+      henv->input = s;
       (*highlighter)( henv, s, arg );
+      henv->input = NULL;
     }
   }
   highlight_fillout(henv);
@@ -174,33 +177,67 @@ rp_private void highlight_term_write( rp_highlight_env_t* henv, term_t* term, co
 // Client interface
 //-------------------------------------------------------------
 
+static long pos_adjust( rp_highlight_env_t* henv, long pos ) {
+  if (pos >= henv->attr_len) return -1;
+  if (pos >= 0) return pos;
+  // negative position is used as the unicode character position (for easy interfacing with Haskell)
+  if (henv->input == NULL) return -1;
+  long ucount = -pos;
+  long cpos = 0;
+  long upos = 0;
+  ssize_t next;
+  while ( upos < ucount ) {
+    ssize_t next = str_next_ofs(henv->input, henv->attr_len, cpos, NULL);
+    if (next <= 0) return -1;
+    upos++;
+    cpos += next;
+  }
+  assert(cpos < henv->attr_len);
+  return cpos;
+}
+
 // Set the color of characters starting at position `pos` to `color`.
 rp_public void rp_highlight_color(rp_highlight_env_t* henv, long pos, rp_color_t color ) {
   if (henv==NULL) return;
-  if (pos < 0 || pos >= henv->attr_len) return;
+  pos = pos_adjust(henv,pos);
+  if (pos < 0) return;
   henv->attrs[pos].color = color;
 }
 
 // Set the background color of characters starting at position `pos` to `bgcolor`.
 rp_public void rp_highlight_bgcolor(rp_highlight_env_t* henv, long pos, rp_color_t bgcolor) {
   if (henv==NULL) return;
-  if (pos < 0 || pos >= henv->attr_len) return;
+  pos = pos_adjust(henv,pos);
+  if (pos < 0) return;
   henv->attrs[pos].bgcolor = bgcolor;
 }
 
 // Enable/Disable underlining for characters starting at position `pos`.
 rp_public void rp_highlight_underline(rp_highlight_env_t* henv, long pos, bool enable ) {
   if (henv==NULL) return;
-  if (pos < 0 || pos >= henv->attr_len) return;
+  pos = pos_adjust(henv,pos);
+  if (pos < 0) return;
   henv->attrs[pos].underline = (enable ? 1 : -1);
 }
 
 // Enable/Disable reverse video for characters starting at position `pos`.
 rp_public void rp_highlight_reverse(rp_highlight_env_t* henv, long pos, bool enable) {
   if (henv==NULL) return;
-  if (pos < 0 || pos >= henv->attr_len) return;
+  pos = pos_adjust(henv,pos);
+  if (pos < 0) return;
   henv->attrs[pos].underline = (enable ? 1 : -1);
 }
+
+
+static void highlight_esc( rp_highlight_env_t* henv, const char* input, void* arg ) {
+  rp_highlight_esc_fun_t* highlight = (rp_highlight_esc_fun_t*)arg;
+  rp_highlight_esc( henv, input, highlight, NULL);
+}
+
+rp_public void rp_set_highlighter_esc(rp_highlight_esc_fun_t* highlight) {
+  rp_set_highlighter( &highlight_esc, highlight );
+}
+
 
 // Convenience function for highlighting with escape sequences.
 rp_public void rp_highlight_esc(rp_highlight_env_t* henv, const char* input, rp_highlight_esc_fun_t* highlight, void* arg) {
