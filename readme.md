@@ -9,7 +9,7 @@ Repline is a pure C library that can be used as readline alternative.
 - Portable: works on Unix, Windows, and macOS, and uses a minimal
   subset of ANSI escape sequences.
 - Features: extensive multi-line editing mode (`shift-tab`), colors, history, completion, unicode, 
-  undo/redo, incremental history search, inline hints, syntax highlighting, graceful fallback, custom allocator, etc.
+  undo/redo, incremental history search, inline hints, syntax highlighting, graceful fallback, support for custom allocators, etc.
 - License: MIT. 
 - Comes with a [Haskell] binding (`System.Console.Repline`).
 
