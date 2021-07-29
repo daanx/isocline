@@ -477,6 +477,20 @@ static void edit_cursor_prev_word(rp_env_t* env, editor_t* eb) {
   edit_refresh(env,eb);
 }
 
+static void edit_cursor_next_ws_word(rp_env_t* env, editor_t* eb) {
+  ssize_t end = sbuf_find_ws_word_end(eb->input, eb->pos);
+  if (end < 0) return;
+  eb->pos = end;
+  edit_refresh(env, eb);
+}
+
+static void edit_cursor_prev_ws_word(rp_env_t* env, editor_t* eb) {
+  ssize_t start = sbuf_find_ws_word_start(eb->input, eb->pos);
+  if (start < 0) return;
+  eb->pos = start;
+  edit_refresh(env, eb);
+}
+
 static void edit_cursor_to_start(rp_env_t* env, editor_t* eb) {
   eb->pos = 0; 
   edit_refresh(env,eb);
@@ -586,6 +600,24 @@ static void edit_delete_to_end_of_word(rp_env_t* env, editor_t* eb) {
   sbuf_delete_from_to( eb->input, eb->pos, end );
   edit_refresh(env,eb);
 }
+
+static void edit_delete_to_start_of_ws_word(rp_env_t* env, editor_t* eb) {
+  ssize_t start = sbuf_find_ws_word_start(eb->input, eb->pos);
+  if (start < 0) return;
+  editor_start_modify(eb);
+  sbuf_delete_from_to(eb->input, start, eb->pos);
+  eb->pos = start;
+  edit_refresh(env, eb);
+}
+
+static void edit_delete_to_end_of_ws_word(rp_env_t* env, editor_t* eb) {
+  ssize_t end = sbuf_find_ws_word_end(eb->input, eb->pos);
+  if (end < 0) return;
+  editor_start_modify(eb);
+  sbuf_delete_from_to(eb->input, eb->pos, end);
+  edit_refresh(env, eb);
+}
+
 
 static void edit_delete_word(rp_env_t* env, editor_t* eb) {
   ssize_t start = sbuf_find_word_start(eb->input,eb->pos);
@@ -826,6 +858,8 @@ static char* edit_line( rp_env_t* env, const char* prompt_text )
         edit_delete_to_end_of_word(env,&eb);
         break;
       case KEY_CTRL_W:
+        edit_delete_to_start_of_ws_word(env, &eb);
+        break;
       case WITH_ALT(KEY_DEL):
       case WITH_ALT(KEY_BACKSP):
         edit_delete_to_start_of_word(env,&eb);

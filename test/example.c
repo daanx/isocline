@@ -66,16 +66,16 @@ int main()
 // Use `rp_add_completion( env, display, replacement)` to add actual completions.
 static void word_completer(rp_completion_env_t* cenv, const char* prefix ) 
 {
-  // complete with list of words; only if the input is a prefix it will be completed
+  // complete with list of words; only if the input is a prefix it will be a completion candidate
   static const char* completions[] = { "print", "println", "printer", "printsln", "prompt", NULL };
   rp_add_completions(cenv, prefix, completions);
 
   // examples of more customized completions
-  if (prefix[0] != 0 && rp_istarts_with("hello repline",prefix)) {
+  if (prefix[0] != 0 && rp_istarts_with("hello repline ",prefix)) {
     // many completions for hello repline
     for(int i = 0; i < 100000; i++) {
       char buf[32];
-      snprintf(buf,32,"hello repline (%d)", i+1);
+      snprintf(buf,32,"hello repline %03d", i+1);
       if (!rp_add_completion(cenv, NULL, buf)) break;  // break early if not all completions are needed (for better latency)
     }
   }
@@ -107,7 +107,7 @@ static void completer(rp_completion_env_t* cenv, const char* prefix )
   // and also use our custom completer  
   rp_complete_word( cenv, prefix, &word_completer );        
   
-  // rp_complete_quoted_word( cenv, prefix, &word_completer, " !=+,`@#&^*.()\r\t\n", '\\', "'\"" );        
+  // rp_complete_quoted_word( cenv, prefix, &word_completer, &rp_char_is_nonwhite, '\\', "'\"" );        
 }
 
 

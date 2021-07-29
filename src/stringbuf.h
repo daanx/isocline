@@ -54,6 +54,7 @@ rp_private ssize_t sbuf_append_char(stringbuf_t* sbuf, char c);
 // high level edit operations (return the new position)
 rp_private ssize_t sbuf_next( stringbuf_t* sbuf, ssize_t pos, ssize_t* cwidth );
 rp_private ssize_t sbuf_prev( stringbuf_t* sbuf, ssize_t pos, ssize_t* cwidth );
+rp_private ssize_t sbuf_next_ofs(stringbuf_t* sbuf, ssize_t pos, ssize_t* cwidth);
 
 rp_private ssize_t sbuf_delete_char_before( stringbuf_t* sbuf, ssize_t pos );
 rp_private void    sbuf_delete_char_at( stringbuf_t* sbuf, ssize_t pos );

@@ -20,7 +20,7 @@
 
 // free variables for word completion
 typedef struct word_closure_s {
-  const char* non_word_chars;
+  rp_is_char_class_fun_t* is_word_char;
   char        escape_char;
   char        quote;
   long        delete_before_adjust;
@@ -42,13 +42,14 @@ static bool word_add_completion_ex(rp_env_t* env, void* closure, const char* dis
     // escape white space if it was not quoted
     ssize_t len = sbuf_len(wenv->sbuf);
     ssize_t pos = 0;
-    while( pos < len ) {
-      if (strchr(wenv->non_word_chars, sbuf_char_at( wenv->sbuf, pos )) != NULL) {
+    ssize_t next;
+    while ( (next = sbuf_next_ofs(wenv->sbuf, pos, NULL)) > 0 ) 
+    {
+      if (!(*wenv->is_word_char)(sbuf_string(wenv->sbuf) + pos, (long)next)) { // strchr(wenv->non_word_char, sbuf_char_at( wenv->sbuf, pos )) != NULL) {
         sbuf_insert_char_at( wenv->sbuf, wenv->escape_char, pos);
         pos++;
       }
-      pos = sbuf_next( wenv->sbuf, pos, NULL );
-      if (pos <= 0) break;
+      pos += next;
     }
   }
   // and call the previous completion function
@@ -61,8 +62,9 @@ rp_public void rp_complete_word( rp_completion_env_t* cenv, const char* prefix, 
 }
 
 
-rp_public void rp_complete_quoted_word( rp_completion_env_t* cenv, const char* prefix, rp_completer_fun_t* fun, const char* non_word_chars, char escape_char, const char* quote_chars ) {
-  if (non_word_chars == NULL) non_word_chars = " \t\r\n";  
+rp_public void rp_complete_quoted_word( rp_completion_env_t* cenv, const char* prefix, rp_completer_fun_t* fun, 
+                                        rp_is_char_class_fun_t* is_word_char, char escape_char, const char* quote_chars ) {
+  if (is_word_char == NULL) is_word_char = &rp_char_is_nonseparator ;  
   if (quote_chars == NULL) quote_chars = "'\"";
 
   ssize_t len = rp_strlen(prefix);
@@ -78,8 +80,10 @@ rp_public void rp_complete_quoted_word( rp_completion_env_t* cenv, const char* p
     ssize_t qcount = 0;
     pos = 0; 
     while(pos < len) {
-      if (prefix[pos] == escape_char && prefix[pos+1] != 0 && strchr(non_word_chars,prefix[pos+1]) != NULL) {       
-        pos++; // skip next char
+      if (prefix[pos] == escape_char && prefix[pos+1] != 0 && 
+           !(*is_word_char)(prefix + pos + 1, 1)) // strchr(non_word_char, prefix[pos+1]) != NULL
+      {       
+        pos++; // skip escape and next char
       }
       else if (qcount % 2 == 0 && strchr(quote_chars, prefix[pos]) != NULL) {
         // open quote 
@@ -92,7 +96,7 @@ rp_public void rp_complete_quoted_word( rp_completion_env_t* cenv, const char* p
         qpos_close = pos;
         qcount++;
       }
-      else if (strchr(non_word_chars, prefix[pos]) != NULL) {
+      else if (!(*is_word_char)(prefix + pos, 1)) { //  strchr(non_word_char, prefix[pos]) != NULL) {
         qpos_close = -1;
       }
       ssize_t ofs = str_next_ofs( prefix, len, pos, NULL );
@@ -117,10 +121,11 @@ rp_public void rp_complete_quoted_word( rp_completion_env_t* cenv, const char* p
       // go back one code point
       ssize_t ofs = str_prev_ofs(prefix, pos, NULL );
       if (ofs <= 0) break;
-      if (strchr(non_word_chars, prefix[pos - ofs]) != NULL) {
+      if (!(*is_word_char)(prefix + (pos - ofs), (long)ofs)) { // strchr(non_word_char, prefix[pos - ofs]) != NULL) {
         // non word char, break if it is not escaped
         if (pos <= ofs || prefix[pos - ofs - 1] != escape_char) break; 
         // otherwise go on
+        pos--; // skip escaped char
       }
       pos -= ofs;
     }
@@ -137,10 +142,12 @@ rp_public void rp_complete_quoted_word( rp_completion_env_t* cenv, const char* p
     // unescape prefix
     ssize_t wlen = len - pos;
     ssize_t wpos = 0;
-    while( wpos < wlen ) {
+    while (wpos < wlen) {
       ssize_t ofs = str_next_ofs(word, wlen, wpos, NULL);
       if (ofs <= 0) break;
-      if (word[wpos] == escape_char && word[wpos+1] != 0 && strchr(non_word_chars, word[wpos+1]) != NULL) {
+      if (word[wpos] == escape_char && word[wpos+1] != 0 &&
+           !(*is_word_char)(word + wpos + 1, (long)ofs)) // strchr(non_word_char, word[wpos+1]) != NULL) {
+      {
         rp_memmove(word + wpos, word + wpos + 1, wlen - wpos /* including 0 */);
       }
       wpos += ofs;
@@ -166,7 +173,7 @@ rp_public void rp_complete_quoted_word( rp_completion_env_t* cenv, const char* p
   // set up the closure
   word_closure_t wenv;
   wenv.quote          = quote;
-  wenv.non_word_chars = non_word_chars;
+  wenv.is_word_char   = is_word_char;
   wenv.escape_char    = escape_char;
   wenv.delete_before_adjust = (long)(len - pos);
   wenv.prev_complete  = cenv->complete;
@@ -446,5 +453,5 @@ rp_public void rp_complete_filename( rp_completion_env_t* cenv, const char* pref
   fclosure.roots = roots; 
   fclosure.extensions = extensions;
   cenv->arg = &fclosure;
-  rp_complete_quoted_word( cenv, prefix, &filename_completer, " \t\r\n`@$><=;|&{(", '\\', "'\"");  
+  rp_complete_quoted_word( cenv, prefix, &filename_completer, &rp_char_is_filename_letter, '\\', "'\"");  
 }

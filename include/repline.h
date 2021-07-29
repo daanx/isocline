@@ -122,13 +122,19 @@ void rp_complete_filename( rp_completion_env_t* cenv, const char* prefix, char d
 void rp_complete_word( rp_completion_env_t* cenv, const char* prefix, rp_completer_fun_t* fun );
 
 
+
+// Function that returns whether a (utf8) character (of length `len`) is in a certain character class
+// See `rp_char_is_<xxx>` below.
+typedef bool (rp_is_char_class_fun_t)(const char* s, long len);
+
 // Complete a _word_; calls the user provided function `fun` to complete while taking
 // care of quotes and escape characters. Almost all user provided completers should use this function. 
-// The `non_word_chars` is a set of characters that cannot be a word. Use NULL for the default " \r\t\n".
+// The `non_word_chars` is a set of characters that are part of a "word". Use NULL for the default (`&rp_char_is_nonseparator`).
 // The `escape_char` is the escaping character, usually `\` but use 0 to not have escape characters.
 // The `quote_chars` define the quotes, use NULL for the default `"\'\""` quotes.
 // See `rp_complete_word` which uses the default values for `non_word_chars`, `quote_chars` and `\` for escape characters.
-void rp_complete_quoted_word( rp_completion_env_t* cenv, const char* prefix, rp_completer_fun_t fun, const char* non_word_chars, char escape_char, const char* quote_chars );
+void rp_complete_quoted_word( rp_completion_env_t* cenv, const char* prefix, rp_completer_fun_t fun, 
+                                rp_is_char_class_fun_t* is_word_char, char escape_char, const char* quote_chars );
 
 
 //--------------------------------------------------------------
@@ -282,6 +288,11 @@ bool rp_has_completions( rp_completion_env_t* cenv );
 // If `false` is returned, the callback should try to return and not add more completions (for improved latency).
 bool rp_add_completion_ex( rp_completion_env_t* cenv, const char* display, const char* completion, long delete_before, long delete_after);
 
+
+//--------------------------------------------------------------
+// Convenience functions for character classes, highlighting and completion.
+//--------------------------------------------------------------
+
 // Convenience: return the position of a previous code point in a UTF-8 string `s` from postion `pos`.
 // Returns `-1` if `pos <= 0` or `pos > strlen(s)` (or other errors).
 long rp_prev_char( const char* s, long pos );
@@ -297,11 +308,18 @@ bool rp_starts_with( const char* s, const char* prefix );
 bool rp_istarts_with( const char* s, const char* prefix );
 
 
-// Convenience: function that returns whether a (utf8) character is in a certain class
-typedef bool (rp_is_char_class_fun_t)(const char* s, long len);
-
 // Convenience: character class for whitespace `[ \t\r\n]`.
 bool rp_char_is_white(const char* s, long len);
+
+// Convenience: character class for non-whitespace `[^ \t\r\n]`.
+bool rp_char_is_nonwhite(const char* s, long len);
+
+// Convenience: character class for separators `[ \t\r\n,.;:/\\\(\)\{\}\[\]]`.
+// This is used for word boundaries in repline.
+bool rp_char_is_separator(const char* s, long len);
+
+// Convenience: character class for non-separators.
+bool rp_char_is_nonseparator(const char* s, long len);
 
 // Convenience: character class for letters (`[A-Za-z]` and any unicode > 0x80).
 bool rp_char_is_letter(const char* s, long len);
@@ -309,11 +327,15 @@ bool rp_char_is_letter(const char* s, long len);
 // Convenience: character class for digits (`[0-9]`).
 bool rp_char_is_digit(const char* s, long len);
 
+// Convenience: character class for hexadecimal digits (`[A-Fa-f0-9]`).
+bool rp_char_is_hexdigit(const char* s, long len);
+
 // Convenience: character class for identifier letters (`[A-Za-z0-9_-]` and any unicode > 0x80).
 bool rp_char_is_idletter(const char* s, long len);
 
-// Convenience: character class for filename letters (`[^ \t\r\n`@$><=;|&{}()[]`).
+// Convenience: character class for filename letters (_not in_ " \t\r\n`@$><=;|&\{\}\(\)\[\]]").
 bool rp_char_is_filename_letter(const char* s, long len);
+
 
 // Convenience: If this is a token start, return the length.
 long rp_is_token(const char* s, long pos, rp_is_char_class_fun_t* is_token_char);
@@ -323,6 +345,7 @@ long rp_is_token(const char* s, long pos, rp_is_char_class_fun_t* is_token_char)
 // E.g. `rp_match_token("function",0,&rp_char_is_letter,"fun")` returns 0.
 long rp_match_token(const char* s, long pos, rp_is_char_class_fun_t* is_token_char, const char* token);
 
+
 // Convenience: Do any of the specified tokens match? 
 // Ensures not to match prefixes or suffixes, and returns the length of the match (in bytes).
 // E.g. `rp_match_any_token("function",0,&rp_char_is_letter,{"fun","func",NULL})` returns 0.
@@ -330,10 +353,15 @@ long rp_match_any_token(const char* s, long pos, rp_is_char_class_fun_t* is_toke
 
 
 //--------------------------------------------------------------
-// Terminal, experimental
+// Terminal output, experimental.
+// Ensures basic ANSI CSI escape sequences are processed
+// in a portable way (including Windows)
 //--------------------------------------------------------------
 
+// Write a string to the console (and process CSI escape sequences).
 void rp_write(const char* s);
+
+// Write a string to the console and end with a newline (and process CSI escape sequences).
 void rp_writeln(const char* s);
 
 

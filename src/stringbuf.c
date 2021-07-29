@@ -197,9 +197,8 @@ static ssize_t str_limit_to_length( const char* s, ssize_t n ) {
 // String searching prev/next word, line, ws_word
 //-------------------------------------------------------------
 
-typedef bool (match_fun_t)(const char* s, ssize_t len);
 
-static ssize_t str_find_backward( const char* s, ssize_t len, ssize_t pos, match_fun_t* match, bool skip_immediate_matches ) {
+static ssize_t str_find_backward( const char* s, ssize_t len, ssize_t pos, rp_is_char_class_fun_t* match, bool skip_immediate_matches ) {
   if (pos > len) pos = len;
   if (pos < 0) pos = 0;
   ssize_t i = pos;
@@ -209,7 +208,7 @@ static ssize_t str_find_backward( const char* s, ssize_t len, ssize_t pos, match
       ssize_t prev = str_prev_ofs(s, i, NULL); 
       if (prev <= 0) break;
       assert(i - prev >= 0);
-      if (!match(s + i - prev, prev)) break;
+      if (!match(s + i - prev, (long)prev)) break;
       i -= prev;
     } while (i > 0);  
   }
@@ -218,7 +217,7 @@ static ssize_t str_find_backward( const char* s, ssize_t len, ssize_t pos, match
     ssize_t prev = str_prev_ofs(s, i, NULL); 
     if (prev <= 0) break;
     assert(i - prev >= 0);
-    if (match(s + i - prev, prev)) {
+    if (match(s + i - prev, (long)prev)) {
       return i;  // found;
     }
     i -= prev;
@@ -226,7 +225,7 @@ static ssize_t str_find_backward( const char* s, ssize_t len, ssize_t pos, match
   return -1; // not found
 }
 
-static ssize_t str_find_forward( const char* s, ssize_t len, ssize_t pos, match_fun_t* match, bool skip_immediate_matches ) {
+static ssize_t str_find_forward( const char* s, ssize_t len, ssize_t pos, rp_is_char_class_fun_t* match, bool skip_immediate_matches ) {
   if (s == NULL || len < 0) return -1;
   if (pos > len) pos = len;
   if (pos < 0) pos = 0;  
@@ -238,7 +237,7 @@ static ssize_t str_find_forward( const char* s, ssize_t len, ssize_t pos, match_
       next = str_next_ofs(s, len, i, NULL); 
       if (next <= 0) break;
       assert( i + next <= len);
-      if (!match(s + i, next)) break;
+      if (!match(s + i, (long)next)) break;
       i += next;
     } while (i < len);  
   }
@@ -247,7 +246,7 @@ static ssize_t str_find_forward( const char* s, ssize_t len, ssize_t pos, match_
     next = str_next_ofs(s, len, i, NULL); 
     if (next <= 0) break;
     assert( i + next <= len);
-    if (match(s + i, next)) {
+    if (match(s + i, (long)next)) {
       return i; // found
     }
     i += next;
@@ -255,47 +254,37 @@ static ssize_t str_find_forward( const char* s, ssize_t len, ssize_t pos, match_
   return -1;
 } 
 
-static bool match_linefeed( const char* s, ssize_t n ) {  
+static bool char_is_linefeed( const char* s, long n ) {  
   return (n == 1 && (*s == '\n' || *s == 0));
 }
 
 static ssize_t str_find_line_start( const char* s, ssize_t len, ssize_t pos) {
-  ssize_t start = str_find_backward(s,len,pos,&match_linefeed,false /* don't skip immediate matches */);
+  ssize_t start = str_find_backward(s,len,pos,&char_is_linefeed,false /* don't skip immediate matches */);
   return (start < 0 ? 0 : start); 
 }
 
 static ssize_t str_find_line_end( const char* s, ssize_t len, ssize_t pos) {
-  ssize_t end = str_find_forward(s,len,pos, &match_linefeed, false);
+  ssize_t end = str_find_forward(s,len,pos, &char_is_linefeed, false);
   return (end < 0 ? len : end);
 }
 
-static bool match_nonletter( const char* s, ssize_t n ) {  
-  char c = s[0];
-  return !(n > 1 || (c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z') || (c >= '0' && c <= '9') || c == '_' || c == '-' || c > '~');
-}
-
 static ssize_t str_find_word_start( const char* s, ssize_t len, ssize_t pos) {
-  ssize_t start = str_find_backward(s,len,pos,&match_nonletter,true /* skip immediate matches */);
+  ssize_t start = str_find_backward(s,len,pos, &rp_char_is_idletter,true /* skip immediate matches */);
   return (start < 0 ? 0 : start); 
 }
 
 static ssize_t str_find_word_end( const char* s, ssize_t len, ssize_t pos) {
-  ssize_t end = str_find_forward(s,len,pos,&match_nonletter,true /* skip immediate matches */);
+  ssize_t end = str_find_forward(s,len,pos,&rp_char_is_idletter,true /* skip immediate matches */);
   return (end < 0 ? len : end); 
 }
 
-static bool match_whitespace( const char* s, ssize_t n ) {  
-  char c = s[0];
-  return (n == 1 && (c == ' ' || c == '\t' || c == '\n' || c == '\r'));
-}
-
 static ssize_t str_find_ws_word_start( const char* s, ssize_t len, ssize_t pos) {
-  ssize_t start = str_find_backward(s,len,pos,&match_whitespace,true /* skip immediate matches */);
+  ssize_t start = str_find_backward(s,len,pos,&rp_char_is_white,true /* skip immediate matches */);
   return (start < 0 ? 0 : start); 
 }
 
 static ssize_t str_find_ws_word_end( const char* s, ssize_t len, ssize_t pos) {
-  ssize_t end = str_find_forward(s,len,pos,&match_whitespace,true /* skip immediate matches */);
+  ssize_t end = str_find_forward(s,len,pos,&rp_char_is_white,true /* skip immediate matches */);
   return (end < 0 ? len : end); 
 }
 
@@ -685,11 +674,11 @@ rp_private void sbuf_replace(stringbuf_t* sbuf, const char* s) {
   sbuf_append(sbuf,s);
 }
 
-static ssize_t sbuf_next_ofs( stringbuf_t* sbuf, ssize_t pos, ssize_t* cwidth ) {
+rp_private ssize_t sbuf_next_ofs( stringbuf_t* sbuf, ssize_t pos, ssize_t* cwidth ) {
   return str_next_ofs( sbuf->buf, sbuf->count, pos, cwidth);
 }
 
-static ssize_t sbuf_prev_ofs( stringbuf_t* sbuf, ssize_t pos, ssize_t* cwidth ) {
+rp_private ssize_t sbuf_prev_ofs( stringbuf_t* sbuf, ssize_t pos, ssize_t* cwidth ) {
   return str_prev_ofs( sbuf->buf, pos, cwidth);
 }
 
@@ -932,11 +921,36 @@ rp_public bool rp_char_is_white(const char* s, long len) {
   return (c==' ' || c == '\t' || c == '\n' || c == '\r');
 }
 
+// Convenience: character class for non-whitespace `[^ \t\r\n]`.
+rp_public bool rp_char_is_nonwhite(const char* s, long len) {
+  return !rp_char_is_white(s, len);
+}
+
+// Convenience: character class for separators `[ \t\r\n,.;:/\\\(\)\{\}\[\]]`.
+rp_public bool rp_char_is_separator(const char* s, long len) {
+  if (s == NULL || len != 1) return false;
+  const char c = *s;
+  return (strchr(" \t\r\n,.;:/\\(){}[]", c) != NULL);
+}
+
+// Convenience: character class for non-separators.
+rp_public bool rp_char_is_nonseparator(const char* s, long len) {
+  return !rp_char_is_separator(s, len);
+}
+
+
 // Convenience: character class for digits (`[0-9]`).
 rp_public bool rp_char_is_digit(const char* s, long len) {
   if (s == NULL || len != 1) return false;
   const char c = *s;
   return (c >= '0' && c <= '9');
+}
+
+// Convenience: character class for hexadecimal digits (`[A-Fa-f0-9]`).
+rp_public bool rp_char_is_hexdigit(const char* s, long len) {
+  if (s == NULL || len != 1) return false;
+  const char c = *s;
+  return ((c >= '0' && c <= '9') || (c >= 'a' && c <= 'f') || (c >= 'A' && c <= 'F'));
 }
 
 // Convenience: character class for letters (`[A-Za-z]` and any unicode > 0x80).
