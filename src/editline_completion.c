@@ -107,7 +107,7 @@ static void edit_completion_menu(rp_env_t* env, editor_t* eb, bool more_availabl
 again:
   // show first 9 (or 8) completions
   sbuf_clear(eb->extra);
-  ssize_t twidth = term_get_width(env->term);
+  ssize_t twidth = term_get_width(env->term) - 1;
   if (count > 3 && twidth > RP_DISPLAY3_WIDTH && edit_completions_max_width(env, 9) <= RP_DISPLAY3_MAX) {
     // display as a 3 column block
     count_displayed = (count > 9 ? 9 : count);

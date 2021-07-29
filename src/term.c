@@ -726,13 +726,13 @@ static bool term_write_direct(term_t* term, const char* s, ssize_t len ) {
 
 rp_private void term_start_raw(term_t* term) {
   if (term->raw_enabled) return; 
-  term_write(term,"\x1B[?7l");
+  //term_write(term,"\x1B[?7l");
   term->raw_enabled = true;    
 }
 
 rp_private void term_end_raw(term_t* term) {
   if (!term->raw_enabled) return;
-  term_write(term,"\x1B[?7h");
+  //term_write(term,"\x1B[?7h");
   term->raw_enabled = false;
 }
 

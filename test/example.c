@@ -38,7 +38,7 @@ int main()
   rp_set_prompt_color(RP_GREEN);
 
   // try to auto complete after a completion as long as the completion is unique
-  // rp_enable_auto_tab(true );
+  rp_enable_auto_tab(true );
 
   // change interface colors (info, diminish, emphasis, hint)
   // rp_set_style_color( RP_STYLE_INFO, RP_YELLOW );
@@ -102,7 +102,7 @@ static void word_completer(rp_completion_env_t* cenv, const char* prefix )
 static void completer(rp_completion_env_t* cenv, const char* prefix ) 
 {
   // try to complete file names from the roots "." and "/usr/local"
-  rp_complete_filename(cenv, prefix, 0, "/usr/local;c:\\Program Files" , NULL /* any extension */);
+  rp_complete_filename(cenv, prefix, 0, ".;/usr/local;c:\\Program Files" , NULL /* any extension */);
 
   // and also use our custom completer  
   rp_complete_word( cenv, prefix, &word_completer );        

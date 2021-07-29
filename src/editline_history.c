@@ -25,10 +25,12 @@ static void edit_history_at(rp_env_t* env, editor_t* eb, int ofs )
     eb->history_idx += ofs;
     sbuf_replace(eb->input, entry);
     if (ofs > 0) {
-      eb->pos = 0;                      // at start when scrolling up
+      // at end of first line when scrolling up
+      ssize_t end = sbuf_find_line_end(eb->input,0);
+      eb->pos = (end < 0 ? 0 : end);
     }
     else {
-      eb->pos = sbuf_len(eb->input);    // at end when scrolling down
+      eb->pos = sbuf_len(eb->input);    // at end of last line when scrolling down
     }
     edit_refresh(env, eb);
   }

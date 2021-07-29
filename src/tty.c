@@ -533,7 +533,7 @@ static bool tty_init_raw(tty_t* tty)
   // input: no break signal, no \r to \n, no parity check, no 8-bit to 7-bit, no flow control
   tty->raw_ios.c_iflag &= ~(unsigned long)(BRKINT | ICRNL | INPCK | ISTRIP | IXON);
   // control: allow 8-bit
-  tty->raw_ios.c_cflag |= CS8;
+  tty->raw_ios.c_cflag |= CS8;  
   // local: no echo, no line-by-line (canonical), no extended input processing, no signals for ^z,^c
   tty->raw_ios.c_lflag &= ~(unsigned long)(ECHO | ICANON | IEXTEN | ISIG);
   // 1 byte at a time, no delay.
