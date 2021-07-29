@@ -153,8 +153,8 @@ $ cd build/release
 $ cmake ../..
 $ cmake --build .
 ```
-
-and run the example program:
+This builds a static library `librepline.a` (or `repline.lib` on Windows)
+and the example program:
 ```
 $ ./example
 ```
