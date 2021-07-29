@@ -1,23 +1,27 @@
-<img align="right" width="400px" src="doc/completion-macos.png"/>
+<img align="right" width="400px" src="doc/syntaxhighlight-macos.png"/>
 
 # Repline> <br>a portable readline alternative.
 
 Repline is a pure C library that can be used as readline alternative. 
 
+<img align="right" width="400px" src="doc/completion-macos.png"/>
+
+
 - Small: less than 6k lines and can be compiled as a single C file without 
   any dependencies or configuration (e.g. `gcc -c src/repline.c`).
 - Portable: works on Unix, Windows, and macOS, and uses a minimal
   subset of ANSI escape sequences.
+  
+  <img align="right" width="350px" src="doc/history-win.png"/>
+  
 - Features: extensive multi-line editing mode (`shift-tab`), colors, history, completion, unicode, 
   undo/redo, incremental history search, inline hints, syntax highlighting, graceful fallback, support for custom allocators, etc.
 - License: MIT. 
 - Comes with a [Haskell] binding (`System.Console.Repline`).
 
-<img align="right" width="350px" src="doc/history-win.png"/>
-
 Enjoy,
   Daan
-  
+
   
 
 # Usage
