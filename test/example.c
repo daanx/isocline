@@ -14,6 +14,10 @@ static void completer(rp_completion_env_t* cenv, const char* prefix );
 // highlighter function defined below
 static void highlighter(rp_highlight_env_t* henv, const char* input, void* arg);
 
+static void show_color( rp_color_t color, const char* name ) {
+  printf("\x1B[%dm%20s\x1B[0m | \x1B[1;%dmbold\x1B[0m | \x1B[%dmbright\x1B[0m\n", color, name, color, color+60);  
+}
+
 // main example
 int main() 
 {
@@ -24,6 +28,18 @@ int main()
     "- Press F1 for help on editing commands.\n"
     "- Use shift+tab for multiline input. (or ctrl+enter, or ctrl+j)\n"
     "- Type 'p' (or 'id', 'f', or 'h') followed by tab for completion.\n");
+
+  rp_writeln("colors:");
+  show_color(RP_BLACK,"black");
+  show_color(RP_MAROON,"maroon");
+  show_color(RP_GREEN,"greena");
+  show_color(RP_ORANGE,"orange/brown");
+  show_color(RP_NAVY,"navy");
+  show_color(RP_PURPLE,"purple");
+  show_color(RP_TEAL,"teal");
+  show_color(RP_LIGHTGRAY,"lighgray/white");
+  show_color(RP_COLOR_DEFAULT,"default");
+  
 
   // enable history; use a NULL filename to not persist history to disk
   rp_set_history("history.txt", -1 /* default entries (= 200) */);

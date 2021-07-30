@@ -410,6 +410,27 @@ rp_private bool tty_readc_noblock(tty_t* tty, uint8_t* c) {
   return false;  
 }
 
+// non blocking read with a small timeout used for reading back escape sequence queries
+rp_private bool tty_readc_pause_noblock(tty_t* tty, uint8_t* c) {
+  #if defined(FD_SET) 
+  // we can use select
+  fd_set readset;
+  struct timeval time;
+  FD_ZERO(&readset);
+  FD_SET(tty->fd_in, &readset);
+  time.tv_sec  = 0;
+  time.tv_usec = 1000*50L;  // 0.05s
+  if (select(tty->fd_in + 1, &readset, NULL, NULL, &time) == 1) {
+    return tty_readc(tty,c);
+  }
+  return false;
+  #else
+  // no select, we cannot timeout; use a usleep
+  usleep(50);  // 0.05s
+  return tty_readc_noblock(tty,c);
+  #endif
+}
+
 // We install various signal handlers to restore the terminal settings
 // in case of a terminating signal. This is also used to catch terminal window resizes.
 // This is not strictly needed so this can be disabled on 
@@ -512,10 +533,11 @@ static void signals_restore(void) {
 
 #endif
 
-rp_private void tty_start_raw(tty_t* tty) {
-  if (tty->raw_enabled) return;
-  if (tcsetattr(tty->fd_in,TCSAFLUSH,&tty->raw_ios) < 0) return;  
+rp_private bool tty_start_raw(tty_t* tty) {
+  if (tty->raw_enabled) return true;
+  if (tcsetattr(tty->fd_in,TCSAFLUSH,&tty->raw_ios) < 0) return false;  
   tty->raw_enabled = true;
+  return true;
 }
 
 rp_private void tty_end_raw(tty_t* tty) {
@@ -536,7 +558,7 @@ static bool tty_init_raw(tty_t* tty)
   tty->raw_ios.c_cflag |= CS8;  
   // local: no echo, no line-by-line (canonical), no extended input processing, no signals for ^z,^c
   tty->raw_ios.c_lflag &= ~(unsigned long)(ECHO | ICANON | IEXTEN | ISIG);
-  // 1 byte at a time, no delay.
+  // 1 byte at a time, no delay
   tty->raw_ios.c_cc[VTIME] = 0;
   tty->raw_ios.c_cc[VMIN] = 1;
 
@@ -579,6 +601,10 @@ rp_private bool tty_readc_noblock(tty_t* tty, uint8_t* c) {  // don't modify `c`
   GetNumberOfConsoleInputEvents(tty->hcon, &count);
   if (count > 0) return tty_readc(tty, c);
   return false;
+}
+
+rp_private bool tty_readc_pause_noblock(tty_t* tty, uint8_t* c) {
+  return tty_readc_noblock(tty,c); // no need for pauses on Windows
 }
 
 // Read from the console input events and push escape codes into the tty cbuffer.
@@ -682,8 +708,8 @@ static void tty_waitc_console(tty_t* tty)
   }
 }  
 
-rp_private void tty_start_raw(tty_t* tty) {
-  if (tty->raw_enabled) return;
+rp_private bool tty_start_raw(tty_t* tty) {
+  if (tty->raw_enabled) return true;
   GetConsoleMode(tty->hcon,&tty->hcon_orig_mode);
   DWORD mode = ENABLE_QUICK_EDIT_MODE   // cut&paste allowed 
              | ENABLE_WINDOW_INPUT      // to catch resize events 
@@ -691,7 +717,8 @@ rp_private void tty_start_raw(tty_t* tty) {
              // | ENABLE_PROCESSED_INPUT
              ;
   SetConsoleMode(tty->hcon, mode );
-  tty->raw_enabled = true;  
+  tty->raw_enabled = true; 
+  return true; 
 }
 
 rp_private void tty_end_raw(tty_t* tty) {

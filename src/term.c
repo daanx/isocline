@@ -786,9 +786,8 @@ static void term_init_raw(term_t* term) {
 
 #if !defined(_WIN32)
 
-static bool term_get_cursor_pos( term_t* term, ssize_t* row, ssize_t* col) 
+static bool term_raw_get_cursor_pos( term_t* term, ssize_t* row, ssize_t* col) 
 {
-  // send request
   if (!term_write_console(term, "\x1B[6n", 4)) return false;
   debug_msg("term: read tty esponse\n");
 
@@ -796,7 +795,7 @@ static bool term_get_cursor_pos( term_t* term, ssize_t* row, ssize_t* col)
   char buf[64];
   ssize_t len = 0;
   uint8_t c = 0;
-  if (!tty_readc(term->tty,&c) || c != '\x1B') return false;
+  if (!tty_readc_pause_noblock(term->tty,&c) || c != '\x1B') return false;
   if (!tty_readc_noblock(term->tty,&c) || c != '[')    return false;
   while( len < 63 ) {
     if (!tty_readc_noblock(term->tty,&c)) return false;
@@ -807,6 +806,16 @@ static bool term_get_cursor_pos( term_t* term, ssize_t* row, ssize_t* col)
   debug_msg("term: parse cursor response: %s\n", buf);
   return rp_atoz2(buf,row,col);
 }
+
+static bool term_get_cursor_pos( term_t* term, ssize_t* row, ssize_t* col) 
+{
+  // send request
+  if (!tty_start_raw(term->tty)) return false;
+  bool ok = term_raw_get_cursor_pos(term,row,col);
+  tty_end_raw(term->tty);
+  return ok;
+}
+
 
 static void term_set_cursor_pos( term_t* term, ssize_t row, ssize_t col ) {
   term_writef( term, 128, RP_CSI "%zd;%zdH", row, col );
@@ -845,8 +854,10 @@ rp_private bool term_update_dim(term_t* term) {
   // update width and return if it changed.
   bool changed = (term->width != cols || term->height != rows);
   debug_msg("terminal dim: %zd,%zd: %s\n", rows, cols, changed ? "changed" : "unchanged");  
-  term->width = cols;
-  term->height = rows;
+  if (cols > 0) { 
+    term->width = cols;
+    term->height = rows;
+  }
   return changed;  
 }
 

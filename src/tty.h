@@ -26,7 +26,7 @@ rp_private tty_t* tty_new(alloc_t* mem, int fd_in);
 rp_private void   tty_free(tty_t* tty);
 
 rp_private bool   tty_is_utf8(const tty_t* tty);
-rp_private void   tty_start_raw(tty_t* tty);
+rp_private bool   tty_start_raw(tty_t* tty);
 rp_private void   tty_end_raw(tty_t* tty);
 rp_private code_t tty_read(tty_t* tty);
 
@@ -39,8 +39,9 @@ rp_private bool   tty_term_resize_event(tty_t* tty); // did the terminal resize?
 
 
 // low level; used by term.c
-rp_private bool   tty_readc_noblock(tty_t* tty, uint8_t* c);
 rp_private bool   tty_readc(tty_t* tty, uint8_t* c);        
+rp_private bool   tty_readc_noblock(tty_t* tty, uint8_t* c);
+rp_private bool   tty_readc_pause_noblock(tty_t* tty, uint8_t* c);
 
 // shared between tty.c and tty_esc.c: low level character push
 rp_private void   tty_cpush_char(tty_t* tty, uint8_t c);
