@@ -412,23 +412,20 @@ rp_private bool tty_readc_noblock(tty_t* tty, uint8_t* c) {
 
 // non blocking read with a small timeout used for reading back escape sequence queries
 rp_private bool tty_readc_pause_noblock(tty_t* tty, uint8_t* c) {
-  #if defined(FD_SET) 
-  // we can use select
+  #if defined(FD_SET)   
+  // we can use select to detect when input becomes available
   fd_set readset;
   struct timeval time;
   FD_ZERO(&readset);
   FD_SET(tty->fd_in, &readset);
   time.tv_sec  = 0;
   time.tv_usec = 1000*50L;  // 0.05s
-  if (select(tty->fd_in + 1, &readset, NULL, NULL, &time) == 1) {
-    return tty_readc(tty,c);
-  }
-  return false;
+  select(tty->fd_in + 1, &readset, NULL, NULL, &time);
   #else
   // no select, we cannot timeout; use a usleep
   usleep(50);  // 0.05s
-  return tty_readc_noblock(tty,c);
   #endif
+  return tty_readc_noblock(tty,c);  
 }
 
 // We install various signal handlers to restore the terminal settings

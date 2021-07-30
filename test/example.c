@@ -30,6 +30,7 @@ int main()
     "- Type 'p' (or 'id', 'f', or 'h') followed by tab for completion.\n");
 
   rp_writeln("colors:");
+  printf("\x1b[38;2;255;100;0mTRUECOLOR\x1b[0m\n");
   show_color(RP_BLACK,"black");
   show_color(RP_MAROON,"maroon");
   show_color(RP_GREEN,"greena");

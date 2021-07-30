@@ -330,6 +330,7 @@ static bool term_write_console(term_t* term, const char* s, ssize_t n) {
       count += nwritten;
     }
     else if (errno != EINTR && errno != EAGAIN) {
+      debug_msg("term: write failed: length %i, errno %i: \"%s\"\n", n, errno, s);
       return false;
     }
   }
@@ -814,6 +815,70 @@ static bool term_get_cursor_pos( term_t* term, ssize_t* row, ssize_t* col)
   bool ok = term_raw_get_cursor_pos(term,row,col);
   tty_end_raw(term->tty);
   return ok;
+}
+
+
+static const char* term_raw_esc_query( term_t* term, const char* query ) {
+  debug_msg("term: start esc query: %s\n", query );
+  if (!term_write_console(term,query,rp_strlen(query))) return NULL;
+  // parse response 
+  tty_t* tty = term->tty;
+  char buf[128+1];
+  ssize_t len = 0;
+  uint8_t c = 0;
+  // is there an escape response?
+  if (!tty_readc_pause_noblock(tty,&c)) {
+    debug_msg("term: esc query: no response\n" );
+    return NULL;
+  }
+  if (c != '\x1B') {
+    tty_cpush_char(tty,c);  // recover
+    return NULL;
+  }
+  // read escape sequence kind
+  if (!tty_readc_noblock(term->tty,&c)) return NULL;
+  if (strchr("P[]X_^",c) == NULL) {
+    // recover
+    debug_msg("term: esc query: unknown response: ^[%c\n", c );
+    tty_cpush_char(tty,'\x1B');
+    tty_cpush_char(tty,c);
+    return NULL;
+  }
+  // read until terminated by finalST
+  bool finalST = (c != '[');  // CSI ends with byte 0x40-0x7E, the others with either BELL or ESC \ (ST)
+  buf[len++] = '\x1B';
+  buf[len++] = (char)c;
+  while( len < 128 ) {
+    // check ending
+    if (!tty_readc_noblock(tty,&c)) {
+      break;  // cannot read more..
+    }
+    else if (!finalST && (c >= 0x40 && c <= 0x7F)) {
+      break;  // CSI ending
+    }
+    else if (finalST && c == '\x07') {
+      break;  // ST ending with BELL
+    }
+    else if (finalST && c == '\x1B') {
+      uint8_t c1;
+      if (!tty_readc_noblock(tty,&c1)) break;
+      if (c1 == '\\') break;  // ST ending
+      // lone esc
+      tty_cpush_char(tty,c1);
+    } 
+    buf[len++] = (char)c; 
+  }
+  buf[len] = 0;
+  debug_msg("term: esc query: %s, response: %s\n", query, buf);
+  return mem_strdup(term->mem, buf);
+}
+
+static const char* term_esc_query( term_t* term, const char* query ) {
+  // send request
+  if (!tty_start_raw(term->tty)) return false;
+  const char* res = term_raw_esc_query(term,query);
+  tty_end_raw(term->tty);
+  return res;
 }
 
 

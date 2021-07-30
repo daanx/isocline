@@ -61,7 +61,7 @@ rp_private bool history_update( history_t* h, const char* entry ) {
   if (entry==NULL) return false;
   history_remove_last(h);
   history_push(h,entry);
-  debug_msg("history: update: with %s; now at %s\n", entry, history_get(h,0));
+  //debug_msg("history: update: with %s; now at %s\n", entry, history_get(h,0));
   return true;
 }
 
@@ -212,7 +212,7 @@ static bool history_read_entry( history_t* h, FILE* f, stringbuf_t* sbuf ) {
 
 static bool history_write_entry( const char* entry, FILE* f, stringbuf_t* sbuf ) {
   sbuf_clear(sbuf);
-  debug_msg("history: write: %s\n", entry);
+  //debug_msg("history: write: %s\n", entry);
   while( entry != NULL && *entry != 0 ) {
     char c = *entry++;
     if (c == '\\')      { sbuf_append(sbuf,"\\\\"); }
@@ -228,7 +228,7 @@ static bool history_write_entry( const char* entry, FILE* f, stringbuf_t* sbuf )
     }
     else sbuf_append_char(sbuf,c);
   }
-  debug_msg("history: write buf: %s\n", sbuf_string(sbuf));
+  //debug_msg("history: write buf: %s\n", sbuf_string(sbuf));
   
   if (sbuf_len(sbuf) > 0) {
     sbuf_append(sbuf,"\n");
