@@ -24,7 +24,7 @@ typedef struct attr_s {
 } attr_t;
 
 static const attr_t attr_zero    = { 0, 0, RP_COLOR_NONE, RP_COLOR_NONE };
-static const attr_t attr_default = { -1, -1, RP_COLOR_DEFAULT, RP_COLOR_DEFAULT };
+static const attr_t attr_default = { -1, -1, RP_ANSI_DEFAULT, RP_ANSI_DEFAULT };
 
 struct rp_highlight_env_s {
   attr_t*  attrs;
@@ -269,8 +269,8 @@ rp_public void rp_highlight_esc(rp_highlight_env_t* henv, const char* input, rp_
           rp_highlight_bgcolor(henv, pos, (rp_color_t)(code - 10));
         }
         else if (code == 0) {
-          rp_highlight_color(henv, pos, RP_COLOR_DEFAULT);
-          rp_highlight_bgcolor(henv, pos, RP_COLOR_DEFAULT);
+          rp_highlight_color(henv, pos, RP_ANSI_DEFAULT);
+          rp_highlight_bgcolor(henv, pos, RP_ANSI_DEFAULT);
           rp_highlight_underline(henv, pos, false);
           rp_highlight_reverse(henv, pos, false);
         }

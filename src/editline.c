@@ -209,7 +209,7 @@ static bool edit_refresh_rows_iter(
   // write line ending
   if (row < info->last_row) {
     if (is_wrap && tty_is_utf8(info->env->tty)) { 
-      term_color(term, RP_DARKGRAY);
+      term_color(term, RP_ANSI_DARKGRAY);
       #ifndef __APPLE__
       term_write( term, "\xE2\x86\x90");  // left arrow 
       #else

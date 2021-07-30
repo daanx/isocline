@@ -30,16 +30,34 @@ int main()
     "- Type 'p' (or 'id', 'f', or 'h') followed by tab for completion.\n");
 
   rp_writeln("colors:");
-  printf("\x1b[38;2;255;100;0mTRUECOLOR\x1b[0m\n");
-  show_color(RP_BLACK,"black");
-  show_color(RP_MAROON,"maroon");
-  show_color(RP_GREEN,"greena");
-  show_color(RP_ORANGE,"orange/brown");
-  show_color(RP_NAVY,"navy");
-  show_color(RP_PURPLE,"purple");
-  show_color(RP_TEAL,"teal");
-  show_color(RP_LIGHTGRAY,"lighgray/white");
-  show_color(RP_COLOR_DEFAULT,"default");
+  
+  rp_term_color(RP_ANSI_MAROON); rp_write("ansi8 ");
+  rp_term_color(RP_ANSI_RED); rp_write("ansi16 ");
+  rp_term_color(RP_RGB(0xDF,0xAF,0x87)); rp_write("ansi256 ");
+  rp_term_color(RP_RGB(100,255,180)); rp_write("rgb");
+  rp_term_reset(); rp_writeln("");
+
+  for(int i = 0; i <= 64; i++) {
+    rp_term_color(RP_RGB( (i==64? 255 : i*4),0,0 )); rp_write((i%8==0?"*":"x"));
+  }
+  rp_writeln("\x1B[0m");
+  for(int i = 0; i <= 64; i++) {
+    int g = (i==64? 255 : i*4);
+    rp_term_color(RP_RGB( g,g,g )); rp_write((i%8==0?"*":"x"));
+  }
+  rp_writeln("\x1B[0m");
+  
+  rp_writeln("\x1b[35mansi8 \x1b[38;5;180mansi256 \x1b[38;2;100;255;180mrgb\x1b[0m\n");
+
+  show_color(RP_ANSI_BLACK,"black");
+  show_color(RP_ANSI_MAROON,"maroon");
+  show_color(RP_ANSI_GREEN,"greena");
+  show_color(RP_ANSI_ORANGE,"orange/brown");
+  show_color(RP_ANSI_NAVY,"navy");
+  show_color(RP_ANSI_PURPLE,"purple");
+  show_color(RP_ANSI_TEAL,"teal");
+  show_color(RP_ANSI_LIGHTGRAY,"lighgray/white");
+  show_color(RP_ANSI_DEFAULT,"default");
   
 
   // enable history; use a NULL filename to not persist history to disk
@@ -52,7 +70,7 @@ int main()
   rp_set_default_highlighter(highlighter, NULL);
 
   // set a nice color for the prompt and the prompt marker (>)
-  rp_set_prompt_color(RP_GREEN);
+  rp_set_prompt_color(RP_ANSI_GREEN);
 
   // try to auto complete after a completion as long as the completion is unique
   rp_enable_auto_tab(true );
@@ -145,23 +163,23 @@ static void highlighter(rp_highlight_env_t* henv, const char* input, void* arg) 
     static const char* types[]    = { "int", "double", "char", "void", NULL };
     long tlen;  // token length
     if ((tlen = rp_match_any_token(input, i, &rp_char_is_idletter, keywords)) > 0) {
-      rp_highlight_color(henv, i, RP_YELLOW);
+      rp_highlight_color(henv, i, RP_ANSI_YELLOW);
       i += tlen;
     }
     else if ((tlen = rp_match_any_token(input, i, &rp_char_is_idletter, types)) > 0) {
-      rp_highlight_color(henv, i, RP_CYAN);
+      rp_highlight_color(henv, i, RP_ANSI_CYAN);
       i += tlen;
     }
     else if ((tlen = rp_is_token(input, i, &rp_char_is_digit)) > 0) {  // digits
-      rp_highlight_color(henv, i, RP_PURPLE);
+      rp_highlight_color(henv, i, RP_ANSI_PURPLE);
       i += tlen;
     }
     else if (rp_starts_with(input + i,"//")) {       // line comment
-      rp_highlight_color(henv, i, RP_DARKGRAY);
+      rp_highlight_color(henv, i, RP_ANSI_DARKGRAY);
       while (i < len && input[i] != '\n') { i++; }
     }
     else {
-      rp_highlight_color(henv, i, RP_COLOR_DEFAULT);  // anything else (including utf8 continuation bytes)
+      rp_highlight_color(henv, i, RP_ANSI_DEFAULT);  // anything else (including utf8 continuation bytes)
       i++;
     }
   }

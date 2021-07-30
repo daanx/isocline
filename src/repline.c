@@ -220,10 +220,10 @@ rp_public void rp_set_default_highlighter(rp_highlight_fun_t* highlighter, void*
 
 static void set_style_color(rp_env_t* env, rp_style_t iface_element, rp_color_t color) {
   switch (iface_element) {
-    case RP_STYLE_INFO:     env->color_info = (color == RP_COLOR_NONE ? RP_DARKGRAY : color); break;
-    case RP_STYLE_DIMINISH: env->color_diminish = (color == RP_COLOR_NONE ? RP_LIGHTGRAY : color); break;
-    case RP_STYLE_EMPHASIS: env->color_emphasis = (color == RP_COLOR_NONE ? RP_WHITE : color); break;
-    case RP_STYLE_HINT:     env->color_hint = (color == RP_COLOR_NONE ? RP_DARKGRAY : color); break;
+    case RP_STYLE_INFO:     env->color_info = (color == RP_COLOR_NONE ? RP_ANSI_DARKGRAY : color); break;
+    case RP_STYLE_DIMINISH: env->color_diminish = (color == RP_COLOR_NONE ? RP_ANSI_LIGHTGRAY : color); break;
+    case RP_STYLE_EMPHASIS: env->color_emphasis = (color == RP_COLOR_NONE ? RP_ANSI_WHITE : color); break;
+    case RP_STYLE_HINT:     env->color_hint = (color == RP_COLOR_NONE ? RP_ANSI_DARKGRAY : color); break;
     default: break;
   }
 }
@@ -280,6 +280,20 @@ rp_public void rp_writeln(const char* s) {
   term_writeln(env->term, s);
 }
 
+rp_public void rp_term_color( rp_color_t color ) {
+  rp_env_t* env = rp_get_env(); if (env==NULL) return;
+  term_color(env->term, color);
+}
+
+rp_public void rp_term_bgcolor( rp_color_t color ) {
+  rp_env_t* env = rp_get_env(); if (env==NULL) return;
+  term_bgcolor(env->term, color);
+}
+
+rp_public void rp_term_reset( void )  {
+  rp_env_t* env = rp_get_env(); if (env==NULL) return;
+  term_attr_reset(env->term);
+}
 
 //-------------------------------------------------------------
 // Readline with temporary completer and highlighter
@@ -369,7 +383,7 @@ static rp_env_t* rp_env_create( rp_malloc_fun_t* _malloc, rp_realloc_fun_t* _rea
     env->noedit = true;
   }
   env->multiline_eol = '\\';
-  env->prompt_color  = RP_COLOR_DEFAULT;
+  env->prompt_color  = RP_ANSI_DEFAULT;
   for (rp_style_t style = 0; style < RP_STYLE_LAST; style++) {
     set_style_color(env, style, RP_COLOR_NONE);  // set default colors
   }

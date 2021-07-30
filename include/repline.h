@@ -141,30 +141,30 @@ void rp_complete_quoted_word( rp_completion_env_t* cenv, const char* prefix, rp_
 // Basic syntax highlighting
 //--------------------------------------------------------------
 
-// Available ANSI colors.
-typedef enum rp_color_e {
-  RP_COLOR_NONE = 0,
-  RP_BLACK = 30,
-  RP_MAROON,
-  RP_GREEN,
-  RP_ORANGE,
-  RP_BROWN = RP_ORANGE,
-  RP_NAVY,
-  RP_PURPLE,
-  RP_TEAL,
-  RP_LIGHTGRAY,
-  RP_LIGHTGREY = RP_LIGHTGRAY,
-  RP_DARKGRAY = 90,
-  RP_DARKGREY = RP_DARKGRAY,
-  RP_RED,
-  RP_LIME,
-  RP_YELLOW,
-  RP_BLUE,
-  RP_MAGENTA,
-  RP_CYAN,
-  RP_WHITE,
-  RP_COLOR_DEFAULT = 39    // default terminal color
-} rp_color_t;
+typedef uint32_t rp_color_t;
+
+#define RP_RGB(r,g,b)    ((rp_color_t)0x1000000 | (((rp_color_t)(r) & 0xFF) << 16) | (((rp_color_t)(g) & 0xFF) << 8) | ((rp_color_t)(b) & 0xFF))
+
+#define RP_COLOR_NONE     (0)
+#define RP_ANSI_BLACK     (30)
+#define RP_ANSI_MAROON    (31)
+#define RP_ANSI_GREEN     (32)
+#define RP_ANSI_ORANGE    (33)
+#define RP_ANSI_NAVY      (34)
+#define RP_ANSI_PURPLE    (35)
+#define RP_ANSI_TEAL      (36)
+#define RP_ANSI_LIGHTGRAY (37)
+#define RP_ANSI_DEFAULT   (39)
+
+#define RP_ANSI_DARKGRAY  (90)
+#define RP_ANSI_RED       (91)
+#define RP_ANSI_LIME      (92)
+#define RP_ANSI_YELLOW    (93)
+#define RP_ANSI_BLUE      (94)
+#define RP_ANSI_MAGENTA   (95)
+#define RP_ANSI_CYAN      (96)
+#define RP_ANSI_WHITE     (97)
+
 
 // A syntax highlight environment
 struct rp_highlight_env_s;
@@ -409,6 +409,10 @@ void rp_write(const char* s);
 // Write a string to the console and end with a newline (and process CSI escape sequences).
 void rp_writeln(const char* s);
 
+// Set the terminal color in a portable way
+void rp_term_color( rp_color_t color );
+void rp_term_bgcolor( rp_color_t color );
+void rp_term_reset( void );
 
 //--------------------------------------------------------------
 // Register allocation functions for custom allocators

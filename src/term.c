@@ -26,6 +26,15 @@
 
 #define RP_CSI      "\x1B["
 
+// color support
+typedef enum palette_e {
+  MONOCHROME,
+  ANSI8,
+  ANSI16,
+  ANSI256,
+  TRUECOLOR
+} palette_t;
+
 // The terminal screen
 struct term_s {
   int         fd_out;             // output handle
@@ -36,6 +45,7 @@ struct term_s {
   bool        raw_enabled;        // is raw mode active?
   bool        buffered;           // are we buffering output (to reduce flicker)?
   bool        is_utf8;            // utf-8 output? determined by the tty
+  palette_t   palette;            // color support
   stringbuf_t* buf;               // buffer for buffered output
   tty_t*      tty;                // used on posix to get the cursor position
   alloc_t*    mem;                // allocator
@@ -105,15 +115,6 @@ rp_private void term_reverse(term_t* term, bool on) {
   term_write(term, on ? RP_CSI "7m" : RP_CSI "27m");
 }
 
-rp_private void term_color(term_t* term, rp_color_t color) {
-  if (color == RP_COLOR_NONE) return;
-  term_writef(term, 64, RP_CSI "%dm", (int)color );
-}
-
-rp_private void term_bgcolor(term_t* term, rp_color_t color) {
-  if (color == RP_COLOR_NONE) return;
-  term_writef(term, 64, RP_CSI "%dm", (int)color + 10);
-}
 
 rp_private bool term_writeln(term_t* term, const char* s) {
   bool ok = term_write(term,s);
@@ -126,6 +127,129 @@ rp_private bool term_write_char(term_t* term, char c) {
   buf[0] = c;
   buf[1] = 0;
   return term_write_n(term, buf, 1 );
+}
+
+//-------------------------------------------------------------
+// Colors
+//-------------------------------------------------------------
+
+static bool color_is_rgb( rp_color_t color ) {
+  return (color > 0xFF);
+}
+static bool color_is_ansi8( rp_color_t color ) {
+  return (color >= RP_ANSI_BLACK && color <= RP_ANSI_DEFAULT);
+}
+
+static void color_to_rgb(rp_color_t color, int* r, int* g, int* b) {
+  assert(color_is_rgb(color));
+  *r = ((color >> 16) & 0xFF);
+  *g = ((color >> 8) & 0xFF);
+  *b = (color & 0xFF);
+}
+
+static int rgb_to_ansi256(int r, int g, int b) {
+  int c = 0;
+  if (r!=g || g!=b) {
+    // calculate index in the 6x6x6 cube based on the values used in xterm,
+    // namely r = rx*40 + 55 (instead of darker linear terms: r*51 )
+    int rx = (r < 48 ? 0 : (r < 75 ? 1 : 1 + (r - 75)/40));
+    int gx = (r < 48 ? 0 : (g < 75 ? 0 : 1 + (g - 75)/40));
+    int bx = (r < 48 ? 0 : (b < 75 ? 0 : 1 + (b - 75)/40));    
+    c = ((rx*36 + gx*6 + bx) + 16);    
+  }
+  else {
+    // gray scale in xterm uses g = gx*10 + 8  with 0 <= gx < 24 .
+    c = (r<=4 ? 0 : (r>=244 ? 15 : ((r - 4)/10) + 232));    
+  }
+  debug_msg("term: rgb %d %d %d -> ansi 256: %d\n", r, g, b, c );
+  return c;
+}
+
+static int color_to_ansi16(rp_color_t color) {
+  if (!color_is_rgb(color)) {
+    return (int)color;
+  }
+  else {
+    int c = 0;
+    int r,g,b;
+    color_to_rgb(color,&r,&g,&b);
+    if (r!=g || g!=b) {
+      // colored
+      c = (r > 0 ? 1 : 0) + (g > 0 ? 2 : 0) + (b > 0 ? 4 : 0);
+    }
+    else {
+      // gray scale
+      c = (r <= 0x40 ? 0 : 7);
+    }
+    debug_msg("term: rgb %d %d %d -> ansi 8: %d\n", r, g, b, 30+c );
+    if (r > 0x80 || g > 0x80 || b >= 0x80) {
+      return (90 + c);
+    }
+    else {
+      return (30 + c);
+    }
+  }
+}
+
+static void term_color_ansi8( term_t* term, rp_color_t color, bool bg ) {
+  int c = color_to_ansi16(color) + (bg ? 10 : 0);
+  if (c >= 90) {
+    term_writef(term, 64, RP_CSI "1;%dm", c - 60);    
+  }
+  else {
+    term_writef(term, 64, RP_CSI "%dm", c );  
+  }
+}
+
+static void term_color_ansi16( term_t* term, rp_color_t color, bool bg ) {
+  term_writef(term, 64, RP_CSI "%dm", color_to_ansi16(color) + (bg ? 10 : 0) );  
+}
+
+static void term_color_ansi256( term_t* term, rp_color_t color, bool bg ) {
+  if (!color_is_rgb(color)) {
+    term_color_ansi16(term,color,bg);
+  }
+  else {
+    int r,g,b;
+    color_to_rgb(color, &r,&g,&b);
+    term_writef(term, 64, RP_CSI "%d;5;%dm", (bg ? 48 : 38), rgb_to_ansi256(r,g,b) );  
+  }
+}
+
+static void term_color_rgb( term_t* term, rp_color_t color, bool bg ) {
+  if (!color_is_rgb(color)) {
+    term_color_ansi16(term,color,bg);
+  }
+  else {
+    int r,g,b;
+    color_to_rgb(color, &r,&g,&b);
+    debug_msg("term: rgb color: %d %d %d\n", r, g, b);
+    term_writef(term, 64, RP_CSI "%d;2;%d;%d;%dm", (bg ? 48 : 38), r, g, b );  
+  }
+}
+
+static void term_color_ex(term_t* term, rp_color_t color, bool bg) {
+  if (color == RP_COLOR_NONE || term->palette == MONOCHROME) return;
+  if (term->palette == ANSI8) {
+    term_color_ansi8(term,color,bg);
+  }
+  else if (!color_is_rgb(color) || term->palette == ANSI16) {
+    term_color_ansi16(term,color,bg);
+  }
+  else if (term->palette == ANSI256) {
+    term_color_ansi256(term,color,bg);
+  }
+  else {
+    term_color_rgb(term,color,bg);
+  }
+}
+
+rp_private void term_color(term_t* term, rp_color_t color) {
+  term_color_ex(term,color,false);
+}
+
+rp_private void term_bgcolor(term_t* term, rp_color_t color) {
+  term_color_ex(term,color,true);
 }
 
 // Unused for now
@@ -258,14 +382,33 @@ rp_private term_t* term_new(alloc_t* mem, tty_t* tty, bool nocolor, bool silent,
   term_t* term = mem_zalloc_tp(mem, term_t);
   if (term == NULL) return NULL;
 
-  term->fd_out   = (fd_out < 0 ? STDOUT_FILENO : fd_out);
+  term->fd_out  = (fd_out < 0 ? STDOUT_FILENO : fd_out);
   term->nocolor = nocolor;
-  term->silent = silent;  
-  term->mem    = mem;
-  term->tty    = tty;
-  term->width  = 80;
-  term->height = 25;
+  term->silent  = silent;  
+  term->mem     = mem;
+  term->tty     = tty;
+  term->width   = 80;
+  term->height  = 25;
   term->is_utf8 = tty_is_utf8(tty);
+  term->palette = ANSI16;
+
+  // detect color palette
+  const char* colorterm = getenv("COLORTERM");
+  const char* eterm = getenv("TERM");
+  if (rp_stricmp(colorterm,"truecolor") == 0 || rp_stricmp(colorterm,"24bit") == 0 || getenv("WT_SESSION") != NULL) {
+    term->palette = TRUECOLOR;
+  }
+  else if (strstr(eterm,"xterm") != NULL || strstr(eterm,"256color") != NULL || rp_stricmp(colorterm,"8bit") == 0 || 
+           strstr(eterm,"gnome") != NULL || strstr(eterm,"kitty") != NULL) {
+    term->palette = ANSI256;
+  }
+  else if (rp_stricmp(colorterm,"3bit") == 0) {
+    term->palette = ANSI8;
+  }
+  else if (strstr(eterm,"dumb")) {
+    term->palette = MONOCHROME;
+  }
+  debug_msg("term; palette: %d (COLORTERM=%s, TERM=%s)\n", term->palette, colorterm, term);
   
   // read COLUMS/LINES from the environment for a better initial guess.
   const char* env_columns = getenv("COLUMNS");

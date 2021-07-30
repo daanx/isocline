@@ -128,12 +128,13 @@ rp_private ssize_t str_prev_ofs( const char* s, ssize_t pos, ssize_t* width ) {
   return ofs;
 }
 
-// skip a CSI sequence
+// skip an escape sequence
+// <https://www.xfree86.org/current/ctlseqs.html>
 rp_private bool skip_esc( const char* s, ssize_t len, ssize_t* esclen ) {  
   if (s == NULL || len <= 1 || s[0] != '\x1B') return false;
   if (esclen != NULL) *esclen = 0;
   if (strchr("[PX^_]",s[1]) != NULL) {
-    // CSI, DCS, SOS, PM, APC, and OSC.
+    // CSI (ESC [), DCS (ESC P), SOS (ESC X), PM (ESC ^), APC (ESC _), and OSC (ESC ]): terminated with a special sequence
     bool finalCSI = (s[1] == '[');  // CSI terminates with 0x40-0x7F; otherwise ST (bell or ESC \)
     ssize_t n = 2;
     while (len > n) {
@@ -151,6 +152,11 @@ rp_private bool skip_esc( const char* s, ssize_t len, ssize_t* esclen ) {
         return true;
       }
     }
+  }
+  if (strchr(" #%()*+",s[1]) != NULL) {
+    // assume escape sequence of length 3 (like ESC % G)
+    if (esclen != NULL) *esclen = 2;
+    return true;
   }
   else {
     // assume single character escape code (like ESC 7)
@@ -884,7 +890,9 @@ static int rp_strnicmp(const char* s1, const char* s2, ssize_t n) {
 rp_private int rp_stricmp(const char* s1, const char* s2) {
   ssize_t len1 = rp_strlen(s1);
   ssize_t len2 = rp_strlen(s2);
-  return rp_strnicmp(s1, s2, (len1 >= len2 ? len1 : len2));
+  if (len1 < len2) return -1;
+  if (len1 > len2) return 1;
+  return (rp_strnicmp(s1, s2, (len1 >= len2 ? len1 : len2)));
 }
 
 rp_private const char* rp_stristr(const char* s, const char* pat) {
