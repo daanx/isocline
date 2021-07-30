@@ -129,31 +129,26 @@ rp_private ssize_t str_prev_ofs( const char* s, ssize_t pos, ssize_t* width ) {
 }
 
 // skip a CSI sequence
-rp_private bool skip_csi_esc( const char* s, ssize_t len, ssize_t* esclen ) {  
+rp_private bool skip_esc( const char* s, ssize_t len, ssize_t* esclen ) {  
+  if (s == NULL || len <= 1 || s[0] != '\x1B') return false;
   if (esclen != NULL) *esclen = 0;
-  if (s == NULL || len < 2 || s[0] != '\x1B') return false;
-  if (s[1] == '[' || s[1] == ']') {
-    // <https://en.wikipedia.org/wiki/ANSI_escape_code#CSI_(Control_Sequence_Introducer)_sequences>
-    // CSI [ or OSC ]
+  if (strchr("[PX^_]",s[1]) != NULL) {
+    // CSI, DCS, SOS, PM, APC, and OSC.
+    bool finalCSI = (s[1] == '[');  // CSI terminates with 0x40-0x7F; otherwise ST (bell or ESC \)
     ssize_t n = 2;
-    bool intermediate = false;
     while (len > n) {
       char c = s[n];
-      if (c >= 0x30 && c <= 0x3F) {       // parameter bytes: 0–9:;<=>?
-        if (intermediate) break;          // cannot follow intermediate bytes
-        n++;
-      }
-      else if (c >= 0x20 && c <= 0x2F) {  // intermediate bytes: ' ',!"#$%&'()*+,-./
-        intermediate = true;
-        n++;
-      }
-      else if (c >= 0x40 && c <= 0x7E) {  // terminating byte: @A–Z[\]^_`a–z{|}~
+      if ((finalCSI && c >= 0x40 && c <= 0x7F) ||  // terminating byte: @A–Z[\]^_`a–z{|}~
+          (!finalCSI && c == '\x07'))              // bell
+      {
         n++;
         if (esclen != NULL) *esclen = n;
         return true;
       }
-      else {
-        break; // illegal character for an escape sequence.
+      else if (!finalCSI && c == '\x1B' && len > n+1 && s[n+1] == '\\') {  // ST (ESC \)
+        n += 2;
+        if (esclen != NULL) *esclen = n;
+        return true;
       }
     }
   }
@@ -169,8 +164,8 @@ rp_private bool skip_csi_esc( const char* s, ssize_t len, ssize_t* esclen ) {
 rp_private ssize_t str_next_ofs( const char* s, ssize_t len, ssize_t pos, ssize_t* cwidth ) {
   ssize_t ofs = 0;
   if (s != NULL && len > pos) {
-    if (skip_csi_esc(s+pos,len-pos,&ofs)) {
-      // CSI escape sequence      
+    if (skip_esc(s+pos,len-pos,&ofs)) {
+      // skip escape sequence      
     }
     else {
       ofs = 1;
