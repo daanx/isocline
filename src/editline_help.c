@@ -102,9 +102,11 @@ static const char* help_initial[] = {
   "See <\x1B[4mhttps://github.com/daanx/repline\x1B[24m> for further information.",
   "We use ^<key> as a shorthand for ctrl-<key>.",
   "",
+  "\x1B[36m"  
   "Overview:",
+  "\x1B[90m"
   "",
-  "       home/ctrl-a      cursor     end/ctrl-e",
+  "       home,ctrl-a      cursor     end,ctrl-e",
   "         ┌────────────────┼───────────────┐    (navigate)",
   //"       │                │               │",
   #ifndef __APPLE__
@@ -114,7 +116,7 @@ static const char* help_initial[] = {
   #endif
   "         │        ┌───────┼──────┐        │    ctrl+r   : search history",
   "         ▼        ▼       ▼      ▼        ▼    tab      : complete word",
-  "  \x1B[90mprompt> \x1B[97mit's the quintessential language" "\x1B[90m" "     shift-tab: insert new line",
+  "  \x1B[90mprompt> \x1B[37mit's the quintessential language" "\x1B[90m" "     shift-tab: insert new line",
   "         ▲        ▲              ▲        ▲    esc      : delete line, done",
   "         │        └──────────────┘        │    ctrl+z   : undo",
   "         │   alt-backsp        alt-d      │",
@@ -132,14 +134,17 @@ static void edit_show_help(rp_env_t* env, editor_t* eb) {
     term_writeln(env->term, help_initial[i]);
   }
   for (ssize_t i = 0; help[i] != NULL && help[i+1] != NULL; i += 2) {
-    if (help[i][0] == 0) {      
-      term_writef(env->term, 256, "\x1B[90m%s\x1B[0m\n", help[i+1]);
+    if (help[i][0] == 0) {  
+      term_color(env->term, RP_ANSI_TEAL);         
+      term_writef(env->term, 256, "%s\x1B[0m\n", help[i+1]);
     }
     else {
-      term_writef(env->term, 256, "  \x1B[97m%-13s\x1B[0m%s%s\n", help[i], (help[i+1][0] == 0 ? "" : ": "), help[i+1]);
+      term_color(env->term, RP_RGB(0xFFFFD7));
+      term_writef(env->term, 256, "  %-13s\x1B[0m%s%s\n", help[i], (help[i+1][0] == 0 ? "" : ": "), help[i+1]);
     }
   }
-  
+  term_attr_reset(env->term);
+
   eb->cur_rows = 0;
   eb->cur_row = 0;
   edit_refresh(env, eb);

@@ -151,7 +151,7 @@ static void edit_write_prompt( rp_env_t* env, editor_t* eb, ssize_t row, bool in
   if (in_extra) return;
   if (row==0) {
     // regular prompt text
-    term_color( env->term, env->prompt_color );
+    term_color( env->term, env->color_prompt );
     term_write(env->term, eb->prompt_text);
     term_attr_reset( env->term );    
   }
@@ -165,7 +165,7 @@ static void edit_write_prompt( rp_env_t* env, editor_t* eb, ssize_t row, bool in
     }
   }
   // the marker
-  term_color( env->term, env->prompt_color );
+  term_color( env->term, env->color_prompt );
   term_write( env->term, (row == 0 ? env->prompt_marker : env->cprompt_marker )); 
   term_attr_reset( env->term );
 }

@@ -115,7 +115,6 @@ rp_private void term_reverse(term_t* term, bool on) {
   term_write(term, on ? RP_CSI "7m" : RP_CSI "27m");
 }
 
-
 rp_private bool term_writeln(term_t* term, const char* s) {
   bool ok = term_write(term,s);
   if (ok) { ok = term_write(term,"\n"); }

@@ -1,6 +1,10 @@
 /* ----------------------------------------------------------------------------
   Copyright (c) 2021, Daan Leijen
-  Example usage of repline.
+  This is free software; you can redistribute it and/or modify it
+  under the terms of the MIT License. A copy of the license can be
+  found in the "LICENSE" file at the root of this distribution.
+
+  Example use of the Repline API.
 -----------------------------------------------------------------------------*/
 #include <assert.h>
 #include <stdio.h>
@@ -14,23 +18,24 @@ static void completer(rp_completion_env_t* cenv, const char* prefix );
 // highlighter function defined below
 static void highlighter(rp_highlight_env_t* henv, const char* input, void* arg);
 
+/*
 static void show_color( rp_color_t color, const char* name ) {
   printf("\x1B[%dm%20s\x1B[0m | \x1B[1;%dmbold\x1B[0m | \x1B[%dmbright\x1B[0m\n", color, name, color, color+60);  
 }
+*/
 
 // main example
 int main() 
 {
   // rp_writeln handles basic escape sequences in a portable way
-  /*
   rp_writeln(
     "\n\x1B[33mRepline sample program:\x1B[0m\n"
     "- Type 'exit' to quit. (or use ctrl+d).\n"
     "- Press F1 for help on editing commands.\n"
     "- Use shift+tab for multiline input. (or ctrl+enter, or ctrl+j)\n"
     "- Type 'p' (or 'id', 'f', or 'h') followed by tab for completion.\n");
-    */
-/*
+    
+  /*
   rp_writeln("colors:");
   
   rp_term_color(RP_ANSI_MAROON); rp_write("ansi8 ");
@@ -71,14 +76,11 @@ int main()
   // enable syntax highlighting with a highlight function
   rp_set_default_highlighter(highlighter, NULL);
 
-  // set a nice color for the prompt and the prompt marker (>)
-  rp_set_prompt_color(RP_ANSI_GREEN);
-
   // try to auto complete after a completion as long as the completion is unique
-  // rp_enable_auto_tab(true );
+  rp_enable_auto_tab(true );
 
-  // change interface colors (info, diminish, emphasis, hint)
-  // rp_set_style_color( RP_STYLE_INFO, RP_YELLOW );
+  // change interface colors (prompt info, diminish, emphasis, hint)
+  // rp_set_style_color( RP_STYLE_PROMPT,   RP_ANSI_MAROON);
   // rp_set_style_color( RP_STYLE_EMPHASIS, RP_RGB(0xD7FF00));
   
   // run until empty input
@@ -109,14 +111,14 @@ static void word_completer(rp_completion_env_t* cenv, const char* prefix )
   rp_add_completions(cenv, prefix, completions);
 
   // examples of more customized completions
-  if (prefix[0] != 0 && rp_istarts_with("hello repline ",prefix)) {
-    // many completions for hello repline
-    for(int i = 0; i < 100000; i++) {
-      char buf[32];
-      snprintf(buf,32,"hello repline %03d", i+1);
-      if (!rp_add_completion(cenv, NULL, buf)) break;  // break early if not all completions are needed (for better latency)
-    }
-  }
+  if (strcmp(prefix,"id") == 0) {
+    // display vs. replacement
+    rp_add_completion(cenv,"D — (x) => x",       "(x) => x");                
+    rp_add_completion(cenv,"Haskell — \\x -> x", "\\x -> x");
+    rp_add_completion(cenv,"Idris — \\x => x",   "\\x => x");
+    rp_add_completion(cenv,"Koka — fn(x){ x }",  "fn(x){ x }");    
+    rp_add_completion(cenv,"Ocaml — fun x -> x", "fun x -> x");
+  }  
   else if (strcmp(prefix,"f") == 0) {  
     // unicode for f completion
     rp_add_completion(cenv,NULL,"banana 🍌 etc.");
@@ -125,14 +127,14 @@ static void word_completer(rp_completion_env_t* cenv, const char* prefix )
     rp_add_completion(cenv,NULL,"apples 🍎");
     rp_add_completion(cenv, NULL, "zero\xE2\x80\x8Dwidth-joiner");    
   }
-  else if (strcmp(prefix,"id") == 0) {
-    // display vs. replacement
-    rp_add_completion(cenv,"D — (x) => x",       "(x) => x");                
-    rp_add_completion(cenv,"Haskell — \\x -> x", "\\x -> x");
-    rp_add_completion(cenv,"Idris — \\x => x",   "\\x => x");
-    rp_add_completion(cenv,"Koka — fn(x){ x }",  "fn(x){ x }");    
-    rp_add_completion(cenv,"Ocaml — fun x -> x", "fun x -> x");
-  }  
+  else if (prefix[0] != 0 && rp_istarts_with("hello repline ",prefix)) {
+    // many completions for hello repline
+    for(int i = 0; i < 100000; i++) {
+      char buf[32];
+      snprintf(buf,32,"hello repline %03d", i+1);
+      if (!rp_add_completion(cenv, NULL, buf)) break;  // break early if not all completions are needed (for better latency)
+    }
+  }
 }
 
 // A completer function is called by repline to complete on input.
@@ -143,7 +145,7 @@ static void completer(rp_completion_env_t* cenv, const char* prefix )
   rp_complete_filename(cenv, prefix, 0, "/usr/local;c:\\Program Files" , NULL /* any extension */);
 
   // and also use our custom completer  
-  // rp_complete_word( cenv, prefix, &word_completer );        
+  rp_complete_word( cenv, prefix, &word_completer );        
   
   // rp_complete_quoted_word( cenv, prefix, &word_completer, &rp_char_is_nonwhite, '\\', "'\"" );        
 }
@@ -166,7 +168,7 @@ static void highlighter(rp_highlight_env_t* henv, const char* input, void* arg) 
     static const char* types[]    = { "int", "double", "char", "void", NULL };
     long tlen;  // token length
     if ((tlen = rp_match_any_token(input, i, &rp_char_is_idletter, keywords)) > 0) {
-      rp_highlight_color(henv, i, RP_RGB(0xFFFFAF));
+      rp_highlight_color(henv, i, RP_RGB(0xFFFFAF));  // rgb colors are auto translated on terminals with less color support
       i += tlen;
     }
     else if ((tlen = rp_match_any_token(input, i, &rp_char_is_idletter, types)) > 0) {

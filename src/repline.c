@@ -121,13 +121,6 @@ rp_public void rp_set_prompt_marker( const char* prompt_marker, const char* cpro
   set_prompt_marker(env, prompt_marker, cprompt_marker);
 }
 
-rp_public rp_color_t rp_set_prompt_color( rp_color_t color ) {
-  rp_env_t* env = rp_get_env(); if (env==NULL) return RP_COLOR_NONE;
-  rp_color_t prev = env->prompt_color;
-  env->prompt_color = color;
-  return prev;
-}
-
 rp_public bool rp_enable_multiline( bool enable ) {
   rp_env_t* env = rp_get_env(); if (env==NULL) return false;
   bool prev = env->singleline_only;
@@ -220,6 +213,7 @@ rp_public void rp_set_default_highlighter(rp_highlight_fun_t* highlighter, void*
 
 static void set_style_color(rp_env_t* env, rp_style_t iface_element, rp_color_t color) {
   switch (iface_element) {
+    case RP_STYLE_PROMPT:   env->color_prompt = (color == RP_COLOR_NONE ? RP_ANSI_GREEN : color); break;
     case RP_STYLE_INFO:     env->color_info = (color == RP_COLOR_NONE ? RP_ANSI_DARKGRAY : color); break;
     case RP_STYLE_DIMINISH: env->color_diminish = (color == RP_COLOR_NONE ? RP_ANSI_LIGHTGRAY : color); break;
     case RP_STYLE_EMPHASIS: env->color_emphasis = (color == RP_COLOR_NONE ? RP_RGB(0xFFFFD7) : color); break;
@@ -236,11 +230,12 @@ rp_public void rp_set_style_color(rp_style_t iface_element, rp_color_t color) {
 rp_public rp_color_t rp_get_style_color(rp_style_t iface_element) {
   rp_env_t* env = rp_get_env(); if (env==NULL) return RP_COLOR_NONE;
   switch (iface_element) {
-  case RP_STYLE_INFO:     return env->color_info;
-  case RP_STYLE_DIMINISH: return env->color_diminish;
-  case RP_STYLE_EMPHASIS: return env->color_emphasis;
-  case RP_STYLE_HINT:     return env->color_hint;
-  default: break;
+    case RP_STYLE_PROMPT:   return env->color_prompt;    
+    case RP_STYLE_INFO:     return env->color_info;
+    case RP_STYLE_DIMINISH: return env->color_diminish;
+    case RP_STYLE_EMPHASIS: return env->color_emphasis;
+    case RP_STYLE_HINT:     return env->color_hint;
+    default: break;
   }
   return RP_COLOR_NONE;
 }
@@ -288,6 +283,16 @@ rp_public void rp_term_color( rp_color_t color ) {
 rp_public void rp_term_bgcolor( rp_color_t color ) {
   rp_env_t* env = rp_get_env(); if (env==NULL) return;
   term_bgcolor(env->term, color);
+}
+
+rp_public void rp_term_underline( bool enable ) {
+  rp_env_t* env = rp_get_env(); if (env==NULL) return;
+  term_underline(env->term, enable);
+}
+
+rp_public void rp_term_reverse( bool enable ) {
+  rp_env_t* env = rp_get_env(); if (env==NULL) return;
+  term_reverse(env->term, enable);
 }
 
 rp_public void rp_term_reset( void )  {
@@ -383,7 +388,6 @@ static rp_env_t* rp_env_create( rp_malloc_fun_t* _malloc, rp_realloc_fun_t* _rea
     env->noedit = true;
   }
   env->multiline_eol = '\\';
-  env->prompt_color  = RP_ANSI_DEFAULT;
   for (rp_style_t style = 0; style < RP_STYLE_LAST; style++) {
     set_style_color(env, style, RP_COLOR_NONE);  // set default colors
   }

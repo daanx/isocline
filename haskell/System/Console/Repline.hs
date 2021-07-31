@@ -40,7 +40,7 @@ import Data.Char( toLower )
 
 main :: IO ()
 main 
-  = do `setPromptColor` `Green`
+  = do `setStyleColor' 'StylePrompt' 'AnsiMaroon'
        `setHistory` "history.txt" 200
        `enableAutoTab` `True`
        interaction
@@ -107,10 +107,14 @@ module System.Console.Repline(
       -- * Terminal
       termWrite,
       termWriteLn,
+      termColor,
+      termBgColor,
+      termUnderline,
+      termReverse,
+      termReset,
       
       -- * Configuration
       setPromptMarker,
-      setPromptColor,
       enableAutoTab,
       enableColor,
       enableBeep,
@@ -215,7 +219,7 @@ unmaybe action
 -- | @readline prompt@: Read (multi-line) input from the user with rich editing abilities. 
 -- Takes the prompt text as an argument. The full prompt is the combination
 -- of the given prompt and the promp marker (@\"> \"@ by default) .
--- See also 'readlineEx', 'readlineMaybe', 'enableMultiline', 'setPromptColor', and 'setPromptMarker'.
+-- See also 'readlineEx', 'readlineMaybe', 'enableMultiline', 'setStyleColor', and 'setPromptMarker'.
 readline :: String -> IO String  
 readline prompt
   = unmaybe $ readlineMaybe prompt
@@ -629,7 +633,7 @@ data TextAttr = TextAttr{
 
 -- | Default text attribute.
 attrDefault :: TextAttr
-attrDefault = TextAttr ColorDefault ColorDefault False False 
+attrDefault = TextAttr AnsiDefault AnsiDefault False False 
 
 -- | Use the given text attribute for each character in the string. 
 withAttr :: TextAttr -> String -> [TextAttr]
@@ -707,8 +711,13 @@ makeAttrHighlighter highlight
 -- Terminal
 ----------------------------------------------------------------------------
 
-foreign import ccall rp_write  :: CString -> IO ()
-foreign import ccall rp_writeln :: CString -> IO ()
+foreign import ccall rp_write           :: CString -> IO ()
+foreign import ccall rp_writeln         :: CString -> IO ()
+foreign import ccall rp_term_color      :: CInt -> IO ()
+foreign import ccall rp_term_bgcolor    :: CInt -> IO ()
+foreign import ccall rp_term_underline  :: CCBool -> IO ()
+foreign import ccall rp_term_reverse    :: CCBool -> IO ()
+foreign import ccall rp_term_reset      :: IO ()
 
 -- | Write output to the terminal where ANSI CSI sequences are
 -- handled portably across platforms (including Windows).
@@ -722,13 +731,37 @@ termWriteLn :: String -> IO ()
 termWriteLn s
   = withUTF8String0 s $ \cs -> rp_writeln cs  
 
+-- | Set the terminal text color. The color is auto adjusted for terminals with less colors.
+termColor :: Color -> IO ()
+termColor color
+  = rp_term_color (ccolor color)
+
+-- | Set the terminal text background color. The color is auto adjusted for terminals with less colors.
+termBgColor :: Color -> IO ()
+termBgColor color
+  = rp_term_bgcolor (ccolor color)  
+
+-- | Set the terminal text underline mode.
+termUnderline :: Bool -> IO ()
+termUnderline enable
+  = rp_term_underline (cbool enable)  
+
+-- | Set the terminal text reverse video mode.
+termReverse :: Bool -> IO ()
+termReverse enable
+  = rp_term_reverse (cbool enable)  
+
+-- | Reset the terminal text mode to defaults
+termReset :: IO ()
+termReset 
+  = rp_term_reset
+
 
 ----------------------------------------------------------------------------
 -- Configuration
 ----------------------------------------------------------------------------
 foreign import ccall rp_set_style_color   :: CInt -> CInt -> IO ()
 foreign import ccall rp_get_style_color   :: CInt -> IO CInt
-foreign import ccall rp_set_prompt_color  :: CInt -> IO CInt
 foreign import ccall rp_set_prompt_marker :: CString -> CString -> IO ()
 foreign import ccall rp_get_prompt_marker :: IO CString
 foreign import ccall rp_get_continuation_prompt_marker :: IO CString
@@ -766,13 +799,6 @@ unccolor action
 
 clong :: Int -> CLong
 clong l = toEnum l
-
-
--- | Set the color of the prompt.
--- Returns the previous value.
-setPromptColor :: Color -> IO Color
-setPromptColor color
-  = do unccolor $ rp_set_prompt_color (ccolor color)
 
 
 -- | @setPromptMarker marker multiline_marker@: Set the prompt @marker@ (by default @\"> \"@). 
@@ -853,22 +879,25 @@ enableCompletionPreview enable
 
 -- | Styles for user interface elements
 data Style
-  = StyleInfo     -- ^ info: for example, numbers in the completion menu (`DarkGray` by default).
+  = StylePrompt   -- ^ style for the prompt (text and marker) (`AnsiGreen` by default)
+  | StyleInfo     -- ^ info: for example, numbers in the completion menu (`AnsiDarkGray` by default).
   | StyleDiminish -- ^ diminish: for example, non matching parts in a history search (`LightGray` by default)
-  | StyleEmphasis -- ^ emphasis: for example, the matching part in a history search (`White` by default).
-  | StyleHint     -- ^ hint: for inline hints (`DarkGray` by default).
+  | StyleEmphasis -- ^ emphasis: for example, the matching part in a history search (@'RGB' 0xFFFFD7@ by default).
+  | StyleHint     -- ^ hint: for inline hints (`AnsiDarkGray` by default).
   deriving (Show,Eq,Enum)
 
 cstyle :: Style -> CInt
 cstyle style = toEnum (fromEnum style)
 
--- | Set the color used for interface elements.
--- Use `ColorNone` to use the default color. (but `ColorDefault` for the default terminal text color!
+-- | Set the color used for interface elements (like the prompt).
+-- Use `ColorNone` to use the default color. (but `AnsiDefault` for the default terminal text color!
+-- See also 'Style'.
 setStyleColor :: Style -> Color -> IO ()
 setStyleColor style color
   = rp_set_style_color (cstyle style) (ccolor color)
 
 -- | Get the color used for interface elements.
+-- See also 'Style'.
 getStyleColor :: Style -> IO Color
 getStyleColor style 
   = unccolor $ rp_get_style_color (cstyle style) 
@@ -898,69 +927,82 @@ enableHighlight enable
 -- Colors
 ----------------------------------------------------------------------------
 
--- | Terminal colors. Used for example in 'setPromptColor'.
-data Color  = Black
-            | Maroon
-            | Green
-            | Orange
-            | Navy
-            | Purple
-            | Teal
-            | LightGray
-            | DarkGray
-            | Red
-            | Lime
-            | Yellow
-            | Blue
-            | Magenta
-            | Cyan
-            | White
-            | ColorDefault
-            | ColorNone
+-- | Terminal colors. Used for example in 'setStyleColor'.
+-- On terminals with less colors, RGB values are auto translated to the closest ANSI colors (256 or 16 color).
+data Color  = AnsiBlack
+            | AnsiMaroon
+            | AnsiGreen
+            | AnsiOrange
+            | AnsiNavy
+            | AnsiPurple
+            | AnsiTeal
+            | AnsiLightGray
+            | AnsiDarkGray
+            | AnsiRed
+            | AnsiLime
+            | AnsiYellow
+            | AnsiBlue
+            | AnsiMagenta
+            | AnsiCyan
+            | AnsiWhite
+            | AnsiDefault            -- ^ Default terminal text color
+            | ColorNone              -- ^ No color (often used for a default color)
+            | RGB Int                -- ^ RGB hex value
             deriving (Show,Eq,Ord)
+
+-- | Create a color from an RGB hex value @0x@RRGGBB
+rgb :: Int -> Color 
+rgb hex = RGB (hex `mod` 0x1000000)
+
+-- | Create a color from separate red, green, and blue values in the range @0@ - @0xFF@.
+rgbx :: Int -> Int -> Int -> Color
+rgbx r g b = rgb ((65535*(r`mod`0xFF)) + (256*(g`mod`0xFF)) + (b`mod`0xFF))
 
 instance Enum Color where
   fromEnum color 
     = case color of
-        Black       -> 30
-        Maroon      -> 31
-        Green       -> 32
-        Orange      -> 33
-        Navy        -> 34
-        Purple      -> 35
-        Teal        -> 36
-        LightGray   -> 37
-        DarkGray    -> 90
-        Red         -> 91
-        Lime        -> 92
-        Yellow      -> 93
-        Blue        -> 94
-        Magenta     -> 95
-        Cyan        -> 96
-        White       -> 97
-        ColorDefault-> 39
-        ColorNone   -> 0
+        ColorNone       -> 0
+        RGB rgb         -> (0x1000000 + rgb)
+        AnsiBlack       -> 30
+        AnsiMaroon      -> 31
+        AnsiGreen       -> 32
+        AnsiOrange      -> 33
+        AnsiNavy        -> 34
+        AnsiPurple      -> 35
+        AnsiTeal        -> 36
+        AnsiLightGray   -> 37
+        AnsiDarkGray    -> 90
+        AnsiRed         -> 91
+        AnsiLime        -> 92
+        AnsiYellow      -> 93
+        AnsiBlue        -> 94
+        AnsiMagenta     -> 95
+        AnsiCyan        -> 96
+        AnsiWhite       -> 97
+        AnsiDefault     -> 39
 
   toEnum color 
     = case color of
-        30 -> Black
-        31 -> Maroon
-        32 -> Green
-        33 -> Orange
-        34 -> Navy
-        35 -> Purple
-        36 -> Teal
-        37 -> LightGray
-        90 -> DarkGray
-        91 -> Red
-        92 -> Lime
-        93 -> Yellow
-        94 -> Blue
-        95 -> Magenta
-        96 -> Cyan
-        97 -> White
-        39 -> ColorDefault
-        _  -> ColorNone
+        30 -> AnsiBlack
+        31 -> AnsiMaroon
+        32 -> AnsiGreen
+        33 -> AnsiOrange
+        34 -> AnsiNavy
+        35 -> AnsiPurple
+        36 -> AnsiTeal
+        37 -> AnsiLightGray
+        90 -> AnsiDarkGray
+        91 -> AnsiRed
+        92 -> AnsiLime
+        93 -> AnsiYellow
+        94 -> AnsiBlue
+        95 -> AnsiMagenta
+        96 -> AnsiCyan
+        97 -> AnsiWhite
+        39 -> AnsiDefault
+        _  -> if (color >= 0x1000000 && color <= 0x1FFFFFF) 
+                then RGB (color - 0x1000000)
+                else ColorNone
 
 
 ----------------------------------------------------------------------------

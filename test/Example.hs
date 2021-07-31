@@ -13,9 +13,9 @@ import Control.Monad( when )
 main :: IO ()
 main
   = do termWriteLn welcome                 -- like putStrLn but handles escape sequences portably
-       setPromptColor Green                -- custom prompt color
        setHistory "history.txt" 200        -- history
        enableAutoTab True                  -- complete as far as possible
+       setStyleColor StylePrompt AnsiMaroon  
        interaction
   where
     welcome = "\n\x1B[33mHaskell Repline sample program:\x1B[0m\n" ++
@@ -78,16 +78,16 @@ highlighter input
   where
     tokenize [] = []
     tokenize s@('/':'/':_) 
-      = let (t,ds) = span (/='\n') s in withAttrColor Green t ++ tokenize ds
+      = let (t,ds) = span (/='\n') s in withAttrColor (RGB 0x408700) t ++ tokenize ds
     tokenize s@(c:cs)
       | isAlpha c   = let (t,ds) = span isAlpha s
                       in (if (t `elem` ["fun","return","if","then","else"]) 
-                             then withAttrColor Yellow t 
+                             then withAttrColor (RGB 0xFFFFAF) t 
                            else if (t `elem` ["int","double","char","void"])
-                             then withAttrColor Cyan t 
+                             then withAttrColor (RGB 0x00AFAF) t 
                              else withAttrDefault t)
                          ++ tokenize ds
       | isDigit c   = let (t,ds) = span isDigit s 
-                      in withAttrColor Blue t ++ tokenize ds
+                      in withAttrColor AnsiPurple t ++ tokenize ds
       | otherwise   = withAttrDefault [c] ++ tokenize cs
 

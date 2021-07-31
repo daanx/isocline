@@ -32,9 +32,9 @@ struct rp_env_s {
   stringbuf_t*    hint;             // keep a current hint buffer to avoid reallocation
   const char*     prompt_marker;    // the prompt marker (defaults to "> ")
   const char*     cprompt_marker;   // prompt marker for continuation lines (defaults to `prompt_marker`)
-  rp_color_t      prompt_color;     // color used to display the prompt
   rp_highlight_fun_t* highlighter;  // highlight callback
   void*           highlighter_arg;  // user state for the highlighter.
+  rp_color_t      color_prompt;     // color used to display the prompt
   rp_color_t      color_info;       // information color, for example numbers in the completion menu. (=RP_DARKGRAY)
   rp_color_t      color_diminish;   // diminish color, for example the non-highlighted part in a history search (=RP_DARKGRAY)
   rp_color_t      color_emphasis;   // highlighted color, for example, the current match in a history search (=RP_DEFAULT_COLOR)

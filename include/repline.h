@@ -32,7 +32,7 @@ extern "C" {
 // the input is read directly from the input stream up to the 
 // next line without editing capability.
 //
-// See also: `rp_set_prompt_marker`, `rp_set_prompt_color`.
+// See also: `rp_set_prompt_marker`, `rp_set_style_color`.
 char* rp_readline(const char* prompt_text);   
 
 
@@ -237,7 +237,7 @@ void rp_highlight_esc(rp_highlight_env_t* henv, const char* input, rp_highlight_
 // Read input from the user using rich editing abilities, 
 // using a particular completion function and highlighter for this call only.
 // both can be NULL in which case the defaults are used.
-// See also: `rp_readline`, `rp_set_prompt_marker`, `rp_set_prompt_color`,
+// See also: `rp_readline`, `rp_set_prompt_marker`, `rp_set_style_color`,
 // `rp_set_default_compteter`, `rp_set_default_highlighter`.
 char* rp_readline_ex(const char* prompt_text, rp_completer_fun_t* completer, void* completer_arg,
                                               rp_highlight_fun_t* highlighter, void* highlighter_arg);
@@ -257,10 +257,6 @@ const char* rp_get_prompt_marker(void);
 
 // Get the current continuation prompt marker.
 const char* rp_get_contiuation_prompt_marker(void);
-
-// Set the color used for the prompt text and marker.
-// Returns the previous color.
-rp_color_t rp_set_prompt_color( rp_color_t color );
 
 // Disable or enable multi-line input (enabled by default).
 // Returns the previous setting.
@@ -311,6 +307,7 @@ bool rp_enable_highlight(bool enable);
 
 // Styles for interface elements.
 typedef enum rp_style_e {
+  RP_STYLE_PROMPT,   // prompt style
   RP_STYLE_INFO,     // info: for example, numbers in the completion menu(`RP_DARKGRAY` by default)
   RP_STYLE_DIMINISH, // diminish: for example, non matching parts in a history search (`RP_LIGHTGRAY` by default)
   RP_STYLE_EMPHASIS, // emphasis: for example, the matching part in a history search (`RP_WHITE` by default)
@@ -322,8 +319,8 @@ typedef enum rp_style_e {
 // Use `RP_COLOR_NONE` to use the default color. (but `RP_COLOR_DEFAULT` for the default terminal text color!)
 void rp_set_style_color( rp_style_t style, rp_color_t color );
 
-// Get the current interface colors.
-rp_color_t rp_get_style_color( rp_style_t iface_element );
+// Get the current interface color for a given style.
+rp_color_t rp_get_style_color( rp_style_t style );
 
 //--------------------------------------------------------------
 // Advanced Completion
@@ -432,10 +429,21 @@ void rp_write(const char* s);
 // Write a string to the console and end with a newline (and process CSI escape sequences).
 void rp_writeln(const char* s);
 
-// Set the terminal color in a portable way
+// Set the text color in a portable way where colors auto translate on terminals with less color.
 void rp_term_color( rp_color_t color );
+
+// Set the text back ground color in a portable way where colors auto translate on terminals with less color.
 void rp_term_bgcolor( rp_color_t color );
+
+// Set the text underline mode.
+void rp_term_underline( bool enable );
+
+// Set the text reverse video mode.
+void rp_term_reverse( bool enable );
+
+// Reset the text attributes.
 void rp_term_reset( void );
+
 
 //--------------------------------------------------------------
 // Register allocation functions for custom allocators
