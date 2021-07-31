@@ -4,8 +4,6 @@
   under the terms of the MIT License. A copy of the license can be
   found in the "LICENSE" file at the root of this distribution.
 -----------------------------------------------------------------------------*/
-#include <stdint.h>
-#include <limits.h>
 
 // This file is included in "term.c"
 
@@ -88,38 +86,79 @@ static void color_to_rgb(rp_color_t color, int* r, int* g, int* b) {
 
 // Approximation to delta-E CIE color distance using much 
 // simpler calculations. See <https://www.compuphase.com/cmetric.htm>
-static long rgb_dist( uint32_t color, int r2, int g2, int b2 ) {
+// We do not take the square root as we only need to find 
+// the minimal distance (and multiply by 512 to increase precision).
+// Needs at least 28-bit signed integers to avoid overflow. 
+static int_least32_t rgb_dist( uint32_t color, int r2, int g2, int b2 ) {
   int r1, g1, b1;
   color_to_rgb(RP_RGB(color),&r1,&g1,&b1);
-  long rmean = (r1 + r2) / 2;
-  long r = r1 - r2;
-  long g = g1 - g2;
-  long b = b1 - b2;
-  long dist = ((512+rmean)*r*r)/256 + 4*g*g + ((767-rmean)*b*b)/256;
+  int_least32_t rmean = (r1 + r2) / 2;
+  int_least32_t dr = r1 - r2;
+  int_least32_t dg = g1 - g2;
+  int_least32_t db = b1 - b2;
+  int_least32_t dist = (512+rmean)*dr*dr + 2048*dg*dg + (767-rmean)*db*db;
   return dist;
+}
 
+// Maintain a small cache of recently used colors
+// should be short enough to be effectively constant time.
+// If we use a more expensive color distance method, we may 
+// increase the size a bit (64?) 
+// Initial zero initialized cache is valid.
+#define RGB_CACHE_LEN (16)
+typedef struct rgb_cache_s {
+  int        last;
+  int        indices[RGB_CACHE_LEN];
+  rp_color_t colors[RGB_CACHE_LEN];
+} rgb_cache_t;
+
+// remember a color in the cache
+void rgb_remember( rgb_cache_t* cache, rp_color_t color, int idx ) {
+  if (cache == NULL) return;
+  cache->colors[cache->last] = color;
+  cache->indices[cache->last] = idx;
+  cache->last++;
+  if (cache->last >= RGB_CACHE_LEN) { cache->last = 0; }
+}
+
+// Quick lookup in cache; -1 on failure
+int rgb_lookup( const rgb_cache_t* cache, rp_color_t color ) {
+  if (cache != NULL) {
+    for(int i = 0; i < RGB_CACHE_LEN; i++) {
+      if (cache->colors[i] == color) return cache->indices[i];
+    }
+  }
+  return -1;
 }
 
 // Return the index of the closest matching color
-static int rgb_match( uint32_t* palette, int start, int len, rp_color_t color ) {
+static int rgb_match( uint32_t* palette, int start, int len, rgb_cache_t* cache, rp_color_t color ) {
   assert(color_is_rgb(color));
+  // in cache?
+  int min = rgb_lookup(cache,color);
+  if (min >= 0) return min;
+
+  // otherwise find closest color match in the palette
   int r, g, b;
   color_to_rgb(color,&r,&g,&b);
-  int min = start;
-  long mindist = LONG_MAX;
+  min = start;
+  int_least32_t mindist = INT_LEAST32_MAX;
   for(int i = start; i < len; i++) {
-    long dist = rgb_dist(palette[i],r,g,b);
+    int_least32_t dist = rgb_dist(palette[i],r,g,b);
     if (dist < mindist) {
       min = i;
       mindist = dist;
     }
   }
+  rgb_remember(cache,color,min);
   return min;
 }
 
+
 // Match RGB to an index in the ANSI 256 color table
 static int rgb_to_ansi256(rp_color_t color) {
-  int c = rgb_match( ansi256, 16, 256, color); // not the first 16 ANSI colors as those may be different 
+  static rgb_cache_t ansi256_cache;
+  int c = rgb_match( ansi256, 16, 256, &ansi256_cache, color); // not the first 16 ANSI colors as those may be different 
   debug_msg("term: rgb %x -> ansi 256: %d\n", color, c );
   return c;
 }
@@ -130,7 +169,8 @@ static int color_to_ansi16(rp_color_t color) {
     return (int)color;
   }
   else {
-    int c = rgb_match(ansi256, 0, 16, color);
+    static rgb_cache_t ansi16_cache;
+    int c = rgb_match(ansi256, 0, 16, &ansi16_cache, color);
     debug_msg("term: rgb %x -> ansi 16: %d\n", color, c );
     return (c < 8 ? 30 + c : 90 + c - 8); 
   }
@@ -144,7 +184,8 @@ static int color_to_ansi8(rp_color_t color) {
   }
   else {
     // match to basic 8 colors first
-    int c = 30 + rgb_match(ansi256, 0, 8, color);
+    static rgb_cache_t ansi8_cache;
+    int c = 30 + rgb_match(ansi256, 0, 8, &ansi8_cache, color);
     // and then adjust for brightness
     int r, g, b;
     color_to_rgb(color,&r,&g,&b);

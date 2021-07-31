@@ -235,7 +235,7 @@ rp_private term_t* term_new(alloc_t* mem, tty_t* tty, bool nocolor, bool silent,
   term->width   = 80;
   term->height  = 25;
   term->is_utf8 = tty_is_utf8(tty);
-  term->palette = ANSI16;
+  term->palette = ANSI16; // almost universally supported
 
   // respect NO_COLOR
   if (getenv("NO_COLOR") != NULL) {
@@ -249,7 +249,7 @@ rp_private term_t* term_new(alloc_t* mem, tty_t* tty, bool nocolor, bool silent,
   else if (rp_contains(colorterm,"8bit") || rp_contains(colorterm,"256color"))   { term->palette = ANSI256; } 
   else if (rp_contains(colorterm,"4bit") || rp_contains(colorterm,"16color"))    { term->palette = ANSI16; }
   else if (rp_contains(colorterm,"3bit") || rp_contains(colorterm,"8color"))     { term->palette = ANSI8; }
-  else if (rp_contains(colorterm,"2bit") || rp_contains(colorterm,"monochrome")) { term->palette = MONOCHROME; }
+  else if (rp_contains(colorterm,"1bit") || rp_contains(colorterm,"monochrome")) { term->palette = MONOCHROME; }
   else if (getenv("WT_SESSION") != NULL) { term->palette = ANSIRGB; } // Windows terminal
   else {
     // fall back to checking TERM
@@ -259,6 +259,7 @@ rp_private term_t* term_new(alloc_t* mem, tty_t* tty, bool nocolor, bool silent,
     { 
       term->palette = ANSI256; 
     }  
+    else if (rp_contains(eterm,"16color")){ term->palette = ANSI16; }
     else if (rp_contains(eterm,"8color")) { term->palette = ANSI8; }
     else if (rp_contains(eterm,"dumb"))   { term->palette = MONOCHROME; }
   }

@@ -840,70 +840,6 @@ rp_public long rp_next_char( const char* s, long pos ) {
   return (long)(pos + ofs);
 }
 
-rp_public bool rp_starts_with( const char* s, const char* prefix ) {
-  if (s==prefix) return true;
-  if (prefix==NULL) return true;
-  if (s==NULL) return false;
-
-  ssize_t i;
-  for( i = 0; s[i] != 0 && prefix[i] != 0; i++) {
-    if (s[i] != prefix[i]) return false;
-  }
-  return (prefix[i] == 0);
-}
-
-rp_private char rp_tolower( char c ) {
-  return (c >= 'A' && c <= 'Z'  ?  c - 'A' + 'a' : c);
-}
-
-rp_public bool rp_istarts_with( const char* s, const char* prefix ) {
-  if (s==prefix) return true;
-  if (prefix==NULL) return true;
-  if (s==NULL) return false;
-
-  ssize_t i;
-  for( i = 0; s[i] != 0 && prefix[i] != 0; i++) {
-    if (rp_tolower(s[i]) != rp_tolower(prefix[i])) return false;
-  }
-  return (prefix[i] == 0);
-}
-
-static int rp_strncmp(const char* s1, const char* s2, ssize_t n) {
-  return strncmp(s1, s2, to_size_t(n));
-}
-
-static int rp_strnicmp(const char* s1, const char* s2, ssize_t n) {
-  if (s1 == NULL && s2 == NULL) return 0;
-  if (s1 == NULL) return -1;
-  if (s2 == NULL) return 1;
-  ssize_t i;
-  for (i = 0; s1[i] != 0 && i < n; i++) {  // note: if s2[i] == 0 the loop will stop as c1 != c2
-    char c1 = rp_tolower(s1[i]);
-    char c2 = rp_tolower(s2[i]);
-    if (c1 < c2) return -1;
-    if (c1 > c2) return 1;
-  }
-  return ((i >= n || s2[i] == 0) ? 0 : -1);
-}
-
-rp_private int rp_stricmp(const char* s1, const char* s2) {
-  ssize_t len1 = rp_strlen(s1);
-  ssize_t len2 = rp_strlen(s2);
-  if (len1 < len2) return -1;
-  if (len1 > len2) return 1;
-  return (rp_strnicmp(s1, s2, (len1 >= len2 ? len1 : len2)));
-}
-
-rp_private const char* rp_stristr(const char* s, const char* pat) {
-  if (s==NULL) return NULL;
-  if (pat==NULL || pat[0] == 0) return s;
-  ssize_t patlen = rp_strlen(pat);
-  for (ssize_t i = 0; s[i] != 0; i++) {
-    if (rp_strnicmp(s + i, pat, patlen) == 0) return (s+i);
-  }
-  return NULL;
-}
-
 
 // parse a decimal (leave pi unchanged on error)
 rp_private bool rp_atoz(const char* s, ssize_t* pi) {
@@ -995,6 +931,11 @@ rp_public long rp_is_token(const char* s, long pos, rp_is_char_class_fun_t* is_t
     i += next;
   }
   return (long)(i - pos);
+}
+
+
+static int rp_strncmp(const char* s1, const char* s2, ssize_t n) {
+  return strncmp(s1, s2, to_size_t(n));
 }
 
 // Convenience: Does this match the specified token? 

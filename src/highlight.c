@@ -23,7 +23,7 @@ typedef struct attr_s {
   rp_color_t bgcolor;
 } attr_t;
 
-static const attr_t attr_zero    = { 0, 0, RP_COLOR_NONE, RP_COLOR_NONE };
+// static const attr_t attr_zero    = { 0, 0, RP_COLOR_NONE, RP_COLOR_NONE };
 static const attr_t attr_default = { -1, -1, RP_ANSI_DEFAULT, RP_ANSI_DEFAULT };
 
 struct rp_highlight_env_s {

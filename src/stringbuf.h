@@ -67,13 +67,6 @@ rp_private ssize_t sbuf_find_word_end( stringbuf_t* sbuf, ssize_t pos );
 rp_private ssize_t sbuf_find_ws_word_start( stringbuf_t* sbuf, ssize_t pos );
 rp_private ssize_t sbuf_find_ws_word_end( stringbuf_t* sbuf, ssize_t pos );
 
-// ascii tolower
-rp_private char rp_tolower(char c);
-
-// ascii compare case-insensitive
-rp_private int  rp_stricmp(const char* s1, const char* s2);
-rp_private const char* rp_stristr(const char* s, const char* pat);
-
 // parse a decimal 
 rp_private bool rp_atoz(const char* s, ssize_t* i);
 // parse two decimals separated by a semicolon

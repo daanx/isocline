@@ -326,7 +326,7 @@ static bool tty_init_utf8(tty_t* tty) {
   tty->is_utf8 = true;
   #else
   char* loc = setlocale(LC_ALL,"");
-  tty->is_utf8 = (loc != NULL && (rp_stristr(loc,"UTF-8") != NULL || rp_stristr(loc,"UTF8") != NULL));
+  tty->is_utf8 = (rp_icontains(loc,"UTF-8") || rp_icontains(loc,"UTF8"));
   debug_msg("tty: utf8: %s (loc=%s)\n", tty->is_utf8 ? "true" : "false", loc);
   #endif
   return true;
@@ -370,7 +370,7 @@ rp_private bool tty_term_resize_event(tty_t* tty) {
 //-------------------------------------------------------------
 #if !defined(_WIN32)
 
-static bool tty_readc(tty_t* tty, uint8_t* c) {
+rp_private bool tty_readc(tty_t* tty, uint8_t* c) {
   if (tty_cpop(tty,c)) return true;
   *c = 0;
   ssize_t nread = read(tty->fd_in, (char*)c, 1);

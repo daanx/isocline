@@ -14,6 +14,7 @@ extern "C" {
 
 #include <stddef.h>    // size_t
 #include <stdbool.h>   // bool
+#include <stdint.h>    // uint32_t
 
 //--------------------------------------------------------------
 // Main interface

@@ -116,7 +116,31 @@ int main()
       }
     }    
   }  
-  rp_write("\n");
+  
+  rp_write("\n\n  // 9x32x9 colors");
+  for(int g = 4; g <= 256; g += 8) {
+    rp_write("\n  ");
+    for(int r = 16; r <= 256; r += 32) {
+      //if ((g+1)%32 == 0) rp_write("\n  ");
+      for(int b = 16; b <= 256; b += 32) {
+        rp_term_color(RP_RGBX(r,g,b));      
+        rp_write("*");        
+      }
+    }    
+  }  
+  
+  rp_write("\n\n  // 9x9x32 colors");
+  for(int b = 4; b <= 256; b += 8) {
+    rp_write("\n  ");
+    for(int g = 16; g <= 256; g += 32) {
+      //if ((g+1)%32 == 0) rp_write("\n  ");
+      for(int r = 16; r <= 256; r += 32) {
+        rp_term_color(RP_RGBX(r,g,b));      
+        rp_write("*");        
+      }
+    }    
+  }  
+  rp_write("\n\n");
   
   show_color(RP_ANSI_BLACK,"black");
   show_color(RP_ANSI_MAROON,"maroon");

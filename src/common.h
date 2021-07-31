@@ -54,14 +54,19 @@ typedef intptr_t ssize_t;
 static inline size_t  to_size_t(ssize_t sz) { return (sz >= 0 ? (size_t)sz : 0); }
 static inline ssize_t to_ssize_t(size_t sz) { return (sz <= SIZE_MAX/2 ? (ssize_t)sz : 0); }
 
-rp_private bool    rp_contains(const char* big, const char* s);
-rp_private ssize_t rp_strlen(const char* s);
 rp_private void    rp_memmove(void* dest, const void* src, ssize_t n);
 rp_private void    rp_memcpy(void* dest, const void* src, ssize_t n);
 rp_private void    rp_memset(void* dest, uint8_t value, ssize_t n);
 rp_private bool    rp_memnmove(void* dest, ssize_t dest_size, const void* src, ssize_t n);
+
+rp_private ssize_t rp_strlen(const char* s);
 rp_private bool    rp_strcpy(char* dest, ssize_t dest_size /* including 0 */, const char* src);
 rp_private bool    rp_strncpy(char* dest, ssize_t dest_size /* including 0 */, const char* src, ssize_t n);
+
+rp_private bool    rp_contains(const char* big, const char* s);
+rp_private bool    rp_icontains(const char* big, const char* s);
+rp_private char    rp_tolower(char c);
+rp_private int     rp_stricmp(const char* s1, const char* s2);
 
 
 
