@@ -138,16 +138,15 @@ rp_private bool skip_esc( const char* s, ssize_t len, ssize_t* esclen ) {
     bool finalCSI = (s[1] == '[');  // CSI terminates with 0x40-0x7F; otherwise ST (bell or ESC \)
     ssize_t n = 2;
     while (len > n) {
-      char c = s[n];
+      char c = s[n++];
       if ((finalCSI && c >= 0x40 && c <= 0x7F) ||  // terminating byte: @A–Z[\]^_`a–z{|}~
           (!finalCSI && c == '\x07'))              // bell
       {
-        n++;
         if (esclen != NULL) *esclen = n;
         return true;
       }
-      else if (!finalCSI && c == '\x1B' && len > n+1 && s[n+1] == '\\') {  // ST (ESC \)
-        n += 2;
+      else if (!finalCSI && c == '\x1B' && len > n && s[n] == '\\') {  // ST (ESC \)
+        n++;
         if (esclen != NULL) *esclen = n;
         return true;
       }

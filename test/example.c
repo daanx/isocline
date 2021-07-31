@@ -33,17 +33,17 @@ int main()
   
   rp_term_color(RP_ANSI_MAROON); rp_write("ansi8 ");
   rp_term_color(RP_ANSI_RED); rp_write("ansi16 ");
-  rp_term_color(RP_RGB(0xDF,0xAF,0x87)); rp_write("ansi256 ");
-  rp_term_color(RP_RGB(100,255,180)); rp_write("rgb");
+  rp_term_color(RP_RGB(0xDFAF87)); rp_write("ansi256 ");
+  rp_term_color(RP_RGBX(100,255,180)); rp_write("rgb");
   rp_term_reset(); rp_writeln("");
 
   for(int i = 0; i <= 64; i++) {
-    rp_term_color(RP_RGB( (i==64? 255 : i*4),0,0 )); rp_write((i%8==0?"*":"x"));
+    rp_term_color(RP_RGBX( (i==64? 255 : i*4),0,0 )); rp_write((i%8==0?"*":"x"));
   }
   rp_writeln("\x1B[0m");
   for(int i = 0; i <= 64; i++) {
     int g = (i==64? 255 : i*4);
-    rp_term_color(RP_RGB( g,g,g )); rp_write((i%8==0?"*":"x"));
+    rp_term_color(RP_RGBX(g,g,g)); rp_write((i%8==0?"*":"x"));
   }
   rp_writeln("\x1B[0m");
   
@@ -77,6 +77,7 @@ int main()
 
   // change interface colors (info, diminish, emphasis, hint)
   // rp_set_style_color( RP_STYLE_INFO, RP_YELLOW );
+  rp_set_style_color( RP_STYLE_EMPHASIS, RP_RGB(0xFFFFD7));
 
   // run until empty input
   char* input;

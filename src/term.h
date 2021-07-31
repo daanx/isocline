@@ -11,6 +11,7 @@
 #include "../include/repline.h"  // rp_color_t
 #include "common.h"
 #include "tty.h"
+#include "stringbuf.h"
 
 struct term_s;
 typedef struct term_s term_t;
@@ -65,5 +66,7 @@ rp_private void term_underline(term_t* term, bool on);
 rp_private void term_reverse(term_t* term, bool on);
 rp_private void term_color(term_t* term, rp_color_t color);
 rp_private void term_bgcolor(term_t* term, rp_color_t color);
+
+rp_private void term_append_color(term_t* term, stringbuf_t* sbuf, rp_color_t color);
 
 #endif // RP_TERM_H

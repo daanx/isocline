@@ -32,7 +32,7 @@ typedef enum palette_e {
   ANSI8,
   ANSI16,
   ANSI256,
-  TRUECOLOR
+  ANSIRGB
 } palette_t;
 
 // The terminal screen
@@ -134,10 +134,7 @@ rp_private bool term_write_char(term_t* term, char c) {
 //-------------------------------------------------------------
 
 static bool color_is_rgb( rp_color_t color ) {
-  return (color > 0xFF);
-}
-static bool color_is_ansi8( rp_color_t color ) {
-  return (color >= RP_ANSI_BLACK && color <= RP_ANSI_DEFAULT);
+  return (color >= RP_RGB(0));  // bit 24 is set for rgb colors
 }
 
 static void color_to_rgb(rp_color_t color, int* r, int* g, int* b) {
@@ -173,15 +170,13 @@ static int color_to_ansi16(rp_color_t color) {
     int c = 0;
     int r,g,b;
     color_to_rgb(color,&r,&g,&b);
-    if (r!=g || g!=b) {
-      // colored
+    if (r!=g || g!=b) { // colored
       c = (r > 0 ? 1 : 0) + (g > 0 ? 2 : 0) + (b > 0 ? 4 : 0);
     }
-    else {
-      // gray scale
+    else { // gray scale
       c = (r <= 0x40 ? 0 : 7);
     }
-    debug_msg("term: rgb %d %d %d -> ansi 8: %d\n", r, g, b, 30+c );
+    // debug_msg("term: rgb %d %d %d -> ansi 8: %d\n", r, g, b, 30+c );
     if (r > 0x80 || g > 0x80 || b >= 0x80) {
       return (90 + c);
     }
@@ -191,57 +186,62 @@ static int color_to_ansi16(rp_color_t color) {
   }
 }
 
-static void term_color_ansi8( term_t* term, rp_color_t color, bool bg ) {
+static void fmt_color_ansi8( char* buf, ssize_t len, rp_color_t color, bool bg ) {
   int c = color_to_ansi16(color) + (bg ? 10 : 0);
   if (c >= 90) {
-    term_writef(term, 64, RP_CSI "1;%dm", c - 60);    
+    snprintf(buf, len, RP_CSI "1;%dm", c - 60);    
   }
   else {
-    term_writef(term, 64, RP_CSI "%dm", c );  
+    snprintf(buf, len, RP_CSI "%dm", c );  
   }
 }
 
-static void term_color_ansi16( term_t* term, rp_color_t color, bool bg ) {
-  term_writef(term, 64, RP_CSI "%dm", color_to_ansi16(color) + (bg ? 10 : 0) );  
+static void fmt_color_ansi16( char* buf, ssize_t len, rp_color_t color, bool bg ) {
+  snprintf( buf, len, RP_CSI "%dm", color_to_ansi16(color) + (bg ? 10 : 0) );  
 }
 
-static void term_color_ansi256( term_t* term, rp_color_t color, bool bg ) {
+static void fmt_color_ansi256( char* buf, ssize_t len,  rp_color_t color, bool bg ) {
   if (!color_is_rgb(color)) {
-    term_color_ansi16(term,color,bg);
+    fmt_color_ansi16(buf,len,color,bg);
   }
   else {
     int r,g,b;
     color_to_rgb(color, &r,&g,&b);
-    term_writef(term, 64, RP_CSI "%d;5;%dm", (bg ? 48 : 38), rgb_to_ansi256(r,g,b) );  
+    snprintf( buf, len, RP_CSI "%d;5;%dm", (bg ? 48 : 38), rgb_to_ansi256(r,g,b) );  
   }
 }
 
-static void term_color_rgb( term_t* term, rp_color_t color, bool bg ) {
+static void fmt_color_rgb( char* buf, ssize_t len, rp_color_t color, bool bg ) {
   if (!color_is_rgb(color)) {
-    term_color_ansi16(term,color,bg);
+    fmt_color_ansi16(buf,len,color,bg);
   }
   else {
     int r,g,b;
     color_to_rgb(color, &r,&g,&b);
-    debug_msg("term: rgb color: %d %d %d\n", r, g, b);
-    term_writef(term, 64, RP_CSI "%d;2;%d;%d;%dm", (bg ? 48 : 38), r, g, b );  
+    snprintf( buf, len, RP_CSI "%d;2;%d;%d;%dm", (bg ? 48 : 38), r, g, b );  
+  }
+}
+
+static void fmt_color_ex(char* buf, ssize_t len, palette_t palette, rp_color_t color, bool bg) {
+  if (color == RP_COLOR_NONE || palette == MONOCHROME) return;
+  if (palette == ANSI8) {
+    fmt_color_ansi8(buf,len,color,bg);
+  }
+  else if (!color_is_rgb(color) || palette == ANSI16) {
+    fmt_color_ansi16(buf,len,color,bg);
+  }
+  else if (palette == ANSI256) {
+    fmt_color_ansi256(buf,len,color,bg);
+  }
+  else {
+    fmt_color_rgb(buf,len,color,bg);
   }
 }
 
 static void term_color_ex(term_t* term, rp_color_t color, bool bg) {
-  if (color == RP_COLOR_NONE || term->palette == MONOCHROME) return;
-  if (term->palette == ANSI8) {
-    term_color_ansi8(term,color,bg);
-  }
-  else if (!color_is_rgb(color) || term->palette == ANSI16) {
-    term_color_ansi16(term,color,bg);
-  }
-  else if (term->palette == ANSI256) {
-    term_color_ansi256(term,color,bg);
-  }
-  else {
-    term_color_rgb(term,color,bg);
-  }
+  char buf[128+1];
+  fmt_color_ex(buf,128,term->palette,color,bg);
+  term_write(term,buf);
 }
 
 rp_private void term_color(term_t* term, rp_color_t color) {
@@ -252,12 +252,17 @@ rp_private void term_bgcolor(term_t* term, rp_color_t color) {
   term_color_ex(term,color,true);
 }
 
-// Unused for now
-/*
-internal void term_bgcolor(term_t* term, rp_color_t color) {
-  term_writef(term, RP_CSI "%dm", color + 10 );
+rp_private void term_append_color(term_t* term, stringbuf_t* sbuf, rp_color_t color) {
+  char buf[128+1];
+  fmt_color_ex(buf,128,term->palette,color,false);
+  sbuf_append(sbuf,buf);
 }
 
+
+
+
+// Unused for now
+/*
 internal void term_end_of_line(term_t* term) {
   term_right( term, 999 );
 }
@@ -392,21 +397,30 @@ rp_private term_t* term_new(alloc_t* mem, tty_t* tty, bool nocolor, bool silent,
   term->is_utf8 = tty_is_utf8(tty);
   term->palette = ANSI16;
 
+  // respect NO_COLOR
+  if (getenv("NO_COLOR") != NULL) {
+    term->nocolor = true;
+  }
+
   // detect color palette
-  const char* colorterm = getenv("COLORTERM");
-  const char* eterm = getenv("TERM");
-  if (rp_stricmp(colorterm,"truecolor") == 0 || rp_stricmp(colorterm,"24bit") == 0 || getenv("WT_SESSION") != NULL) {
-    term->palette = TRUECOLOR;
-  }
-  else if (strstr(eterm,"xterm") != NULL || strstr(eterm,"256color") != NULL || rp_stricmp(colorterm,"8bit") == 0 || 
-           strstr(eterm,"gnome") != NULL || strstr(eterm,"kitty") != NULL) {
-    term->palette = ANSI256;
-  }
-  else if (rp_stricmp(colorterm,"3bit") == 0) {
-    term->palette = ANSI8;
-  }
-  else if (strstr(eterm,"dumb")) {
-    term->palette = MONOCHROME;
+  // COLORTERM takes precedence
+  const char* colorterm = getenv("COLORTERM");  
+  if (strstr(colorterm,"24bit") != NULL || strstr(colorterm,"truecolor") != NULL)      { term->palette = ANSIRGB; }
+  else if (strstr(colorterm,"8bit") != NULL || strstr(colorterm,"256color") != NULL)   { term->palette = ANSI256; } 
+  else if (strstr(colorterm,"4bit") != NULL || strstr(colorterm,"16color") != NULL)    { term->palette = ANSI16; }
+  else if (strstr(colorterm,"3bit") != NULL || strstr(colorterm,"8color") != NULL)     { term->palette = ANSI8; }
+  else if (strstr(colorterm,"2bit") != NULL || strstr(colorterm,"monochrome") != NULL) { term->palette = MONOCHROME; }
+  else if (getenv("WT_SESSION") != NULL) { term->palette = ANSIRGB; } // Windows terminal
+  else {
+    // fall back to checking TERM
+    const char* eterm = getenv("TERM");
+    if (strstr(eterm,"xterm") != NULL || strstr(eterm,"256color") != NULL || 
+        strstr(eterm,"gnome") != NULL || strstr(eterm,"kitty") != NULL) 
+    { 
+      term->palette = ANSI256; 
+    }  
+    else if (strstr(eterm,"8color") != NULL) { term->palette = ANSI8; }
+    else if (strstr(eterm,"dumb"))           { term->palette = MONOCHROME; }
   }
   debug_msg("term; palette: %d (COLORTERM=%s, TERM=%s)\n", term->palette, colorterm, term);
   

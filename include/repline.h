@@ -141,10 +141,15 @@ void rp_complete_quoted_word( rp_completion_env_t* cenv, const char* prefix, rp_
 // Basic syntax highlighting
 //--------------------------------------------------------------
 
+// A color is either RGB or an ANSI code.
+// (Repline will automatically convert from RGB on terminals that do not support full colors)
 typedef uint32_t rp_color_t;
 
-#define RP_RGB(r,g,b)    ((rp_color_t)0x1000000 | (((rp_color_t)(r) & 0xFF) << 16) | (((rp_color_t)(g) & 0xFF) << 8) | ((rp_color_t)(b) & 0xFF))
+#define RP_RGB(rgb)        ((rp_color_t)0x1000000 | (rgb))
+#define RP_RGBX(r,g,b)     RP_RGB((((rp_color_t)(r) & 0xFF) << 16) | (((rp_color_t)(g) & 0xFF) << 8) | ((rp_color_t)(b) & 0xFF))
 
+// ANSI colors
+// See <https://en.wikipedia.org/wiki/ANSI_escape_code#3-bit_and_4-bit>
 #define RP_COLOR_NONE     (0)
 #define RP_ANSI_BLACK     (30)
 #define RP_ANSI_MAROON    (31)
@@ -164,6 +169,24 @@ typedef uint32_t rp_color_t;
 #define RP_ANSI_MAGENTA   (95)
 #define RP_ANSI_CYAN      (96)
 #define RP_ANSI_WHITE     (97)
+
+#define RP_BLACK          RP_RGB(0x000000)
+#define RP_MAROON         RP_RGB(0x800000)
+#define RP_GREEN          RP_RGB(0x008000)
+#define RP_ORANGE         RP_RGB(0x808000)
+#define RP_NAVY           RP_RGB(0x000080)
+#define RP_PURPLE         RP_RGB(0x800080)
+#define RP_TEAL           RP_RGB(0x008080)
+#define RP_LIGHTGRAY      RP_RGB(0xC0C0C0)
+
+#define RP_DARKGRAY       RP_RGB(0x808080)
+#define RP_RED            RP_RGB(0xFF0000)
+#define RP_LIME           RP_RGB(0x00FF00)
+#define RP_YELLOW         RP_RGB(0xFFFF00)
+#define RP_BLUE           RP_RGB(0x0000FF)
+#define RP_MAGENTA        RP_RGB(0xFF00FF)
+#define RP_CYAN           RP_RGB(0x00FFFF)
+#define RP_WHITE          RP_RGB(0xFFFFFF)
 
 
 // A syntax highlight environment
