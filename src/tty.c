@@ -419,11 +419,11 @@ rp_private bool tty_readc_pause_noblock(tty_t* tty, uint8_t* c) {
   FD_ZERO(&readset);
   FD_SET(tty->fd_in, &readset);
   time.tv_sec  = 0;
-  time.tv_usec = 1000*50L;  // 0.05s
+  time.tv_usec = 1000*100L;  // 0.05s
   select(tty->fd_in + 1, &readset, NULL, NULL, &time);
   #else
   // no select, we cannot timeout; use a usleep
-  usleep(50);  // 0.05s
+  usleep(100);  // 0.05s
   #endif
   return tty_readc_noblock(tty,c);  
 }

@@ -38,12 +38,16 @@ static void editor_append_completion(rp_env_t* env, editor_t* eb, ssize_t idx, s
   const char* display = completions_get_display(env->completions, idx);
   if (display == NULL) return;
   if (numbered) {
+    term_append_color( env->term, eb->extra, env->color_info );
     char buf[32];
-    snprintf(buf, 32, "\x1B[%dm%s%zd \x1B[0m", env->color_info, (selected ? (tty_is_utf8(env->tty) ? "\xE2\x86\x92" : "*") : " "), 1 + idx);
+    snprintf(buf, 32, "%s%zd \x1B[0m", (selected ? (tty_is_utf8(env->tty) ? "\xE2\x86\x92" : "*") : " "), 1 + idx);
     sbuf_append(eb->extra, buf);
     width -= 3;
   }
 
+  if (selected) {
+    term_append_color( env->term, eb->extra, env->color_emphasis );
+  }
   if (width <= 0) {
     sbuf_append(eb->extra, display);
   }
@@ -53,11 +57,14 @@ static void editor_append_completion(rp_env_t* env, editor_t* eb, ssize_t idx, s
     if (sc != display) {
       sbuf_append( eb->extra, "...");
       sc = str_skip_until_fit( display, width - 3);
-    }
+    }    
     sbuf_append( eb->extra, sc);
     // fill out with spaces
     ssize_t n = width - str_column_width(sc);
     while( n-- > 0 ) { sbuf_append( eb->extra," "); }  
+  }
+  if (selected) {
+    sbuf_append(eb->extra, "\x1B[0m");
   }
 }
 
@@ -139,11 +146,12 @@ again:
     }
   }
   if (count > count_displayed) {
+    term_append_color( env->term, eb->extra, env->color_info);
     if (more_available) {
-      sbuf_appendf(eb->extra, 256, "\n\x1B[%dm(press page-down (or ctrl-j) to see all further completions)\x1B[0m", env->color_info);
+      sbuf_append(eb->extra, "\n(press page-down (or ctrl-j) to see all further completions)\x1B[0m");
     }
     else {
-      sbuf_appendf(eb->extra, 256, "\n\x1B[%dm(press page-down (or ctrl-j) to see all %zd completions)\x1B[0m", env->color_info, count );
+      sbuf_appendf(eb->extra, 256, "\n(press page-down (or ctrl-j) to see all %zd completions)\x1B[0m", count );
     }
   }
   if (!env->complete_nopreview && selected >= 0 && selected <= count_displayed) {
@@ -236,11 +244,12 @@ again:
         term_writeln(env->term, display);
       }
     }
+    term_append_color( env->term, eb->extra, env->color_info);
     if (count >= RP_MAX_COMPLETIONS_TO_SHOW) {
-      term_writef(env->term, 256, "\x1B[%dm... and more.\x1B[0m\n", env->color_info);
+      term_write(env->term, "... and more.\x1B[0m\n");
     }
     else {
-      term_writef(env->term, 256, "\x1B[%dm(%zd possible completions)\x1B[0m\n", env->color_info, count );
+      term_writef(env->term, 256, "(%zd possible completions)\x1B[0m\n", count );
     }
     for(ssize_t i = 0; i < rc.row+1; i++) {
       term_write(env->term, " \n");

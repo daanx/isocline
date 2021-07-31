@@ -222,7 +222,7 @@ static void set_style_color(rp_env_t* env, rp_style_t iface_element, rp_color_t 
   switch (iface_element) {
     case RP_STYLE_INFO:     env->color_info = (color == RP_COLOR_NONE ? RP_ANSI_DARKGRAY : color); break;
     case RP_STYLE_DIMINISH: env->color_diminish = (color == RP_COLOR_NONE ? RP_ANSI_LIGHTGRAY : color); break;
-    case RP_STYLE_EMPHASIS: env->color_emphasis = (color == RP_COLOR_NONE ? RP_ANSI_WHITE : color); break;
+    case RP_STYLE_EMPHASIS: env->color_emphasis = (color == RP_COLOR_NONE ? RP_RGB(0xFFFFD7) : color); break;
     case RP_STYLE_HINT:     env->color_hint = (color == RP_COLOR_NONE ? RP_ANSI_DARKGRAY : color); break;
     default: break;
   }

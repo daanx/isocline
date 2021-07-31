@@ -66,6 +66,11 @@ rp_private bool rp_strncpy( char* dest, ssize_t dest_size /* including 0 */, con
   return true;
 }
 
+rp_private bool rp_contains(const char* big, const char* s) {
+  if (big == NULL) return false;
+  if (s == NULL) return true;
+  return (strstr(big,s) != NULL);
+}
 
 //-------------------------------------------------------------
 // Unicode

@@ -150,8 +150,8 @@ static int rgb_to_ansi256(int r, int g, int b) {
     // calculate index in the 6x6x6 cube based on the values used in xterm,
     // namely r = rx*40 + 55 (instead of darker linear terms: r*51 )
     int rx = (r < 48 ? 0 : (r < 75 ? 1 : 1 + (r - 75)/40));
-    int gx = (r < 48 ? 0 : (g < 75 ? 0 : 1 + (g - 75)/40));
-    int bx = (r < 48 ? 0 : (b < 75 ? 0 : 1 + (b - 75)/40));    
+    int gx = (g < 48 ? 0 : (g < 75 ? 0 : 1 + (g - 75)/40));
+    int bx = (b < 48 ? 0 : (b < 75 ? 0 : 1 + (b - 75)/40));    
     c = ((rx*36 + gx*6 + bx) + 16);    
   }
   else {
@@ -192,7 +192,7 @@ static void fmt_color_ansi8( char* buf, ssize_t len, rp_color_t color, bool bg )
     snprintf(buf, len, RP_CSI "1;%dm", c - 60);    
   }
   else {
-    snprintf(buf, len, RP_CSI "%dm", c );  
+    snprintf(buf, len, RP_CSI "22;%dm", c );  
   }
 }
 
@@ -405,22 +405,22 @@ rp_private term_t* term_new(alloc_t* mem, tty_t* tty, bool nocolor, bool silent,
   // detect color palette
   // COLORTERM takes precedence
   const char* colorterm = getenv("COLORTERM");  
-  if (strstr(colorterm,"24bit") != NULL || strstr(colorterm,"truecolor") != NULL)      { term->palette = ANSIRGB; }
-  else if (strstr(colorterm,"8bit") != NULL || strstr(colorterm,"256color") != NULL)   { term->palette = ANSI256; } 
-  else if (strstr(colorterm,"4bit") != NULL || strstr(colorterm,"16color") != NULL)    { term->palette = ANSI16; }
-  else if (strstr(colorterm,"3bit") != NULL || strstr(colorterm,"8color") != NULL)     { term->palette = ANSI8; }
-  else if (strstr(colorterm,"2bit") != NULL || strstr(colorterm,"monochrome") != NULL) { term->palette = MONOCHROME; }
+  if (rp_contains(colorterm,"24bit") || rp_contains(colorterm,"truecolor"))      { term->palette = ANSIRGB; }
+  else if (rp_contains(colorterm,"8bit") || rp_contains(colorterm,"256color"))   { term->palette = ANSI256; } 
+  else if (rp_contains(colorterm,"4bit") || rp_contains(colorterm,"16color"))    { term->palette = ANSI16; }
+  else if (rp_contains(colorterm,"3bit") || rp_contains(colorterm,"8color"))     { term->palette = ANSI8; }
+  else if (rp_contains(colorterm,"2bit") || rp_contains(colorterm,"monochrome")) { term->palette = MONOCHROME; }
   else if (getenv("WT_SESSION") != NULL) { term->palette = ANSIRGB; } // Windows terminal
   else {
     // fall back to checking TERM
     const char* eterm = getenv("TERM");
-    if (strstr(eterm,"xterm") != NULL || strstr(eterm,"256color") != NULL || 
-        strstr(eterm,"gnome") != NULL || strstr(eterm,"kitty") != NULL) 
+    if (rp_contains(eterm,"xterm") || rp_contains(eterm,"256color") || 
+        rp_contains(eterm,"gnome") || rp_contains(eterm,"kitty")) 
     { 
       term->palette = ANSI256; 
     }  
-    else if (strstr(eterm,"8color") != NULL) { term->palette = ANSI8; }
-    else if (strstr(eterm,"dumb"))           { term->palette = MONOCHROME; }
+    else if (rp_contains(eterm,"8color")) { term->palette = ANSI8; }
+    else if (rp_contains(eterm,"dumb"))   { term->palette = MONOCHROME; }
   }
   debug_msg("term; palette: %d (COLORTERM=%s, TERM=%s)\n", term->palette, colorterm, term);
   
@@ -969,7 +969,7 @@ static bool term_get_cursor_pos( term_t* term, ssize_t* row, ssize_t* col)
 {
   // send escape query
   if (!tty_start_raw(term->tty)) return false;
-  bool ok = term_raw_get_cursor_pos(term,row,col);
+  bool ok = term_raw_get_cursor_pos(term,row,col);  
   tty_end_raw(term->tty);
   return ok;
 }
@@ -978,7 +978,7 @@ static void term_set_cursor_pos( term_t* term, ssize_t row, ssize_t col ) {
   term_writef( term, 128, RP_CSI "%zd;%zdH", row, col );
 }
 
-rp_private bool term_update_dim(term_t* term) {
+rp_private bool term_update_dim(term_t* term) {  
   ssize_t cols = 0;
   ssize_t rows = 0;
   struct winsize ws;

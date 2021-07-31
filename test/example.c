@@ -22,13 +22,15 @@ static void show_color( rp_color_t color, const char* name ) {
 int main() 
 {
   // rp_writeln handles basic escape sequences in a portable way
+  /*
   rp_writeln(
     "\n\x1B[33mRepline sample program:\x1B[0m\n"
     "- Type 'exit' to quit. (or use ctrl+d).\n"
     "- Press F1 for help on editing commands.\n"
     "- Use shift+tab for multiline input. (or ctrl+enter, or ctrl+j)\n"
     "- Type 'p' (or 'id', 'f', or 'h') followed by tab for completion.\n");
-
+    */
+/*
   rp_writeln("colors:");
   
   rp_term_color(RP_ANSI_MAROON); rp_write("ansi8 ");
@@ -58,7 +60,7 @@ int main()
   show_color(RP_ANSI_TEAL,"teal");
   show_color(RP_ANSI_LIGHTGRAY,"lighgray/white");
   show_color(RP_ANSI_DEFAULT,"default");
-  
+  */
 
   // enable history; use a NULL filename to not persist history to disk
   rp_set_history("history.txt", -1 /* default entries (= 200) */);
@@ -73,12 +75,12 @@ int main()
   rp_set_prompt_color(RP_ANSI_GREEN);
 
   // try to auto complete after a completion as long as the completion is unique
-  rp_enable_auto_tab(true );
+  // rp_enable_auto_tab(true );
 
   // change interface colors (info, diminish, emphasis, hint)
   // rp_set_style_color( RP_STYLE_INFO, RP_YELLOW );
-  rp_set_style_color( RP_STYLE_EMPHASIS, RP_RGB(0xFFFFD7));
-
+  // rp_set_style_color( RP_STYLE_EMPHASIS, RP_RGB(0xD7FF00));
+  
   // run until empty input
   char* input;
   while((input = rp_readline("rεplinε")) != NULL)    // ctrl-d/ctrl-c return NULL (as well as errors)
@@ -138,10 +140,10 @@ static void word_completer(rp_completion_env_t* cenv, const char* prefix )
 static void completer(rp_completion_env_t* cenv, const char* prefix ) 
 {
   // try to complete file names from the roots "." and "/usr/local"
-  rp_complete_filename(cenv, prefix, 0, ".;/usr/local;c:\\Program Files" , NULL /* any extension */);
+  rp_complete_filename(cenv, prefix, 0, "/usr/local;c:\\Program Files" , NULL /* any extension */);
 
   // and also use our custom completer  
-  rp_complete_word( cenv, prefix, &word_completer );        
+  // rp_complete_word( cenv, prefix, &word_completer );        
   
   // rp_complete_quoted_word( cenv, prefix, &word_completer, &rp_char_is_nonwhite, '\\', "'\"" );        
 }
@@ -164,11 +166,11 @@ static void highlighter(rp_highlight_env_t* henv, const char* input, void* arg) 
     static const char* types[]    = { "int", "double", "char", "void", NULL };
     long tlen;  // token length
     if ((tlen = rp_match_any_token(input, i, &rp_char_is_idletter, keywords)) > 0) {
-      rp_highlight_color(henv, i, RP_ANSI_YELLOW);
+      rp_highlight_color(henv, i, RP_RGB(0xFFFFAF));
       i += tlen;
     }
     else if ((tlen = rp_match_any_token(input, i, &rp_char_is_idletter, types)) > 0) {
-      rp_highlight_color(henv, i, RP_ANSI_CYAN);
+      rp_highlight_color(henv, i, RP_RGB(0x00AFAF));
       i += tlen;
     }
     else if ((tlen = rp_is_token(input, i, &rp_char_is_digit)) > 0) {  // digits
@@ -176,7 +178,7 @@ static void highlighter(rp_highlight_env_t* henv, const char* input, void* arg) 
       i += tlen;
     }
     else if (rp_starts_with(input + i,"//")) {       // line comment
-      rp_highlight_color(henv, i, RP_ANSI_DARKGRAY);
+      rp_highlight_color(henv, i, RP_RGB(0x408700));
       while (i < len && input[i] != '\n') { i++; }
     }
     else {

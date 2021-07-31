@@ -54,6 +54,7 @@ typedef intptr_t ssize_t;
 static inline size_t  to_size_t(ssize_t sz) { return (sz >= 0 ? (size_t)sz : 0); }
 static inline ssize_t to_ssize_t(size_t sz) { return (sz <= SIZE_MAX/2 ? (ssize_t)sz : 0); }
 
+rp_private bool    rp_contains(const char* big, const char* s);
 rp_private ssize_t rp_strlen(const char* s);
 rp_private void    rp_memmove(void* dest, const void* src, ssize_t n);
 rp_private void    rp_memcpy(void* dest, const void* src, ssize_t n);
