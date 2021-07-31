@@ -12,7 +12,7 @@ Repline is a pure C library that can be used as readline alternative.
 - Portable: works on Unix, Windows, and macOS, and uses a minimal
   subset of ANSI escape sequences.
     
-- Features: extensive multi-line editing mode (`shift-tab`), colors, history, completion, unicode, 
+- Features: extensive multi-line editing mode (`shift-tab`), (24-bit) color, history, completion, unicode, 
   undo/redo, incremental history search, inline hints, syntax highlighting, graceful fallback, support for custom allocators, etc.
   
 - License: MIT. 
@@ -28,7 +28,7 @@ Enjoy,
 
 ![recording](doc/record2-macos.svg)  
 
-Shows in order: syntax highlighting, multiline editing, inline hinting, filename completion, and incremental history search.
+Shows in order: syntax highlighting, multiline editing, 24-bit colors, inline hinting, filename completion, and incremental history search.
 
 # Usage
 
