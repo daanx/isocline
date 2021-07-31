@@ -157,7 +157,7 @@ static int rgb_to_ansi256(int r, int g, int b) {
     // gray scale in xterm uses g = gx*10 + 8  with 0 <= gx < 24 .
     c = (r<=4 ? 0 : (r>=244 ? 15 : ((r - 4)/10) + 232));    
   }
-  debug_msg("term: rgb %d %d %d -> ansi 256: %d\n", r, g, b, c );
+  // debug_msg("term: rgb %d %d %d -> ansi 256: %d\n", r, g, b, c );
   return c;
 }
 

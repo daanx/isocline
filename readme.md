@@ -129,11 +129,10 @@ These are also shown when pressing `F1` on a Repline prompt. We use `^` as a sho
 
 | Completion menu   |                                                 |
 |-------------------|-------------------------------------------------|
-| `enter`,`space`   | use the currently selected completion |
+| `enter`,`left`    | use the currently selected completion |
 | `1` - `9`         | use completion N from the menu |
-| `tab          `   | select the next completion |
-| `shift-tab    `   | select the previous completion |
-| `left`,`right`,`up`,`down`  | select completion N in the menu |
+| `tab, down    `   | select the next completion |
+| `shift-tab, up`   | select the previous completion |
 | `esc          `   | exit menu without completing |
 | `pgdn`,`^enter`,`^j`   | show all further possible completions |
   

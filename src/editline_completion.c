@@ -165,11 +165,13 @@ again:
   // read here; if not a valid key, push it back and return to main event loop
   code_t c = tty_read(env->tty);
   sbuf_clear(eb->extra);
-  if (c >= '1' && c <= '9' && (ssize_t)(c - '1') < count) {
-    selected = (c - '1');
-    c = KEY_SPACE;
-  }
   
+  // direct selection?
+  if (c >= '1' && c <= '9') {
+    selected = (c - '1');
+    c = KEY_ENTER;
+  }
+
   if (c == KEY_DOWN || c == KEY_TAB) {
     selected++;
     if (selected >= count_displayed) {
@@ -186,22 +188,6 @@ again:
     }
     goto again;
   }
-  else if (c == KEY_RIGHT) {
-    if (columns > 1 && selected + percolumn < count_displayed) selected += percolumn;
-    goto again;
-  }
-  else if (c == KEY_LEFT) {
-    if (columns > 1 && selected - percolumn >= 0) selected -= percolumn;
-    goto again;
-  }
-  else if (c == KEY_END) {
-    selected = count_displayed - 1;
-    goto again;
-  }
-  else if (c == KEY_HOME) {
-    selected = 0;
-    goto again;
-  }
   else if (c == KEY_F1) {
     edit_show_help(env, eb);
     goto again;
@@ -211,7 +197,7 @@ again:
     edit_refresh(env,eb);
     c = 0; // ignore and return
   }
-  else if (selected >= 0 && (c == KEY_ENTER || c == KEY_SPACE)) /* || c == KEY_TAB*/ {  
+  else if (selected >= 0 && (c == KEY_ENTER || c == KEY_RIGHT || c == KEY_END)) /* || c == KEY_TAB*/ {  
     // select the current entry
     assert(selected < count);
     c = 0;      
@@ -244,7 +230,8 @@ again:
         term_writeln(env->term, display);
       }
     }
-    term_append_color( env->term, eb->extra, env->color_info);
+    term_attr_reset( env->term );
+    term_color( env->term, env->color_info);
     if (count >= RP_MAX_COMPLETIONS_TO_SHOW) {
       term_write(env->term, "... and more.\x1B[0m\n");
     }
@@ -256,6 +243,9 @@ again:
     }
     eb->cur_rows = 0;
     edit_refresh(env,eb);      
+  }
+  else {
+    edit_refresh(env,eb);
   }
   // done
   completions_clear(env->completions);      

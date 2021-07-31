@@ -72,14 +72,12 @@ static const char* help[] = {
   "tab",        "try to complete the current input",
   "","",
   "","In the completion menu:",
-  "enter,"
-  "space",      "use the currently selected completion",
+  "enter,left", "use the currently selected completion",
   "1 - 9",      "use completion N from the menu",
-  "tab",        "select the next completion",
-  "cursor keys","select completion N in the menu",
+  "tab,down",   "select the next completion",
+  "shift-tab,up","select the previous completion",
   "esc",        "exit menu without completing",
-  "pgdn,", "",
-  "shift-tab",  "show all further possible completions",
+  "pgdn,^j",    "show all further possible completions",
   "","",
   "","In incremental history search:",
   "enter",      "use the currently found history entry",
@@ -102,7 +100,7 @@ static const char* help_initial[] = {
   "See <\x1B[4mhttps://github.com/daanx/repline\x1B[24m> for further information.",
   "We use ^<key> as a shorthand for ctrl-<key>.",
   "",
-  "\x1B[36m"  
+  "\x1B[90m"  
   "Overview:",
   "\x1B[90m"
   "",
@@ -135,7 +133,7 @@ static void edit_show_help(rp_env_t* env, editor_t* eb) {
   }
   for (ssize_t i = 0; help[i] != NULL && help[i+1] != NULL; i += 2) {
     if (help[i][0] == 0) {  
-      term_color(env->term, RP_ANSI_TEAL);         
+      term_color(env->term, RP_ANSI_DARKGRAY);         
       term_writef(env->term, 256, "%s\x1B[0m\n", help[i+1]);
     }
     else {
