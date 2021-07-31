@@ -62,6 +62,11 @@ struct term_s {
 static bool term_write_direct(term_t* term, const char* s, ssize_t n );
 static bool term_vwritef(term_t* term, ssize_t max_needed, const char* fmt, va_list args );
 
+//-------------------------------------------------------------
+// Colors
+//-------------------------------------------------------------
+
+#include "term_color.c"
 
 //-------------------------------------------------------------
 // Helpers
@@ -127,170 +132,6 @@ rp_private bool term_write_char(term_t* term, char c) {
   buf[1] = 0;
   return term_write_n(term, buf, 1 );
 }
-
-//-------------------------------------------------------------
-// Colors
-//-------------------------------------------------------------
-
-static bool color_is_rgb( rp_color_t color ) {
-  return (color >= RP_RGB(0));  // bit 24 is set for rgb colors
-}
-
-static void color_to_rgb(rp_color_t color, int* r, int* g, int* b) {
-  assert(color_is_rgb(color));
-  *r = ((color >> 16) & 0xFF);
-  *g = ((color >> 8) & 0xFF);
-  *b = (color & 0xFF);
-}
-
-static int rgb_to_ansi256(int r, int g, int b) {
-  int c = 0;
-  if (r!=g || g!=b) {
-    // calculate index in the 6x6x6 cube based on the values used in xterm,
-    // namely r = rx*40 + 55 (instead of darker linear terms: r*51 )
-    int rx = (r < 48 ? 0 : (r < 75 ? 1 : 1 + (r - 75)/40));
-    int gx = (g < 48 ? 0 : (g < 75 ? 0 : 1 + (g - 75)/40));
-    int bx = (b < 48 ? 0 : (b < 75 ? 0 : 1 + (b - 75)/40));    
-    c = ((rx*36 + gx*6 + bx) + 16);    
-  }
-  else {
-    // gray scale in xterm uses g = gx*10 + 8  with 0 <= gx < 24 .
-    c = (r<=4 ? 0 : (r>=244 ? 15 : ((r - 4)/10) + 232));    
-  }
-  // debug_msg("term: rgb %d %d %d -> ansi 256: %d\n", r, g, b, c );
-  return c;
-}
-
-static int color_to_ansi16(rp_color_t color) {
-  if (!color_is_rgb(color)) {
-    return (int)color;
-  }
-  else {
-    int c = 0;
-    int r,g,b;
-    color_to_rgb(color,&r,&g,&b);
-    if (r!=g || g!=b) { // colored
-      c = (r > 0 ? 1 : 0) + (g > 0 ? 2 : 0) + (b > 0 ? 4 : 0);
-    }
-    else { // gray scale
-      c = (r <= 0x40 ? 0 : 7);
-    }
-    // debug_msg("term: rgb %d %d %d -> ansi 8: %d\n", r, g, b, 30+c );
-    if (r > 0x80 || g > 0x80 || b >= 0x80) {
-      return (90 + c);
-    }
-    else {
-      return (30 + c);
-    }
-  }
-}
-
-static void fmt_color_ansi8( char* buf, ssize_t len, rp_color_t color, bool bg ) {
-  int c = color_to_ansi16(color) + (bg ? 10 : 0);
-  if (c >= 90) {
-    snprintf(buf, len, RP_CSI "1;%dm", c - 60);    
-  }
-  else {
-    snprintf(buf, len, RP_CSI "22;%dm", c );  
-  }
-}
-
-static void fmt_color_ansi16( char* buf, ssize_t len, rp_color_t color, bool bg ) {
-  snprintf( buf, len, RP_CSI "%dm", color_to_ansi16(color) + (bg ? 10 : 0) );  
-}
-
-static void fmt_color_ansi256( char* buf, ssize_t len,  rp_color_t color, bool bg ) {
-  if (!color_is_rgb(color)) {
-    fmt_color_ansi16(buf,len,color,bg);
-  }
-  else {
-    int r,g,b;
-    color_to_rgb(color, &r,&g,&b);
-    snprintf( buf, len, RP_CSI "%d;5;%dm", (bg ? 48 : 38), rgb_to_ansi256(r,g,b) );  
-  }
-}
-
-static void fmt_color_rgb( char* buf, ssize_t len, rp_color_t color, bool bg ) {
-  if (!color_is_rgb(color)) {
-    fmt_color_ansi16(buf,len,color,bg);
-  }
-  else {
-    int r,g,b;
-    color_to_rgb(color, &r,&g,&b);
-    snprintf( buf, len, RP_CSI "%d;2;%d;%d;%dm", (bg ? 48 : 38), r, g, b );  
-  }
-}
-
-static void fmt_color_ex(char* buf, ssize_t len, palette_t palette, rp_color_t color, bool bg) {
-  if (color == RP_COLOR_NONE || palette == MONOCHROME) return;
-  if (palette == ANSI8) {
-    fmt_color_ansi8(buf,len,color,bg);
-  }
-  else if (!color_is_rgb(color) || palette == ANSI16) {
-    fmt_color_ansi16(buf,len,color,bg);
-  }
-  else if (palette == ANSI256) {
-    fmt_color_ansi256(buf,len,color,bg);
-  }
-  else {
-    fmt_color_rgb(buf,len,color,bg);
-  }
-}
-
-static void term_color_ex(term_t* term, rp_color_t color, bool bg) {
-  char buf[128+1];
-  fmt_color_ex(buf,128,term->palette,color,bg);
-  term_write(term,buf);
-}
-
-rp_private void term_color(term_t* term, rp_color_t color) {
-  term_color_ex(term,color,false);
-}
-
-rp_private void term_bgcolor(term_t* term, rp_color_t color) {
-  term_color_ex(term,color,true);
-}
-
-rp_private void term_append_color(term_t* term, stringbuf_t* sbuf, rp_color_t color) {
-  char buf[128+1];
-  fmt_color_ex(buf,128,term->palette,color,false);
-  sbuf_append(sbuf,buf);
-}
-
-
-
-
-// Unused for now
-/*
-internal void term_end_of_line(term_t* term) {
-  term_right( term, 999 );
-}
-
-internal void term_clear_screen(term_t* term) {
-  term_write( term, RP_CSI "2J" RP_CSI "H" );
-}
-
-internal void term_clear_line_from_cursor(term_t* term) {
-  term_write( term, RP_CSI "0K");
-}
-
-internal void term_clear(term_t* term, ssize_t n) {
-  if (n <= 0) return;
-  char buf[RP_MAX_LINE];
-  memset(buf,' ',(n >= RP_MAX_LINE ? RP_MAX_LINE-1 : n));
-  buf[RP_MAX_LINE-1] = 0;
-  term_write( term, buf );
-}
-
-rp_private void term_save_cursor(term_t* term) {
-  term_write( term, "\x1B" "7" );
-}
-
-rp_private void term_restore_cursor(term_t* term) {
-  term_write( term, "\x1B" "8" );
-}
-*/
-
 
 
 //-------------------------------------------------------------

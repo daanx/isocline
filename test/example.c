@@ -18,11 +18,11 @@ static void completer(rp_completion_env_t* cenv, const char* prefix );
 // highlighter function defined below
 static void highlighter(rp_highlight_env_t* henv, const char* input, void* arg);
 
-/*
+
 static void show_color( rp_color_t color, const char* name ) {
   printf("\x1B[%dm%20s\x1B[0m | \x1B[1;%dmbold\x1B[0m | \x1B[%dmbright\x1B[0m\n", color, name, color, color+60);  
 }
-*/
+
 
 // main example
 int main() 
@@ -34,8 +34,49 @@ int main()
     "- Press F1 for help on editing commands.\n"
     "- Use shift+tab for multiline input. (or ctrl+enter, or ctrl+j)\n"
     "- Type 'p' (or 'id', 'f', or 'h') followed by tab for completion.\n");
-    
+  
   /*
+  printf("uint32_t ansi256[256] = {\n  // standard ansi\n  ");
+  for(int b = 0; b < 2; b++) {
+    for(int g = 0; g < 2; g++) {
+      for(int r = 0; r < 2; r++) {
+        int m = (r==1&&g==1&&b==1 ? 0xC0 : 0x80);
+        printf("0x%02x%02x%02x,",r*m,g*m,b*m);
+      }
+    }        
+  }
+  printf("\n\n  // bright ansi\n  ");
+  for(int b = 0; b < 2; b++) {
+    for(int g = 0; g < 2; g++) {
+      for(int r = 0; r < 2; r++) {    
+        int m = 0xFF;
+        if (r==0&&g==0&&b==0) printf("0x808080, ");
+          else printf("0x%02x%02x%02x,",r*m,g*m,b*m);
+      }
+    }        
+  }
+  printf("\n\n  // 6x6x6 colors");
+  for(int r = 0; r < 6; r++) {
+    for(int g = 0; g < 6; g++) {
+      printf("\n  ");
+      if (g==0) printf("// %d\n  ", 16 + r*36 + g*6);
+      for(int b = 0; b < 6; b++) {
+        int rx = r==0 ? 0 : r*40 + 55;
+        int gx = g==0 ? 0 : g*40 + 55;
+        int bx = b==0 ? 0 : b*40 + 55;        
+        printf("0x%02x%02x%02x,",rx,gx,bx);        
+      }
+    }    
+  }  
+  printf("\n\n  // gray scale\n  ");
+  for(int g = 0; g < 24; g++) {
+    int gx = g*10 + 8;
+    printf("0x%02x%02x%02x, ", gx, gx, gx);
+    if ((g+1)%8==0) printf("\n  ");
+  }
+  printf("\n};\n");
+  */
+  
   rp_writeln("colors:");
   
   rp_term_color(RP_ANSI_MAROON); rp_write("ansi8 ");
@@ -49,13 +90,34 @@ int main()
   }
   rp_writeln("\x1B[0m");
   for(int i = 0; i <= 64; i++) {
+    rp_term_color(RP_RGBX( 0, (i==64? 255 : i*4),0 )); rp_write((i%8==0?"*":"x"));
+  }
+  rp_writeln("\x1B[0m");
+  for(int i = 0; i <= 64; i++) {
+    rp_term_color(RP_RGBX( 0,0,(i==64? 255 : i*4) )); rp_write((i%8==0?"*":"x"));
+  }
+  rp_writeln("\x1B[0m");
+  for(int i = 0; i <= 64; i++) {
     int g = (i==64? 255 : i*4);
     rp_term_color(RP_RGBX(g,g,g)); rp_write((i%8==0?"*":"x"));
   }
   rp_writeln("\x1B[0m");
   
   rp_writeln("\x1b[35mansi8 \x1b[38;5;180mansi256 \x1b[38;2;100;255;180mrgb\x1b[0m\n");
-
+  
+  rp_write("\n\n  // 32x9x9 colors");
+  for(int r = 4; r <= 256; r += 8) {
+    rp_write("\n  ");
+    for(int g = 16; g <= 256; g += 32) {
+      //if ((g+1)%32 == 0) rp_write("\n  ");
+      for(int b = 16; b <= 256; b += 32) {
+        rp_term_color(RP_RGBX(r,g,b));      
+        rp_write("*");        
+      }
+    }    
+  }  
+  rp_write("\n");
+  
   show_color(RP_ANSI_BLACK,"black");
   show_color(RP_ANSI_MAROON,"maroon");
   show_color(RP_ANSI_GREEN,"greena");
@@ -65,7 +127,7 @@ int main()
   show_color(RP_ANSI_TEAL,"teal");
   show_color(RP_ANSI_LIGHTGRAY,"lighgray/white");
   show_color(RP_ANSI_DEFAULT,"default");
-  */
+  
 
   // enable history; use a NULL filename to not persist history to disk
   rp_set_history("history.txt", -1 /* default entries (= 200) */);
