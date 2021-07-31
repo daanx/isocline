@@ -18,12 +18,6 @@
 #if defined(_WIN32)
 #include <windows.h>
 #define STDOUT_FILENO 1
-#if !defined(ENABLE_VIRTUAL_TERMINAL_PROCESSING)
-#define ENABLE_VIRTUAL_TERMINAL_PROCESSING (0)
-#endif
-#if !defined(ENABLE_LVB_GRID_WORLDWIDE)
-#define ENABLE_LVB_GRID_WORLDWIDE (0)
-#endif
 #else
 #include <unistd.h>
 #include <errno.h>
@@ -429,6 +423,13 @@ static bool term_write_direct(term_t* term, const char* s, ssize_t len ) {
 // note: we use row/col as 1-based ANSI escape while windows X/Y coords are 0-based.
 //-----------------------------------------------------------------------------------
 
+#if !defined(ENABLE_VIRTUAL_TERMINAL_PROCESSING)
+#define ENABLE_VIRTUAL_TERMINAL_PROCESSING (0)
+#endif
+#if !defined(ENABLE_LVB_GRID_WORLDWIDE)
+#define ENABLE_LVB_GRID_WORLDWIDE (0)
+#endif
+
 static bool term_write_console(term_t* term, const char* s, ssize_t n ) {
   DWORD written;
   WriteConsoleA(term->hcon, s, (DWORD)(to_size_t(n)), &written, NULL);
@@ -509,7 +510,7 @@ static void term_erase_line( term_t* term, ssize_t mode ) {
     start.Y = info.dwCursorPosition.Y;
     length = (ssize_t)info.srWindow.Right + 1;
   }
-  FillConsoleOutputAttribute( term->hcon, 0, (DWORD)length, start, &written );
+  FillConsoleOutputAttribute( term->hcon, term->hcon_default_attr, (DWORD)length, start, &written );
   FillConsoleOutputCharacterA( term->hcon, ' ', (DWORD)length, start, &written );
 }
 
@@ -535,7 +536,7 @@ static void term_clear_screen(term_t* term, ssize_t mode) {
     length = (width * ((ssize_t)info.dwSize.Y - info.dwCursorPosition.Y)) + (width - info.dwCursorPosition.X + 1);
   }
   DWORD written;
-  FillConsoleOutputAttribute(term->hcon,   0, (DWORD)length, start, &written);
+  FillConsoleOutputAttribute(term->hcon, term->hcon_default_attr, (DWORD)length, start, &written);
   FillConsoleOutputCharacterA(term->hcon, ' ', (DWORD)length, start, &written);
 }
 
@@ -629,6 +630,14 @@ static void term_write_esc( term_t* term, const char* s, ssize_t len ) {
     term_write_console(term, s, len);
     return;
   }
+  /*
+  else if (s[1] == '[' && s[len-1] == 'm') {
+    ssize_t code = esc_param(s+2, len, 0);
+    if ((code == 38 || code == 48)) {
+      term_write_console(term, s, len);
+    }
+  }
+  */
 
   // otherwise emulate ourselves
   if (s[1] == '[') {
@@ -777,15 +786,19 @@ rp_private void term_start_raw(term_t* term) {
   if (term->hcon_mode == 0) {
     // first time initialization
     DWORD mode = ENABLE_PROCESSED_OUTPUT | ENABLE_LVB_GRID_WORLDWIDE;   // for \r \n and \b    
-    // use escape sequence handling if available (so we can use rgb colors in Windows terminal)
-    if (SetConsoleMode(term->hcon, mode | ENABLE_VIRTUAL_TERMINAL_PROCESSING)) {
+    // use escape sequence handling if available and the terminal supports it (so we can use rgb colors in Windows terminal)
+    // Unfortunately, in plain powershell, we can successfully enable terminal processing
+    // but it still fails to render correctly; so we require the palette be large enough (like in Windows Terminal)
+    if (term->palette >= ANSI256 && SetConsoleMode(term->hcon, mode | ENABLE_VIRTUAL_TERMINAL_PROCESSING)) {
       term->hcon_mode = mode | ENABLE_VIRTUAL_TERMINAL_PROCESSING;
     }
-    // no terminal processing fallback
+    // no terminal processing
     else if (SetConsoleMode(term->hcon, mode)) {
       term->hcon_mode = mode;
-      if (term->palette > ANSI16) { term->palette = ANSI16; }
+      term->palette = ANSI16;
     }    
+    GetConsoleMode(term->hcon, &mode);
+    debug_msg("term: console mode: orig: 0x%x, new: 0x%x, current 0x%x\n", term->hcon_orig_mode, term->hcon_mode, mode);
   }
   else {
     SetConsoleMode(term->hcon, term->hcon_mode );
