@@ -371,7 +371,7 @@ static bool str_get_current_pos_iter(
       // normal last position is right after the last character
       rc->last_on_row = (pos >= row_start + row_len); 
     }
-    debug_msg("edit; pos iter: pos: %zd (%c), row_start: %zd, rowlen: %zd\n", pos, s[pos], row_start, row_len);    
+    // debug_msg("edit; pos iter: pos: %zd (%c), row_start: %zd, rowlen: %zd\n", pos, s[pos], row_start, row_len);    
   }  
   return false; // always continue to count all rows
 }
@@ -500,6 +500,28 @@ static ssize_t str_get_pos_at_rc(const char* s, ssize_t len, ssize_t termw, ssiz
 //-------------------------------------------------------------
 // String buffer
 //-------------------------------------------------------------
+#define SBUF_INITIAL   (124)
+
+static bool sbuf_ensure_extra(stringbuf_t* s, ssize_t extra) 
+{
+  if (s->buflen >= s->count + extra) return true;   
+  // reallocate
+  ssize_t newlen = (s->buflen == 0 ? SBUF_INITIAL : 2*s->buflen);
+  if (newlen < s->count + extra) newlen = s->count + extra;
+  if (s->buflen > 0) {
+    debug_msg("stringbuf: reallocate: old %zd, new %zd\n", s->buflen, newlen);
+  }
+  char* newbuf = mem_realloc_tp(s->mem, char, s->buf, newlen+1); // one more for terminating zero
+  if (newbuf == NULL) {
+    assert(false);
+    return false;
+  }
+  s->buf = newbuf;
+  s->buflen = newlen;
+  s->buf[s->count] = s->buf[s->buflen] = 0;
+  assert(s->buflen >= s->count + extra);
+  return true;
+}
 
 static void sbuf_init( stringbuf_t* sbuf, alloc_t* mem ) {
   sbuf->mem = mem;
@@ -515,17 +537,68 @@ static void sbuf_done( stringbuf_t* sbuf ) {
   sbuf->count = 0;
 }
 
+
+rp_private void sbuf_free_no_cache( stringbuf_t* sbuf ) {
+  if (sbuf==NULL) return;
+  sbuf_done(sbuf);
+  mem_free(sbuf->mem, sbuf);
+}
+
+//-------------------------------------------------------------
+// String buffer cache and allocation
+//-------------------------------------------------------------
+
+#define SBUF_CACHE_LEN (8)   // keep 8 sbufs ready for reuse
+
+static stringbuf_t* cache[SBUF_CACHE_LEN];
+
+static stringbuf_t* sbuf_alloc_from_cache(void) {
+  for(ssize_t i = 0; i < SBUF_CACHE_LEN; i++) {
+    stringbuf_t* sbuf = cache[i];
+    if (sbuf != NULL) {
+      cache[i] = NULL;
+      return sbuf;
+    }    
+  }
+  return NULL;
+}
+
+static void sbuf_free_to_cache(stringbuf_t* sbuf) {
+  if (sbuf==NULL) return;
+  sbuf_clear(sbuf);  
+  for(ssize_t i = 0; i < SBUF_CACHE_LEN; i++) {
+    if (cache[i] == NULL) {
+      cache[i] = sbuf;
+      return;
+    }    
+  }
+  sbuf_free_no_cache(sbuf);
+}
+
+rp_private void sbuf_clear_cache(void) {
+  for(ssize_t i = 0; i < SBUF_CACHE_LEN; i++) {
+    stringbuf_t* sbuf = cache[i];
+    if (sbuf != NULL) {
+      cache[i] = NULL;
+      sbuf_free_no_cache(sbuf);
+    }    
+  }
+}
+
+
 rp_private stringbuf_t*  sbuf_new( alloc_t* mem ) {
-  stringbuf_t* sbuf = mem_zalloc_tp(mem,stringbuf_t);
+  // cached?
+  stringbuf_t* sbuf = sbuf_alloc_from_cache();
+  if (sbuf != NULL) return sbuf;
+  // allocate fresh
+  sbuf = mem_zalloc_tp(mem,stringbuf_t);
   if (sbuf == NULL) return NULL;
   sbuf_init(sbuf,mem);
   return sbuf;
 }
 
-rp_private void sbuf_free( stringbuf_t* sbuf ) {
-  if (sbuf==NULL) return;
-  sbuf_done(sbuf);
-  mem_free(sbuf->mem, sbuf);
+rp_private void sbuf_free(stringbuf_t* sbuf) {
+  sbuf_free_to_cache(sbuf);
 }
 
 // free the sbuf and return the current string buffer as the result
@@ -535,8 +608,11 @@ rp_private char* sbuf_free_dup(stringbuf_t* sbuf) {
   if (sbuf->buf != NULL) {
     s = mem_realloc_tp(sbuf->mem, char, sbuf->buf, sbuf_len(sbuf)+1);
     if (s == NULL) { s = sbuf->buf; }
+    sbuf->buf = 0;
+    sbuf->buflen = 0;
+    sbuf->count = 0;
   }
-  mem_free(sbuf->mem, sbuf);
+  sbuf_free(sbuf);
   return s;
 }
 
@@ -562,25 +638,6 @@ rp_private char* sbuf_strdup_at( stringbuf_t* sbuf, ssize_t pos ) {
 
 rp_private char* sbuf_strdup( stringbuf_t* sbuf ) {
   return mem_strdup(sbuf->mem, sbuf_string(sbuf));
-}
-
-static bool sbuf_ensure_extra(stringbuf_t* s, ssize_t extra) 
-{
-  if (s->buflen >= s->count + extra) return true;   
-  // reallocate
-  ssize_t newlen = (s->buflen == 0 ? 124 : 2*s->buflen);
-  if (newlen <= s->count + extra) newlen = s->count + extra;
-  debug_msg("stringbuf: reallocate: old %zd, new %zd\n", s->buflen, newlen);
-  char* newbuf = mem_realloc_tp(s->mem, char, s->buf, newlen+1);
-  if (newbuf == NULL) {
-    assert(false);
-    return false;
-  }
-  s->buf = newbuf;
-  s->buflen = newlen;
-  s->buf[s->count] = s->buf[s->buflen] = 0;
-  assert(s->buflen >= s->count + extra);
-  return true;
 }
 
 rp_private ssize_t sbuf_len(const stringbuf_t* s) {

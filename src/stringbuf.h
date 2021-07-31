@@ -25,6 +25,7 @@ rp_private stringbuf_t*  sbuf_new( alloc_t* mem );
 rp_private void    sbuf_free( stringbuf_t* sbuf );
 rp_private char*   sbuf_free_dup(stringbuf_t* sbuf);
 rp_private ssize_t sbuf_len(const stringbuf_t* s);
+rp_private void    sbuf_clear_cache(void);
 
 rp_private const char* sbuf_string_at( stringbuf_t* sbuf, ssize_t pos );
 rp_private const char* sbuf_string( stringbuf_t* sbuf );

@@ -27,9 +27,6 @@ struct rp_env_s {
   tty_t*          tty;              // keyboard (NULL if stdin is a pipe, file, etc)
   completions_t*  completions;      // current completions
   history_t*      history;          // edit history
-  stringbuf_t*    input;            // keep a current input buffer to avoid reallocation
-  stringbuf_t*    extra;            // keep a current extra buffer to avoid reallocation
-  stringbuf_t*    hint;             // keep a current hint buffer to avoid reallocation
   const char*     prompt_marker;    // the prompt marker (defaults to "> ")
   const char*     cprompt_marker;   // prompt marker for continuation lines (defaults to `prompt_marker`)
   rp_highlight_fun_t* highlighter;  // highlight callback

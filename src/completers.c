@@ -336,13 +336,13 @@ static bool match_extension(const char* name, const char* extensions) {
 }
 
 static bool filename_complete_indir( rp_completion_env_t* cenv, stringbuf_t* dir, 
-                                      stringbuf_t* dir_prefix, const char* base_prefix, 
+                                      stringbuf_t* dir_prefix, stringbuf_t* display,
+                                       const char* base_prefix, 
                                         char dir_sep, const char* extensions ) 
 {
   dir_cursor d = 0;
   dir_entry entry;
   bool cont = true;
-  stringbuf_t* display = sbuf_new(cenv->env->mem);
   if (os_findfirst(cenv->env->mem, sbuf_string(dir), &d, &entry)) {
     do {
       const char* name = os_direntry_name(&entry);
@@ -373,7 +373,6 @@ static bool filename_complete_indir( rp_completion_env_t* cenv, stringbuf_t* dir
     } while (cont && os_findnext(d, &entry));
     os_findclose(d);
   }
-  sbuf_free(display);
   return cont;
 }
 
@@ -386,9 +385,10 @@ typedef struct filename_closure_s {
 static void filename_completer( rp_completion_env_t* cenv, const char* prefix ) {
   if (prefix == NULL) return;
   filename_closure_t* fclosure = (filename_closure_t*)cenv->arg;  
-  stringbuf_t* root_dir = sbuf_new(cenv->env->mem);
+  stringbuf_t* root_dir   = sbuf_new(cenv->env->mem);
   stringbuf_t* dir_prefix = sbuf_new(cenv->env->mem);
-  if (root_dir!=NULL && dir_prefix != NULL) 
+  stringbuf_t* display    = sbuf_new(cenv->env->mem);  
+  if (root_dir!=NULL && dir_prefix != NULL && display != NULL) 
   {
     // split prefix in dir_prefix / base.
     const char* base = strrchr(prefix,'/');
@@ -407,8 +407,9 @@ static void filename_completer( rp_completion_env_t* cenv, const char* prefix ) 
       if (base != NULL) {
         sbuf_append_n( root_dir, prefix, (base - prefix));  // include dir separator
       }
-      filename_complete_indir( cenv, root_dir, dir_prefix, (base != NULL ? base : prefix), 
-                                  fclosure->dir_sep, fclosure->extensions );   
+      filename_complete_indir( cenv, root_dir, dir_prefix, display,  
+                                (base != NULL ? base : prefix), 
+                                 fclosure->dir_sep, fclosure->extensions );   
     }
     else {
       // relative path, complete with respect to every root.
@@ -434,11 +435,13 @@ static void filename_completer( rp_completion_env_t* cenv, const char* prefix ) 
         }
 
         // and complete in this directory    
-        filename_complete_indir( cenv, root_dir, dir_prefix, (base != NULL ? base : prefix), 
+        filename_complete_indir( cenv, root_dir, dir_prefix, display,
+                                  (base != NULL ? base : prefix), 
                                    fclosure->dir_sep, fclosure->extensions);
       }
     }
   }
+  sbuf_free(display);
   sbuf_free(root_dir);
   sbuf_free(dir_prefix);
 }

@@ -339,9 +339,6 @@ static void rp_env_free(rp_env_t* env) {
   completions_free(env->completions);
   term_free(env->term);
   tty_free(env->tty);
-  sbuf_free(env->input);
-  sbuf_free(env->extra);
-  sbuf_free(env->hint);
   mem_free(env->mem, env->cprompt_marker);
   mem_free(env->mem,env->prompt_marker);
   env->prompt_marker = NULL;
@@ -349,6 +346,11 @@ static void rp_env_free(rp_env_t* env) {
   // and deallocate ourselves
   alloc_t* mem = env->mem;  
   mem_free(mem, env);
+
+  // and clear the sbuf cache
+  sbuf_clear_cache();
+
+  // and finally the custom memory allocation structure
   mem_free(mem, mem);
 }
 
@@ -376,14 +378,10 @@ static rp_env_t* rp_env_create( rp_malloc_fun_t* _malloc, rp_realloc_fun_t* _rea
   env->term        = term_new(env->mem, env->tty, false, false, -1 );  
   env->history     = history_new(env->mem);
   env->completions = completions_new(env->mem);
-  env->input       = sbuf_new(env->mem);
-  env->extra       = sbuf_new(env->mem);
-  env->hint        = sbuf_new(env->mem);
-
-  if (env->extra == NULL || env->input == NULL || env->hint == NULL
-      || env->tty == NULL || env->term==NULL
-      || env->completions == NULL || env->history == NULL
-      || !term_is_interactive(env->term)) 
+  
+  if (env->tty == NULL || env->term==NULL ||
+      env->completions == NULL || env->history == NULL ||
+      !term_is_interactive(env->term)) 
   {
     env->noedit = true;
   }

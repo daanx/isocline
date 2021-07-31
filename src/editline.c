@@ -689,9 +689,9 @@ static char* edit_line( rp_env_t* env, const char* prompt_text )
   // set up an edit buffer
   editor_t eb;
   eb.mem      = env->mem;
-  eb.input    = env->input;  // borrow to avoid reallocation
-  eb.extra    = env->extra;  // borrow to avoid reallocation
-  eb.hint     = env->hint;   // borrow to avoid reallocation
+  eb.input    = sbuf_new(env->mem);
+  eb.extra    = sbuf_new(env->mem);
+  eb.hint     = sbuf_new(env->mem);
   eb.termw    = term_get_width(env->term);  
   eb.pos      = 0;
   eb.cur_rows = 1; 
@@ -702,10 +702,10 @@ static char* edit_line( rp_env_t* env, const char* prompt_text )
   eb.henv     = (env->no_highlight ? NULL : highlight_new(env->mem) );
   editstate_init(&eb.undo);
   editstate_init(&eb.redo);
-  sbuf_clear(eb.input);
-  sbuf_clear(eb.extra);
-  sbuf_clear(eb.hint);
-
+  if (eb.input==NULL || eb.extra==NULL || eb.hint==NULL) {
+    return NULL;
+  }
+  
   // show prompt
   edit_write_prompt(env, &eb, 0, false); 
 
