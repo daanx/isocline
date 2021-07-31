@@ -18,6 +18,12 @@
 #if defined(_WIN32)
 #include <windows.h>
 #define STDOUT_FILENO 1
+#if !defined(ENABLE_VIRTUAL_TERMINAL_PROCESSING)
+#define ENABLE_VIRTUAL_TERMINAL_PROCESSING (0)
+#endif
+#if !defined(ENABLE_LVB_GRID_WORLDWIDE)
+#define ENABLE_LVB_GRID_WORLDWIDE (0)
+#endif
 #else
 #include <unistd.h>
 #include <errno.h>
@@ -54,6 +60,7 @@ struct term_s {
   WORD        hcon_default_attr;  // default text attributes
   WORD        hcon_orig_attr;     // original text attributes
   DWORD       hcon_orig_mode;     // original console mode
+  DWORD       hcon_mode;          // used console mode
   UINT        hcon_orig_cp;       // original console code-page (locale)
   COORD       hcon_save_cursor;   // saved cursor position (for escape sequence emulation)
   #endif
@@ -274,6 +281,7 @@ rp_private term_t* term_new(alloc_t* mem, tty_t* tty, bool nocolor, bool silent,
   // initialize raw terminal output and terminal dimensions
   term_init_raw(term);
   term_update_dim(term);
+
   return term;
 }
 
@@ -414,12 +422,12 @@ static bool term_write_direct(term_t* term, const char* s, ssize_t len ) {
 
 #else
 
-//-------------------------------------------------------------
+//----------------------------------------------------------------------------------
 // On windows we do ansi escape emulation ourselves.
 // (for compat pre-win10 systems)
 //
 // note: we use row/col as 1-based ANSI escape while windows X/Y coords are 0-based.
-//-------------------------------------------------------------------------
+//-----------------------------------------------------------------------------------
 
 static bool term_write_console(term_t* term, const char* s, ssize_t n ) {
   DWORD written;
@@ -607,6 +615,22 @@ static void esc_param2( const char* s, ssize_t len, ssize_t* p1, ssize_t* p2, ss
 static void term_write_esc( term_t* term, const char* s, ssize_t len ) {
   ssize_t row;
   ssize_t col;
+
+  // ignore color?
+  if (term->nocolor && s[1] == '[' && s[len-1] == 'm') {
+    ssize_t code = esc_param(s+2, len, 0);
+    if ((code >= 30 && code <= 49) || (code >= 90 && code <= 107)) {
+      return;  
+    }
+  }
+  
+  // use the builtin terminal processing? (enables truecolor for example)
+  if ((term->hcon_mode & ENABLE_VIRTUAL_TERMINAL_PROCESSING) != 0) {
+    term_write_console(term, s, len);
+    return;
+  }
+
+  // otherwise emulate ourselves
   if (s[1] == '[') {
     switch (s[len-1]) {
     case 'A':
@@ -699,8 +723,8 @@ static bool term_write_direct(term_t* term, const char* s, ssize_t len ) {
     if (next <= 0) break;
 
     // handle control (note: str_next_ofs considers whole CSI escape sequences at a time)
-    if (next > 1 && s[pos] == '\x1B') {
-      term_write_esc(term, s+pos, next);
+    if (next > 1 && s[pos] == '\x1B') {                                
+      term_write_esc(term, s+pos, next);                               
     }
     else {
       term_write_console( term, s+pos, next);
@@ -750,14 +774,22 @@ rp_private void term_start_raw(term_t* term) {
 	GetConsoleMode( term->hcon, &term->hcon_orig_mode );
   term->hcon_orig_cp = GetConsoleOutputCP(); 
   SetConsoleOutputCP(CP_UTF8);
-  SetConsoleMode( term->hcon, ENABLE_PROCESSED_OUTPUT   // for \r \n and \b
-                             #ifdef ENABLE_LVB_GRID_WORLDWIDE 
-                             | ENABLE_LVB_GRID_WORLDWIDE // for underline
-                             #endif
-                             #ifdef ENABLE_VIRTUAL_TERMINAL_PROCESSING 
-                             // | ENABLE_VIRTUAL_TERMINAL_PROCESSING // we already emulate ourselves 
-                             #endif
-                             );
+  if (term->hcon_mode == 0) {
+    // first time initialization
+    DWORD mode = ENABLE_PROCESSED_OUTPUT | ENABLE_LVB_GRID_WORLDWIDE;   // for \r \n and \b    
+    // use escape sequence handling if available (so we can use rgb colors in Windows terminal)
+    if (SetConsoleMode(term->hcon, mode | ENABLE_VIRTUAL_TERMINAL_PROCESSING)) {
+      term->hcon_mode = mode | ENABLE_VIRTUAL_TERMINAL_PROCESSING;
+    }
+    // no terminal processing fallback
+    else if (SetConsoleMode(term->hcon, mode)) {
+      term->hcon_mode = mode;
+      if (term->palette > ANSI16) { term->palette = ANSI16; }
+    }    
+  }
+  else {
+    SetConsoleMode(term->hcon, term->hcon_mode );
+  }
   term->raw_enabled = true;  
 }
 
@@ -775,6 +807,8 @@ static void term_init_raw(term_t* term) {
   if (GetConsoleScreenBufferInfo( term->hcon, &info )) {
     term->hcon_default_attr = info.wAttributes;
   }
+  term_start_raw(term); // initialize the hcon_mode
+  term_end_raw(term);
 }
 
 #endif

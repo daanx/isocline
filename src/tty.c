@@ -579,14 +579,14 @@ static void tty_done_raw(tty_t* tty) {
 // to the character stream (instead of returning key codes).
 //-------------------------------------------------------------
 
-static void tty_waitc_console(tty_t* tty);
+static void tty_waitc_console(tty_t* tty, bool blocking);
 
 static bool tty_readc(tty_t* tty, uint8_t* c) {
   if (tty_cpop(tty,c)) return true;
   // The following does not work as one cannot paste unicode characters this way :-(
   //   DWORD nread; ReadConsole(tty->hcon, c, 1, &nread, NULL);
   // so instead we read directly from the console input events and cpush into the tty:
-  tty_waitc_console(tty); 
+  tty_waitc_console(tty, true /* blocking */); 
   return tty_cpop(tty,c);
 }
 
@@ -594,10 +594,8 @@ rp_private bool tty_readc_noblock(tty_t* tty, uint8_t* c) {  // don't modify `c`
   // in our pushback buffer?
   if (tty_cpop(tty, c)) return true;
   // any events in the input queue?
-  DWORD count = 0;
-  GetNumberOfConsoleInputEvents(tty->hcon, &count);
-  if (count > 0) return tty_readc(tty, c);
-  return false;
+  tty_waitc_console(tty, false /* no block */);
+  return tty_cpop(tty, c);
 }
 
 rp_private bool tty_readc_pause_noblock(tty_t* tty, uint8_t* c) {
@@ -605,14 +603,21 @@ rp_private bool tty_readc_pause_noblock(tty_t* tty, uint8_t* c) {
 }
 
 // Read from the console input events and push escape codes into the tty cbuffer.
-static void tty_waitc_console(tty_t* tty) 
+static void tty_waitc_console(tty_t* tty, bool blocking) 
 {
   //  wait for a key down event
   INPUT_RECORD inp;
 	DWORD count;
   uint32_t surrogate_hi = 0;
   while (true) {
-		if (!ReadConsoleInputW( tty->hcon, &inp, 1, &count)) return;
+    // check if there are events if in non-blocking mode
+    if (!blocking) {
+      if (!GetNumberOfConsoleInputEvents(tty->hcon, &count)) return;
+      if (count == 0) return;
+    }
+
+    // wait for an input event
+    if (!ReadConsoleInputW( tty->hcon, &inp, 1, &count)) return;
     if (count != 1) return;
 
     // resize event?
