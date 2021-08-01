@@ -95,12 +95,16 @@ rp_private bool      utf8_is_cont(uint8_t c);
 // Debug
 //-------------------------------------------------------------
 
-#ifdef RP_DEBUG_MSG
-rp_private void debug_msg( const char* fmt, ... );
+#if defined(RP_NO_DEBUG_MSG) 
+#define debug_msg(fmt,...)   (void)(0)
 #else
-#define debug_msg(...)
+rp_private void debug_msg( const char* fmt, ... );
 #endif
 
+
+//-------------------------------------------------------------
+// Abstract environment
+//-------------------------------------------------------------
 struct rp_env_s;
 typedef struct rp_env_s rp_env_t;
 

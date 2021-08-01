@@ -8,6 +8,7 @@
 #include <string.h>
 #include <stdio.h>
 #include <stdarg.h>
+#include <stdlib.h>
 #include "common.h"
 
 
@@ -247,12 +248,26 @@ fail:
 // Debug
 //-------------------------------------------------------------
 
-
-#ifdef RP_DEBUG_MSG
+#if !defined(RP_NO_DEBUG_MSG) 
 rp_private void debug_msg(const char* fmt, ...) {
-  static bool debug_init;
-  FILE* fdbg = fopen("repline.debug.txt", (debug_init ? "a" : "w"));
-  debug_init = true;
+  static int debug_init;
+  static const char* debug_fname = "repline.debug.txt";
+  // initialize?
+  if (debug_init==0) {
+    debug_init = -1;
+    const char* rdebug = getenv("REPLINE_DEBUG");
+    if (rdebug!=NULL && strcmp(rdebug,"1") == 0) {
+      FILE* fdbg = fopen(debug_fname, "w");
+      if (fdbg!=NULL) {
+        debug_init = 1;
+        fclose(fdbg);
+      }
+    }
+  }
+  if (debug_init <= 0) return;
+
+  // write debug messages
+  FILE* fdbg = fopen(debug_fname, "a");
   if (fdbg==NULL) return;
   va_list args;
   va_start(args, fmt);

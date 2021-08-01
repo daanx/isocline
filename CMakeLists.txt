@@ -10,7 +10,7 @@ set(CMAKE_CXX_STANDARD 11)
 option(RP_USE_CXX           "Build with C++ compiler" OFF)
 option(RP_DEBUG_UBSAN       "Build with undefined behaviour sanitizer" OFF)
 option(RP_DEBUG_ASAN        "Build with address sanitizer" OFF)
-option(RP_DEBUG_MSG         "Output debug messages to repline.debug.txt (warning: do not enable in release)" OFF)
+option(RP_DEBUG_MSG         "Enable printing debug messages to repline.debug.txt (only if also REPLINE_DEBUG=1 is set in the environment)" ON)
 option(RP_SEPARATE_OBJS     "Compile with separate object files instead of one (warning: exports internal symbols)" OFF)
 
 set(rp_version "0.1")
@@ -48,9 +48,9 @@ else()
   set(RP_COMPILER_ID "${CMAKE_C_COMPILER_ID}")  
 endif()
 
-if (RP_DEBUG_MSG)
-  message(STATUS "Enabling debug messages -- written to 'repline.debug.txt'")
-  list(APPEND rp_cdefs RP_DEBUG_MSG)
+if(NOT RP_DEBUG_MSG)
+  message(STATUS "Disable debug messages")
+  list(APPEND rp_cdefs RP_NO_DEBUG_MSG)
 endif()  
 
 

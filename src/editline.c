@@ -4,7 +4,6 @@
   under the terms of the MIT License. A copy of the license can be
   found in the "LICENSE" file at the root of this distribution.
 -----------------------------------------------------------------------------*/
-#include <windows.h>
 #include <stdio.h>
 #include <string.h>
 
@@ -263,7 +262,7 @@ static void edit_refresh(rp_env_t* env, editor_t* eb)
   ssize_t rows_extra = sbuf_get_rc_at_pos( eb->extra, eb->termw, 0, 0, 0 /*pos*/, &rc_extra );
   if (sbuf_len(eb->extra) == 0) rows_extra = 0;
   ssize_t rows = rows_input + rows_extra; 
-  debug_msg("edit: start refresh: rows %zd, pos: %zd,%zd (previous rows %zd, row %zd)\n", rows, rc.row, rc.col, eb->cur_rows, eb->cur_row);
+  debug_msg("edit: refresh: rows %zd, cursor: %zd,%zd (previous rows %zd, cursor row %zd)\n", rows, rc.row, rc.col, eb->cur_rows, eb->cur_row);
   
   // only render at most terminal height rows
   ssize_t termh = term_get_height(env->term);
@@ -360,7 +359,7 @@ static bool edit_resize(rp_env_t* env, editor_t* eb ) {
   ssize_t rows_extra = sbuf_get_wrapped_rc_at_pos( eb->extra, eb->termw, newtermw, 0, 0, 0 /*pos*/, &rc_extra );
   if (sbuf_len(eb->extra) == 0) rows_extra = 0;
   ssize_t rows = rows_input + rows_extra;
-  debug_msg("edit: resize: new row(s): %zd, %zd, previous: %zd, %zd\n", rc.row, rows, eb->cur_row, eb->cur_rows);
+  debug_msg("edit: resize: new rows: %zd, cursor row: %zd (previous: rows: %zd, cursor row %zd)\n", rows, rc.row, eb->cur_rows, eb->cur_row);
   
   // update the newly calculated row and rows
   eb->cur_row = rc.row;

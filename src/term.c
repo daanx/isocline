@@ -757,34 +757,57 @@ static bool term_write_direct(term_t* term, const char* s, ssize_t len ) {
 
 #if !defined(_WIN32)
 
-static bool term_raw_get_cursor_pos( term_t* term, ssize_t* row, ssize_t* col) 
+static bool term_esc_query_raw( term_t* term, const char* query, char* buf, ssize_t buflen ) 
 {
-  if (!term_write_console(term, "\x1B[6n", 4)) return false;
-  debug_msg("term: read tty esponse\n");
-
-  // parse query response ESC[%d;%dR
-  char buf[64];
+  if (buf==NULL || buflen <= 0 || query[0] == 0) return false;
+  bool osc = (query[1] == ']');
+  if (!term_write_console(term, query, rp_strlen(query))) return false;
+  debug_msg("term: read tty query response to: ESC %s\n", query + 1);  
+  // parse query response 
   ssize_t len = 0;
   uint8_t c = 0;
   if (!tty_readc_pause_noblock(term->tty,&c) || c != '\x1B') return false;
-  if (!tty_readc_noblock(term->tty,&c) || c != '[')    return false;
-  while( len < 63 ) {
+  if (!tty_readc_noblock(term->tty,&c) || (c != query[1]))    return false;
+  while( len < buflen ) {
     if (!tty_readc_noblock(term->tty,&c)) return false;
-    if (!((c >= '0' && c <= '9') || (c == ';'))) break;
+    if (osc) {
+      // terminated by BELL or ESC \ (ST)
+      if (c=='\x07') {
+        break;
+      }
+      else if (c=='\x1B') {
+        uint8_t c1;
+        if (!tty_readc_noblock(term->tty,&c1)) return false;
+        if (c1=='\\') break;
+        tty_cpush_char(term->tty,c1);
+      }
+    }
+    else if (!((c >= '0' && c <= '9') || strchr("<=>?;:",c) != NULL)) {
+      buf[len++] = (char)c; // for non-OSC save the terminating character
+      break;
+    }
     buf[len++] = (char)c; 
   }
   buf[len] = 0;
-  debug_msg("term: parse cursor response: %s\n", buf);
-  return rp_atoz2(buf,row,col);
+  debug_msg("term: query response: %s\n", buf);
+  return true;
+}
+
+static bool term_esc_query( term_t* term, const char* query, char* buf, ssize_t buflen ) 
+{
+  if (!tty_start_raw(term->tty)) return false;  
+  bool ok = term_esc_query_raw(term,query,buf,buflen);  
+  tty_end_raw(term->tty);
+  return ok;
 }
 
 static bool term_get_cursor_pos( term_t* term, ssize_t* row, ssize_t* col) 
 {
   // send escape query
-  if (!tty_start_raw(term->tty)) return false;
-  bool ok = term_raw_get_cursor_pos(term,row,col);  
-  tty_end_raw(term->tty);
-  return ok;
+  char buf[128];
+  if (!term_esc_query(term,"\x1B[6n",buf,128)) return false; 
+  if (!rp_atoz2(buf,row,col)) return false;
+  return true;
 }
 
 static void term_set_cursor_pos( term_t* term, ssize_t row, ssize_t col ) {
@@ -875,39 +898,11 @@ rp_private void term_end_raw(term_t* term) {
   term->raw_enabled = false;
 }
 
-static bool term_osc_query_raw( term_t* term, const char* query, char* buf, ssize_t buflen ) 
-{
-  if (buf==NULL || buflen <= 0) return false;
-  if (!term_write_console(term, query, rp_strlen(query))) return false;
-  debug_msg("term: read tty query response to: ESC %s\n", query + 1);
-  
-  // parse query response 
-  buf[0] = 0;
-  ssize_t len = 0;
-  uint8_t c = 0;
-  if (!tty_readc_pause_noblock(term->tty,&c) || c != '\x1B') return false;
-  if (!tty_readc_noblock(term->tty,&c) || c != ']')    return false;
-  while( len < buflen ) {
-    if (!tty_readc_noblock(term->tty,&c)) return false;
-    if (c=='\x07') break;
-    if (c=='\x1B') {
-      uint8_t c1;
-      if (!tty_readc_noblock(term->tty,&c1)) return false;
-      if (c1=='\\') break;
-      tty_cpush_char(term->tty,c1);
-    }
-    buf[len++] = (char)c; 
-  }
-  buf[len] = 0;
-  debug_msg("term: query response: %s\n", buf);
-  return true;
-}
-
 static bool term_osc_query_color_raw(term_t* term, int color_idx, uint32_t* color ) {
   char buf[128+1];
   snprintf(buf,128,"\x1B]4;%d;?\x1B\\", color_idx);
-  if (!term_osc_query_raw( term, buf, buf, 128 )) return false;
-  if (!rp_starts_with(buf,"4;")) return false;
+  if (!term_esc_query_raw( term, buf, buf, 128 )) return false;
+  if (buf[0] != '4') return false;
   const char* rgb = strchr(buf,':');
   if (rgb==NULL) return false;
   rgb++; // skip ':'
@@ -931,7 +926,7 @@ static void term_update_ansi16(term_t* term) {
     // success
     for(ssize_t i = 0; i < 48; i+=3) {
       uint32_t color = ((uint32_t)(cmap[i]) << 16) | ((uint32_t)(cmap[i+1]) << 8) | cmap[i+2];
-      debug_msg("term ansi color %d: 0x%06x\n", i, color);
+      debug_msg("term (ioctl) ansi color %d: 0x%06x\n", i, color);
       ansi256[i] = color;
     }
     return;
