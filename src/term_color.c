@@ -11,7 +11,8 @@
 // Standard ANSI palette for 256 colors
 //-------------------------------------------------------------
 
-static uint32_t ansi256[256] = {
+static uint32_t ansi256[256] = {   
+  // not const as on some platforms (e.g. Windows) we update the first 16 entries with the actual used colors.
   // standard ansi
   0x000000,0x800000,0x008000,0x808000,0x000080,0x800080,0x008080,0xc0c0c0,
 
@@ -84,6 +85,11 @@ static void color_to_rgb(rp_color_t color, int* r, int* g, int* b) {
   *b = (color & 0xFF);
 }
 
+static bool is_grayish(int r, int g, int b) {
+  return (abs(r-g) <= 4) && (abs((r+g)/2 - b) <= 4);
+}
+
+
 // Approximation to delta-E CIE color distance using much 
 // simpler calculations. See <https://www.compuphase.com/cmetric.htm>
 // We do not take the square root as we only need to find 
@@ -96,7 +102,11 @@ static int_least32_t rgb_dist( uint32_t color, int r2, int g2, int b2 ) {
   int_least32_t dr = r1 - r2;
   int_least32_t dg = g1 - g2;
   int_least32_t db = b1 - b2;
-  int_least32_t dist = (512+rmean)*dr*dr + 2048*dg*dg + (767-rmean)*db*db;
+  int_least32_t dist = ((512+rmean)*dr*dr) + 1024*dg*dg + ((767-rmean)*db*db);  
+  if (is_grayish(r1, g1, b1) != is_grayish(r2, g2, b2)) { 
+    // make it less eager to substitute a gray for a non-gray (or the other way around)
+    dist *= 3;
+  } 
   return dist;
 }
 
@@ -136,7 +146,9 @@ static int rgb_match( uint32_t* palette, int start, int len, rgb_cache_t* cache,
   assert(color_is_rgb(color));
   // in cache?
   int min = rgb_lookup(cache,color);
-  if (min >= 0) return min;
+  if (min >= 0) {
+    return min;
+  }
 
   // otherwise find closest color match in the palette
   int r, g, b;
@@ -158,7 +170,7 @@ static int rgb_match( uint32_t* palette, int start, int len, rgb_cache_t* cache,
 // Match RGB to an index in the ANSI 256 color table
 static int rgb_to_ansi256(rp_color_t color) {
   static rgb_cache_t ansi256_cache;
-  int c = rgb_match( ansi256, 16, 256, &ansi256_cache, color); // not the first 16 ANSI colors as those may be different 
+  int c = rgb_match(ansi256, 16, 256, &ansi256_cache, color); // not the first 16 ANSI colors as those may be different 
   //debug_msg("term: rgb %x -> ansi 256: %d\n", color, c );
   return c;
 }
@@ -203,15 +215,15 @@ static int color_to_ansi8(rp_color_t color) {
 static void fmt_color_ansi8( char* buf, ssize_t len, rp_color_t color, bool bg ) {
   int c = color_to_ansi8(color) + (bg ? 10 : 0);
   if (c >= 90) {
-    snprintf(buf, len, RP_CSI "1;%dm", c - 60);    
+    snprintf(buf, to_size_t(len), RP_CSI "1;%dm", c - 60);    
   }
   else {
-    snprintf(buf, len, RP_CSI "22;%dm", c );  
+    snprintf(buf, to_size_t(len), RP_CSI "22;%dm", c );  
   }
 }
 
 static void fmt_color_ansi16( char* buf, ssize_t len, rp_color_t color, bool bg ) {
-  snprintf( buf, len, RP_CSI "%dm", color_to_ansi16(color) + (bg ? 10 : 0) );  
+  snprintf( buf, to_size_t(len), RP_CSI "%dm", color_to_ansi16(color) + (bg ? 10 : 0) );  
 }
 
 static void fmt_color_ansi256( char* buf, ssize_t len,  rp_color_t color, bool bg ) {
@@ -219,7 +231,7 @@ static void fmt_color_ansi256( char* buf, ssize_t len,  rp_color_t color, bool b
     fmt_color_ansi16(buf,len,color,bg);
   }
   else {
-    snprintf( buf, len, RP_CSI "%d;5;%dm", (bg ? 48 : 38), rgb_to_ansi256(color) );  
+    snprintf( buf, to_size_t(len), RP_CSI "%d;5;%dm", (bg ? 48 : 38), rgb_to_ansi256(color) );  
   }
 }
 
@@ -230,7 +242,7 @@ static void fmt_color_rgb( char* buf, ssize_t len, rp_color_t color, bool bg ) {
   else {
     int r,g,b;
     color_to_rgb(color, &r,&g,&b);
-    snprintf( buf, len, RP_CSI "%d;2;%d;%d;%dm", (bg ? 48 : 38), r, g, b );  
+    snprintf( buf, to_size_t(len), RP_CSI "%d;2;%d;%d;%dm", (bg ? 48 : 38), r, g, b );  
   }
 }
 
@@ -272,4 +284,15 @@ rp_private void term_append_color(term_t* term, stringbuf_t* sbuf, rp_color_t co
   char buf[128+1];
   fmt_color_ex(buf,128,term->palette,color,false);
   sbuf_append(sbuf,buf);
+}
+
+rp_private int term_get_color_bits(term_t* term) {
+  switch (term->palette) {
+  case MONOCHROME: return 1;
+  case ANSI8: return 3;
+  case ANSI16: return 4;
+  case ANSI256: return 8;
+  case ANSIRGB: return 24;
+  default: return 4;
+  }
 }

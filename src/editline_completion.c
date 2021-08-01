@@ -108,7 +108,6 @@ static void edit_completion_menu(rp_env_t* env, editor_t* eb, bool more_availabl
   ssize_t count_displayed = count;
   assert(count > 1);
   ssize_t selected = (env->complete_nopreview ? 0 : -1); // select first or none
-  ssize_t columns = 1;
   ssize_t percolumn = count;
 
 again:
@@ -118,7 +117,6 @@ again:
   if (count > 3 && twidth > RP_DISPLAY3_WIDTH && edit_completions_max_width(env, 9) <= RP_DISPLAY3_MAX) {
     // display as a 3 column block
     count_displayed = (count > 9 ? 9 : count);
-    columns = 3;
     percolumn = 3;
     for (ssize_t rw = 0; rw < percolumn; rw++) {
       if (rw > 0) sbuf_append(eb->extra, "\n");
@@ -128,7 +126,6 @@ again:
   else if (count > 4 && twidth > RP_DISPLAY2_WIDTH && edit_completions_max_width(env, 8) <= RP_DISPLAY2_MAX) {
     // display as a 2 column block if some entries are too wide for three columns
     count_displayed = (count > 8 ? 8 : count);
-    columns = 2;
     percolumn = (count_displayed <= 6 ? 3 : 4);
     for (ssize_t rw = 0; rw < percolumn; rw++) {
       if (rw > 0) sbuf_append(eb->extra, "\n");
@@ -138,7 +135,6 @@ again:
   else {
     // display as a list
     count_displayed = (count > 9 ? 9 : count);
-    columns = 1;
     percolumn = count_displayed;
     for (ssize_t i = 0; i < count_displayed; i++) {
       if (i > 0) sbuf_append(eb->extra, "\n");

@@ -300,6 +300,12 @@ rp_public void rp_term_reset( void )  {
   term_attr_reset(env->term);
 }
 
+rp_public int rp_term_get_color_bits(void) {
+  rp_env_t* env = rp_get_env(); if (env==NULL) return 4;
+  return term_get_color_bits(env->term);
+}
+
+
 //-------------------------------------------------------------
 // Readline with temporary completer and highlighter
 //-------------------------------------------------------------

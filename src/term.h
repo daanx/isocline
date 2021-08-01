@@ -39,6 +39,7 @@ rp_private bool term_update_dim(term_t* term);
 
 rp_private ssize_t term_get_width(term_t* term);
 rp_private ssize_t term_get_height(term_t* term);
+rp_private int  term_get_color_bits(term_t* term);
 
 // Helpers
 rp_private bool term_writef(term_t* term, ssize_t max_needed, const char* fmt, ...);

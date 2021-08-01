@@ -139,7 +139,7 @@ rp_private bool skip_esc( const char* s, ssize_t len, ssize_t* esclen ) {
     ssize_t n = 2;
     while (len > n) {
       char c = s[n++];
-      if ((finalCSI && c >= 0x40 && c <= 0x7F) ||  // terminating byte: @A–Z[\]^_`a–z{|}~
+      if ((finalCSI && (uint8_t)c >= 0x40 && (uint8_t)c <= 0x7F) ||  // terminating byte: @A–Z[\]^_`a–z{|}~
           (!finalCSI && c == '\x07'))              // bell
       {
         if (esclen != NULL) *esclen = n;

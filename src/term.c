@@ -748,83 +748,6 @@ static bool term_write_direct(term_t* term, const char* s, ssize_t len ) {
 #endif
 
 
-//-------------------------------------------------------------
-// Enable/disable terminal raw mode
-//-------------------------------------------------------------
-
-#if !defined(_WIN32)
-
-// On non-windows, the terminal is set in raw mode by the tty.
-
-rp_private void term_start_raw(term_t* term) {
-  if (term->raw_enabled) return; 
-  //term_write(term,"\x1B[?7l");
-  term->raw_enabled = true;    
-}
-
-rp_private void term_end_raw(term_t* term) {
-  if (!term->raw_enabled) return;
-  //term_write(term,"\x1B[?7h");
-  term->raw_enabled = false;
-}
-
-static void term_init_raw(term_t* term) {
-  rp_unused(term);
-}
-
-#else
-
-rp_private void term_start_raw(term_t* term) {
-  if (term->raw_enabled) return;
-  CONSOLE_SCREEN_BUFFER_INFO info;
-  if (GetConsoleScreenBufferInfo( term->hcon, &info )) {
-    term->hcon_orig_attr = info.wAttributes;
-  }
-	GetConsoleMode( term->hcon, &term->hcon_orig_mode );
-  term->hcon_orig_cp = GetConsoleOutputCP(); 
-  SetConsoleOutputCP(CP_UTF8);
-  if (term->hcon_mode == 0) {
-    // first time initialization
-    DWORD mode = ENABLE_PROCESSED_OUTPUT | ENABLE_LVB_GRID_WORLDWIDE;   // for \r \n and \b    
-    // use escape sequence handling if available and the terminal supports it (so we can use rgb colors in Windows terminal)
-    // Unfortunately, in plain powershell, we can successfully enable terminal processing
-    // but it still fails to render correctly; so we require the palette be large enough (like in Windows Terminal)
-    if (term->palette >= ANSI256 && SetConsoleMode(term->hcon, mode | ENABLE_VIRTUAL_TERMINAL_PROCESSING)) {
-      term->hcon_mode = mode | ENABLE_VIRTUAL_TERMINAL_PROCESSING;
-    }
-    // no terminal processing
-    else if (SetConsoleMode(term->hcon, mode)) {
-      term->hcon_mode = mode;
-      term->palette = ANSI16;
-    }    
-    GetConsoleMode(term->hcon, &mode);
-    debug_msg("term: console mode: orig: 0x%x, new: 0x%x, current 0x%x\n", term->hcon_orig_mode, term->hcon_mode, mode);
-  }
-  else {
-    SetConsoleMode(term->hcon, term->hcon_mode );
-  }
-  term->raw_enabled = true;  
-}
-
-rp_private void term_end_raw(term_t* term) {
-  if (!term->raw_enabled) return;
-  SetConsoleMode( term->hcon, term->hcon_orig_mode );
-  SetConsoleOutputCP(term->hcon_orig_cp);
-  SetConsoleTextAttribute(term->hcon, term->hcon_orig_attr);
-  term->raw_enabled = false;
-}
-
-static void term_init_raw(term_t* term) {
-  term->hcon = GetStdHandle( STD_OUTPUT_HANDLE );
-  CONSOLE_SCREEN_BUFFER_INFO info;
-  if (GetConsoleScreenBufferInfo( term->hcon, &info )) {
-    term->hcon_default_attr = info.wAttributes;
-  }
-  term_start_raw(term); // initialize the hcon_mode
-  term_end_raw(term);
-}
-
-#endif
 
 //-------------------------------------------------------------
 // Update terminal dimensions
@@ -924,6 +847,102 @@ rp_private bool term_update_dim(term_t* term) {
   term->height = rows;
   debug_msg("term: update dim: %zd, %zd\n", term->height, term->width );
   return changed;
+}
+
+#endif
+
+
+
+//-------------------------------------------------------------
+// Enable/disable terminal raw mode
+//-------------------------------------------------------------
+
+#if !defined(_WIN32)
+
+// On non-windows, the terminal is set in raw mode by the tty.
+
+rp_private void term_start_raw(term_t* term) {
+  if (term->raw_enabled) return;
+  //term_write(term,"\x1B[?7l");
+  term->raw_enabled = true;
+}
+
+rp_private void term_end_raw(term_t* term) {
+  if (!term->raw_enabled) return;
+  //term_write(term,"\x1B[?7h");
+  term->raw_enabled = false;
+}
+
+static void term_init_raw(term_t* term) {
+  rp_unused(term);
+}
+
+#else
+
+rp_private void term_start_raw(term_t* term) {
+  if (term->raw_enabled) return;
+  CONSOLE_SCREEN_BUFFER_INFO info;
+  if (GetConsoleScreenBufferInfo(term->hcon, &info)) {
+    term->hcon_orig_attr = info.wAttributes;
+  }
+  GetConsoleMode(term->hcon, &term->hcon_orig_mode);
+  term->hcon_orig_cp = GetConsoleOutputCP();
+  SetConsoleOutputCP(CP_UTF8);
+  if (term->hcon_mode == 0) {
+    // first time initialization
+    DWORD mode = ENABLE_PROCESSED_OUTPUT | ENABLE_LVB_GRID_WORLDWIDE;   // for \r \n and \b    
+    // use escape sequence handling if available and the terminal supports it (so we can use rgb colors in Windows terminal)
+    // Unfortunately, in plain powershell, we can successfully enable terminal processing
+    // but it still fails to render correctly; so we require the palette be large enough (like in Windows Terminal)
+    if (term->palette >= ANSI256 && SetConsoleMode(term->hcon, mode | ENABLE_VIRTUAL_TERMINAL_PROCESSING)) {
+      term->hcon_mode = mode | ENABLE_VIRTUAL_TERMINAL_PROCESSING;
+      debug_msg("term: console mode: virtual terminal processing enabled\n");
+    }
+    // no terminal processing
+    else if (SetConsoleMode(term->hcon, mode)) {
+      term->hcon_mode = mode;
+      term->palette = ANSI16;
+    }
+    GetConsoleMode(term->hcon, &mode);
+    debug_msg("term: console mode: orig: 0x%x, new: 0x%x, current 0x%x\n", term->hcon_orig_mode, term->hcon_mode, mode);
+  }
+  else {
+    SetConsoleMode(term->hcon, term->hcon_mode);
+  }
+  term->raw_enabled = true;
+}
+
+rp_private void term_end_raw(term_t* term) {
+  if (!term->raw_enabled) return;
+  SetConsoleMode(term->hcon, term->hcon_orig_mode);
+  SetConsoleOutputCP(term->hcon_orig_cp);
+  SetConsoleTextAttribute(term->hcon, term->hcon_orig_attr);
+  term->raw_enabled = false;
+}
+
+static void term_init_raw(term_t* term) {
+  term->hcon = GetStdHandle(STD_OUTPUT_HANDLE);
+  CONSOLE_SCREEN_BUFFER_INFOEX info;
+  memset(&info, 0, sizeof(info));
+  info.cbSize = sizeof(info);
+  if (GetConsoleScreenBufferInfoEx(term->hcon, &info)) {
+    term->hcon_default_attr = info.wAttributes;
+    // update our color table with the actual colors used.    
+    for (unsigned i = 0; i < 16; i++) {
+      COLORREF cr = info.ColorTable[i];
+      uint32_t color = (GetRValue(cr)<<16) | (GetGValue(cr)<<8) | GetBValue(cr); // COLORREF = BGR
+      // index is also in reverse in the bits 0 and 2 
+      unsigned j = (i&0x08) | ((i&0x04)>>2) | (i&0x02) | (i&0x01)<<2;
+      debug_msg("term: remap ansi color %2d from 0x%06x to 0x%06x\n", j, ansi256[j], color);
+      ansi256[j] = color;
+    }    
+  }
+  else {
+    DWORD err = GetLastError();
+    debug_msg("term: cannot get console screen buffer: %d %x", err, err);
+  }
+  term_start_raw(term); // initialize the hcon_mode
+  term_end_raw(term);
 }
 
 #endif

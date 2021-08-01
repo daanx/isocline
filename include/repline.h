@@ -146,10 +146,24 @@ void rp_complete_quoted_word( rp_completion_env_t* cenv, const char* prefix, rp_
 // (Repline will automatically convert from RGB on terminals that do not support full colors)
 typedef uint32_t rp_color_t;
 
-#define RP_RGB(rgb)        ((rp_color_t)0x1000000 | (rgb))
-#define RP_RGBX(r,g,b)     RP_RGB((((rp_color_t)(r) & 0xFF) << 16) | (((rp_color_t)(g) & 0xFF) << 8) | ((rp_color_t)(b) & 0xFF))
+// Create a color from a 24-bit color value.
+static inline rp_color_t rp_rgb(uint32_t hex) {
+  return (rp_color_t)(0x1000000 | (hex & 0xFFFFFF));
+}
 
-// ANSI colors
+// Limit an int to values between 0 and 255.
+static inline uint32_t rp_cap8(long i) {
+  return (i < 0 ? 0 : (i > 255 ? 255 : (uint32_t)i));
+}
+
+// Create a color from a 24-bit color value
+#define RP_RGB(rgb)        rp_rgb(rgb)
+
+// Create a color from individual red, green, and blue value between 0 and 255
+#define RP_RGBX(r,g,b)     rp_rgb( rp_cap8(r)<<16 | rp_cap8(g)<<8 | rp_cap8(b) )
+
+// ANSI colors.
+// The actual colors used is usually determined by the terminal theme
 // See <https://en.wikipedia.org/wiki/ANSI_escape_code#3-bit_and_4-bit>
 #define RP_COLOR_NONE     (0)
 #define RP_ANSI_BLACK     (30)
@@ -171,6 +185,7 @@ typedef uint32_t rp_color_t;
 #define RP_ANSI_CYAN      (96)
 #define RP_ANSI_WHITE     (97)
 
+// Predifined RGB colors.
 #define RP_BLACK          RP_RGB(0x000000)
 #define RP_MAROON         RP_RGB(0x800000)
 #define RP_GREEN          RP_RGB(0x008000)
@@ -444,6 +459,17 @@ void rp_term_reverse( bool enable );
 
 // Reset the text attributes.
 void rp_term_reset( void );
+
+// Get the palette used by the terminal:
+// This is usually initialized from the COLORTERM environment variable. The 
+// possible values of COLORTERM for each palette are given in parenthesis.
+//  1: monochrome (monochrome)
+//  3: old ANSI terminal with 8 colors, using bold for bright (8color/3bit)
+//  4: regular ANSI terminal with 16 colors.     (16color/4bit)
+//  8: terminal with ANSI 256 color palette.     (256color/8bit)
+// 24: true-color terminal with full RGB colors. (truecolor/24bit)
+int rp_term_get_color_bits( void );
+
 
 
 //--------------------------------------------------------------
