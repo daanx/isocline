@@ -4,7 +4,7 @@
   under the terms of the MIT License. A copy of the license can be
   found in the "LICENSE" file at the root of this distribution.
 -----------------------------------------------------------------------------*/
-
+#include <windows.h>
 #include <stdio.h>
 #include <string.h>
 
@@ -720,10 +720,10 @@ static char* edit_line( rp_env_t* env, const char* prompt_text )
     
     // update terminal in case of a resize
     if (tty_term_resize_event(env->tty)) {
-      edit_resize(env,&eb);      
+      edit_resize(env,&eb);            
     }
 
-    // clear hint only after a potential resize (for correct row calculations)
+    // clear hint only after a potential resize (so resize row calculations are correct)
     const bool had_hint = (sbuf_len(eb.hint) > 0);
     sbuf_clear(eb.hint);
 
@@ -894,6 +894,7 @@ static char* edit_line( rp_env_t* env, const char* prompt_text )
         break;
       }
     }
+
   }
 
   // goto end

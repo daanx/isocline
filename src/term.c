@@ -420,8 +420,9 @@ static bool term_write_direct(term_t* term, const char* s, ssize_t len ) {
 #else
 
 //----------------------------------------------------------------------------------
-// On windows we do ansi escape emulation ourselves.
-// (for compat pre-win10 systems)
+// On windows we use the new virtual terminal processing if it is available (Windows Terminal)
+// but fall back to  ansi escape emulation on older systems but also for example
+// the PS terminal
 //
 // note: we use row/col as 1-based ANSI escape while windows X/Y coords are 0-based.
 //-----------------------------------------------------------------------------------
@@ -593,23 +594,21 @@ static void term_esc_attr( term_t* term, ssize_t cmd ) {
     }
     else if (cmd == 49) {  // default back ground
       attr = (attr & ~0xF0) | (def_attr & 0xF0);
-    }
+    }    
   }
   if (attr != cur_attr) {
     SetConsoleTextAttribute(term->hcon, attr);
   }
 }
 
-static ssize_t esc_param( const char* s, ssize_t len, ssize_t def ) {
-  rp_unused(len);
+static ssize_t esc_param( const char* s, ssize_t def ) {
   if (*s == '?') s++;
   ssize_t n = def;
   rp_atoz(s, &n);
   return n;
 }
 
-static void esc_param2( const char* s, ssize_t len, ssize_t* p1, ssize_t* p2, ssize_t def ) {
-  rp_unused(len);
+static void esc_param2( const char* s, ssize_t* p1, ssize_t* p2, ssize_t def ) {
   if (*s == '?') s++; 
   *p1 = def;
   *p2 = def;
@@ -622,20 +621,20 @@ static void term_write_esc( term_t* term, const char* s, ssize_t len ) {
 
   // ignore color?
   if (term->nocolor && s[1] == '[' && s[len-1] == 'm') {
-    ssize_t code = esc_param(s+2, len, 0);
+    ssize_t code = esc_param(s+2, 0);
     if ((code >= 30 && code <= 49) || (code >= 90 && code <= 107)) {
       return;  
     }
   }
-  
-  // use the builtin terminal processing? (enables truecolor for example)
+
+  // use the builtin virtual terminal processing? (enables truecolor for example)
   if ((term->hcon_mode & ENABLE_VIRTUAL_TERMINAL_PROCESSING) != 0) {
     term_write_console(term, s, len);
     return;
   }
   /*
   else if (s[1] == '[' && s[len-1] == 'm') {
-    ssize_t code = esc_param(s+2, len, 0);
+    ssize_t code = esc_param(s+2, 0);
     if ((code == 38 || code == 48)) {
       term_write_console(term, s, len);
     }
@@ -646,46 +645,46 @@ static void term_write_esc( term_t* term, const char* s, ssize_t len ) {
   if (s[1] == '[') {
     switch (s[len-1]) {
     case 'A':
-      term_move_cursor(term, -1, 0, esc_param(s+2, len, 1));
+      term_move_cursor(term, -1, 0, esc_param(s+2, 1));
       break;
     case 'B':
-      term_move_cursor(term, 1, 0, esc_param(s+2, len, 1));
+      term_move_cursor(term, 1, 0, esc_param(s+2, 1));
       break;
     case 'C':
-      term_move_cursor(term, 0, 1, esc_param(s+2, len, 1));
+      term_move_cursor(term, 0, 1, esc_param(s+2, 1));
       break;
     case 'D':
-      term_move_cursor(term, 0, -1, esc_param(s+2, len, 1));
+      term_move_cursor(term, 0, -1, esc_param(s+2, 1));
       break;
     case 'H': 
-      esc_param2(s+2, len, &row, &col, 1);
+      esc_param2(s+2, &row, &col, 1);
       term_move_cursor_to(term, row, col);
       break;
     case 'K':
-      term_erase_line(term, esc_param(s+2, len, 0));
+      term_erase_line(term, esc_param(s+2, 0));
       break;
-    case 'm':
-      term_esc_attr(term, esc_param(s+2, len, 0));
+    case 'm': 
+      term_esc_attr(term, esc_param(s+2, 0) );
       break;
 
     // support some less standard escape codes (currently not used by repline)
     case 'E':  // line down
       term_get_cursor_pos(term, &row, &col);
-      row += esc_param(s+2, len, 1);
+      row += esc_param(s+2, 1);
       term_move_cursor_to(term, row, 1);
       break;
     case 'F':  // line up
       term_get_cursor_pos(term, &row, &col);
-      row -= esc_param(s+2, len, 1);
+      row -= esc_param(s+2, 1);
       term_move_cursor_to(term, row, 1);
       break;
     case 'G':  // absolute column
       term_get_cursor_pos(term, &row, &col);
-      col = esc_param(s+2, len, 1);
+      col = esc_param(s+2, 1);
       term_move_cursor_to(term, row, col);
       break;
     case 'J': 
-      term_clear_screen(term, esc_param(s+2, len, 0));
+      term_clear_screen(term, esc_param(s+2, 0));
       break;
     case 'h':
       if (strncmp(s+2, "?25h", 4) == 0) {
@@ -912,14 +911,14 @@ static bool term_osc_query_color_raw(term_t* term, int color_idx, uint32_t* colo
   const char* rgb = strchr(buf,':');
   if (rgb==NULL) return false;
   rgb++; // skip ':'
-  int r,g,b;
+  unsigned int r,g,b;
   if (sscanf(rgb,"%x/%x/%x",&r,&g,&b) != 3) return false;
   if (rgb[2]!='/') { // 48-bit rgb, hexadecimal round to 24-bit     
     r = (r+0x7F)/0xFF; 
     g = (g+0x7F)/0xFF;
     b = (b+0x7F)/0xFF; 
   }
-  *color = (rp_cap8(r)<<16) | (rp_cap8(g) << 8) | rp_cap8(b);
+  *color = ((uint32_t)(r&0xFF)<<16) | ((g&0xFF) << 8) | (b&0xFF);
   return true;
 }
 
