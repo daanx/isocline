@@ -49,6 +49,7 @@ int main()
         rp_term_color(RP_RGBX(r, g, b));
         rp_write(AT);
       }
+      rp_write(" ");
     }
   }
   rp_term_reset();
@@ -63,6 +64,7 @@ int main()
         rp_term_color(RP_RGBX(r, g, b));
         rp_write(AT);
       }
+      rp_write(" ");
     }
   }
   rp_term_reset();
@@ -77,6 +79,7 @@ int main()
         rp_term_color(RP_RGBX(r,g,b));      
         rp_write(AT);        
       }
+      rp_write(" ");
     }    
   } 
   rp_term_reset();

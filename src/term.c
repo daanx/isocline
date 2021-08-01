@@ -251,20 +251,23 @@ rp_private term_t* term_new(alloc_t* mem, tty_t* tty, bool nocolor, bool silent,
   else if (rp_contains(colorterm,"4bit") || rp_contains(colorterm,"16color"))    { term->palette = ANSI16; }
   else if (rp_contains(colorterm,"3bit") || rp_contains(colorterm,"8color"))     { term->palette = ANSI8; }
   else if (rp_contains(colorterm,"1bit") || rp_contains(colorterm,"monochrome")) { term->palette = MONOCHROME; }
+  // then check for some specific terminals
   else if (getenv("WT_SESSION") != NULL) { term->palette = ANSIRGB; } // Windows terminal
+  else if (getenv("ITERM_SESSION_ID") != NULL) { term->palette = ANSIRGB; } // iTerm2 terminal
   else {
-    // fall back to checking TERM
+    // and fall back to checking TERM
     const char* eterm = getenv("TERM");
-    if (rp_contains(eterm,"xterm") || rp_contains(eterm,"256color") || 
-        rp_contains(eterm,"gnome") || rp_contains(eterm,"kitty")) 
-    { 
+    if (rp_contains(eterm,"kitty")) {
+      term->palette = ANSIRGB;
+    }
+    else if (rp_contains(eterm,"xterm") || rp_contains(eterm,"256color") || rp_contains(eterm,"gnome")) { 
       term->palette = ANSI256; 
     }  
     else if (rp_contains(eterm,"16color")){ term->palette = ANSI16; }
     else if (rp_contains(eterm,"8color")) { term->palette = ANSI8; }
     else if (rp_contains(eterm,"dumb"))   { term->palette = MONOCHROME; }
   }
-  debug_msg("term; palette: %d (COLORTERM=%s, TERM=%s)\n", term->palette, colorterm, term);
+  debug_msg("term; color-bits: %d (COLORTERM=%s, TERM=%s)\n", term_get_color_bits(term), colorterm, term);
   
   // read COLUMS/LINES from the environment for a better initial guess.
   const char* env_columns = getenv("COLUMNS");
@@ -793,7 +796,7 @@ rp_private bool term_update_dim(term_t* term) {
   ssize_t cols = 0;
   ssize_t rows = 0;
   struct winsize ws;
-  if (ioctl(1, TIOCGWINSZ, &ws) >= 0) {
+  if (ioctl(term->fd_out, TIOCGWINSZ, &ws) >= 0) {
     // ioctl succeeded
     cols = ws.ws_col;  // debuggers return 0 for the column
     rows = ws.ws_row;
@@ -873,8 +876,83 @@ rp_private void term_end_raw(term_t* term) {
   term->raw_enabled = false;
 }
 
+static bool term_osc_query_raw( term_t* term, const char* query, char* buf, ssize_t buflen ) 
+{
+  if (buf==NULL || buflen <= 0) return false;
+  if (!term_write_console(term, query, rp_strlen(query))) return false;
+  debug_msg("term: read tty query response to: ESC %s\n", query + 1);
+  
+  // parse query response 
+  buf[0] = 0;
+  ssize_t len = 0;
+  uint8_t c = 0;
+  if (!tty_readc_pause_noblock(term->tty,&c) || c != '\x1B') return false;
+  if (!tty_readc_noblock(term->tty,&c) || c != ']')    return false;
+  while( len < buflen ) {
+    if (!tty_readc_noblock(term->tty,&c)) return false;
+    if (c=='\x07') break;
+    if (c=='\x1B') {
+      uint8_t c1;
+      if (!tty_readc_noblock(term->tty,&c1)) return false;
+      if (c1=='\\') break;
+      tty_cpush_char(term->tty,c1);
+    }
+    buf[len++] = (char)c; 
+  }
+  buf[len] = 0;
+  debug_msg("term: query response: %s\n", buf);
+  return true;
+}
+
+static bool term_osc_query_color_raw(term_t* term, int color_idx, uint32_t* color ) {
+  char buf[128+1];
+  snprintf(buf,128,"\x1B]4;%d;?\x1B\\", color_idx);
+  if (!term_osc_query_raw( term, buf, buf, 128 )) return false;
+  if (!rp_starts_with(buf,"4;")) return false;
+  const char* rgb = strchr(buf,':');
+  if (rgb==NULL) return false;
+  rgb++; // skip ':'
+  int r,g,b;
+  if (sscanf(rgb,"%x/%x/%x",&r,&g,&b) != 3) return false;
+  if (rgb[2]!='/') { // 48-bit rgb, hexadecimal round to 24-bit     
+    r = (r+0x7F)/0xFF; 
+    g = (g+0x7F)/0xFF;
+    b = (b+0x7F)/0xFF; 
+  }
+  *color = (rp_cap8(r)<<16) | (rp_cap8(g) << 8) | rp_cap8(b);
+  return true;
+}
+
+// update ansi 16 color palette for better color approximation
+static void term_update_ansi16(term_t* term) {
+  #if defined(GIO_CMAP)
+  // try ioctl first (on Linux)
+  uint8_t cmap[48];
+  if (ioctl(term->fd_out,GIO_CMAP,&cmap) >= 0) {
+    // success
+    for(ssize_t i = 0; i < 48; i+=3) {
+      uint32_t color = ((uint32_t)(cmap[i]) << 16) | ((uint32_t)(cmap[i+1]) << 8) | cmap[i+2];
+      debug_msg("term ansi color %d: 0x%06x\n", i, color);
+      ansi256[i] = color;
+    }
+    return;
+  }
+  #endif
+  // otherwise use OSC 4 escape sequence query
+  tty_start_raw(term->tty);
+  for(ssize_t i = 0; i < 16; i++) {
+    uint32_t color;
+    if (!term_osc_query_color_raw(term, i, &color)) break;
+    debug_msg("term ansi color %d: 0x%06x\n", i, color);
+    ansi256[i] = color;
+  }
+  tty_end_raw(term->tty);  
+}
+
 static void term_init_raw(term_t* term) {
-  rp_unused(term);
+  if (term->palette <= ANSIRGB) {
+    term_update_ansi16(term);
+  }
 }
 
 #else
@@ -926,6 +1004,7 @@ static void term_init_raw(term_t* term) {
   memset(&info, 0, sizeof(info));
   info.cbSize = sizeof(info);
   if (GetConsoleScreenBufferInfoEx(term->hcon, &info)) {
+    // store default attributes
     term->hcon_default_attr = info.wAttributes;
     // update our color table with the actual colors used.    
     for (unsigned i = 0; i < 16; i++) {
@@ -933,7 +1012,7 @@ static void term_init_raw(term_t* term) {
       uint32_t color = (GetRValue(cr)<<16) | (GetGValue(cr)<<8) | GetBValue(cr); // COLORREF = BGR
       // index is also in reverse in the bits 0 and 2 
       unsigned j = (i&0x08) | ((i&0x04)>>2) | (i&0x02) | (i&0x01)<<2;
-      debug_msg("term: remap ansi color %2d from 0x%06x to 0x%06x\n", j, ansi256[j], color);
+      debug_msg("term: ansi color %d is 0x%06x\n", j, color);
       ansi256[j] = color;
     }    
   }
