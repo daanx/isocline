@@ -146,7 +146,7 @@ module System.Console.Repline(
       getPromptMarker,
       getContinuationPromptMarker,
       stopCompleting,
-      hasCompletionEnv,
+      hasCompletions,
 
       -- * Low-level highlighting
       HighlightEnv,      
@@ -530,8 +530,8 @@ stopCompleting (CompletionEnv rpc)
   = uncbool $ rp_stop_completing rpc
 
 -- | Have any completions be generated so far?
-hasCompletionEnv :: CompletionEnv -> IO Bool
-hasCompletionEnv (CompletionEnv rpc)
+hasCompletions :: CompletionEnv -> IO Bool
+hasCompletions (CompletionEnv rpc)
   = uncbool $ rp_has_completions rpc
 
 
@@ -881,7 +881,7 @@ enableCompletionPreview enable
 data Style
   = StylePrompt   -- ^ style for the prompt (text and marker) (`AnsiGreen` by default)
   | StyleInfo     -- ^ info: for example, numbers in the completion menu (`AnsiDarkGray` by default).
-  | StyleDiminish -- ^ diminish: for example, non matching parts in a history search (`LightGray` by default)
+  | StyleDiminish -- ^ diminish: for example, non matching parts in a history search (`AnsiLightGray` by default)
   | StyleEmphasis -- ^ emphasis: for example, the matching part in a history search (@'RGB' 0xFFFFD7@ by default).
   | StyleHint     -- ^ hint: for inline hints (`AnsiDarkGray` by default).
   deriving (Show,Eq,Enum)
