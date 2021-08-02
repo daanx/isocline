@@ -921,9 +921,9 @@ static char* edit_line( rp_env_t* env, const char* prompt_text )
   editstate_done(env->mem, &eb.undo);
   editstate_done(env->mem, &eb.redo);
   highlight_free(eb.henv);
-  sbuf_clear(eb.input);
-  sbuf_clear(eb.extra);
-  sbuf_clear(eb.hint);
+  sbuf_free(eb.input);
+  sbuf_free(eb.extra);
+  sbuf_free(eb.hint);
 
   return res;
 }

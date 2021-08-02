@@ -31,6 +31,7 @@ extra-source-files:
     src/repline.c
     src/stringbuf.c
     src/term.c
+    src/term_color.c
     src/tty.c
     src/tty_esc.c
     src/undo.c

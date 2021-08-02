@@ -22,17 +22,20 @@
 #include <unistd.h>
 #include <errno.h>
 #include <sys/ioctl.h>
+#if defined(__linux__)
+#include <linux/kd.h>
+#endif
 #endif
 
 #define RP_CSI      "\x1B["
 
-// color support
+// color support; colors are auto mapped smaller palettes if needed. (see `term_color.c`)
 typedef enum palette_e {
-  MONOCHROME,
-  ANSI8,
-  ANSI16,
-  ANSI256,
-  ANSIRGB
+  MONOCHROME,  // no color
+  ANSI8,       // only basic 8 ANSI color     (ESC[<idx>m, idx: 30-37, +10 for background)
+  ANSI16,      // basic + bright ANSI colors  (ESC[<idx>m, idx: 30-37, 90-97, +10 for background)
+  ANSI256,     // ANSI 256 color palette      (ESC[38;5;<idx>m, idx: 0-15 standard color, 16-231 6x6x6 rbg colors, 232-255 gray shades)
+  ANSIRGB      // direct rgb colors supported (ESC[38;2;<r>;<g>;<b>m)
 } palette_t;
 
 // The terminal screen
@@ -923,6 +926,7 @@ static void term_update_ansi16(term_t* term) {
   #if defined(GIO_CMAP)
   // try ioctl first (on Linux)
   uint8_t cmap[48];
+  memset(cmap,0,48);
   if (ioctl(term->fd_out,GIO_CMAP,&cmap) >= 0) {
     // success
     for(ssize_t i = 0; i < 48; i+=3) {
@@ -932,6 +936,9 @@ static void term_update_ansi16(term_t* term) {
     }
     return;
   }
+  else {
+    debug_msg("ioctl GIO_CMAP failed: entry 1: 0x%02x%02x%02x\n", cmap[3], cmap[4], cmap[5]);
+  }
   #endif
   // otherwise use OSC 4 escape sequence query
   tty_start_raw(term->tty);
@@ -940,12 +947,12 @@ static void term_update_ansi16(term_t* term) {
     if (!term_esc_query_color_raw(term, i, &color)) break;
     debug_msg("term ansi color %d: 0x%06x\n", i, color);
     ansi256[i] = color;
-  }
+  }  
   tty_end_raw(term->tty);  
 }
 
 static void term_init_raw(term_t* term) {
-  if (term->palette <= ANSIRGB) {
+  if (term->palette < ANSIRGB) {
     term_update_ansi16(term);
   }
 }
@@ -971,7 +978,7 @@ rp_private void term_start_raw(term_t* term) {
       term->hcon_mode = mode | ENABLE_VIRTUAL_TERMINAL_PROCESSING;
       debug_msg("term: console mode: virtual terminal processing enabled\n");
     }
-    // no terminal processing
+    // no virtual terminal processing, emulate instead
     else if (SetConsoleMode(term->hcon, mode)) {
       term->hcon_mode = mode;
       term->palette = ANSI16;

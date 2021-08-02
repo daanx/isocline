@@ -12,11 +12,11 @@
 //-------------------------------------------------------------
 
 static uint32_t ansi256[256] = {   
-  // not const as on some platforms (e.g. Windows) we update the first 16 entries with the actual used colors.
-  // standard ansi
+  // not const as on some platforms (e.g. Windows, xterm) we update the first 16 entries with the actual used colors.
+  // standard ANSI
   0x000000,0x800000,0x008000,0x808000,0x000080,0x800080,0x008080,0xc0c0c0,
 
-  // bright ansi
+  // bright ANSI
   0x808080, 0xff0000,0x00ff00,0xffff00,0x0000ff,0xff00ff,0x00ffff,0xffffff,
 
   // 6x6x6 colors
@@ -95,7 +95,7 @@ static bool is_grayish(int r, int g, int b) {
 // We do not take the square root as we only need to find 
 // the minimal distance (and multiply by 256 to increase precision).
 // Needs at least 28-bit signed integers to avoid overflow. 
-static int_least32_t rgb_dist( uint32_t color, int r2, int g2, int b2 ) {
+static int_least32_t rgb_distance( uint32_t color, int r2, int g2, int b2 ) {
   int r1, g1, b1;
   color_to_rgb(RP_RGB(color),&r1,&g1,&b1);
   int_least32_t rmean = (r1 + r2) / 2;
@@ -110,11 +110,9 @@ static int_least32_t rgb_dist( uint32_t color, int r2, int g2, int b2 ) {
   return dist;
 }
 
-// Maintain a small cache of recently used colors
-// should be short enough to be effectively constant time.
-// If we use a more expensive color distance method, we may 
-// increase the size a bit (64?) 
-// Initial zero initialized cache is valid.
+// Maintain a small cache of recently used colors. Should be short enough to be effectively constant time.
+// If we use a more expensive color distance method, we may increase the size a bit (64?) 
+// (Initial zero initialized cache is valid.)
 #define RGB_CACHE_LEN (16)
 typedef struct rgb_cache_s {
   int        last;
@@ -131,7 +129,7 @@ void rgb_remember( rgb_cache_t* cache, rp_color_t color, int idx ) {
   if (cache->last >= RGB_CACHE_LEN) { cache->last = 0; }
 }
 
-// Quick lookup in cache; -1 on failure
+// quick lookup in cache; -1 on failure
 int rgb_lookup( const rgb_cache_t* cache, rp_color_t color ) {
   if (cache != NULL) {
     for(int i = 0; i < RGB_CACHE_LEN; i++) {
@@ -141,7 +139,7 @@ int rgb_lookup( const rgb_cache_t* cache, rp_color_t color ) {
   return -1;
 }
 
-// Return the index of the closest matching color
+// return the index of the closest matching color
 static int rgb_match( uint32_t* palette, int start, int len, rgb_cache_t* cache, rp_color_t color ) {
   assert(color_is_rgb(color));
   // in cache?
@@ -155,7 +153,7 @@ static int rgb_match( uint32_t* palette, int start, int len, rgb_cache_t* cache,
   min = start;
   int_least32_t mindist = INT_LEAST32_MAX;
   for(int i = start; i < len; i++) {
-    int_least32_t dist = rgb_dist(palette[i],r,g,b);
+    int_least32_t dist = rgb_distance(palette[i],r,g,b);
     if (dist < mindist) {
       min = i;
       mindist = dist;
@@ -288,10 +286,10 @@ rp_private void term_append_color(term_t* term, stringbuf_t* sbuf, rp_color_t co
 rp_private int term_get_color_bits(term_t* term) {
   switch (term->palette) {
   case MONOCHROME: return 1;
-  case ANSI8: return 3;
-  case ANSI16: return 4;
-  case ANSI256: return 8;
-  case ANSIRGB: return 24;
-  default: return 4;
+  case ANSI8:      return 3;
+  case ANSI16:     return 4;
+  case ANSI256:    return 8;
+  case ANSIRGB:    return 24;
+  default:         return 4;
   }
 }
