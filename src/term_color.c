@@ -93,7 +93,7 @@ static bool is_grayish(int r, int g, int b) {
 // Approximation to delta-E CIE color distance using much 
 // simpler calculations. See <https://www.compuphase.com/cmetric.htm>
 // We do not take the square root as we only need to find 
-// the minimal distance (and multiply by 512 to increase precision).
+// the minimal distance (and multiply by 256 to increase precision).
 // Needs at least 28-bit signed integers to avoid overflow. 
 static int_least32_t rgb_dist( uint32_t color, int r2, int g2, int b2 ) {
   int r1, g1, b1;
@@ -149,7 +149,6 @@ static int rgb_match( uint32_t* palette, int start, int len, rgb_cache_t* cache,
   if (min >= 0) {
     return min;
   }
-
   // otherwise find closest color match in the palette
   int r, g, b;
   color_to_rgb(color,&r,&g,&b);
