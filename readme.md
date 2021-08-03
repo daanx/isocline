@@ -2,12 +2,12 @@
 
 <img align="right" width="400px" src="doc/completion-macos.png"/>
 
-# Repline> <br>a portable readline alternative.
+# Isocline> <br>a portable readline alternative.
 
-Repline is a pure C library that can be used as readline alternative. 
+Isocline is a pure C library that can be used as readline alternative. 
 
 - Small: less than 6k lines and can be compiled as a single C file without 
-  any dependencies or configuration (e.g. `gcc -c src/repline.c`).
+  any dependencies or configuration (e.g. `gcc -c src/isocline.c`).
   
 - Portable: works on Unix, Windows, and macOS, and uses a minimal
   subset of ANSI escape sequences.
@@ -17,7 +17,7 @@ Repline is a pure C library that can be used as readline alternative.
   
 - License: MIT. 
 
-- Comes with a [Haskell] binding (`System.Console.Repline`).
+- Comes with a [Haskell] binding (`System.Console.Isocline`).
 
 Enjoy,
   Daan
@@ -32,15 +32,15 @@ Shows in order: syntax highlighting, multiline editing, 24-bit colors, inline hi
 
 # Usage
 
-Include the repline header in your C or C++ source:
+Include the isocline header in your C or C++ source:
 ```C
-#include <include/repline.h>
+#include <include/isocline.h>
 ```
 
-and call `rp_readline` to get user input with rich editing abilities:
+and call `ic_readline` to get user input with rich editing abilities:
 ```C
 char* input;
-while( (input = rp_readline("prompt")) != NULL ) { // ctrl+d/c or errors return NULL
+while( (input = ic_readline("prompt")) != NULL ) { // ctrl+d/c or errors return NULL
   printf("you typed:\n%s\n", input); // use the input
   free(input);  
 }
@@ -53,20 +53,20 @@ See the [example] for a full example with completion, history, etc.
 
 You can compile and run the [example] as:
 ```
-$ gcc -o example -Iinclude test/example.c src/repline.c
+$ gcc -o example -Iinclude test/example.c src/isocline.c
 $ ./example
 ```
 
 or, the Haskell [example][HaskellExample]:
 ```
-$ ghc -ihaskell test/Example.hs src/repline.c
+$ ghc -ihaskell test/Example.hs src/isocline.c
 $ ./test/Example
 ```
 
 
-# Editing with Repline
+# Editing with Isocline
 
-Repline tries to be as compatible as possible with standard [GNU Readline] key bindings.
+Isocline tries to be as compatible as possible with standard [GNU Readline] key bindings.
 
 ### Overview:
 ```apl
@@ -85,7 +85,7 @@ Repline tries to be as compatible as possible with standard [GNU Readline] key b
 
 ### Key Bindings
 
-These are also shown when pressing `F1` on a Repline prompt. We use `^` as a shorthand for `ctrl-`:
+These are also shown when pressing `F1` on a Isocline prompt. We use `^` as a shorthand for `ctrl-`:
 
 | Navigation        |                                                 |
 |-------------------|-------------------------------------------------|
@@ -155,14 +155,14 @@ See the Haskell [readme][Haskell] for instructions to build the Haskell library.
 
 Clone the repository and run cmake to build a static library (`.a`/`.lib`):
 ```
-$ git clone https://github.com/daanx/repline
-$ cd repline
+$ git clone https://github.com/daanx/isocline
+$ cd isocline
 $ mkdir -p build/release
 $ cd build/release
 $ cmake ../..
 $ cmake --build .
 ```
-This builds a static library `librepline.a` (or `repline.lib` on Windows)
+This builds a static library `librepline.a` (or `isocline.lib` on Windows)
 and the example program:
 ```
 $ ./example
@@ -172,20 +172,20 @@ $ ./example
 
 Copy the sources (in `include` and `src`) into your project, or add the library as a [submodule]:
 ```
-$ git submodule add https://github.com/daanx/repline
+$ git submodule add https://github.com/daanx/isocline
 ```
-and add `repline/src/repline.c` to your build rules -- no configuration is needed. 
+and add `isocline/src/isocline.c` to your build rules -- no configuration is needed. 
 
 
 # C Interface
 
-See [repline.h](https://github.com/daanx/repline/blob/main/include/repline.h) for the full API,
+See [isocline.h](https://github.com/daanx/isocline/blob/main/include/isocline.h) for the full API,
 and the [example] for example usage of history, completion, etc.
 
 
 # Motivation
 
-Repline was created for use in the [Koka] interactive compiler. 
+Isocline was created for use in the [Koka] interactive compiler. 
 This required: pure C (no dependency on a C++ runtime or other libraries), 
 portable (across Linux, macOS, and Windows), unicode support, 
 a BSD-style license, and good functionality for completion and multi-line editing.
@@ -200,9 +200,9 @@ Some other excellent libraries that we considered:
 [GNU readline]: https://tiswww.case.edu/php/chet/readline/rltop.html
 [koka]: http://www.koka-lang.org
 [submodule]: https://git-scm.com/book/en/v2/Git-Tools-Submodules
-[Haskell]: https://github.com/daanx/repline/tree/main/haskell
-[HaskellExample]: https://github.com/daanx/repline/blob/main/test/Example.hs
-[example]: https://github.com/daanx/repline/blob/main/test/example.c
+[Haskell]: https://github.com/daanx/isocline/tree/main/haskell
+[HaskellExample]: https://github.com/daanx/isocline/blob/main/test/Example.hs
+[example]: https://github.com/daanx/isocline/blob/main/test/example.c
 
 <!--
 ## Potential Future Extensions
