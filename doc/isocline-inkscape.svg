@@ -8,7 +8,7 @@
    version="1.1"
    id="svg5"
    inkscape:version="1.1 (c68e22c387, 2021-05-23)"
-   sodipodi:docname="isocline-orig.svg"
+   sodipodi:docname="isocline-inkscape.svg"
    inkscape:export-filename="C:\Users\daan\dev\isocline\doc\isocline-1.png"
    inkscape:export-xdpi="96"
    inkscape:export-ydpi="96"
@@ -27,7 +27,7 @@
      inkscape:document-units="px"
      showgrid="false"
      inkscape:zoom="1.1490485"
-     inkscape:cx="294.59157"
+     inkscape:cx="295.46185"
      inkscape:cy="267.17758"
      inkscape:window-width="1920"
      inkscape:window-height="1018"
@@ -366,11 +366,11 @@
        inkscape:original-d="M -1.9538462,116.25385 C 5.4276177,109.5242 12.808666,102.79442 20.189745,96.064106 c 10.855181,-0.325383 21.709456,-0.65101 32.564102,-0.976921 6.296113,10.095325 12.59159,20.189795 18.887181,30.284615 9.552596,3.90804 19.104538,7.81565 28.656412,11.72308"
        sodipodi:nodetypes="ccccc" />
     <rect
-       style="fill:none;stroke:#000000;stroke-width:2.64583;stroke-linecap:round;stroke-linejoin:round;stroke-miterlimit:4;stroke-dasharray:none;stroke-opacity:1"
+       style="fill:none;stroke:#000000;stroke-width:2.48668;stroke-linecap:round;stroke-linejoin:miter;stroke-miterlimit:4;stroke-dasharray:none;stroke-opacity:1"
        id="rect11183"
-       width="141.65384"
-       height="141.3282"
-       x="-3.2564106"
-       y="-3.2564104" />
+       width="132.98"
+       height="132.98"
+       x="1.2433392"
+       y="1.2433392" />
   </g>
 </svg>

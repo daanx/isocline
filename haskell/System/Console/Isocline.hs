@@ -11,7 +11,7 @@ License     : MIT
 Maintainer  : daan@effp.org
 Stability   : Experimental
 
-A Haskell wrapper around the [Isocline C library](https://github.com/daanx/isocline#readme) 
+![logo](https://raw.githubusercontent.com/daanx/isocline/main/doc/isocline-inline.svg) A Haskell wrapper around the [Isocline C library](https://github.com/daanx/isocline#readme) 
 which can provide an alternative to GNU Readline.
 (The Isocline library is included whole and not a separate dependency).
 

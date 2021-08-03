@@ -29,7 +29,7 @@ int main()
 {
   // ic_writeln handles basic escape sequences in a portable way
   ic_writeln(
-    "\n\x1B[33mRepline sample program:\x1B[0m\n"
+    "\n\x1B[33mIsocline sample program:\x1B[0m\n"
     "- Type 'exit' to quit. (or use ctrl+d).\n"
     "- Press F1 for help on editing commands.\n"
     "- Use shift+tab for multiline input. (or ctrl+enter, or ctrl+j)\n"
