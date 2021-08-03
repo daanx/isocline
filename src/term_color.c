@@ -74,11 +74,11 @@ static uint32_t ansi256[256] = {
 // Match an rgb color to a ansi8, ansi16, or ansi256
 //-------------------------------------------------------------
 
-static bool color_is_rgb( rp_color_t color ) {
-  return (color >= RP_RGB(0));  // bit 24 is set for rgb colors
+static bool color_is_rgb( ic_color_t color ) {
+  return (color >= IC_RGB(0));  // bit 24 is set for rgb colors
 }
 
-static void color_to_rgb(rp_color_t color, int* r, int* g, int* b) {
+static void color_to_rgb(ic_color_t color, int* r, int* g, int* b) {
   assert(color_is_rgb(color));
   *r = ((color >> 16) & 0xFF);
   *g = ((color >> 8) & 0xFF);
@@ -97,7 +97,7 @@ static bool is_grayish(int r, int g, int b) {
 // Needs at least 28-bit signed integers to avoid overflow. 
 static int_least32_t rgb_distance( uint32_t color, int r2, int g2, int b2 ) {
   int r1, g1, b1;
-  color_to_rgb(RP_RGB(color),&r1,&g1,&b1);
+  color_to_rgb(IC_RGB(color),&r1,&g1,&b1);
   int_least32_t rmean = (r1 + r2) / 2;
   int_least32_t dr = r1 - r2;
   int_least32_t dg = g1 - g2;
@@ -117,11 +117,11 @@ static int_least32_t rgb_distance( uint32_t color, int r2, int g2, int b2 ) {
 typedef struct rgb_cache_s {
   int        last;
   int        indices[RGB_CACHE_LEN];
-  rp_color_t colors[RGB_CACHE_LEN];
+  ic_color_t colors[RGB_CACHE_LEN];
 } rgb_cache_t;
 
 // remember a color in the cache
-void rgb_remember( rgb_cache_t* cache, rp_color_t color, int idx ) {
+void rgb_remember( rgb_cache_t* cache, ic_color_t color, int idx ) {
   if (cache == NULL) return;
   cache->colors[cache->last] = color;
   cache->indices[cache->last] = idx;
@@ -130,7 +130,7 @@ void rgb_remember( rgb_cache_t* cache, rp_color_t color, int idx ) {
 }
 
 // quick lookup in cache; -1 on failure
-int rgb_lookup( const rgb_cache_t* cache, rp_color_t color ) {
+int rgb_lookup( const rgb_cache_t* cache, ic_color_t color ) {
   if (cache != NULL) {
     for(int i = 0; i < RGB_CACHE_LEN; i++) {
       if (cache->colors[i] == color) return cache->indices[i];
@@ -140,7 +140,7 @@ int rgb_lookup( const rgb_cache_t* cache, rp_color_t color ) {
 }
 
 // return the index of the closest matching color
-static int rgb_match( uint32_t* palette, int start, int len, rgb_cache_t* cache, rp_color_t color ) {
+static int rgb_match( uint32_t* palette, int start, int len, rgb_cache_t* cache, ic_color_t color ) {
   assert(color_is_rgb(color));
   // in cache?
   int min = rgb_lookup(cache,color);
@@ -165,7 +165,7 @@ static int rgb_match( uint32_t* palette, int start, int len, rgb_cache_t* cache,
 
 
 // Match RGB to an index in the ANSI 256 color table
-static int rgb_to_ansi256(rp_color_t color) {
+static int rgb_to_ansi256(ic_color_t color) {
   static rgb_cache_t ansi256_cache;
   int c = rgb_match(ansi256, 16, 256, &ansi256_cache, color); // not the first 16 ANSI colors as those may be different 
   //debug_msg("term: rgb %x -> ansi 256: %d\n", color, c );
@@ -173,7 +173,7 @@ static int rgb_to_ansi256(rp_color_t color) {
 }
 
 // Match RGB to an ANSI 16 color code (30-37, 90-97)
-static int color_to_ansi16(rp_color_t color) {
+static int color_to_ansi16(ic_color_t color) {
   if (!color_is_rgb(color)) {
     return (int)color;
   }
@@ -187,7 +187,7 @@ static int color_to_ansi16(rp_color_t color) {
 
 // Match RGB to an ANSI 16 color code (30-37, 90-97)
 // but assuming the bright colors are simulated using 'bold'.
-static int color_to_ansi8(rp_color_t color) {
+static int color_to_ansi8(ic_color_t color) {
   if (!color_is_rgb(color)) {
     return (int)color;
   }
@@ -209,42 +209,42 @@ static int color_to_ansi8(rp_color_t color) {
 // Emit color escape codes based on the terminal capability
 //-------------------------------------------------------------
 
-static void fmt_color_ansi8( char* buf, ssize_t len, rp_color_t color, bool bg ) {
+static void fmt_color_ansi8( char* buf, ssize_t len, ic_color_t color, bool bg ) {
   int c = color_to_ansi8(color) + (bg ? 10 : 0);
   if (c >= 90) {
-    snprintf(buf, to_size_t(len), RP_CSI "1;%dm", c - 60);    
+    snprintf(buf, to_size_t(len), IC_CSI "1;%dm", c - 60);    
   }
   else {
-    snprintf(buf, to_size_t(len), RP_CSI "22;%dm", c );  
+    snprintf(buf, to_size_t(len), IC_CSI "22;%dm", c );  
   }
 }
 
-static void fmt_color_ansi16( char* buf, ssize_t len, rp_color_t color, bool bg ) {
-  snprintf( buf, to_size_t(len), RP_CSI "%dm", color_to_ansi16(color) + (bg ? 10 : 0) );  
+static void fmt_color_ansi16( char* buf, ssize_t len, ic_color_t color, bool bg ) {
+  snprintf( buf, to_size_t(len), IC_CSI "%dm", color_to_ansi16(color) + (bg ? 10 : 0) );  
 }
 
-static void fmt_color_ansi256( char* buf, ssize_t len,  rp_color_t color, bool bg ) {
+static void fmt_color_ansi256( char* buf, ssize_t len,  ic_color_t color, bool bg ) {
   if (!color_is_rgb(color)) {
     fmt_color_ansi16(buf,len,color,bg);
   }
   else {
-    snprintf( buf, to_size_t(len), RP_CSI "%d;5;%dm", (bg ? 48 : 38), rgb_to_ansi256(color) );  
+    snprintf( buf, to_size_t(len), IC_CSI "%d;5;%dm", (bg ? 48 : 38), rgb_to_ansi256(color) );  
   }
 }
 
-static void fmt_color_rgb( char* buf, ssize_t len, rp_color_t color, bool bg ) {
+static void fmt_color_rgb( char* buf, ssize_t len, ic_color_t color, bool bg ) {
   if (!color_is_rgb(color)) {
     fmt_color_ansi16(buf,len,color,bg);
   }
   else {
     int r,g,b;
     color_to_rgb(color, &r,&g,&b);
-    snprintf( buf, to_size_t(len), RP_CSI "%d;2;%d;%d;%dm", (bg ? 48 : 38), r, g, b );  
+    snprintf( buf, to_size_t(len), IC_CSI "%d;2;%d;%d;%dm", (bg ? 48 : 38), r, g, b );  
   }
 }
 
-static void fmt_color_ex(char* buf, ssize_t len, palette_t palette, rp_color_t color, bool bg) {
-  if (color == RP_COLOR_NONE || palette == MONOCHROME) return;
+static void fmt_color_ex(char* buf, ssize_t len, palette_t palette, ic_color_t color, bool bg) {
+  if (color == IC_COLOR_NONE || palette == MONOCHROME) return;
   if (palette == ANSI8) {
     fmt_color_ansi8(buf,len,color,bg);
   }
@@ -259,7 +259,7 @@ static void fmt_color_ex(char* buf, ssize_t len, palette_t palette, rp_color_t c
   }
 }
 
-static void term_color_ex(term_t* term, rp_color_t color, bool bg) {
+static void term_color_ex(term_t* term, ic_color_t color, bool bg) {
   char buf[128+1];
   fmt_color_ex(buf,128,term->palette,color,bg);
   term_write(term,buf);
@@ -269,21 +269,21 @@ static void term_color_ex(term_t* term, rp_color_t color, bool bg) {
 // Main API functions
 //-------------------------------------------------------------
 
-rp_private void term_color(term_t* term, rp_color_t color) {
+ic_private void term_color(term_t* term, ic_color_t color) {
   term_color_ex(term,color,false);
 }
 
-rp_private void term_bgcolor(term_t* term, rp_color_t color) {
+ic_private void term_bgcolor(term_t* term, ic_color_t color) {
   term_color_ex(term,color,true);
 }
 
-rp_private void term_append_color(term_t* term, stringbuf_t* sbuf, rp_color_t color) {
+ic_private void term_append_color(term_t* term, stringbuf_t* sbuf, ic_color_t color) {
   char buf[128+1];
   fmt_color_ex(buf,128,term->palette,color,false);
   sbuf_append(sbuf,buf);
 }
 
-rp_private int term_get_color_bits(term_t* term) {
+ic_private int term_get_color_bits(term_t* term) {
   switch (term->palette) {
   case MONOCHROME: return 1;
   case ANSI8:      return 3;

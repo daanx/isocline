@@ -7,7 +7,7 @@
 #include <string.h>
 #include <stdio.h>
 
-#include "../include/repline.h"
+#include "../include/isocline.h"
 #include "common.h"
 #include "env.h"
 #include "stringbuf.h"
@@ -25,11 +25,11 @@ struct editstate_s {
   ssize_t     pos;            // cursor position
 };
 
-rp_private void editstate_init( editstate_t** es ) {
+ic_private void editstate_init( editstate_t** es ) {
   *es = NULL;
 }
 
-rp_private void editstate_done( alloc_t* mem, editstate_t** es ) {
+ic_private void editstate_done( alloc_t* mem, editstate_t** es ) {
   while (*es != NULL) {
     editstate_t* next = (*es)->next;
     mem_free(mem, (*es)->input);
@@ -39,7 +39,7 @@ rp_private void editstate_done( alloc_t* mem, editstate_t** es ) {
   *es = NULL;
 }
 
-rp_private void editstate_capture( alloc_t* mem, editstate_t** es, const char* input, ssize_t pos) {
+ic_private void editstate_capture( alloc_t* mem, editstate_t** es, const char* input, ssize_t pos) {
   if (input==NULL) input = "";
   // alloc
   editstate_t* entry = mem_zalloc_tp(mem, editstate_t);
@@ -54,7 +54,7 @@ rp_private void editstate_capture( alloc_t* mem, editstate_t** es, const char* i
 }
 
 // caller should free *input
-rp_private bool editstate_restore( alloc_t* mem, editstate_t** es, const char** input, ssize_t* pos ) {
+ic_private bool editstate_restore( alloc_t* mem, editstate_t** es, const char** input, ssize_t* pos ) {
   if (*es == NULL) return false;
   // pop 
   editstate_t* entry = *es;

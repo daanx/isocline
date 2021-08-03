@@ -16,7 +16,7 @@
     </ClCompile>    
   </ItemGroup>
   <ItemGroup>
-    <ClInclude Include="..\..\include\repline.h">
+    <ClInclude Include="..\..\include\isocline.h">
       <Filter>Header Files</Filter>
     </ClInclude>
   </ItemGroup>

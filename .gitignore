@@ -12,4 +12,4 @@ dist/
 *_stub.h
 *.lock
 history.txt
-repline.debug.txt
+isocline.debug.txt

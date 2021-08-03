@@ -5,7 +5,7 @@
   found in the "LICENSE" file at the root of this distribution.
 ---------------------------------------------------------------------------- -}
 
-import System.Console.Repline
+import System.Console.Isocline
 import Data.List (isPrefixOf)
 import Data.Char 
 import Control.Monad( when )
@@ -18,7 +18,7 @@ main
        setStyleColor StylePrompt AnsiMaroon  
        interaction
   where
-    welcome = "\n\x1B[33mHaskell Repline sample program:\x1B[0m\n" ++
+    welcome = "\n\x1B[33mHaskell Isocline sample program:\x1B[0m\n" ++
               "- Type 'exit' to quit. (or use ctrl+d).\n" ++
               "- Press F1 for help on editing commands.\n" ++
               "- Use shift+tab for multiline input (or ctrl-enter).\n" ++
@@ -60,9 +60,9 @@ wordCompletions input0
               , ("Koka — fn(x){ x }",  "fn(x){ x }")
               , ("Ocaml — fun x -> x", "fun x -> x")]
          else []) ++
-       -- add many hello repline completions; we should generate these lazily!
-       (if (not (null input) && input `isPrefixOf` "hello repline ") 
-         then map (\i -> completion ("hello repline " ++ show i)) [1..100000]
+       -- add many hello isocline completions; we should generate these lazily!
+       (if (not (null input) && input `isPrefixOf` "hello isocline ") 
+         then map (\i -> completion ("hello isocline " ++ show i)) [1..100000]
          else [])
   
 

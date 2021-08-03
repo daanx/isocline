@@ -90,14 +90,14 @@ static ssize_t str_column_width_n( const char* s, ssize_t len ) {
   return cwidth;
 }
 
-rp_private ssize_t str_column_width( const char* s ) {
-  return str_column_width_n( s, rp_strlen(s) );
+ic_private ssize_t str_column_width( const char* s ) {
+  return str_column_width_n( s, ic_strlen(s) );
 }
 
-rp_private const char* str_skip_until_fit( const char* s, ssize_t max_width ) {
+ic_private const char* str_skip_until_fit( const char* s, ssize_t max_width ) {
   if (s == NULL) return s;
   ssize_t cwidth = str_column_width(s);
-  ssize_t len    = rp_strlen(s);
+  ssize_t len    = ic_strlen(s);
   ssize_t pos = 0;
   ssize_t next;
   ssize_t cw;
@@ -114,7 +114,7 @@ rp_private const char* str_skip_until_fit( const char* s, ssize_t max_width ) {
 //-------------------------------------------------------------
 
 // get offset of the previous codepoint. does not skip back over CSI sequences.
-rp_private ssize_t str_prev_ofs( const char* s, ssize_t pos, ssize_t* width ) {
+ic_private ssize_t str_prev_ofs( const char* s, ssize_t pos, ssize_t* width ) {
   ssize_t ofs = 0;
   if (s != NULL && pos > 0) {
     ofs = 1;
@@ -130,7 +130,7 @@ rp_private ssize_t str_prev_ofs( const char* s, ssize_t pos, ssize_t* width ) {
 
 // skip an escape sequence
 // <https://www.xfree86.org/current/ctlseqs.html>
-rp_private bool skip_esc( const char* s, ssize_t len, ssize_t* esclen ) {  
+ic_private bool skip_esc( const char* s, ssize_t len, ssize_t* esclen ) {  
   if (s == NULL || len <= 1 || s[0] != '\x1B') return false;
   if (esclen != NULL) *esclen = 0;
   if (strchr("[PX^_]",s[1]) != NULL) {
@@ -166,7 +166,7 @@ rp_private bool skip_esc( const char* s, ssize_t len, ssize_t* esclen ) {
 }
 
 // Offset to the next codepoint, treats CSI escape sequences as a single code point.
-rp_private ssize_t str_next_ofs( const char* s, ssize_t len, ssize_t pos, ssize_t* cwidth ) {
+ic_private ssize_t str_next_ofs( const char* s, ssize_t len, ssize_t pos, ssize_t* cwidth ) {
   ssize_t ofs = 0;
   if (s != NULL && len > pos) {
     if (skip_esc(s+pos,len-pos,&ofs)) {
@@ -198,7 +198,7 @@ static ssize_t str_limit_to_length( const char* s, ssize_t n ) {
 //-------------------------------------------------------------
 
 
-static ssize_t str_find_backward( const char* s, ssize_t len, ssize_t pos, rp_is_char_class_fun_t* match, bool skip_immediate_matches ) {
+static ssize_t str_find_backward( const char* s, ssize_t len, ssize_t pos, ic_is_char_class_fun_t* match, bool skip_immediate_matches ) {
   if (pos > len) pos = len;
   if (pos < 0) pos = 0;
   ssize_t i = pos;
@@ -225,7 +225,7 @@ static ssize_t str_find_backward( const char* s, ssize_t len, ssize_t pos, rp_is
   return -1; // not found
 }
 
-static ssize_t str_find_forward( const char* s, ssize_t len, ssize_t pos, rp_is_char_class_fun_t* match, bool skip_immediate_matches ) {
+static ssize_t str_find_forward( const char* s, ssize_t len, ssize_t pos, ic_is_char_class_fun_t* match, bool skip_immediate_matches ) {
   if (s == NULL || len < 0) return -1;
   if (pos > len) pos = len;
   if (pos < 0) pos = 0;  
@@ -269,22 +269,22 @@ static ssize_t str_find_line_end( const char* s, ssize_t len, ssize_t pos) {
 }
 
 static ssize_t str_find_word_start( const char* s, ssize_t len, ssize_t pos) {
-  ssize_t start = str_find_backward(s,len,pos, &rp_char_is_idletter,true /* skip immediate matches */);
+  ssize_t start = str_find_backward(s,len,pos, &ic_char_is_idletter,true /* skip immediate matches */);
   return (start < 0 ? 0 : start); 
 }
 
 static ssize_t str_find_word_end( const char* s, ssize_t len, ssize_t pos) {
-  ssize_t end = str_find_forward(s,len,pos,&rp_char_is_idletter,true /* skip immediate matches */);
+  ssize_t end = str_find_forward(s,len,pos,&ic_char_is_idletter,true /* skip immediate matches */);
   return (end < 0 ? len : end); 
 }
 
 static ssize_t str_find_ws_word_start( const char* s, ssize_t len, ssize_t pos) {
-  ssize_t start = str_find_backward(s,len,pos,&rp_char_is_white,true /* skip immediate matches */);
+  ssize_t start = str_find_backward(s,len,pos,&ic_char_is_white,true /* skip immediate matches */);
   return (start < 0 ? 0 : start); 
 }
 
 static ssize_t str_find_ws_word_end( const char* s, ssize_t len, ssize_t pos) {
-  ssize_t end = str_find_forward(s,len,pos,&rp_char_is_white,true /* skip immediate matches */);
+  ssize_t end = str_find_forward(s,len,pos,&ic_char_is_white,true /* skip immediate matches */);
   return (end < 0 ? len : end); 
 }
 
@@ -351,7 +351,7 @@ static bool str_get_current_pos_iter(
     ssize_t row, ssize_t row_start, ssize_t row_len, 
     ssize_t startw, bool is_wrap, const void* arg, void* res)
 {
-  rp_unused(is_wrap); rp_unused(startw);
+  ic_unused(is_wrap); ic_unused(startw);
   rowcol_t* rc = (rowcol_t*)res;
   ssize_t pos = *((ssize_t*)arg);
 
@@ -403,7 +403,7 @@ static bool str_get_current_wrapped_pos_iter(
     ssize_t row, ssize_t row_start, ssize_t row_len, 
     ssize_t startw, bool is_wrap, const void* arg, void* res)
 {
-  rp_unused(is_wrap);
+  ic_unused(is_wrap);
   wrowcol_t*     wrc = (wrowcol_t*)res;
   const wrapped_arg_t* warg = (const wrapped_arg_t*)arg;
 
@@ -468,7 +468,7 @@ static bool str_set_pos_iter(
     ssize_t row, ssize_t row_start, ssize_t row_len, 
     ssize_t startw, bool is_wrap, const void* arg, void* res)
 {
-  rp_unused(arg); rp_unused(is_wrap); rp_unused(startw);
+  ic_unused(arg); ic_unused(is_wrap); ic_unused(startw);
   rowcol_t* rc = (rowcol_t*)arg;
   if (rc->row != row) return false; // keep searching
   // we found our row
@@ -538,7 +538,7 @@ static void sbuf_done( stringbuf_t* sbuf ) {
 }
 
 
-rp_private void sbuf_free_no_cache( stringbuf_t* sbuf ) {
+ic_private void sbuf_free_no_cache( stringbuf_t* sbuf ) {
   if (sbuf==NULL) return;
   sbuf_done(sbuf);
   mem_free(sbuf->mem, sbuf);
@@ -575,7 +575,7 @@ static void sbuf_free_to_cache(stringbuf_t* sbuf) {
   sbuf_free_no_cache(sbuf);
 }
 
-rp_private void sbuf_clear_cache(void) {
+ic_private void sbuf_clear_cache(void) {
   for(ssize_t i = 0; i < SBUF_CACHE_LEN; i++) {
     stringbuf_t* sbuf = cache[i];
     if (sbuf != NULL) {
@@ -586,7 +586,7 @@ rp_private void sbuf_clear_cache(void) {
 }
 
 
-rp_private stringbuf_t*  sbuf_new( alloc_t* mem ) {
+ic_private stringbuf_t*  sbuf_new( alloc_t* mem ) {
   // cached?
   stringbuf_t* sbuf = sbuf_alloc_from_cache();
   if (sbuf != NULL) return sbuf;
@@ -597,12 +597,12 @@ rp_private stringbuf_t*  sbuf_new( alloc_t* mem ) {
   return sbuf;
 }
 
-rp_private void sbuf_free(stringbuf_t* sbuf) {
+ic_private void sbuf_free(stringbuf_t* sbuf) {
   sbuf_free_to_cache(sbuf);
 }
 
 // free the sbuf and return the current string buffer as the result
-rp_private char* sbuf_free_dup(stringbuf_t* sbuf) {
+ic_private char* sbuf_free_dup(stringbuf_t* sbuf) {
   if (sbuf == NULL) return NULL;
   char* s = NULL;
   if (sbuf->buf != NULL) {
@@ -616,35 +616,35 @@ rp_private char* sbuf_free_dup(stringbuf_t* sbuf) {
   return s;
 }
 
-rp_private const char* sbuf_string_at( stringbuf_t* sbuf, ssize_t pos ) {
+ic_private const char* sbuf_string_at( stringbuf_t* sbuf, ssize_t pos ) {
   if (pos < 0 || sbuf->count < pos) return NULL;
   if (sbuf->buf == NULL) return "";
   assert(sbuf->buf[sbuf->count] == 0);
   return sbuf->buf + pos;
 }
 
-rp_private const char* sbuf_string( stringbuf_t* sbuf ) {
+ic_private const char* sbuf_string( stringbuf_t* sbuf ) {
   return sbuf_string_at( sbuf, 0 );
 }
 
-rp_private char sbuf_char_at(stringbuf_t* sbuf, ssize_t pos) {
+ic_private char sbuf_char_at(stringbuf_t* sbuf, ssize_t pos) {
   if (sbuf->buf == NULL || pos < 0 || sbuf->count < pos) return 0;
   return sbuf->buf[pos];
 }
 
-rp_private char* sbuf_strdup_at( stringbuf_t* sbuf, ssize_t pos ) {
+ic_private char* sbuf_strdup_at( stringbuf_t* sbuf, ssize_t pos ) {
   return mem_strdup(sbuf->mem, sbuf_string_at(sbuf,pos));
 }
 
-rp_private char* sbuf_strdup( stringbuf_t* sbuf ) {
+ic_private char* sbuf_strdup( stringbuf_t* sbuf ) {
   return mem_strdup(sbuf->mem, sbuf_string(sbuf));
 }
 
-rp_private ssize_t sbuf_len(const stringbuf_t* s) {
+ic_private ssize_t sbuf_len(const stringbuf_t* s) {
   return s->count;
 }
 
-rp_private ssize_t sbuf_append_vprintf(stringbuf_t* sb, ssize_t max_needed, const char* fmt, va_list args) {
+ic_private ssize_t sbuf_append_vprintf(stringbuf_t* sb, ssize_t max_needed, const char* fmt, va_list args) {
   ssize_t extra = max_needed;
   if (!sbuf_ensure_extra(sb, extra)) return sb->count;
   ssize_t avail = sb->buflen - sb->count;
@@ -655,7 +655,7 @@ rp_private ssize_t sbuf_append_vprintf(stringbuf_t* sb, ssize_t max_needed, cons
   return sb->count;
 }
 
-rp_private ssize_t sbuf_appendf(stringbuf_t* sb, ssize_t max_needed, const char* fmt, ...) {
+ic_private ssize_t sbuf_appendf(stringbuf_t* sb, ssize_t max_needed, const char* fmt, ...) {
   va_list args;
   va_start( args, fmt);
   ssize_t res = sbuf_append_vprintf( sb, max_needed, fmt, args );
@@ -664,29 +664,29 @@ rp_private ssize_t sbuf_appendf(stringbuf_t* sb, ssize_t max_needed, const char*
 }
 
 
-rp_private ssize_t sbuf_insert_at_n(stringbuf_t* sbuf, const char* s, ssize_t n, ssize_t pos ) {
+ic_private ssize_t sbuf_insert_at_n(stringbuf_t* sbuf, const char* s, ssize_t n, ssize_t pos ) {
   if (pos < 0 || pos > sbuf->count || s == NULL) return pos;
   n = str_limit_to_length(s,n);
   if (n <= 0 || !sbuf_ensure_extra(sbuf,n)) return pos;
-  rp_memmove(sbuf->buf + pos + n, sbuf->buf + pos, sbuf->count - pos);
-  rp_memcpy(sbuf->buf + pos, s, n);
+  ic_memmove(sbuf->buf + pos + n, sbuf->buf + pos, sbuf->count - pos);
+  ic_memcpy(sbuf->buf + pos, s, n);
   sbuf->count += n;
   sbuf->buf[sbuf->count] = 0;
   return (pos + n);
 }
 
-rp_private ssize_t sbuf_insert_at(stringbuf_t* sbuf, const char* s, ssize_t pos ) {
-  return sbuf_insert_at_n( sbuf, s, rp_strlen(s), pos );
+ic_private ssize_t sbuf_insert_at(stringbuf_t* sbuf, const char* s, ssize_t pos ) {
+  return sbuf_insert_at_n( sbuf, s, ic_strlen(s), pos );
 }
 
-rp_private ssize_t sbuf_insert_char_at(stringbuf_t* sbuf, char c, ssize_t pos ) {
+ic_private ssize_t sbuf_insert_char_at(stringbuf_t* sbuf, char c, ssize_t pos ) {
   char s[2];
   s[0] = c;
   s[1] = 0;
   return sbuf_insert_at_n( sbuf, s, 1, pos);
 }
 
-rp_private ssize_t sbuf_insert_unicode_at(stringbuf_t* sbuf, unicode_t u, ssize_t pos) {
+ic_private ssize_t sbuf_insert_unicode_at(stringbuf_t* sbuf, unicode_t u, ssize_t pos) {
   uint8_t s[5];
   unicode_to_qutf8(u, s);
   return sbuf_insert_at(sbuf, (const char*)s, pos);
@@ -694,71 +694,71 @@ rp_private ssize_t sbuf_insert_unicode_at(stringbuf_t* sbuf, unicode_t u, ssize_
 
 
 
-rp_private void sbuf_delete_at( stringbuf_t* sbuf, ssize_t pos, ssize_t count ) {
+ic_private void sbuf_delete_at( stringbuf_t* sbuf, ssize_t pos, ssize_t count ) {
   if (pos < 0 || pos >= sbuf->count) return;
   if (pos + count > sbuf->count) count = sbuf->count - pos;
-  rp_memmove(sbuf->buf + pos, sbuf->buf + pos + count, sbuf->count - pos - count);
+  ic_memmove(sbuf->buf + pos, sbuf->buf + pos + count, sbuf->count - pos - count);
   sbuf->count -= count;
   sbuf->buf[sbuf->count] = 0;
 }
 
-rp_private void sbuf_delete_from_to( stringbuf_t* sbuf, ssize_t pos, ssize_t end ) {
+ic_private void sbuf_delete_from_to( stringbuf_t* sbuf, ssize_t pos, ssize_t end ) {
   if (end <= pos) return;
   sbuf_delete_at( sbuf, pos, end - pos);
 }
 
-rp_private void  sbuf_delete_from(stringbuf_t* sbuf, ssize_t pos ) {
+ic_private void  sbuf_delete_from(stringbuf_t* sbuf, ssize_t pos ) {
   sbuf_delete_at(sbuf, pos, sbuf_len(sbuf) - pos );
 }
 
 
-rp_private void sbuf_clear( stringbuf_t* sbuf ) {
+ic_private void sbuf_clear( stringbuf_t* sbuf ) {
   sbuf_delete_at(sbuf, 0, sbuf_len(sbuf));
 }
 
-rp_private ssize_t sbuf_append_n( stringbuf_t* sbuf, const char* s, ssize_t n ) {
+ic_private ssize_t sbuf_append_n( stringbuf_t* sbuf, const char* s, ssize_t n ) {
   return sbuf_insert_at_n( sbuf, s, n, sbuf_len(sbuf));
 }
 
-rp_private ssize_t sbuf_append( stringbuf_t* sbuf, const char* s ) {
+ic_private ssize_t sbuf_append( stringbuf_t* sbuf, const char* s ) {
   return sbuf_insert_at( sbuf, s, sbuf_len(sbuf));
 }
 
-rp_private ssize_t sbuf_append_char( stringbuf_t* sbuf, char c ) {
+ic_private ssize_t sbuf_append_char( stringbuf_t* sbuf, char c ) {
   char buf[2];
   buf[0] = c;
   buf[1] = 0;
   return sbuf_append( sbuf, buf );
 }
 
-rp_private void sbuf_replace(stringbuf_t* sbuf, const char* s) {
+ic_private void sbuf_replace(stringbuf_t* sbuf, const char* s) {
   sbuf_clear(sbuf);
   sbuf_append(sbuf,s);
 }
 
-rp_private ssize_t sbuf_next_ofs( stringbuf_t* sbuf, ssize_t pos, ssize_t* cwidth ) {
+ic_private ssize_t sbuf_next_ofs( stringbuf_t* sbuf, ssize_t pos, ssize_t* cwidth ) {
   return str_next_ofs( sbuf->buf, sbuf->count, pos, cwidth);
 }
 
-rp_private ssize_t sbuf_prev_ofs( stringbuf_t* sbuf, ssize_t pos, ssize_t* cwidth ) {
+ic_private ssize_t sbuf_prev_ofs( stringbuf_t* sbuf, ssize_t pos, ssize_t* cwidth ) {
   return str_prev_ofs( sbuf->buf, pos, cwidth);
 }
 
-rp_private ssize_t sbuf_next( stringbuf_t* sbuf, ssize_t pos, ssize_t* cwidth) {
+ic_private ssize_t sbuf_next( stringbuf_t* sbuf, ssize_t pos, ssize_t* cwidth) {
   ssize_t ofs = sbuf_next_ofs(sbuf,pos,cwidth);
   if (ofs <= 0) return -1;
   assert(pos + ofs <= sbuf->count);
   return pos + ofs; 
 }
 
-rp_private ssize_t sbuf_prev( stringbuf_t* sbuf, ssize_t pos, ssize_t* cwidth) {
+ic_private ssize_t sbuf_prev( stringbuf_t* sbuf, ssize_t pos, ssize_t* cwidth) {
   ssize_t ofs = sbuf_prev_ofs(sbuf,pos,cwidth);
   if (ofs <= 0) return -1;
   assert(pos - ofs >= 0);
   return pos - ofs;
 }
 
-rp_private ssize_t sbuf_delete_char_before( stringbuf_t* sbuf, ssize_t pos ) {
+ic_private ssize_t sbuf_delete_char_before( stringbuf_t* sbuf, ssize_t pos ) {
   ssize_t n = sbuf_prev_ofs(sbuf, pos, NULL);
   if (n <= 0) return 0;  
   assert( pos - n >= 0 );
@@ -766,7 +766,7 @@ rp_private ssize_t sbuf_delete_char_before( stringbuf_t* sbuf, ssize_t pos ) {
   return pos - n;
 }
 
-rp_private void sbuf_delete_char_at( stringbuf_t* sbuf, ssize_t pos ) {
+ic_private void sbuf_delete_char_at( stringbuf_t* sbuf, ssize_t pos ) {
   ssize_t n = sbuf_next_ofs(sbuf, pos, NULL);
   if (n <= 0) return;  
   assert( pos + n <= sbuf->count );
@@ -774,66 +774,66 @@ rp_private void sbuf_delete_char_at( stringbuf_t* sbuf, ssize_t pos ) {
   return;
 }
 
-rp_private ssize_t sbuf_swap_char( stringbuf_t* sbuf, ssize_t pos ) {
+ic_private ssize_t sbuf_swap_char( stringbuf_t* sbuf, ssize_t pos ) {
   ssize_t next = sbuf_next_ofs(sbuf, pos, NULL);
   if (next <= 0) return 0;  
   ssize_t prev = sbuf_prev_ofs(sbuf, pos, NULL);
   if (prev <= 0) return 0;  
   char buf[64];
   if (prev >= 63) return 0;
-  rp_memcpy(buf, sbuf->buf + pos - prev, prev );
-  rp_memmove(sbuf->buf + pos - prev, sbuf->buf + pos, next);
-  rp_memmove(sbuf->buf + pos - prev + next, buf, prev);
+  ic_memcpy(buf, sbuf->buf + pos - prev, prev );
+  ic_memmove(sbuf->buf + pos - prev, sbuf->buf + pos, next);
+  ic_memmove(sbuf->buf + pos - prev + next, buf, prev);
   return pos - prev;
 }
 
-rp_private ssize_t sbuf_find_line_start( stringbuf_t* sbuf, ssize_t pos ) {
+ic_private ssize_t sbuf_find_line_start( stringbuf_t* sbuf, ssize_t pos ) {
   return str_find_line_start( sbuf->buf, sbuf->count, pos);
 }
 
-rp_private ssize_t sbuf_find_line_end( stringbuf_t* sbuf, ssize_t pos ) {
+ic_private ssize_t sbuf_find_line_end( stringbuf_t* sbuf, ssize_t pos ) {
   return str_find_line_end( sbuf->buf, sbuf->count, pos);
 }
 
-rp_private ssize_t sbuf_find_word_start( stringbuf_t* sbuf, ssize_t pos ) {
+ic_private ssize_t sbuf_find_word_start( stringbuf_t* sbuf, ssize_t pos ) {
   return str_find_word_start( sbuf->buf, sbuf->count, pos);
 }
 
-rp_private ssize_t sbuf_find_word_end( stringbuf_t* sbuf, ssize_t pos ) {
+ic_private ssize_t sbuf_find_word_end( stringbuf_t* sbuf, ssize_t pos ) {
   return str_find_word_end( sbuf->buf, sbuf->count, pos);
 }
 
-rp_private ssize_t sbuf_find_ws_word_start( stringbuf_t* sbuf, ssize_t pos ) {
+ic_private ssize_t sbuf_find_ws_word_start( stringbuf_t* sbuf, ssize_t pos ) {
   return str_find_ws_word_start( sbuf->buf, sbuf->count, pos);
 }
 
-rp_private ssize_t sbuf_find_ws_word_end( stringbuf_t* sbuf, ssize_t pos ) {
+ic_private ssize_t sbuf_find_ws_word_end( stringbuf_t* sbuf, ssize_t pos ) {
   return str_find_ws_word_end( sbuf->buf, sbuf->count, pos);
 }
 
 // find row/col position
-rp_private ssize_t sbuf_get_pos_at_rc( stringbuf_t* sbuf, ssize_t termw, ssize_t promptw, ssize_t cpromptw, ssize_t row, ssize_t col ) {
+ic_private ssize_t sbuf_get_pos_at_rc( stringbuf_t* sbuf, ssize_t termw, ssize_t promptw, ssize_t cpromptw, ssize_t row, ssize_t col ) {
   return str_get_pos_at_rc( sbuf->buf, sbuf->count, termw, promptw, cpromptw, row, col);
 }
 
 // get row/col for a given position
-rp_private ssize_t sbuf_get_rc_at_pos( stringbuf_t* sbuf, ssize_t termw, ssize_t promptw, ssize_t cpromptw, ssize_t pos, rowcol_t* rc ) {
+ic_private ssize_t sbuf_get_rc_at_pos( stringbuf_t* sbuf, ssize_t termw, ssize_t promptw, ssize_t cpromptw, ssize_t pos, rowcol_t* rc ) {
   return str_get_rc_at_pos( sbuf->buf, sbuf->count, termw, promptw, cpromptw, pos, rc);
 }
 
-rp_private ssize_t sbuf_get_wrapped_rc_at_pos( stringbuf_t* sbuf, ssize_t termw, ssize_t newtermw, ssize_t promptw, ssize_t cpromptw, ssize_t pos, rowcol_t* rc ) {
+ic_private ssize_t sbuf_get_wrapped_rc_at_pos( stringbuf_t* sbuf, ssize_t termw, ssize_t newtermw, ssize_t promptw, ssize_t cpromptw, ssize_t pos, rowcol_t* rc ) {
   return str_get_wrapped_rc_at_pos( sbuf->buf, sbuf->count, termw, newtermw, promptw, cpromptw, pos, rc);
 }
 
 
 
-rp_private ssize_t sbuf_for_each_row( stringbuf_t* sbuf, ssize_t termw, ssize_t promptw, ssize_t cpromptw, row_fun_t* fun, void* arg, void* res ) {
+ic_private ssize_t sbuf_for_each_row( stringbuf_t* sbuf, ssize_t termw, ssize_t promptw, ssize_t cpromptw, row_fun_t* fun, void* arg, void* res ) {
   return str_for_each_row( sbuf->buf, sbuf->count, termw, promptw, cpromptw, fun, arg, res);
 }
 
 
 // Duplicate and decode from utf-8 (for non-utf8 terminals)
-rp_private char* sbuf_strdup_from_utf8(stringbuf_t* sbuf) {
+ic_private char* sbuf_strdup_from_utf8(stringbuf_t* sbuf) {
   ssize_t len = sbuf_len(sbuf);
   if (sbuf == NULL || len <= 0) return NULL;
   char* s = mem_zalloc_tp_n(sbuf->mem, char, len);
@@ -881,16 +881,16 @@ rp_private char* sbuf_strdup_from_utf8(stringbuf_t* sbuf) {
 // String helpers
 //-------------------------------------------------------------
 
-rp_public long rp_prev_char( const char* s, long pos ) {
-  ssize_t len = rp_strlen(s);
+ic_public long ic_prev_char( const char* s, long pos ) {
+  ssize_t len = ic_strlen(s);
   if (pos < 0 || pos > len) return -1;
   ssize_t ofs = str_prev_ofs( s, pos, NULL );
   if (ofs <= 0) return -1;
   return (long)(pos - ofs);
 }
 
-rp_public long rp_next_char( const char* s, long pos ) {
-  ssize_t len = rp_strlen(s);
+ic_public long ic_next_char( const char* s, long pos ) {
+  ssize_t len = ic_strlen(s);
   if (pos < 0 || pos > len) return -1;
   ssize_t ofs = str_next_ofs( s, len, pos, NULL );
   if (ofs <= 0) return -1;
@@ -899,85 +899,85 @@ rp_public long rp_next_char( const char* s, long pos ) {
 
 
 // parse a decimal (leave pi unchanged on error)
-rp_private bool rp_atoz(const char* s, ssize_t* pi) {
+ic_private bool ic_atoz(const char* s, ssize_t* pi) {
   return (sscanf(s, "%zd", pi) == 1);
 }
 
 // parse two decimals separated by a semicolon 
-rp_private bool rp_atoz2(const char* s, ssize_t* pi, ssize_t* pj) {
+ic_private bool ic_atoz2(const char* s, ssize_t* pi, ssize_t* pj) {
   return (sscanf(s, "%zd;%zd", pi, pj) == 2);
 }
 
 // parse unsigned 32-bit (leave pu unchanged on error)
-rp_private bool rp_atou32(const char* s, uint32_t* pu) {
+ic_private bool ic_atou32(const char* s, uint32_t* pu) {
   return (sscanf(s, "%" SCNu32, pu) == 1);
 }
 
 
 // Convenience: character class for whitespace `[ \t\r\n]`.
-rp_public bool rp_char_is_white(const char* s, long len) {
+ic_public bool ic_char_is_white(const char* s, long len) {
   if (s == NULL || len != 1) return false;
   const char c = *s;
   return (c==' ' || c == '\t' || c == '\n' || c == '\r');
 }
 
 // Convenience: character class for non-whitespace `[^ \t\r\n]`.
-rp_public bool rp_char_is_nonwhite(const char* s, long len) {
-  return !rp_char_is_white(s, len);
+ic_public bool ic_char_is_nonwhite(const char* s, long len) {
+  return !ic_char_is_white(s, len);
 }
 
 // Convenience: character class for separators `[ \t\r\n,.;:/\\\(\)\{\}\[\]]`.
-rp_public bool rp_char_is_separator(const char* s, long len) {
+ic_public bool ic_char_is_separator(const char* s, long len) {
   if (s == NULL || len != 1) return false;
   const char c = *s;
   return (strchr(" \t\r\n,.;:/\\(){}[]", c) != NULL);
 }
 
 // Convenience: character class for non-separators.
-rp_public bool rp_char_is_nonseparator(const char* s, long len) {
-  return !rp_char_is_separator(s, len);
+ic_public bool ic_char_is_nonseparator(const char* s, long len) {
+  return !ic_char_is_separator(s, len);
 }
 
 
 // Convenience: character class for digits (`[0-9]`).
-rp_public bool rp_char_is_digit(const char* s, long len) {
+ic_public bool ic_char_is_digit(const char* s, long len) {
   if (s == NULL || len != 1) return false;
   const char c = *s;
   return (c >= '0' && c <= '9');
 }
 
 // Convenience: character class for hexadecimal digits (`[A-Fa-f0-9]`).
-rp_public bool rp_char_is_hexdigit(const char* s, long len) {
+ic_public bool ic_char_is_hexdigit(const char* s, long len) {
   if (s == NULL || len != 1) return false;
   const char c = *s;
   return ((c >= '0' && c <= '9') || (c >= 'a' && c <= 'f') || (c >= 'A' && c <= 'F'));
 }
 
 // Convenience: character class for letters (`[A-Za-z]` and any unicode > 0x80).
-rp_public bool rp_char_is_letter(const char* s, long len) {
+ic_public bool ic_char_is_letter(const char* s, long len) {
   if (s == NULL || len <= 0) return false;
   const char c = *s;
   return ((uint8_t)c >= 0x80 || (c >= 'A' && c <= 'Z') || (c >= 'a' && c <= 'z'));
 }
 
 // Convenience: character class for identifier letters (`[A-Za-z0-9_-]` and any unicode > 0x80).
-rp_public bool rp_char_is_idletter(const char* s, long len) {
+ic_public bool ic_char_is_idletter(const char* s, long len) {
   if (s == NULL || len <= 0) return false;
   const char c = *s;
   return ((uint8_t)c >= 0x80 || (c >= 'A' && c <= 'Z') || (c >= 'a' && c <= 'z') || (c >= '0' && c <= '9') || (c == '_') || (c == '-'));
 }
 
 // Convenience: character class for filename letters (`[^ \t\r\n`@$><=;|&{(]`).
-rp_public bool rp_char_is_filename_letter(const char* s, long len) {
+ic_public bool ic_char_is_filename_letter(const char* s, long len) {
   if (s == NULL || len <= 0) return false;
   const char c = *s;
   return ((uint8_t)c >= 0x80 || (strchr(" \t\r\n`@$><=;|&{}()[]", c) == NULL));
 }
 
 // Convenience: If this is a token start, returns the length (or <= 0 if not found).
-rp_public long rp_is_token(const char* s, long pos, rp_is_char_class_fun_t* is_token_char) {
+ic_public long ic_is_token(const char* s, long pos, ic_is_char_class_fun_t* is_token_char) {
   if (s == NULL || pos < 0 || is_token_char == NULL) return -1;
-  ssize_t len = rp_strlen(s);
+  ssize_t len = ic_strlen(s);
   if (pos >= len) return -1;
   if (pos > 0 && is_token_char(s + pos -1, 1)) return -1; // token start?
   ssize_t i = pos;
@@ -991,16 +991,16 @@ rp_public long rp_is_token(const char* s, long pos, rp_is_char_class_fun_t* is_t
 }
 
 
-static int rp_strncmp(const char* s1, const char* s2, ssize_t n) {
+static int ic_strncmp(const char* s1, const char* s2, ssize_t n) {
   return strncmp(s1, s2, to_size_t(n));
 }
 
 // Convenience: Does this match the specified token? 
 // Ensures not to match prefixes or suffixes, and returns the length of the match (in bytes).
-// E.g. `rp_match_token("function",0,&rp_char_is_letter,"fun")` returns 0.
-rp_public long rp_match_token(const char* s, long pos, rp_is_char_class_fun_t* is_token_char, const char* token) {
-  long n = rp_is_token(s, pos, is_token_char);
-  if (n > 0 && token != NULL && n == rp_strlen(token) && rp_strncmp(s + pos, token, n) == 0) {
+// E.g. `ic_match_token("function",0,&ic_char_is_letter,"fun")` returns 0.
+ic_public long ic_match_token(const char* s, long pos, ic_is_char_class_fun_t* is_token_char, const char* token) {
+  long n = ic_is_token(s, pos, is_token_char);
+  if (n > 0 && token != NULL && n == ic_strlen(token) && ic_strncmp(s + pos, token, n) == 0) {
     return n;
   }
   else {
@@ -1012,12 +1012,12 @@ rp_public long rp_match_token(const char* s, long pos, rp_is_char_class_fun_t* i
 // Convenience: Do any of the specified tokens match? 
 // Ensures not to match prefixes or suffixes, and returns the length of the match (in bytes).
 // Ensures not to match prefixes or suffixes. 
-// E.g. `rp_match_any_token("function",0,&rp_char_is_letter,{"fun","func",NULL})` returns 0.
-rp_public long rp_match_any_token(const char* s, long pos, rp_is_char_class_fun_t* is_token_char, const char** tokens) {
-  long n = rp_is_token(s, pos, is_token_char);
+// E.g. `ic_match_any_token("function",0,&ic_char_is_letter,{"fun","func",NULL})` returns 0.
+ic_public long ic_match_any_token(const char* s, long pos, ic_is_char_class_fun_t* is_token_char, const char** tokens) {
+  long n = ic_is_token(s, pos, is_token_char);
   if (n <= 0 || tokens == NULL) return 0;
   for (const char** token = tokens; *token != NULL; token++) {
-    if (n == rp_strlen(*token) && rp_strncmp(s + pos, *token, n) == 0) {
+    if (n == ic_strlen(*token) && ic_strncmp(s + pos, *token, n) == 0) {
       return n;
     }
   }

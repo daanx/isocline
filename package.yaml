@@ -1,10 +1,10 @@
-name:       repline
+name:       isocline
 version:    0.1         
-github:     "daanx/repline"
+github:     "daanx/isocline"
 license:    MIT
 author:     Daan Leijen
 maintainer: daan@effp.org
-synopsis:   A wrapper around the Repline C library (a portable alternative to GNU Readline)
+synopsis:   A wrapper around the Isocline C library (a portable alternative to GNU Readline)
 category:   console
 
 extra-source-files:
@@ -14,7 +14,7 @@ extra-source-files:
   - src/*.h
   - include/*.h
 
-description: Please see the readme on GitHub at <https://github.com/daanx/repline/haskell#readme>
+description: Please see the readme on GitHub at <https://github.com/daanx/isocline/haskell#readme>
 
 dependencies:
   - base >= 3.0       
@@ -25,18 +25,18 @@ library:
   source-dirs:
     - haskell
   c-sources:
-    - src/repline.c
+    - src/isocline.c
 
 executables:
   example:
     main: Example.hs
     source-dirs: test
     dependencies: 
-      - repline
+      - isocline
 
 tests:
   test-example:
     main: Example.hs
     source-dirs: test
     dependencies: 
-      - repline      
+      - isocline      

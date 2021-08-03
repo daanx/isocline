@@ -8,12 +8,12 @@
 #include <string.h>  
 #include <sys/stat.h>
 
-#include "../include/repline.h"
+#include "../include/isocline.h"
 #include "common.h"
 #include "history.h"
 #include "stringbuf.h"
 
-#define RP_MAX_HISTORY (200)
+#define IC_MAX_HISTORY (200)
 
 struct history_s {
   ssize_t  count;              // current number of entries in use
@@ -24,13 +24,13 @@ struct history_s {
   bool     allow_duplicates;   // allow duplicate entries?
 };
 
-rp_private history_t* history_new(alloc_t* mem) {
+ic_private history_t* history_new(alloc_t* mem) {
   history_t* h = mem_zalloc_tp(mem,history_t);
   h->mem = mem;
   return h;
 }
 
-rp_private void history_free(history_t* h) {
+ic_private void history_free(history_t* h) {
   if (h == NULL) return;
   history_clear(h);
   if (h->len > 0) {
@@ -43,13 +43,13 @@ rp_private void history_free(history_t* h) {
   mem_free(h->mem, h); // free ourselves
 }
 
-rp_private bool history_enable_duplicates( history_t* h, bool enable ) {
+ic_private bool history_enable_duplicates( history_t* h, bool enable ) {
   bool prev = h->allow_duplicates;
   h->allow_duplicates = enable;
   return prev;
 }
 
-rp_private ssize_t  history_count(const history_t* h) {
+ic_private ssize_t  history_count(const history_t* h) {
   return h->count;
 }
 
@@ -57,7 +57,7 @@ rp_private ssize_t  history_count(const history_t* h) {
 // push/clear
 //-------------------------------------------------------------
 
-rp_private bool history_update( history_t* h, const char* entry ) {
+ic_private bool history_update( history_t* h, const char* entry ) {
   if (entry==NULL) return false;
   history_remove_last(h);
   history_push(h,entry);
@@ -74,7 +74,7 @@ static void history_delete_at( history_t* h, ssize_t idx ) {
   h->count--;
 }
 
-rp_private bool history_push( history_t* h, const char* entry ) {
+ic_private bool history_push( history_t* h, const char* entry ) {
   if (h->len <= 0 || entry==NULL)  return false;
   // remove any older duplicate
   if (!h->allow_duplicates) {
@@ -106,20 +106,20 @@ static void history_remove_last_n( history_t* h, ssize_t n ) {
   assert(h->count >= 0);    
 }
 
-rp_private void history_remove_last(history_t* h) {
+ic_private void history_remove_last(history_t* h) {
   history_remove_last_n(h,1);
 }
 
-rp_private void history_clear(history_t* h) {
+ic_private void history_clear(history_t* h) {
   history_remove_last_n( h, h->count );
 }
 
-rp_private const char* history_get( const history_t* h, ssize_t n ) {
+ic_private const char* history_get( const history_t* h, ssize_t n ) {
   if (n < 0 || n >= h->count) return NULL;
   return h->elems[h->count - n - 1];
 }
 
-rp_private bool history_search( const history_t* h, ssize_t from /*including*/, const char* search, bool backward, ssize_t* hidx, ssize_t* hpos ) {
+ic_private bool history_search( const history_t* h, ssize_t from /*including*/, const char* search, bool backward, ssize_t* hidx, ssize_t* hpos ) {
   const char* p = NULL;
   ssize_t i;
   if (backward) {
@@ -144,14 +144,14 @@ rp_private bool history_search( const history_t* h, ssize_t from /*including*/, 
 // 
 //-------------------------------------------------------------
 
-rp_private void history_load_from(history_t* h, const char* fname, long max_entries ) {
+ic_private void history_load_from(history_t* h, const char* fname, long max_entries ) {
   history_clear(h);
   h->fname = mem_strdup(h->mem,fname);
   if (max_entries == 0) {
     assert(h->elems == NULL);
     return;
   }
-  if (max_entries < 0 || max_entries > RP_MAX_HISTORY) max_entries = RP_MAX_HISTORY;
+  if (max_entries < 0 || max_entries > IC_MAX_HISTORY) max_entries = IC_MAX_HISTORY;
   h->elems = (const char**)mem_zalloc_tp_n(h->mem, char*, max_entries );
   if (h->elems == NULL) return;
   h->len = max_entries;
@@ -178,7 +178,7 @@ static char to_xdigit( uint8_t c ) {
   return '0';
 }
 
-static bool rp_isxdigit( int c ) {
+static bool ic_isxdigit( int c ) {
   return ((c >= 'a' && c <= 'f') || (c >= 'A' && c <= 'F') || (c >= '0' && c <= '9'));
 }
 
@@ -196,7 +196,7 @@ static bool history_read_entry( history_t* h, FILE* f, stringbuf_t* sbuf ) {
       else if (c == 'x') {
         int c1 = fgetc(f);         
         int c2 = fgetc(f);
-        if (rp_isxdigit(c1) && rp_isxdigit(c2)) {
+        if (ic_isxdigit(c1) && ic_isxdigit(c2)) {
           char chr = from_xdigit(c1)*16 + from_xdigit(c2);
           sbuf_append_char(sbuf,chr);
         }
@@ -237,7 +237,7 @@ static bool history_write_entry( const char* entry, FILE* f, stringbuf_t* sbuf )
   return true;
 }
 
-rp_private void history_load( history_t* h ) {
+ic_private void history_load( history_t* h ) {
   if (h->fname == NULL) return;
   FILE* f = fopen(h->fname, "r");
   if (f == NULL) return;
@@ -251,7 +251,7 @@ rp_private void history_load( history_t* h ) {
   fclose(f);
 }
 
-rp_private void history_save( const history_t* h ) {
+ic_private void history_save( const history_t* h ) {
   if (h->fname == NULL) return;
   FILE* f = fopen(h->fname, "w");
   if (f == NULL) return;

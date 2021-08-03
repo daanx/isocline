@@ -94,10 +94,10 @@ static const char* help[] = {
 
 static const char* help_initial[] = {
   "\x1B[90m"
-  "Repline v1.0, copyright (c) 2021 Daan Leijen.",
+  "Isocline v1.0, copyright (c) 2021 Daan Leijen.",
   "This is free software; you can redistribute it and/or",
   "modify it under the terms of the MIT License.",
-  "See <\x1B[4mhttps://github.com/daanx/repline\x1B[24m> for further information.",
+  "See <\x1B[4mhttps://github.com/daanx/isocline\x1B[24m> for further information.",
   "We use ^<key> as a shorthand for ctrl-<key>.",
   "",
   "\x1B[90m"  
@@ -126,18 +126,18 @@ static const char* help_initial[] = {
 };
 
 
-static void edit_show_help(rp_env_t* env, editor_t* eb) {
+static void edit_show_help(ic_env_t* env, editor_t* eb) {
   edit_clear(env, eb);
   for( ssize_t i = 0; help_initial[i] != NULL; i++ ) {
     term_writeln(env->term, help_initial[i]);
   }
   for (ssize_t i = 0; help[i] != NULL && help[i+1] != NULL; i += 2) {
     if (help[i][0] == 0) {  
-      term_color(env->term, RP_ANSI_DARKGRAY);         
+      term_color(env->term, IC_ANSI_DARKGRAY);         
       term_writef(env->term, 256, "%s\x1B[0m\n", help[i+1]);
     }
     else {
-      term_color(env->term, RP_RGB(0xFFFFD7));
+      term_color(env->term, IC_RGB(0xFFFFD7));
       term_writef(env->term, 256, "  %-13s\x1B[0m%s%s\n", help[i], (help[i+1][0] == 0 ? "" : ": "), help[i+1]);
     }
   }

@@ -6,8 +6,8 @@
 -----------------------------------------------------------------------------*/
 
 #pragma once
-#ifndef RP_COMMON_H
-#define RP_COMMON_H
+#ifndef IC_COMMON_H
+#define IC_COMMON_H
 
 //-------------------------------------------------------------
 // Headers and defines
@@ -19,27 +19,27 @@
 #include <stdint.h>
 #include <stdbool.h>
 #include <assert.h>
-#include "../include/repline.h"  // rp_malloc_fun_t, rp_color_t etc.
+#include "../include/isocline.h"  // ic_malloc_fun_t, ic_color_t etc.
 
 # ifdef __cplusplus
-#  define rp_extern_c   extern "C"
+#  define ic_extern_c   extern "C"
 # else
-#  define rp_extern_c
+#  define ic_extern_c
 # endif
 
-#if defined(RP_SEPARATE_OBJS)
-#  define rp_public     rp_extern_c 
+#if defined(IC_SEPARATE_OBJS)
+#  define ic_public     ic_extern_c 
 # if defined(__GNUC__) // includes clang and icc      
-#  define rp_private    __attribute__((visibility("hidden")))
+#  define ic_private    __attribute__((visibility("hidden")))
 # else
-#  define rp_private  
+#  define ic_private  
 # endif
 #else
-# define rp_private     static
-# define rp_public      rp_extern_c
+# define ic_private     static
+# define ic_public      ic_extern_c
 #endif
 
-#define rp_unused(x)    (void)(x)
+#define ic_unused(x)    (void)(x)
 
 
 //-------------------------------------------------------------
@@ -54,19 +54,19 @@ typedef intptr_t ssize_t;
 static inline size_t  to_size_t(ssize_t sz) { return (sz >= 0 ? (size_t)sz : 0); }
 static inline ssize_t to_ssize_t(size_t sz) { return (sz <= SIZE_MAX/2 ? (ssize_t)sz : 0); }
 
-rp_private void    rp_memmove(void* dest, const void* src, ssize_t n);
-rp_private void    rp_memcpy(void* dest, const void* src, ssize_t n);
-rp_private void    rp_memset(void* dest, uint8_t value, ssize_t n);
-rp_private bool    rp_memnmove(void* dest, ssize_t dest_size, const void* src, ssize_t n);
+ic_private void    ic_memmove(void* dest, const void* src, ssize_t n);
+ic_private void    ic_memcpy(void* dest, const void* src, ssize_t n);
+ic_private void    ic_memset(void* dest, uint8_t value, ssize_t n);
+ic_private bool    ic_memnmove(void* dest, ssize_t dest_size, const void* src, ssize_t n);
 
-rp_private ssize_t rp_strlen(const char* s);
-rp_private bool    rp_strcpy(char* dest, ssize_t dest_size /* including 0 */, const char* src);
-rp_private bool    rp_strncpy(char* dest, ssize_t dest_size /* including 0 */, const char* src, ssize_t n);
+ic_private ssize_t ic_strlen(const char* s);
+ic_private bool    ic_strcpy(char* dest, ssize_t dest_size /* including 0 */, const char* src);
+ic_private bool    ic_strncpy(char* dest, ssize_t dest_size /* including 0 */, const char* src, ssize_t n);
 
-rp_private bool    rp_contains(const char* big, const char* s);
-rp_private bool    rp_icontains(const char* big, const char* s);
-rp_private char    rp_tolower(char c);
-rp_private int     rp_stricmp(const char* s1, const char* s2);
+ic_private bool    ic_contains(const char* big, const char* s);
+ic_private bool    ic_icontains(const char* big, const char* s);
+ic_private char    ic_tolower(char c);
+ic_private int     ic_stricmp(const char* s1, const char* s2);
 
 
 
@@ -83,30 +83,30 @@ rp_private int     rp_stricmp(const char* s1, const char* s2);
 
 typedef uint32_t  unicode_t;
 
-rp_private void      unicode_to_qutf8(unicode_t u, uint8_t buf[5]);
-rp_private unicode_t unicode_from_qutf8(const uint8_t* s, ssize_t len, ssize_t* nread); // validating
+ic_private void      unicode_to_qutf8(unicode_t u, uint8_t buf[5]);
+ic_private unicode_t unicode_from_qutf8(const uint8_t* s, ssize_t len, ssize_t* nread); // validating
 
-rp_private unicode_t unicode_from_raw(uint8_t c);
-rp_private bool      unicode_is_raw(unicode_t u, uint8_t* c);
+ic_private unicode_t unicode_from_raw(uint8_t c);
+ic_private bool      unicode_is_raw(unicode_t u, uint8_t* c);
 
-rp_private bool      utf8_is_cont(uint8_t c);
+ic_private bool      utf8_is_cont(uint8_t c);
 
 //-------------------------------------------------------------
 // Debug
 //-------------------------------------------------------------
 
-#if defined(RP_NO_DEBUG_MSG) 
+#if defined(IC_NO_DEBUG_MSG) 
 #define debug_msg(fmt,...)   (void)(0)
 #else
-rp_private void debug_msg( const char* fmt, ... );
+ic_private void debug_msg( const char* fmt, ... );
 #endif
 
 
 //-------------------------------------------------------------
 // Abstract environment
 //-------------------------------------------------------------
-struct rp_env_s;
-typedef struct rp_env_s rp_env_t;
+struct ic_env_s;
+typedef struct ic_env_s ic_env_t;
 
 
 //-------------------------------------------------------------
@@ -114,18 +114,18 @@ typedef struct rp_env_s rp_env_t;
 //-------------------------------------------------------------
 
 typedef struct alloc_s {
-  rp_malloc_fun_t*  malloc;
-  rp_realloc_fun_t* realloc;
-  rp_free_fun_t*    free;
+  ic_malloc_fun_t*  malloc;
+  ic_realloc_fun_t* realloc;
+  ic_free_fun_t*    free;
 } alloc_t;
 
 
-rp_private void* mem_malloc( alloc_t* mem, ssize_t sz );
-rp_private void* mem_zalloc( alloc_t* mem, ssize_t sz );
-rp_private void* mem_realloc( alloc_t* mem, void* p, ssize_t newsz );
-rp_private void  mem_free( alloc_t* mem, const void* p );
-rp_private char* mem_strdup( alloc_t* mem, const char* s);
-rp_private char* mem_strndup( alloc_t* mem, const char* s, ssize_t n);
+ic_private void* mem_malloc( alloc_t* mem, ssize_t sz );
+ic_private void* mem_zalloc( alloc_t* mem, ssize_t sz );
+ic_private void* mem_realloc( alloc_t* mem, void* p, ssize_t newsz );
+ic_private void  mem_free( alloc_t* mem, const void* p );
+ic_private char* mem_strdup( alloc_t* mem, const char* s);
+ic_private char* mem_strndup( alloc_t* mem, const char* s, ssize_t n);
 
 #define mem_zalloc_tp(mem,tp)        (tp*)mem_zalloc(mem,ssizeof(tp))
 #define mem_malloc_tp_n(mem,tp,n)    (tp*)mem_malloc(mem,(n)*ssizeof(tp))
@@ -133,4 +133,4 @@ rp_private char* mem_strndup( alloc_t* mem, const char* s, ssize_t n);
 #define mem_realloc_tp(mem,tp,p,n)   (tp*)mem_realloc(mem,p,(n)*ssizeof(tp))
 
 
-#endif // RP_COMMON_H
+#endif // IC_COMMON_H

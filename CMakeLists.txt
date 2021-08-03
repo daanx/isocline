@@ -2,31 +2,31 @@
 # Copyright (c) 2021, Daan Leijen
 # -----------------------------------------------------------------------------
 cmake_minimum_required(VERSION 3.10)
-project(librepline C CXX ASM)
+project(libisocline C CXX ASM)
 
 set(CMAKE_C_STANDARD   99)
 set(CMAKE_CXX_STANDARD 11)
 
-option(RP_USE_CXX           "Build with C++ compiler" OFF)
-option(RP_DEBUG_UBSAN       "Build with undefined behaviour sanitizer" OFF)
-option(RP_DEBUG_ASAN        "Build with address sanitizer" OFF)
-option(RP_DEBUG_MSG         "Enable printing debug messages to repline.debug.txt (only if also REPLINE_DEBUG=1 is set in the environment)" ON)
-option(RP_SEPARATE_OBJS     "Compile with separate object files instead of one (warning: exports internal symbols)" OFF)
+option(IC_USE_CXX           "Build with C++ compiler" OFF)
+option(IC_DEBUG_UBSAN       "Build with undefined behaviour sanitizer" OFF)
+option(IC_DEBUG_ASAN        "Build with address sanitizer" OFF)
+option(IC_DEBUG_MSG         "Enable printing debug messages to isocline.debug.txt (only if also ISOCLINE_DEBUG=1 is set in the environment)" ON)
+option(IC_SEPARATE_OBJS     "Compile with separate object files instead of one (warning: exports internal symbols)" OFF)
 
-set(rp_version "0.1")
-set(rp_sources          src/repline.c)    
-set(rp_example_sources  test/example.c)
+set(ic_version "0.1")
+set(ic_sources          src/isocline.c)    
+set(ic_example_sources  test/example.c)
 
 # -----------------------------------------------------------------------------
 # Initial definitions
 # -----------------------------------------------------------------------------
-set(rp_cflags)
-set(rp_cdefs)
-set(rp_install_dir)
+set(ic_cflags)
+set(ic_cdefs)
+set(ic_install_dir)
 
-if(RP_SEPARATE_OBJS)
-  list(APPEND rp_cdefs RP_SEPARATE_OBJS)
-  list(APPEND rp_sources  
+if(IC_SEPARATE_OBJS)
+  list(APPEND ic_cdefs IC_SEPARATE_OBJS)
+  list(APPEND ic_sources  
               src/common.c
               src/completions.c
               src/completers.c
@@ -40,17 +40,17 @@ if(RP_SEPARATE_OBJS)
               src/undo.c)
 endif()
 
-if(RP_USE_CXX)
-  set(RP_COMPILER_ID "${CMAKE_CXX_COMPILER_ID}")
-  set_source_files_properties(${rp_sources}         PROPERTIES LANGUAGE CXX )
-  set_source_files_properties(${rp_example_sources} PROPERTIES LANGUAGE CXX )
+if(IC_USE_CXX)
+  set(IC_COMPILER_ID "${CMAKE_CXX_COMPILER_ID}")
+  set_source_files_properties(${ic_sources}         PROPERTIES LANGUAGE CXX )
+  set_source_files_properties(${ic_example_sources} PROPERTIES LANGUAGE CXX )
 else()
-  set(RP_COMPILER_ID "${CMAKE_C_COMPILER_ID}")  
+  set(IC_COMPILER_ID "${CMAKE_C_COMPILER_ID}")  
 endif()
 
-if(NOT RP_DEBUG_MSG)
+if(NOT IC_DEBUG_MSG)
   message(STATUS "Disable debug messages")
-  list(APPEND rp_cdefs RP_NO_DEBUG_MSG)
+  list(APPEND ic_cdefs IC_NO_DEBUG_MSG)
 endif()  
 
 
@@ -73,23 +73,23 @@ endif()
 # Sanitizers
 # -----------------------------------------------------------------------------
 
-if(RP_DEBUG_UBSAN OR RP_DEBUG_ASAN)
-  if((CMAKE_BUILD_TYPE MATCHES "Debug") AND (RP_COMPILER_ID MATCHES "Clang"))
-    set(rp_san)
-    if (RP_DEBUG_UBSAN)
-      list(APPEND rp_san "undefined")
+if(IC_DEBUG_UBSAN OR IC_DEBUG_ASAN)
+  if((CMAKE_BUILD_TYPE MATCHES "Debug") AND (IC_COMPILER_ID MATCHES "Clang"))
+    set(ic_san)
+    if (IC_DEBUG_UBSAN)
+      list(APPEND ic_san "undefined")
       message(STATUS "Using the undefined behavior sanitizer.")
     endif()
-    if (RP_DEBUG_ASAN)
-      list(APPEND rp_san "address")
+    if (IC_DEBUG_ASAN)
+      list(APPEND ic_san "address")
       message(STATUS "Using the address sanitizer. To detect memory leaks run as:") 
       message(STATUS "> ASAN_OPTIONS=\"detect_leaks=1:verbosity=1\" ./example")
     endif()
-    list(JOIN rp_san "," rp_san)
-    list(APPEND rp_cflags -fsanitize=${rp_san})
-    list(APPEND CMAKE_EXE_LINKER_FLAGS -fsanitize=${rp_san})    
+    list(JOIN ic_san "," ic_san)
+    list(APPEND ic_cflags -fsanitize=${ic_san})
+    list(APPEND CMAKE_EXE_LINKER_FLAGS -fsanitize=${ic_san})    
   else()
-    message(WARNING "Can only use sanitizer with a clang debug build (currently: ${RP_COMPILER_ID}, CMAKE_BUILD_TYPE=${CMAKE_BUILD_TYPE}, RP_USE_C=${RP_USE_C})")
+    message(WARNING "Can only use sanitizer with a clang debug build (currently: ${IC_COMPILER_ID}, CMAKE_BUILD_TYPE=${CMAKE_BUILD_TYPE}, IC_USE_C=${IC_USE_C})")
   endif()
 endif()
 
@@ -98,23 +98,23 @@ endif()
 # Flags
 # -----------------------------------------------------------------------------
 
-if (RP_COMPILER_ID MATCHES "AppleClang|Clang|GNU|Intel")
-  list(APPEND rp_cflags -Wall -Wextra -Wpedantic -Wno-unknown-pragmas -Wno-unused-function -Wno-padded)
-  if (RP_COMPILER_ID MATCHES "AppleClang|Clang")
-    list(APPEND rp_cflags -Wimplicit-int-conversion -Wsign-conversion)
+if (IC_COMPILER_ID MATCHES "AppleClang|Clang|GNU|Intel")
+  list(APPEND ic_cflags -Wall -Wextra -Wpedantic -Wno-unknown-pragmas -Wno-unused-function -Wno-padded)
+  if (IC_COMPILER_ID MATCHES "AppleClang|Clang")
+    list(APPEND ic_cflags -Wimplicit-int-conversion -Wsign-conversion)
   endif()
-  if (RP_COMPILER_ID MATCHES "GNU")
-    list(APPEND rp_cflags -Wint-conversion -Wsign-conversion -Wno-missing-braces)
+  if (IC_COMPILER_ID MATCHES "GNU")
+    list(APPEND ic_cflags -Wint-conversion -Wsign-conversion -Wno-missing-braces)
   endif()
 endif()
 
 # treat C extension as C++
-if (RP_USE_CXX)
+if (IC_USE_CXX)
   if(CMAKE_CXX_COMPILER_ID MATCHES "AppleClang|Clang")
-    list(APPEND rp_cflags -Wno-deprecated)
+    list(APPEND ic_cflags -Wno-deprecated)
   endif()
   if(CMAKE_CXX_COMPILER_ID MATCHES "Intel")
-    list(APPEND rp_cflags -Kc++)
+    list(APPEND ic_cflags -Kc++)
   endif()
 endif()
 
@@ -125,28 +125,28 @@ endif()
 # -----------------------------------------------------------------------------
 
 message(STATUS "")
-message(STATUS "Library   : librepline")
+message(STATUS "Library   : libisocline")
 message(STATUS "Build type: ${CMAKE_BUILD_TYPE}")
-message(STATUS "Compiler  : ${RP_COMPILER_ID}")
-message(STATUS "Defines   : ${rp_cdefs}")
-# message(STATUS "Flags     : ${rp_cflags}")
+message(STATUS "Compiler  : ${IC_COMPILER_ID}")
+message(STATUS "Defines   : ${ic_cdefs}")
+# message(STATUS "Flags     : ${ic_cflags}")
 message(STATUS "")
 
 
 # -----------------------------------------------------------------------------
-# Static library (librepline.a) and samples (example)
+# Static library (libisocline.a) and samples (example)
 # -----------------------------------------------------------------------------
 
-add_library(repline STATIC ${rp_sources})
-set_property(TARGET repline PROPERTY POSITION_INDEPENDENT_CODE ON)
-target_compile_options(repline PRIVATE ${rp_cflags})
-target_compile_definitions(repline PRIVATE ${rp_cdefs})
-target_include_directories(repline PUBLIC
+add_library(isocline STATIC ${ic_sources})
+set_property(TARGET isocline PROPERTY POSITION_INDEPENDENT_CODE ON)
+target_compile_options(isocline PRIVATE ${ic_cflags})
+target_compile_definitions(isocline PRIVATE ${ic_cdefs})
+target_include_directories(isocline PUBLIC
     $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
-    $<INSTALL_INTERFACE:${rp_install_dir}/include>
+    $<INSTALL_INTERFACE:${ic_install_dir}/include>
 )
 
-add_executable(example ${rp_example_sources})
-target_compile_options(example PRIVATE ${rp_cflags})
+add_executable(example ${ic_example_sources})
+target_compile_options(example PRIVATE ${ic_cflags})
 target_include_directories(example PRIVATE include)
-target_link_libraries(example PRIVATE repline)
+target_link_libraries(example PRIVATE isocline)

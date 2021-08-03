@@ -10,9 +10,9 @@
 // symbols are public in the libray.
 // 
 // You can compile the entire library just as: 
-// $ gcc -c src/repline.c
+// $ gcc -c src/isocline.c
 //-------------------------------------------------------------
-#if !defined(RP_SEPARATE_OBJS)
+#if !defined(IC_SEPARATE_OBJS)
 # define _CRT_SECURE_NO_WARNINGS  // for msvc
 # include "editline.c"
 # include "highlight.c"
@@ -34,7 +34,7 @@
 #include <stdio.h>
 #include <string.h>
 
-#include "../include/repline.h"
+#include "../include/isocline.h"
 #include "common.h"
 #include "env.h"
 
@@ -43,15 +43,15 @@
 // Readline
 //-------------------------------------------------------------
 
-static char*  rp_getline( alloc_t* mem );
+static char*  ic_getline( alloc_t* mem );
 
-rp_public char* rp_readline(const char* prompt_text) 
+ic_public char* ic_readline(const char* prompt_text) 
 {
-  rp_env_t* env = rp_get_env();
+  ic_env_t* env = ic_get_env();
   if (env == NULL) return NULL;
   if (!env->noedit) {
     // terminal editing enabled
-    return rp_editline(env, prompt_text);   // in editline.c
+    return ic_editline(env, prompt_text);   // in editline.c
   } 
   else {
     // no editing capability (pipe, dumb terminal, etc)
@@ -65,7 +65,7 @@ rp_public char* rp_readline(const char* prompt_text)
       term_end_raw(env->term);
     }
     // read directly from stdin
-    return rp_getline(env->mem);
+    return ic_getline(env->mem);
   }
 }
 
@@ -75,7 +75,7 @@ rp_public char* rp_readline(const char* prompt_text)
 // support (like from a pipe, file, or dumb terminal).
 //-------------------------------------------------------------
 
-static char* rp_getline(alloc_t* mem)
+static char* ic_getline(alloc_t* mem)
 {  
   // read until eof or newline
   stringbuf_t* sb = sbuf_new(mem);
@@ -97,7 +97,7 @@ static char* rp_getline(alloc_t* mem)
 // Interface
 //-------------------------------------------------------------
 
-static void set_prompt_marker(rp_env_t* env, const char* prompt_marker, const char* cprompt_marker) {
+static void set_prompt_marker(ic_env_t* env, const char* prompt_marker, const char* cprompt_marker) {
   if (prompt_marker == NULL) prompt_marker = "> ";
   if (cprompt_marker == NULL) cprompt_marker = prompt_marker;
   mem_free(env->mem, env->prompt_marker);
@@ -106,157 +106,157 @@ static void set_prompt_marker(rp_env_t* env, const char* prompt_marker, const ch
   env->cprompt_marker = mem_strdup(env->mem, cprompt_marker);
 }
 
-rp_public const char* rp_get_prompt_marker(void) {
-  rp_env_t* env = rp_get_env(); if (env==NULL) return NULL;
+ic_public const char* ic_get_prompt_marker(void) {
+  ic_env_t* env = ic_get_env(); if (env==NULL) return NULL;
   return env->prompt_marker;
 }
 
-rp_public const char* rp_get_continuation_prompt_marker(void) {
-  rp_env_t* env = rp_get_env(); if (env==NULL) return NULL;
+ic_public const char* ic_get_continuation_prompt_marker(void) {
+  ic_env_t* env = ic_get_env(); if (env==NULL) return NULL;
   return env->cprompt_marker;
 }
 
-rp_public void rp_set_prompt_marker( const char* prompt_marker, const char* cprompt_marker ) {
-  rp_env_t* env = rp_get_env(); if (env==NULL) return;
+ic_public void ic_set_prompt_marker( const char* prompt_marker, const char* cprompt_marker ) {
+  ic_env_t* env = ic_get_env(); if (env==NULL) return;
   set_prompt_marker(env, prompt_marker, cprompt_marker);
 }
 
-rp_public bool rp_enable_multiline( bool enable ) {
-  rp_env_t* env = rp_get_env(); if (env==NULL) return false;
+ic_public bool ic_enable_multiline( bool enable ) {
+  ic_env_t* env = ic_get_env(); if (env==NULL) return false;
   bool prev = env->singleline_only;
   env->singleline_only = !enable;
   return !prev;
 }
 
-rp_public bool rp_enable_beep( bool enable ) {
-  rp_env_t* env = rp_get_env(); if (env==NULL) return false;
+ic_public bool ic_enable_beep( bool enable ) {
+  ic_env_t* env = ic_get_env(); if (env==NULL) return false;
   return term_enable_beep(env->term, enable);
 }
 
-rp_public bool rp_enable_color( bool enable ) {
-  rp_env_t* env = rp_get_env(); if (env==NULL) return false;
+ic_public bool ic_enable_color( bool enable ) {
+  ic_env_t* env = ic_get_env(); if (env==NULL) return false;
   return term_enable_color( env->term, enable );
 }
 
-rp_public bool rp_enable_history_duplicates( bool enable ) {
-  rp_env_t* env = rp_get_env(); if (env==NULL) return false;
+ic_public bool ic_enable_history_duplicates( bool enable ) {
+  ic_env_t* env = ic_get_env(); if (env==NULL) return false;
   return history_enable_duplicates(env->history, enable);
 }
 
-rp_public void rp_set_history(const char* fname, long max_entries ) {
-  rp_env_t* env = rp_get_env(); if (env==NULL) return;
+ic_public void ic_set_history(const char* fname, long max_entries ) {
+  ic_env_t* env = ic_get_env(); if (env==NULL) return;
   history_load_from(env->history, fname, max_entries );
 }
 
-rp_public void rp_history_remove_last(void) {
-  rp_env_t* env = rp_get_env(); if (env==NULL) return;
+ic_public void ic_history_remove_last(void) {
+  ic_env_t* env = ic_get_env(); if (env==NULL) return;
   history_remove_last(env->history);
 }
 
-rp_public void rp_history_add( const char* entry ) {
-  rp_env_t* env = rp_get_env(); if (env==NULL) return;
+ic_public void ic_history_add( const char* entry ) {
+  ic_env_t* env = ic_get_env(); if (env==NULL) return;
   history_push( env->history, entry );
 }
 
-rp_public void rp_history_clear(void) {
-  rp_env_t* env = rp_get_env(); if (env==NULL) return;
+ic_public void ic_history_clear(void) {
+  ic_env_t* env = ic_get_env(); if (env==NULL) return;
   history_clear(env->history);
 }
 
-rp_public bool rp_enable_auto_tab( bool enable ) {
-  rp_env_t* env = rp_get_env(); if (env==NULL) return false;
+ic_public bool ic_enable_auto_tab( bool enable ) {
+  ic_env_t* env = ic_get_env(); if (env==NULL) return false;
   bool prev = env->complete_autotab;
   env->complete_autotab = enable;
   return prev;
 }
 
-rp_public bool rp_enable_completion_preview( bool enable ) {
-  rp_env_t* env = rp_get_env(); if (env==NULL) return false;
+ic_public bool ic_enable_completion_preview( bool enable ) {
+  ic_env_t* env = ic_get_env(); if (env==NULL) return false;
   bool prev = env->complete_nopreview;
   env->complete_nopreview = !enable;
   return !prev;
 }
 
-rp_public bool rp_enable_multiline_indent(bool enable) {
-  rp_env_t* env = rp_get_env(); if (env==NULL) return false;
+ic_public bool ic_enable_multiline_indent(bool enable) {
+  ic_env_t* env = ic_get_env(); if (env==NULL) return false;
   bool prev = env->no_multiline_indent;
   env->no_multiline_indent = !enable;
   return !prev;
 }
 
-rp_public bool rp_enable_hint(bool enable) {
-  rp_env_t* env = rp_get_env(); if (env==NULL) return false;
+ic_public bool ic_enable_hint(bool enable) {
+  ic_env_t* env = ic_get_env(); if (env==NULL) return false;
   bool prev = env->no_hint;
   env->no_hint = !enable;
   return !prev;
 }
 
-rp_public bool rp_enable_highlight(bool enable) {
-  rp_env_t* env = rp_get_env(); if (env==NULL) return false;
+ic_public bool ic_enable_highlight(bool enable) {
+  ic_env_t* env = ic_get_env(); if (env==NULL) return false;
   bool prev = env->no_highlight;
   env->no_highlight = !enable;
   return !prev;
 }
 
-rp_public bool rp_enable_inline_help(bool enable) {
-  rp_env_t* env = rp_get_env(); if (env==NULL) return false;
+ic_public bool ic_enable_inline_help(bool enable) {
+  ic_env_t* env = ic_get_env(); if (env==NULL) return false;
   bool prev = env->no_help;
   env->no_help = !enable;
   return !prev;
 }
 
-rp_public void rp_set_default_highlighter(rp_highlight_fun_t* highlighter, void* arg) {
-  rp_env_t* env = rp_get_env(); if (env==NULL) return;
+ic_public void ic_set_default_highlighter(ic_highlight_fun_t* highlighter, void* arg) {
+  ic_env_t* env = ic_get_env(); if (env==NULL) return;
   env->highlighter = highlighter;
   env->highlighter_arg = arg;
 }
 
-static void set_style_color(rp_env_t* env, rp_style_t iface_element, rp_color_t color) {
+static void set_style_color(ic_env_t* env, ic_style_t iface_element, ic_color_t color) {
   switch (iface_element) {
-    case RP_STYLE_PROMPT:   env->color_prompt = (color == RP_COLOR_NONE ? RP_ANSI_GREEN : color); break;
-    case RP_STYLE_INFO:     env->color_info = (color == RP_COLOR_NONE ? RP_ANSI_DARKGRAY : color); break;
-    case RP_STYLE_DIMINISH: env->color_diminish = (color == RP_COLOR_NONE ? RP_ANSI_LIGHTGRAY : color); break;
-    case RP_STYLE_EMPHASIS: env->color_emphasis = (color == RP_COLOR_NONE ? RP_RGB(0xFFFFD7) : color); break;
-    case RP_STYLE_HINT:     env->color_hint = (color == RP_COLOR_NONE ? RP_ANSI_DARKGRAY : color); break;
+    case IC_STYLE_PROMPT:   env->color_prompt = (color == IC_COLOR_NONE ? IC_ANSI_GREEN : color); break;
+    case IC_STYLE_INFO:     env->color_info = (color == IC_COLOR_NONE ? IC_ANSI_DARKGRAY : color); break;
+    case IC_STYLE_DIMINISH: env->color_diminish = (color == IC_COLOR_NONE ? IC_ANSI_LIGHTGRAY : color); break;
+    case IC_STYLE_EMPHASIS: env->color_emphasis = (color == IC_COLOR_NONE ? IC_RGB(0xFFFFD7) : color); break;
+    case IC_STYLE_HINT:     env->color_hint = (color == IC_COLOR_NONE ? IC_ANSI_DARKGRAY : color); break;
     default: break;
   }
 }
 
-rp_public void rp_set_style_color(rp_style_t iface_element, rp_color_t color) {
-  rp_env_t* env = rp_get_env(); if (env==NULL) return;
+ic_public void ic_set_style_color(ic_style_t iface_element, ic_color_t color) {
+  ic_env_t* env = ic_get_env(); if (env==NULL) return;
   set_style_color(env, iface_element, color);
 }
 
-rp_public rp_color_t rp_get_style_color(rp_style_t iface_element) {
-  rp_env_t* env = rp_get_env(); if (env==NULL) return RP_COLOR_NONE;
+ic_public ic_color_t ic_get_style_color(ic_style_t iface_element) {
+  ic_env_t* env = ic_get_env(); if (env==NULL) return IC_COLOR_NONE;
   switch (iface_element) {
-    case RP_STYLE_PROMPT:   return env->color_prompt;    
-    case RP_STYLE_INFO:     return env->color_info;
-    case RP_STYLE_DIMINISH: return env->color_diminish;
-    case RP_STYLE_EMPHASIS: return env->color_emphasis;
-    case RP_STYLE_HINT:     return env->color_hint;
+    case IC_STYLE_PROMPT:   return env->color_prompt;    
+    case IC_STYLE_INFO:     return env->color_info;
+    case IC_STYLE_DIMINISH: return env->color_diminish;
+    case IC_STYLE_EMPHASIS: return env->color_emphasis;
+    case IC_STYLE_HINT:     return env->color_hint;
     default: break;
   }
-  return RP_COLOR_NONE;
+  return IC_COLOR_NONE;
 }
 
-rp_public void rp_free( void* p ) {
-  rp_env_t* env = rp_get_env(); if (env==NULL) return;
+ic_public void ic_free( void* p ) {
+  ic_env_t* env = ic_get_env(); if (env==NULL) return;
   mem_free(env->mem, p);
 }
 
-rp_public void* rp_malloc(size_t sz) {
-  rp_env_t* env = rp_get_env(); if (env==NULL) return NULL;
+ic_public void* ic_malloc(size_t sz) {
+  ic_env_t* env = ic_get_env(); if (env==NULL) return NULL;
   return mem_malloc(env->mem, to_ssize_t(sz));
 }
 
-rp_public const char* rp_strdup( const char* s ) {
+ic_public const char* ic_strdup( const char* s ) {
   if (s==NULL) return NULL;
-  rp_env_t* env = rp_get_env(); if (env==NULL) return NULL;
-  ssize_t len = rp_strlen(s);
+  ic_env_t* env = ic_get_env(); if (env==NULL) return NULL;
+  ssize_t len = ic_strlen(s);
   char* p = mem_malloc_tp_n( env->mem, char, len + 1 );
   if (p == NULL) return NULL;
-  rp_memcpy( p, s, len );
+  ic_memcpy( p, s, len );
   p[len] = 0;
   return p;
 }
@@ -265,43 +265,43 @@ rp_public const char* rp_strdup( const char* s ) {
 // Terminal
 //-------------------------------------------------------------
 
-rp_public void rp_write(const char* s) {
-  rp_env_t* env = rp_get_env(); if (env==NULL) return;
+ic_public void ic_write(const char* s) {
+  ic_env_t* env = ic_get_env(); if (env==NULL) return;
   term_write(env->term, s);
 }
 
-rp_public void rp_writeln(const char* s) {
-  rp_env_t* env = rp_get_env(); if (env==NULL) return;
+ic_public void ic_writeln(const char* s) {
+  ic_env_t* env = ic_get_env(); if (env==NULL) return;
   term_writeln(env->term, s);
 }
 
-rp_public void rp_term_color( rp_color_t color ) {
-  rp_env_t* env = rp_get_env(); if (env==NULL) return;
+ic_public void ic_term_color( ic_color_t color ) {
+  ic_env_t* env = ic_get_env(); if (env==NULL) return;
   term_color(env->term, color);
 }
 
-rp_public void rp_term_bgcolor( rp_color_t color ) {
-  rp_env_t* env = rp_get_env(); if (env==NULL) return;
+ic_public void ic_term_bgcolor( ic_color_t color ) {
+  ic_env_t* env = ic_get_env(); if (env==NULL) return;
   term_bgcolor(env->term, color);
 }
 
-rp_public void rp_term_underline( bool enable ) {
-  rp_env_t* env = rp_get_env(); if (env==NULL) return;
+ic_public void ic_term_underline( bool enable ) {
+  ic_env_t* env = ic_get_env(); if (env==NULL) return;
   term_underline(env->term, enable);
 }
 
-rp_public void rp_term_reverse( bool enable ) {
-  rp_env_t* env = rp_get_env(); if (env==NULL) return;
+ic_public void ic_term_reverse( bool enable ) {
+  ic_env_t* env = ic_get_env(); if (env==NULL) return;
   term_reverse(env->term, enable);
 }
 
-rp_public void rp_term_reset( void )  {
-  rp_env_t* env = rp_get_env(); if (env==NULL) return;
+ic_public void ic_term_reset( void )  {
+  ic_env_t* env = ic_get_env(); if (env==NULL) return;
   term_attr_reset(env->term);
 }
 
-rp_public int rp_term_get_color_bits(void) {
-  rp_env_t* env = rp_get_env(); if (env==NULL) return 4;
+ic_public int ic_term_get_color_bits(void) {
+  ic_env_t* env = ic_get_env(); if (env==NULL) return 4;
   return term_get_color_bits(env->term);
 }
 
@@ -310,24 +310,24 @@ rp_public int rp_term_get_color_bits(void) {
 // Readline with temporary completer and highlighter
 //-------------------------------------------------------------
 
-rp_public char* rp_readline_ex(const char* prompt_text,
-                                rp_completer_fun_t* completer, void* completer_arg,
-                                 rp_highlight_fun_t* highlighter, void* highlighter_arg )
+ic_public char* ic_readline_ex(const char* prompt_text,
+                                ic_completer_fun_t* completer, void* completer_arg,
+                                 ic_highlight_fun_t* highlighter, void* highlighter_arg )
 {
-  rp_env_t* env = rp_get_env(); if (env == NULL) return NULL;
+  ic_env_t* env = ic_get_env(); if (env == NULL) return NULL;
   // save previous
-  rp_completer_fun_t* prev_completer;
+  ic_completer_fun_t* prev_completer;
   void* prev_completer_arg;
   completions_get_completer(env->completions, &prev_completer, &prev_completer_arg);
-  rp_highlight_fun_t* prev_highlighter = env->highlighter;
+  ic_highlight_fun_t* prev_highlighter = env->highlighter;
   void* prev_highlighter_arg = env->highlighter_arg;
   // call with current
-  if (completer != NULL)   { rp_set_default_completer(completer, completer_arg); }
-  if (highlighter != NULL) { rp_set_default_highlighter(highlighter, highlighter_arg); }
-  char* res = rp_readline(prompt_text);
+  if (completer != NULL)   { ic_set_default_completer(completer, completer_arg); }
+  if (highlighter != NULL) { ic_set_default_highlighter(highlighter, highlighter_arg); }
+  char* res = ic_readline(prompt_text);
   // restore previous
-  rp_set_default_completer(prev_completer, prev_completer_arg);
-  rp_set_default_highlighter(prev_highlighter, prev_highlighter_arg);
+  ic_set_default_completer(prev_completer, prev_completer_arg);
+  ic_set_default_highlighter(prev_highlighter, prev_highlighter_arg);
   return res;
 }
 
@@ -336,9 +336,9 @@ rp_public char* rp_readline_ex(const char* prompt_text,
 // Initialize
 //-------------------------------------------------------------
 
-static void rp_atexit(void);
+static void ic_atexit(void);
 
-static void rp_env_free(rp_env_t* env) {
+static void ic_env_free(ic_env_t* env) {
   if (env == NULL) return;
   history_save(env->history);
   history_free(env->history);
@@ -361,7 +361,7 @@ static void rp_env_free(rp_env_t* env) {
 }
 
 
-static rp_env_t* rp_env_create( rp_malloc_fun_t* _malloc, rp_realloc_fun_t* _realloc, rp_free_fun_t* _free )  
+static ic_env_t* ic_env_create( ic_malloc_fun_t* _malloc, ic_realloc_fun_t* _realloc, ic_free_fun_t* _free )  
 {
   if (_malloc == NULL)  _malloc = &malloc;
   if (_realloc == NULL) _realloc = &realloc;
@@ -372,7 +372,7 @@ static rp_env_t* rp_env_create( rp_malloc_fun_t* _malloc, rp_realloc_fun_t* _rea
   mem->malloc = _malloc;
   mem->realloc = _realloc;
   mem->free = _free;
-  rp_env_t* env = mem_zalloc_tp(mem, rp_env_t);
+  ic_env_t* env = mem_zalloc_tp(mem, ic_env_t);
   if (env==NULL) {
     mem->free(mem);
     return NULL;
@@ -392,40 +392,40 @@ static rp_env_t* rp_env_create( rp_malloc_fun_t* _malloc, rp_realloc_fun_t* _rea
     env->noedit = true;
   }
   env->multiline_eol = '\\';
-  for (rp_style_t style = 0; style < RP_STYLE_LAST; style++) {
-    set_style_color(env, style, RP_COLOR_NONE);  // set default colors
+  for (ic_style_t style = 0; style < IC_STYLE_LAST; style++) {
+    set_style_color(env, style, IC_COLOR_NONE);  // set default colors
   }
   set_prompt_marker(env, NULL, NULL);
   return env;
 }
 
-static rp_env_t* rpenv;
+static ic_env_t* rpenv;
 
-static void rp_atexit(void) {
+static void ic_atexit(void) {
   if (rpenv != NULL) {
-    rp_env_free(rpenv);
+    ic_env_free(rpenv);
     rpenv = NULL;
   }
 }
 
-rp_private rp_env_t* rp_get_env(void) {  
+ic_private ic_env_t* ic_get_env(void) {  
   if (rpenv==NULL) {
-    rpenv = rp_env_create( NULL, NULL, NULL );
-    if (rpenv != NULL) { atexit( &rp_atexit ); }
+    rpenv = ic_env_create( NULL, NULL, NULL );
+    if (rpenv != NULL) { atexit( &ic_atexit ); }
   }
   return rpenv;
 }
 
-rp_public void rp_init_custom_malloc( rp_malloc_fun_t* _malloc, rp_realloc_fun_t* _realloc, rp_free_fun_t* _free ) {
+ic_public void ic_init_custom_malloc( ic_malloc_fun_t* _malloc, ic_realloc_fun_t* _realloc, ic_free_fun_t* _free ) {
   assert(rpenv == NULL);
   if (rpenv != NULL) {
-    rp_env_free(rpenv);    
-    rpenv = rp_env_create( _malloc, _realloc, _free ); 
+    ic_env_free(rpenv);    
+    rpenv = ic_env_create( _malloc, _realloc, _free ); 
   }
   else {
-    rpenv = rp_env_create( _malloc, _realloc, _free ); 
+    rpenv = ic_env_create( _malloc, _realloc, _free ); 
     if (rpenv != NULL) {
-      atexit( &rp_atexit );
+      atexit( &ic_atexit );
     }
   }
 }

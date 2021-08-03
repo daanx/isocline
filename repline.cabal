@@ -4,13 +4,13 @@ cabal-version: 1.12
 --
 -- see: https://github.com/sol/hpack
 
-name:           repline
+name:           isocline
 version:        0.1
-synopsis:       A wrapper around the Repline C library (a portable alternative to GNU Readline)
-description:    Please see the readme on GitHub at <https://github.com/daanx/repline/haskell#readme>
+synopsis:       A wrapper around the Isocline C library (a portable alternative to GNU Readline)
+description:    Please see the readme on GitHub at <https://github.com/daanx/isocline/haskell#readme>
 category:       console
-homepage:       https://github.com/daanx/repline#readme
-bug-reports:    https://github.com/daanx/repline/issues
+homepage:       https://github.com/daanx/isocline#readme
+bug-reports:    https://github.com/daanx/isocline/issues
 author:         Daan Leijen
 maintainer:     daan@effp.org
 license:        MIT
@@ -28,7 +28,7 @@ extra-source-files:
     src/editline_history.c
     src/highlight.c
     src/history.c
-    src/repline.c
+    src/isocline.c
     src/stringbuf.c
     src/term.c
     src/term_color.c
@@ -45,21 +45,21 @@ extra-source-files:
     src/term.h
     src/tty.h
     src/undo.h
-    include/repline.h
+    include/isocline.h
 
 source-repository head
   type: git
-  location: https://github.com/daanx/repline
+  location: https://github.com/daanx/isocline
 
 library
   exposed-modules:
-      System.Console.Repline
+      System.Console.Isocline
   other-modules:
       Paths_repline
   hs-source-dirs:
       haskell
   c-sources:
-      src/repline.c
+      src/isocline.c
   build-depends:
       base >=3.0
     , bytestring
@@ -75,7 +75,7 @@ executable example
   build-depends:
       base >=3.0
     , bytestring
-    , repline
+    , isocline
     , text
   default-language: Haskell2010
 
@@ -89,6 +89,6 @@ test-suite test-example
   build-depends:
       base >=3.0
     , bytestring
-    , repline
+    , isocline
     , text
   default-language: Haskell2010

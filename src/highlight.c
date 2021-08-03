@@ -19,14 +19,14 @@
 typedef struct attr_s {
   int8_t     underline;       // -1 = off, 0 = keep as is, 1 = on
   int8_t     reverse;         // -1 = off, 0 = keep as is, 1 = on
-  rp_color_t color;           
-  rp_color_t bgcolor;
+  ic_color_t color;           
+  ic_color_t bgcolor;
 } attr_t;
 
-// static const attr_t attr_zero    = { 0, 0, RP_COLOR_NONE, RP_COLOR_NONE };
-static const attr_t attr_default = { -1, -1, RP_ANSI_DEFAULT, RP_ANSI_DEFAULT };
+// static const attr_t attr_zero    = { 0, 0, IC_COLOR_NONE, IC_COLOR_NONE };
+static const attr_t attr_default = { -1, -1, IC_ANSI_DEFAULT, IC_ANSI_DEFAULT };
 
-struct rp_highlight_env_s {
+struct ic_highlight_env_s {
   attr_t*  attrs;
   ssize_t  attr_capacity;  
   ssize_t  attr_len;
@@ -40,20 +40,20 @@ struct rp_highlight_env_s {
 // Private interface
 //-------------------------------------------------------------
 
-rp_private rp_highlight_env_t* highlight_new( alloc_t* mem ) {
-  rp_highlight_env_t* henv = mem_zalloc_tp( mem, rp_highlight_env_t );
+ic_private ic_highlight_env_t* highlight_new( alloc_t* mem ) {
+  ic_highlight_env_t* henv = mem_zalloc_tp( mem, ic_highlight_env_t );
   if (henv == NULL) return NULL;
   henv->mem = mem;
   return henv;
 }
 
-rp_private void highlight_free( rp_highlight_env_t* henv ) {
+ic_private void highlight_free( ic_highlight_env_t* henv ) {
   if (henv == NULL) return;
   mem_free( henv->mem, henv->attrs );
   mem_free( henv->mem, henv );
 }
 
-static bool highlight_ensure_extra( rp_highlight_env_t* henv, ssize_t extra ) {
+static bool highlight_ensure_extra( ic_highlight_env_t* henv, ssize_t extra ) {
   if (henv==NULL) return false;
   ssize_t needed = henv->attr_len + extra;
   if (henv->attr_capacity < needed) {
@@ -68,11 +68,11 @@ static bool highlight_ensure_extra( rp_highlight_env_t* henv, ssize_t extra ) {
   return true;
 }
 
-rp_private bool highlight_insert_at( rp_highlight_env_t* henv, ssize_t pos, ssize_t len, rp_color_t color ) {
+ic_private bool highlight_insert_at( ic_highlight_env_t* henv, ssize_t pos, ssize_t len, ic_color_t color ) {
   if (henv == NULL) return false;
   if (pos < 0 || pos > henv->attr_len) return false;
   if (!highlight_ensure_extra(henv,len)) return false;
-  rp_memmove(henv->attrs + pos + len, henv->attrs + pos, ssizeof(attr_t)*(henv->attr_len - pos));
+  ic_memmove(henv->attrs + pos + len, henv->attrs + pos, ssizeof(attr_t)*(henv->attr_len - pos));
   henv->attr_len += len;
   attr_t attr = attr_default;
   attr.color = color;
@@ -82,13 +82,13 @@ rp_private bool highlight_insert_at( rp_highlight_env_t* henv, ssize_t pos, ssiz
   return true;
 }
 
-rp_private void highlight_clear( rp_highlight_env_t* henv ) {
+ic_private void highlight_clear( ic_highlight_env_t* henv ) {
   if (henv == NULL) return;
   henv->attr_len = 0;
   henv->cur_attr = attr_default;
 }
 
-static void highlight_fillout( rp_highlight_env_t* henv ) {
+static void highlight_fillout( ic_highlight_env_t* henv ) {
   if (henv == NULL) return;
   attr_t attr = attr_default;
   for( ssize_t i = 0; i < henv->attr_len; i++ ) {
@@ -102,14 +102,14 @@ static void highlight_fillout( rp_highlight_env_t* henv ) {
   }
 }
 
-rp_private bool highlight_init( rp_highlight_env_t* henv, const char* s, rp_highlight_fun_t* highlighter, void* arg ) {
+ic_private bool highlight_init( ic_highlight_env_t* henv, const char* s, ic_highlight_fun_t* highlighter, void* arg ) {
   if (henv == NULL) return false;
   highlight_clear(henv);
-  const ssize_t len = rp_strlen(s);
+  const ssize_t len = ic_strlen(s);
   if (len > 0) {
     if (!highlight_ensure_extra(henv,len)) return false;
     henv->attr_len = len;
-    rp_memset(henv->attrs, 0, henv->attr_len * ssizeof(attr_t));
+    ic_memset(henv->attrs, 0, henv->attr_len * ssizeof(attr_t));
     if (highlighter != NULL) {
       henv->input = s;
       (*highlighter)( henv, s, arg );
@@ -153,7 +153,7 @@ static void term_update_attr(term_t* term, attr_t term_attr, attr_t new_attr, at
   }
 }
 
-rp_private void highlight_term_write( rp_highlight_env_t* henv, term_t* term, const char* s, ssize_t start, ssize_t len ) 
+ic_private void highlight_term_write( ic_highlight_env_t* henv, term_t* term, const char* s, ssize_t start, ssize_t len ) 
 {
   if (henv == NULL || henv->attr_len <= 0) {
     term_write_n( term, s + start, len );    
@@ -177,7 +177,7 @@ rp_private void highlight_term_write( rp_highlight_env_t* henv, term_t* term, co
 // Client interface
 //-------------------------------------------------------------
 
-static long pos_adjust( rp_highlight_env_t* henv, long pos ) {
+static long pos_adjust( ic_highlight_env_t* henv, long pos ) {
   if (pos >= henv->attr_len) return -1;
   if (pos >= 0) return pos;
   // negative position is used as the unicode character position (for easy interfacing with Haskell)
@@ -196,7 +196,7 @@ static long pos_adjust( rp_highlight_env_t* henv, long pos ) {
 }
 
 // Set the color of characters starting at position `pos` to `color`.
-rp_public void rp_highlight_color(rp_highlight_env_t* henv, long pos, rp_color_t color ) {
+ic_public void ic_highlight_color(ic_highlight_env_t* henv, long pos, ic_color_t color ) {
   if (henv==NULL) return;
   pos = pos_adjust(henv,pos);
   if (pos < 0) return;
@@ -204,7 +204,7 @@ rp_public void rp_highlight_color(rp_highlight_env_t* henv, long pos, rp_color_t
 }
 
 // Set the background color of characters starting at position `pos` to `bgcolor`.
-rp_public void rp_highlight_bgcolor(rp_highlight_env_t* henv, long pos, rp_color_t bgcolor) {
+ic_public void ic_highlight_bgcolor(ic_highlight_env_t* henv, long pos, ic_color_t bgcolor) {
   if (henv==NULL) return;
   pos = pos_adjust(henv,pos);
   if (pos < 0) return;
@@ -212,7 +212,7 @@ rp_public void rp_highlight_bgcolor(rp_highlight_env_t* henv, long pos, rp_color
 }
 
 // Enable/Disable underlining for characters starting at position `pos`.
-rp_public void rp_highlight_underline(rp_highlight_env_t* henv, long pos, bool enable ) {
+ic_public void ic_highlight_underline(ic_highlight_env_t* henv, long pos, bool enable ) {
   if (henv==NULL) return;
   pos = pos_adjust(henv,pos);
   if (pos < 0) return;
@@ -220,7 +220,7 @@ rp_public void rp_highlight_underline(rp_highlight_env_t* henv, long pos, bool e
 }
 
 // Enable/Disable reverse video for characters starting at position `pos`.
-rp_public void rp_highlight_reverse(rp_highlight_env_t* henv, long pos, bool enable) {
+ic_public void ic_highlight_reverse(ic_highlight_env_t* henv, long pos, bool enable) {
   if (henv==NULL) return;
   pos = pos_adjust(henv,pos);
   if (pos < 0) return;
@@ -229,13 +229,13 @@ rp_public void rp_highlight_reverse(rp_highlight_env_t* henv, long pos, bool ena
 
 
 // Convenience function for highlighting with escape sequences.
-rp_public void rp_highlight_esc(rp_highlight_env_t* henv, const char* input, rp_highlight_esc_fun_t* highlight, void* arg) {
+ic_public void ic_highlight_esc(ic_highlight_env_t* henv, const char* input, ic_highlight_esc_fun_t* highlight, void* arg) {
   if (henv == NULL || henv->attr_len <= 0) return;
   if (input == NULL || highlight == NULL)  return;
   char* s = (*highlight)(input, arg);
   if (s == NULL) return;
   // go through `s` and simulate ansi color escape sequences
-  ssize_t len = rp_strlen(s);
+  ssize_t len = ic_strlen(s);
   ssize_t i = 0;    // position in highlighted input
   long    pos = 0;  // position in original input
   while( i < len) {
@@ -248,31 +248,31 @@ rp_public void rp_highlight_esc(rp_highlight_env_t* henv, const char* input, rp_
     else {
       // new escaped input
       ssize_t code = 0;
-      if (s[i] == '\x1B' && s[i+1] == '[' && s[i+next-1] == 'm' && rp_atoz(s+i+2,&code)) {
+      if (s[i] == '\x1B' && s[i+1] == '[' && s[i+next-1] == 'm' && ic_atoz(s+i+2,&code)) {
         // CSI escape
         if (code == 4) {
-          rp_highlight_underline(henv, pos, true);
+          ic_highlight_underline(henv, pos, true);
         }
         else if (code == 24) {
-          rp_highlight_underline(henv, pos, false);
+          ic_highlight_underline(henv, pos, false);
         }
         else if (code == 7) {
-          rp_highlight_reverse(henv, pos, true);
+          ic_highlight_reverse(henv, pos, true);
         }
         else if (code == 27) {
-          rp_highlight_reverse(henv, pos, false);
+          ic_highlight_reverse(henv, pos, false);
         }
         else if ((code >= 30 && code <= 37) || code == 39 || (code >= 90 && code <= 97)) {
-          rp_highlight_color(henv, pos, (rp_color_t)code);
+          ic_highlight_color(henv, pos, (ic_color_t)code);
         }
         else if ((code >= 40 && code <= 47) || code == 49 || (code >= 100 && code <= 107)) {
-          rp_highlight_bgcolor(henv, pos, (rp_color_t)(code - 10));
+          ic_highlight_bgcolor(henv, pos, (ic_color_t)(code - 10));
         }
         else if (code == 0) {
-          rp_highlight_color(henv, pos, RP_ANSI_DEFAULT);
-          rp_highlight_bgcolor(henv, pos, RP_ANSI_DEFAULT);
-          rp_highlight_underline(henv, pos, false);
-          rp_highlight_reverse(henv, pos, false);
+          ic_highlight_color(henv, pos, IC_ANSI_DEFAULT);
+          ic_highlight_bgcolor(henv, pos, IC_ANSI_DEFAULT);
+          ic_highlight_underline(henv, pos, false);
+          ic_highlight_reverse(henv, pos, false);
         }
       }
     }

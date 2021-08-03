@@ -10,7 +10,7 @@
 //-------------------------------------------------------------
 
 // return true if anything changed
-static bool edit_complete(rp_env_t* env, editor_t* eb, ssize_t idx) {
+static bool edit_complete(ic_env_t* env, editor_t* eb, ssize_t idx) {
   editor_start_modify(eb);
   ssize_t newpos = completions_apply(env->completions, idx, eb->input, eb->pos);
   if (newpos < 0) {
@@ -22,7 +22,7 @@ static bool edit_complete(rp_env_t* env, editor_t* eb, ssize_t idx) {
   return true;
 }
 
-static bool edit_complete_longest_prefix(rp_env_t* env, editor_t* eb ) {
+static bool edit_complete_longest_prefix(ic_env_t* env, editor_t* eb ) {
   editor_start_modify(eb);
   ssize_t newpos = completions_apply_longest_prefix( env->completions, eb->input, eb->pos );
   if (newpos < 0) {
@@ -34,7 +34,7 @@ static bool edit_complete_longest_prefix(rp_env_t* env, editor_t* eb ) {
   return true;
 }
 
-static void editor_append_completion(rp_env_t* env, editor_t* eb, ssize_t idx, ssize_t width, bool numbered, bool selected ) {
+static void editor_append_completion(ic_env_t* env, editor_t* eb, ssize_t idx, ssize_t width, bool numbered, bool selected ) {
   const char* display = completions_get_display(env->completions, idx);
   if (display == NULL) return;
   if (numbered) {
@@ -69,29 +69,29 @@ static void editor_append_completion(rp_env_t* env, editor_t* eb, ssize_t idx, s
 }
 
 // 2 and 3 column output up to 80 wide
-#define RP_DISPLAY2_MAX    34
-#define RP_DISPLAY2_COL    (3+RP_DISPLAY2_MAX)
-#define RP_DISPLAY2_WIDTH  (2*RP_DISPLAY2_COL + 2)    // 75
+#define IC_DISPLAY2_MAX    34
+#define IC_DISPLAY2_COL    (3+IC_DISPLAY2_MAX)
+#define IC_DISPLAY2_WIDTH  (2*IC_DISPLAY2_COL + 2)    // 75
 
-#define RP_DISPLAY3_MAX    21
-#define RP_DISPLAY3_COL    (3+RP_DISPLAY3_MAX)
-#define RP_DISPLAY3_WIDTH  (3*RP_DISPLAY3_COL + 2*2)  // 76
+#define IC_DISPLAY3_MAX    21
+#define IC_DISPLAY3_COL    (3+IC_DISPLAY3_MAX)
+#define IC_DISPLAY3_WIDTH  (3*IC_DISPLAY3_COL + 2*2)  // 76
 
-static void editor_append_completion2(rp_env_t* env, editor_t* eb, ssize_t idx1, ssize_t idx2, ssize_t selected ) {  
-  editor_append_completion(env, eb, idx1, RP_DISPLAY2_COL, true, (idx1 == selected) );
+static void editor_append_completion2(ic_env_t* env, editor_t* eb, ssize_t idx1, ssize_t idx2, ssize_t selected ) {  
+  editor_append_completion(env, eb, idx1, IC_DISPLAY2_COL, true, (idx1 == selected) );
   sbuf_append( eb->extra, "  ");
-  editor_append_completion(env, eb, idx2, RP_DISPLAY2_COL, true, (idx2 == selected) );
+  editor_append_completion(env, eb, idx2, IC_DISPLAY2_COL, true, (idx2 == selected) );
 }
 
-static void editor_append_completion3(rp_env_t* env, editor_t* eb, ssize_t idx1, ssize_t idx2, ssize_t idx3, ssize_t selected ) {  
-  editor_append_completion(env, eb, idx1, RP_DISPLAY3_COL, true, (idx1 == selected) );
+static void editor_append_completion3(ic_env_t* env, editor_t* eb, ssize_t idx1, ssize_t idx2, ssize_t idx3, ssize_t selected ) {  
+  editor_append_completion(env, eb, idx1, IC_DISPLAY3_COL, true, (idx1 == selected) );
   sbuf_append( eb->extra, "  ");
-  editor_append_completion(env, eb, idx2, RP_DISPLAY3_COL, true, (idx2 == selected));
+  editor_append_completion(env, eb, idx2, IC_DISPLAY3_COL, true, (idx2 == selected));
   sbuf_append( eb->extra, "  ");
-  editor_append_completion(env, eb, idx3, RP_DISPLAY3_COL, true, (idx3 == selected) );
+  editor_append_completion(env, eb, idx3, IC_DISPLAY3_COL, true, (idx3 == selected) );
 }
 
-static ssize_t edit_completions_max_width( rp_env_t* env, ssize_t count ) {
+static ssize_t edit_completions_max_width( ic_env_t* env, ssize_t count ) {
   ssize_t max_width = 0;
   for( ssize_t i = 0; i < count; i++) {
     const char* display = completions_get_display(env->completions,i);
@@ -103,7 +103,7 @@ static ssize_t edit_completions_max_width( rp_env_t* env, ssize_t count ) {
   return max_width;
 }
 
-static void edit_completion_menu(rp_env_t* env, editor_t* eb, bool more_available) {
+static void edit_completion_menu(ic_env_t* env, editor_t* eb, bool more_available) {
   ssize_t count = completions_count(env->completions);
   ssize_t count_displayed = count;
   assert(count > 1);
@@ -114,7 +114,7 @@ again:
   // show first 9 (or 8) completions
   sbuf_clear(eb->extra);
   ssize_t twidth = term_get_width(env->term) - 1;
-  if (count > 3 && twidth > RP_DISPLAY3_WIDTH && edit_completions_max_width(env, 9) <= RP_DISPLAY3_MAX) {
+  if (count > 3 && twidth > IC_DISPLAY3_WIDTH && edit_completions_max_width(env, 9) <= IC_DISPLAY3_MAX) {
     // display as a 3 column block
     count_displayed = (count > 9 ? 9 : count);
     percolumn = 3;
@@ -123,7 +123,7 @@ again:
       editor_append_completion3(env, eb, rw, percolumn+rw, (2*percolumn)+rw, selected);
     }
   }
-  else if (count > 4 && twidth > RP_DISPLAY2_WIDTH && edit_completions_max_width(env, 8) <= RP_DISPLAY2_MAX) {
+  else if (count > 4 && twidth > IC_DISPLAY2_WIDTH && edit_completions_max_width(env, 8) <= IC_DISPLAY2_MAX) {
     // display as a 2 column block if some entries are too wide for three columns
     count_displayed = (count > 8 ? 8 : count);
     percolumn = (count_displayed <= 6 ? 3 : 4);
@@ -212,7 +212,7 @@ again:
     c = 0;
     if (more_available) {
       // generate all entries (up to the max (= 1000))
-      count = completions_generate(env, env->completions, sbuf_string(eb->input), eb->pos, RP_MAX_COMPLETIONS_TO_SHOW);
+      count = completions_generate(env, env->completions, sbuf_string(eb->input), eb->pos, IC_MAX_COMPLETIONS_TO_SHOW);
     }
     rowcol_t rc;
     edit_get_rowcol(env,eb,&rc);
@@ -228,7 +228,7 @@ again:
     }
     term_attr_reset( env->term );
     term_color( env->term, env->color_info);
-    if (count >= RP_MAX_COMPLETIONS_TO_SHOW) {
+    if (count >= IC_MAX_COMPLETIONS_TO_SHOW) {
       term_write(env->term, "... and more.\x1B[0m\n");
     }
     else {
@@ -248,11 +248,11 @@ again:
   if (c != 0) tty_code_pushback(env->tty,c);
 }
 
-static void edit_generate_completions(rp_env_t* env, editor_t* eb, bool autotab) {
+static void edit_generate_completions(ic_env_t* env, editor_t* eb, bool autotab) {
   debug_msg( "edit: complete: %zd: %s\n", eb->pos, sbuf_string(eb->input) );
   if (eb->pos < 0) return;
-  ssize_t count = completions_generate(env, env->completions, sbuf_string(eb->input), eb->pos, RP_MAX_COMPLETIONS_TO_TRY);
-  bool more_available = (count >= RP_MAX_COMPLETIONS_TO_TRY);
+  ssize_t count = completions_generate(env, env->completions, sbuf_string(eb->input), eb->pos, IC_MAX_COMPLETIONS_TO_TRY);
+  bool more_available = (count >= IC_MAX_COMPLETIONS_TO_TRY);
   if (count <= 0) {
     // no completions
     if (!autotab) { term_beep(env->term); }

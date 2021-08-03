@@ -5,8 +5,8 @@
   found in the "LICENSE" file at the root of this distribution.
 -----------------------------------------------------------------------------*/
 #pragma once
-#ifndef RP_TTY_H
-#define RP_TTY_H
+#ifndef IC_TTY_H
+#define IC_TTY_H
 
 #include "common.h"
 
@@ -22,31 +22,31 @@ struct tty_s;
 typedef struct tty_s tty_t;
 
 
-rp_private tty_t* tty_new(alloc_t* mem, int fd_in);
-rp_private void   tty_free(tty_t* tty);
+ic_private tty_t* tty_new(alloc_t* mem, int fd_in);
+ic_private void   tty_free(tty_t* tty);
 
-rp_private bool   tty_is_utf8(const tty_t* tty);
-rp_private bool   tty_start_raw(tty_t* tty);
-rp_private void   tty_end_raw(tty_t* tty);
-rp_private code_t tty_read(tty_t* tty);
+ic_private bool   tty_is_utf8(const tty_t* tty);
+ic_private bool   tty_start_raw(tty_t* tty);
+ic_private void   tty_end_raw(tty_t* tty);
+ic_private code_t tty_read(tty_t* tty);
 
-rp_private void   tty_code_pushback( tty_t* tty, code_t c );
-rp_private bool   code_is_ascii_char(code_t c, char* chr );
-rp_private bool   code_is_unicode(code_t c, unicode_t* uchr);
-rp_private bool   code_is_virt_key(code_t c );
+ic_private void   tty_code_pushback( tty_t* tty, code_t c );
+ic_private bool   code_is_ascii_char(code_t c, char* chr );
+ic_private bool   code_is_unicode(code_t c, unicode_t* uchr);
+ic_private bool   code_is_virt_key(code_t c );
 
-rp_private bool   tty_term_resize_event(tty_t* tty); // did the terminal resize?
+ic_private bool   tty_term_resize_event(tty_t* tty); // did the terminal resize?
 
 
 // low level; used by term.c
-rp_private bool   tty_readc(tty_t* tty, uint8_t* c);        
-rp_private bool   tty_readc_noblock(tty_t* tty, uint8_t* c);
-rp_private bool   tty_readc_pause_noblock(tty_t* tty, uint8_t* c);
+ic_private bool   tty_readc(tty_t* tty, uint8_t* c);        
+ic_private bool   tty_readc_noblock(tty_t* tty, uint8_t* c);
+ic_private bool   tty_readc_pause_noblock(tty_t* tty, uint8_t* c);
 
 // shared between tty.c and tty_esc.c: low level character push
-rp_private void   tty_cpush_char(tty_t* tty, uint8_t c);
-rp_private bool   tty_cpop(tty_t* tty, uint8_t* c);
-rp_private code_t tty_read_esc(tty_t* tty); // in tty_esc.c
+ic_private void   tty_cpush_char(tty_t* tty, uint8_t c);
+ic_private bool   tty_cpop(tty_t* tty, uint8_t* c);
+ic_private code_t tty_read_esc(tty_t* tty); // in tty_esc.c
 
 
 //-------------------------------------------------------------
@@ -157,4 +157,4 @@ static inline code_t key_unicode( unicode_t u ) {
 
 #define KEY_SHIFT_TAB     (WITH_SHIFT(KEY_TAB))
 
-#endif // RP_TTY_H
+#endif // IC_TTY_H

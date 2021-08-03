@@ -16,31 +16,31 @@
 // String wrappers for ssize_t
 //-------------------------------------------------------------
 
-rp_private ssize_t rp_strlen( const char* s ) {
+ic_private ssize_t ic_strlen( const char* s ) {
   if (s==NULL) return 0;
   return to_ssize_t(strlen(s));
 }
 
-rp_private void rp_memmove( void* dest, const void* src, ssize_t n ) {
+ic_private void ic_memmove( void* dest, const void* src, ssize_t n ) {
   assert(dest!=NULL && src != NULL);
   if (n <= 0) return;
   memmove(dest,src,to_size_t(n));
 }
 
 
-rp_private void rp_memcpy( void* dest, const void* src, ssize_t n ) {
+ic_private void ic_memcpy( void* dest, const void* src, ssize_t n ) {
   assert(dest!=NULL && src != NULL);
   if (dest == NULL || src == NULL || n <= 0) return;
   memcpy(dest,src,to_size_t(n));
 }
 
-rp_private void rp_memset(void* dest, uint8_t value, ssize_t n) {
+ic_private void ic_memset(void* dest, uint8_t value, ssize_t n) {
   assert(dest!=NULL);
   if (dest == NULL || n <= 0) return;
   memset(dest,(int8_t)value,to_size_t(n));
 }
 
-rp_private bool rp_memnmove( void* dest, ssize_t dest_size, const void* src, ssize_t n ) {
+ic_private bool ic_memnmove( void* dest, ssize_t dest_size, const void* src, ssize_t n ) {
   assert(dest!=NULL && src != NULL);
   if (n <= 0) return true;
   if (dest_size < n) { assert(false); return false; }
@@ -48,10 +48,10 @@ rp_private bool rp_memnmove( void* dest, ssize_t dest_size, const void* src, ssi
   return true;
 }
 
-rp_private bool rp_strcpy( char* dest, ssize_t dest_size /* including 0 */, const char* src) {
+ic_private bool ic_strcpy( char* dest, ssize_t dest_size /* including 0 */, const char* src) {
   assert(dest!=NULL && src != NULL);
   if (dest == NULL || dest_size <= 0) return false;
-  ssize_t slen = rp_strlen(src);
+  ssize_t slen = ic_strlen(src);
   if (slen >= dest_size) return false;
   strcpy(dest,src);
   assert(dest[slen] == 0);
@@ -59,7 +59,7 @@ rp_private bool rp_strcpy( char* dest, ssize_t dest_size /* including 0 */, cons
 }
 
 
-rp_private bool rp_strncpy( char* dest, ssize_t dest_size /* including 0 */, const char* src, ssize_t n) {
+ic_private bool ic_strncpy( char* dest, ssize_t dest_size /* including 0 */, const char* src, ssize_t n) {
   assert(dest!=NULL && src != NULL && n < dest_size);
   if (dest == NULL || dest_size <= 0) return false;
   if (n >= dest_size) return false;
@@ -72,7 +72,7 @@ rp_private bool rp_strncpy( char* dest, ssize_t dest_size /* including 0 */, con
 // String matching
 //-------------------------------------------------------------
 
-rp_public bool rp_starts_with( const char* s, const char* prefix ) {
+ic_public bool ic_starts_with( const char* s, const char* prefix ) {
   if (s==prefix) return true;
   if (prefix==NULL) return true;
   if (s==NULL) return false;
@@ -84,66 +84,66 @@ rp_public bool rp_starts_with( const char* s, const char* prefix ) {
   return (prefix[i] == 0);
 }
 
-rp_private char rp_tolower( char c ) {
+ic_private char ic_tolower( char c ) {
   return (c >= 'A' && c <= 'Z'  ?  c - 'A' + 'a' : c);
 }
 
-rp_public bool rp_istarts_with( const char* s, const char* prefix ) {
+ic_public bool ic_istarts_with( const char* s, const char* prefix ) {
   if (s==prefix) return true;
   if (prefix==NULL) return true;
   if (s==NULL) return false;
 
   ssize_t i;
   for( i = 0; s[i] != 0 && prefix[i] != 0; i++) {
-    if (rp_tolower(s[i]) != rp_tolower(prefix[i])) return false;
+    if (ic_tolower(s[i]) != ic_tolower(prefix[i])) return false;
   }
   return (prefix[i] == 0);
 }
 
 
-static int rp_strnicmp(const char* s1, const char* s2, ssize_t n) {
+static int ic_strnicmp(const char* s1, const char* s2, ssize_t n) {
   if (s1 == NULL && s2 == NULL) return 0;
   if (s1 == NULL) return -1;
   if (s2 == NULL) return 1;
   ssize_t i;
   for (i = 0; s1[i] != 0 && i < n; i++) {  // note: if s2[i] == 0 the loop will stop as c1 != c2
-    char c1 = rp_tolower(s1[i]);
-    char c2 = rp_tolower(s2[i]);
+    char c1 = ic_tolower(s1[i]);
+    char c2 = ic_tolower(s2[i]);
     if (c1 < c2) return -1;
     if (c1 > c2) return 1;
   }
   return ((i >= n || s2[i] == 0) ? 0 : -1);
 }
 
-rp_private int rp_stricmp(const char* s1, const char* s2) {
-  ssize_t len1 = rp_strlen(s1);
-  ssize_t len2 = rp_strlen(s2);
+ic_private int ic_stricmp(const char* s1, const char* s2) {
+  ssize_t len1 = ic_strlen(s1);
+  ssize_t len2 = ic_strlen(s2);
   if (len1 < len2) return -1;
   if (len1 > len2) return 1;
-  return (rp_strnicmp(s1, s2, (len1 >= len2 ? len1 : len2)));
+  return (ic_strnicmp(s1, s2, (len1 >= len2 ? len1 : len2)));
 }
 
 
-static const char* rp_stristr(const char* s, const char* pat) {
+static const char* ic_stristr(const char* s, const char* pat) {
   if (s==NULL) return NULL;
   if (pat==NULL || pat[0] == 0) return s;
-  ssize_t patlen = rp_strlen(pat);
+  ssize_t patlen = ic_strlen(pat);
   for (ssize_t i = 0; s[i] != 0; i++) {
-    if (rp_strnicmp(s + i, pat, patlen) == 0) return (s+i);
+    if (ic_strnicmp(s + i, pat, patlen) == 0) return (s+i);
   }
   return NULL;
 }
 
-rp_private bool rp_contains(const char* big, const char* s) {
+ic_private bool ic_contains(const char* big, const char* s) {
   if (big == NULL) return false;
   if (s == NULL) return true;
   return (strstr(big,s) != NULL);
 }
 
-rp_private bool rp_icontains(const char* big, const char* s) {
+ic_private bool ic_icontains(const char* big, const char* s) {
   if (big == NULL) return false;
   if (s == NULL) return true;
-  return (rp_stristr(big,s) != NULL);
+  return (ic_stristr(big,s) != NULL);
 }
 
 
@@ -152,15 +152,15 @@ rp_private bool rp_icontains(const char* big, const char* s) {
 // QUTF-8: See <https://github.com/koka-lang/koka/blob/master/kklib/include/kklib/string.h>
 // Raw bytes are code points 0xEE000 - 0xEE0FF
 //-------------------------------------------------------------
-#define RP_UNICODE_RAW   ((unicode_t)(0xEE000U))
+#define IC_UNICODE_RAW   ((unicode_t)(0xEE000U))
 
-rp_private unicode_t unicode_from_raw(uint8_t c) {
-  return (RP_UNICODE_RAW + c);
+ic_private unicode_t unicode_from_raw(uint8_t c) {
+  return (IC_UNICODE_RAW + c);
 }
 
-rp_private bool unicode_is_raw(unicode_t u, uint8_t* c) {
-  if (u >= RP_UNICODE_RAW && u <= RP_UNICODE_RAW + 0xFF) {
-    *c = (uint8_t)(u - RP_UNICODE_RAW);
+ic_private bool unicode_is_raw(unicode_t u, uint8_t* c) {
+  if (u >= IC_UNICODE_RAW && u <= IC_UNICODE_RAW + 0xFF) {
+    *c = (uint8_t)(u - IC_UNICODE_RAW);
     return true;
   }
   else {
@@ -168,7 +168,7 @@ rp_private bool unicode_is_raw(unicode_t u, uint8_t* c) {
   }
 }
 
-rp_private void unicode_to_qutf8(unicode_t u, uint8_t buf[5]) {
+ic_private void unicode_to_qutf8(unicode_t u, uint8_t buf[5]) {
   memset(buf, 0, 5);
   if (u <= 0x7F) {
     buf[0] = (uint8_t)u;
@@ -196,11 +196,11 @@ rp_private void unicode_to_qutf8(unicode_t u, uint8_t buf[5]) {
 }
 
 // is this a utf8 continuation byte?
-rp_private bool utf8_is_cont(uint8_t c) {
+ic_private bool utf8_is_cont(uint8_t c) {
   return ((c & 0xC0) == 0x80);
 }
 
-rp_private unicode_t unicode_from_qutf8(const uint8_t* s, ssize_t len, ssize_t* count) {
+ic_private unicode_t unicode_from_qutf8(const uint8_t* s, ssize_t len, ssize_t* count) {
   unicode_t c0 = 0;
   if (len <= 0 || s == NULL) {
     goto fail;
@@ -248,14 +248,14 @@ fail:
 // Debug
 //-------------------------------------------------------------
 
-#if !defined(RP_NO_DEBUG_MSG) 
-rp_private void debug_msg(const char* fmt, ...) {
+#if !defined(IC_NO_DEBUG_MSG) 
+ic_private void debug_msg(const char* fmt, ...) {
   static int debug_init;
-  static const char* debug_fname = "repline.debug.txt";
+  static const char* debug_fname = "isocline.debug.txt";
   // initialize?
   if (debug_init==0) {
     debug_init = -1;
-    const char* rdebug = getenv("REPLINE_DEBUG");
+    const char* rdebug = getenv("ISOCLINE_DEBUG");
     if (rdebug!=NULL && strcmp(rdebug,"1") == 0) {
       FILE* fdbg = fopen(debug_fname, "w");
       if (fdbg!=NULL) {
@@ -282,34 +282,34 @@ rp_private void debug_msg(const char* fmt, ...) {
 // Allocation
 //-------------------------------------------------------------
 
-rp_private void* mem_malloc(alloc_t* mem, ssize_t sz) {
+ic_private void* mem_malloc(alloc_t* mem, ssize_t sz) {
   return mem->malloc(to_size_t(sz));
 }
 
-rp_private void* mem_zalloc(alloc_t* mem, ssize_t sz) {
+ic_private void* mem_zalloc(alloc_t* mem, ssize_t sz) {
   void* p = mem_malloc(mem, sz);
   if (p != NULL) memset(p, 0, to_size_t(sz));
   return p;
 }
 
-rp_private void* mem_realloc(alloc_t* mem, void* p, ssize_t newsz) {
+ic_private void* mem_realloc(alloc_t* mem, void* p, ssize_t newsz) {
   return mem->realloc(p, to_size_t(newsz));
 }
 
-rp_private void mem_free(alloc_t* mem, const void* p) {
+ic_private void mem_free(alloc_t* mem, const void* p) {
   mem->free((void*)p);
 }
 
-rp_private char* mem_strdup(alloc_t* mem, const char* s) {
+ic_private char* mem_strdup(alloc_t* mem, const char* s) {
   if (s==NULL) return NULL;
-  ssize_t n = rp_strlen(s);
+  ssize_t n = ic_strlen(s);
   char* p = mem_malloc_tp_n(mem, char, n+1);
   if (p == NULL) return NULL;
-  rp_memcpy(p, s, n+1);
+  ic_memcpy(p, s, n+1);
   return p;
 }
 
-rp_private char* mem_strndup(alloc_t* mem, const char* s, ssize_t n) {
+ic_private char* mem_strndup(alloc_t* mem, const char* s, ssize_t n) {
   if (s==NULL || n < 0) return NULL;
   char* p = mem_malloc_tp_n(mem, char, n+1);
   if (p == NULL) return NULL;

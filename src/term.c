@@ -27,7 +27,7 @@
 #endif
 #endif
 
-#define RP_CSI      "\x1B["
+#define IC_CSI      "\x1B["
 
 // color support; colors are auto mapped smaller palettes if needed. (see `term_color.c`)
 typedef enum palette_e {
@@ -76,61 +76,61 @@ static bool term_vwritef(term_t* term, ssize_t max_needed, const char* fmt, va_l
 // Helpers
 //-------------------------------------------------------------
 
-rp_private void term_left(term_t* term, ssize_t n) {
+ic_private void term_left(term_t* term, ssize_t n) {
   if (n <= 0) return;
-  term_writef( term, 64, RP_CSI "%zdD", n );
+  term_writef( term, 64, IC_CSI "%zdD", n );
 }
 
-rp_private void term_right(term_t* term, ssize_t n) {
+ic_private void term_right(term_t* term, ssize_t n) {
   if (n <= 0) return;
-  term_writef( term, 64, RP_CSI "%zdC", n );
+  term_writef( term, 64, IC_CSI "%zdC", n );
 }
 
-rp_private void term_up(term_t* term, ssize_t n) {
+ic_private void term_up(term_t* term, ssize_t n) {
   if (n <= 0) return;
-  term_writef( term, 64, RP_CSI "%zdA", n );
+  term_writef( term, 64, IC_CSI "%zdA", n );
 }
 
-rp_private void term_down(term_t* term, ssize_t n) {
+ic_private void term_down(term_t* term, ssize_t n) {
   if (n <= 0) return;
-  term_writef( term, 64, RP_CSI "%zdB", n );
+  term_writef( term, 64, IC_CSI "%zdB", n );
 }
 
-rp_private void term_clear_line(term_t* term) {
-  term_write( term, "\r" RP_CSI "2K");
+ic_private void term_clear_line(term_t* term) {
+  term_write( term, "\r" IC_CSI "2K");
 }
 
-rp_private void term_start_of_line(term_t* term) {
+ic_private void term_start_of_line(term_t* term) {
   term_write( term, "\r" );
 }
 
-rp_private ssize_t term_get_width(term_t* term) {
+ic_private ssize_t term_get_width(term_t* term) {
   return term->width;
 }
 
-rp_private ssize_t term_get_height(term_t* term) {
+ic_private ssize_t term_get_height(term_t* term) {
   return term->height;
 }
 
-rp_private void term_attr_reset(term_t* term) {
-  term_write(term, RP_CSI "0m" );
+ic_private void term_attr_reset(term_t* term) {
+  term_write(term, IC_CSI "0m" );
 }
 
-rp_private void term_underline(term_t* term, bool on) {
-  term_write(term, on ? RP_CSI "4m" : RP_CSI "24m" );
+ic_private void term_underline(term_t* term, bool on) {
+  term_write(term, on ? IC_CSI "4m" : IC_CSI "24m" );
 }
 
-rp_private void term_reverse(term_t* term, bool on) {
-  term_write(term, on ? RP_CSI "7m" : RP_CSI "27m");
+ic_private void term_reverse(term_t* term, bool on) {
+  term_write(term, on ? IC_CSI "7m" : IC_CSI "27m");
 }
 
-rp_private bool term_writeln(term_t* term, const char* s) {
+ic_private bool term_writeln(term_t* term, const char* s) {
   bool ok = term_write(term,s);
   if (ok) { ok = term_write(term,"\n"); }
   return ok;
 }
 
-rp_private bool term_write_char(term_t* term, char c) {
+ic_private bool term_write_char(term_t* term, char c) {
   char buf[2];
   buf[0] = c;
   buf[1] = 0;
@@ -142,7 +142,7 @@ rp_private bool term_write_char(term_t* term, char c) {
 // Formatted output
 //-------------------------------------------------------------
 
-rp_private bool term_writef(term_t* term, ssize_t max_needed, const char* fmt, ...) {
+ic_private bool term_writef(term_t* term, ssize_t max_needed, const char* fmt, ...) {
   va_list ap;
   va_start(ap, fmt);
   int err = term_vwritef(term,max_needed,fmt,ap);
@@ -151,7 +151,7 @@ rp_private bool term_writef(term_t* term, ssize_t max_needed, const char* fmt, .
 }
 
 static bool term_vwritef(term_t* term, ssize_t max_needed, const char* fmt, va_list args ) {
-  rp_unused(max_needed);
+  ic_unused(max_needed);
   bool buffering = term->buffered;
   term_start_buffered(term);
   sbuf_append_vprintf(term->buf, max_needed, fmt, args);
@@ -166,26 +166,26 @@ static bool term_vwritef(term_t* term, ssize_t max_needed, const char* fmt, va_l
 // during refresh
 //-------------------------------------------------------------
 
-rp_private void term_beep(term_t* term) {
+ic_private void term_beep(term_t* term) {
   if (term->silent) return;
   fprintf(stderr,"\x7");
   fflush(stderr);
 }
 
-rp_private bool term_write_repeat(term_t* term, const char* s, ssize_t count) {
+ic_private bool term_write_repeat(term_t* term, const char* s, ssize_t count) {
   for (; count > 0; count--) {
     if (!term_write(term, s)) return false;
   }
   return true;
 }
 
-rp_private bool term_write(term_t* term, const char* s) {
+ic_private bool term_write(term_t* term, const char* s) {
   if (s == NULL || s[0] == 0) return true;
-  ssize_t n = rp_strlen(s);
+  ssize_t n = ic_strlen(s);
   return term_write_n(term,s,n);
 }
 
-rp_private bool term_write_n(term_t* term, const char* s, ssize_t n) {
+ic_private bool term_write_n(term_t* term, const char* s, ssize_t n) {
   if (s == NULL || n <= 0) return true;
   if (!term->buffered) {
     return term_write_direct(term,s,n);
@@ -197,7 +197,7 @@ rp_private bool term_write_n(term_t* term, const char* s, ssize_t n) {
   }
 }
 
-rp_private void term_start_buffered(term_t* term) {
+ic_private void term_start_buffered(term_t* term) {
   if (term->buf == NULL) {
     term->buf = sbuf_new(term->mem);
     if (term->buf == NULL) {
@@ -208,7 +208,7 @@ rp_private void term_start_buffered(term_t* term) {
   term->buffered = true;
 }
 
-rp_private bool term_end_buffered(term_t* term) {
+ic_private bool term_end_buffered(term_t* term) {
   if (!term->buffered) return true;
   term->buffered = false;
   if (term->buf != NULL && sbuf_len(term->buf) > 0) {
@@ -226,7 +226,7 @@ rp_private bool term_end_buffered(term_t* term) {
 
 static void term_init_raw(term_t* term);
 
-rp_private term_t* term_new(alloc_t* mem, tty_t* tty, bool nocolor, bool silent, int fd_out ) 
+ic_private term_t* term_new(alloc_t* mem, tty_t* tty, bool nocolor, bool silent, int fd_out ) 
 {
   term_t* term = mem_zalloc_tp(mem, term_t);
   if (term == NULL) return NULL;
@@ -249,34 +249,34 @@ rp_private term_t* term_new(alloc_t* mem, tty_t* tty, bool nocolor, bool silent,
   // detect color palette
   // COLORTERM takes precedence
   const char* colorterm = getenv("COLORTERM");  
-  if (rp_contains(colorterm,"24bit") || rp_contains(colorterm,"truecolor"))      { term->palette = ANSIRGB; }
-  else if (rp_contains(colorterm,"8bit") || rp_contains(colorterm,"256color"))   { term->palette = ANSI256; } 
-  else if (rp_contains(colorterm,"4bit") || rp_contains(colorterm,"16color"))    { term->palette = ANSI16; }
-  else if (rp_contains(colorterm,"3bit") || rp_contains(colorterm,"8color"))     { term->palette = ANSI8; }
-  else if (rp_contains(colorterm,"1bit") || rp_contains(colorterm,"monochrome")) { term->palette = MONOCHROME; }
+  if (ic_contains(colorterm,"24bit") || ic_contains(colorterm,"truecolor"))      { term->palette = ANSIRGB; }
+  else if (ic_contains(colorterm,"8bit") || ic_contains(colorterm,"256color"))   { term->palette = ANSI256; } 
+  else if (ic_contains(colorterm,"4bit") || ic_contains(colorterm,"16color"))    { term->palette = ANSI16; }
+  else if (ic_contains(colorterm,"3bit") || ic_contains(colorterm,"8color"))     { term->palette = ANSI8; }
+  else if (ic_contains(colorterm,"1bit") || ic_contains(colorterm,"monochrome")) { term->palette = MONOCHROME; }
   // then check for some specific terminals
   else if (getenv("WT_SESSION") != NULL) { term->palette = ANSIRGB; } // Windows terminal
   else if (getenv("ITERM_SESSION_ID") != NULL) { term->palette = ANSIRGB; } // iTerm2 terminal
   else {
     // and fall back to checking TERM
     const char* eterm = getenv("TERM");
-    if (rp_contains(eterm,"kitty")) {
+    if (ic_contains(eterm,"kitty")) {
       term->palette = ANSIRGB;
     }
-    else if (rp_contains(eterm,"xterm") || rp_contains(eterm,"256color") || rp_contains(eterm,"gnome")) { 
+    else if (ic_contains(eterm,"xterm") || ic_contains(eterm,"256color") || ic_contains(eterm,"gnome")) { 
       term->palette = ANSI256; 
     }  
-    else if (rp_contains(eterm,"16color")){ term->palette = ANSI16; }
-    else if (rp_contains(eterm,"8color")) { term->palette = ANSI8; }
-    else if (rp_contains(eterm,"dumb"))   { term->palette = MONOCHROME; }
+    else if (ic_contains(eterm,"16color")){ term->palette = ANSI16; }
+    else if (ic_contains(eterm,"8color")) { term->palette = ANSI8; }
+    else if (ic_contains(eterm,"dumb"))   { term->palette = MONOCHROME; }
   }
   debug_msg("term; color-bits: %d (COLORTERM=%s, TERM=%s)\n", term_get_color_bits(term), colorterm, term);
   
   // read COLUMS/LINES from the environment for a better initial guess.
   const char* env_columns = getenv("COLUMNS");
-  if (env_columns != NULL) { rp_atoz(env_columns, &term->width); }
+  if (env_columns != NULL) { ic_atoz(env_columns, &term->width); }
   const char* env_lines = getenv("LINES");
-  if (env_lines != NULL)   { rp_atoz(env_lines, &term->height); }
+  if (env_lines != NULL)   { ic_atoz(env_lines, &term->height); }
   
   // initialize raw terminal output and terminal dimensions
   term_init_raw(term);
@@ -285,8 +285,8 @@ rp_private term_t* term_new(alloc_t* mem, tty_t* tty, bool nocolor, bool silent,
   return term;
 }
 
-rp_private bool term_is_interactive(const term_t* term) {
-  rp_unused(term);
+ic_private bool term_is_interactive(const term_t* term) {
+  ic_unused(term);
   // check dimensions (0 is used for debuggers)
   // if (term->width <= 0) return false; 
   
@@ -301,20 +301,20 @@ rp_private bool term_is_interactive(const term_t* term) {
   return true;
 }
 
-rp_private bool term_enable_beep(term_t* term, bool enable) {
+ic_private bool term_enable_beep(term_t* term, bool enable) {
   bool prev = term->silent;
   term->silent = !enable;
   return prev;
 }
 
-rp_private bool term_enable_color(term_t* term, bool enable) {
+ic_private bool term_enable_color(term_t* term, bool enable) {
   bool prev = !term->nocolor;
   term->nocolor = !enable;
   return prev;
 }
 
 
-rp_private void term_free(term_t* term) {
+ic_private void term_free(term_t* term) {
   if (term == NULL) return;
   term_end_buffered(term);  
   term_end_raw(term);
@@ -348,7 +348,7 @@ static bool term_write_console(term_t* term, const char* s, ssize_t n) {
 static bool term_write_esc(term_t* term, const char* s, ssize_t len) {
   if (term->nocolor && s[1]=='[' && s[len-1] == 'm') {
     ssize_t n = 1;
-    rp_atoz(s + 2, &n);
+    ic_atoz(s + 2, &n);
     if ((n >= 30 && n <= 49) || (n >= 90 && n <= 109)) {
       // ignore color
       return true;
@@ -375,7 +375,7 @@ static bool term_write_utf8(term_t* term, const char* s, ssize_t len) {
     char buf[64+1];
     snprintf(buf, 64, "\x1B[%" PRIu32 "u", uchr);
     buf[64] = 0;
-    return term_write_console(term, buf, rp_strlen(buf));
+    return term_write_console(term, buf, ic_strlen(buf));
   }
   else {
     // write utf-8 as is
@@ -606,7 +606,7 @@ static void term_esc_attr( term_t* term, ssize_t cmd ) {
 static ssize_t esc_param( const char* s, ssize_t def ) {
   if (*s == '?') s++;
   ssize_t n = def;
-  rp_atoz(s, &n);
+  ic_atoz(s, &n);
   return n;
 }
 
@@ -614,7 +614,7 @@ static void esc_param2( const char* s, ssize_t* p1, ssize_t* p2, ssize_t def ) {
   if (*s == '?') s++; 
   *p1 = def;
   *p2 = def;
-  rp_atoz2(s, p1, p2);  
+  ic_atoz2(s, p1, p2);  
 }
 
 static void term_write_esc( term_t* term, const char* s, ssize_t len ) {
@@ -669,7 +669,7 @@ static void term_write_esc( term_t* term, const char* s, ssize_t len ) {
       term_esc_attr(term, esc_param(s+2, 0) );
       break;
 
-    // support some less standard escape codes (currently not used by repline)
+    // support some less standard escape codes (currently not used by isocline)
     case 'E':  // line down
       term_get_cursor_pos(term, &row, &col);
       row += esc_param(s+2, 1);
@@ -764,7 +764,7 @@ static bool term_esc_query_raw( term_t* term, const char* query, char* buf, ssiz
 {
   if (buf==NULL || buflen <= 0 || query[0] == 0) return false;
   bool osc = (query[1] == ']');
-  if (!term_write_console(term, query, rp_strlen(query))) return false;
+  if (!term_write_console(term, query, ic_strlen(query))) return false;
   debug_msg("term: read tty query response to: ESC %s\n", query + 1);  
   // parse query response 
   ssize_t len = 0;
@@ -810,15 +810,15 @@ static bool term_get_cursor_pos( term_t* term, ssize_t* row, ssize_t* col)
   // send escape query
   char buf[128];
   if (!term_esc_query(term,"\x1B[6n",buf,128)) return false; 
-  if (!rp_atoz2(buf,row,col)) return false;
+  if (!ic_atoz2(buf,row,col)) return false;
   return true;
 }
 
 static void term_set_cursor_pos( term_t* term, ssize_t row, ssize_t col ) {
-  term_writef( term, 128, RP_CSI "%zd;%zdH", row, col );
+  term_writef( term, 128, IC_CSI "%zd;%zdH", row, col );
 }
 
-rp_private bool term_update_dim(term_t* term) {  
+ic_private bool term_update_dim(term_t* term) {  
   ssize_t cols = 0;
   ssize_t rows = 0;
   struct winsize ws;
@@ -860,7 +860,7 @@ rp_private bool term_update_dim(term_t* term) {
 
 #else
 
-rp_private bool term_update_dim(term_t* term) {
+ic_private bool term_update_dim(term_t* term) {
   if (term->hcon == 0) {
     term->hcon = GetConsoleWindow();
   }
@@ -890,13 +890,13 @@ rp_private bool term_update_dim(term_t* term) {
 
 // On non-windows, the terminal is set in raw mode by the tty.
 
-rp_private void term_start_raw(term_t* term) {
+ic_private void term_start_raw(term_t* term) {
   if (term->raw_enabled) return;
   //term_write(term,"\x1B[?7l");
   term->raw_enabled = true;
 }
 
-rp_private void term_end_raw(term_t* term) {
+ic_private void term_end_raw(term_t* term) {
   if (!term->raw_enabled) return;
   //term_write(term,"\x1B[?7h");
   term->raw_enabled = false;
@@ -913,11 +913,11 @@ static bool term_esc_query_color_raw(term_t* term, int color_idx, uint32_t* colo
   unsigned int r,g,b;
   if (sscanf(rgb,"%x/%x/%x",&r,&g,&b) != 3) return false;
   if (rgb[2]!='/') { // 48-bit rgb, hexadecimal round to 24-bit     
-    r = (r+0x7F)/0xFF;   // note: can "overflow", e.g. 0xFFFF -> 0x100. (and we need `rp_cap8` to convert.)
+    r = (r+0x7F)/0xFF;   // note: can "overflow", e.g. 0xFFFF -> 0x100. (and we need `ic_cap8` to convert.)
     g = (g+0x7F)/0xFF;
     b = (b+0x7F)/0xFF; 
   }
-  *color = (rp_cap8(r)<<16) | (rp_cap8(g)<<8) | rp_cap8(b);
+  *color = (ic_cap8(r)<<16) | (ic_cap8(g)<<8) | ic_cap8(b);
   debug_msg("color query: %02x,%02x,%02x: %06x\n", r, g, b, *color);  
   return true;
 }
@@ -960,7 +960,7 @@ static void term_init_raw(term_t* term) {
 
 #else
 
-rp_private void term_start_raw(term_t* term) {
+ic_private void term_start_raw(term_t* term) {
   if (term->raw_enabled) return;
   CONSOLE_SCREEN_BUFFER_INFO info;
   if (GetConsoleScreenBufferInfo(term->hcon, &info)) {
@@ -993,7 +993,7 @@ rp_private void term_start_raw(term_t* term) {
   term->raw_enabled = true;
 }
 
-rp_private void term_end_raw(term_t* term) {
+ic_private void term_end_raw(term_t* term) {
   if (!term->raw_enabled) return;
   SetConsoleMode(term->hcon, term->hcon_orig_mode);
   SetConsoleOutputCP(term->hcon_orig_cp);

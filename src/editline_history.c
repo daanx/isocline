@@ -9,7 +9,7 @@
 // History search: this file is included in editline.c
 //-------------------------------------------------------------
 
-static void edit_history_at(rp_env_t* env, editor_t* eb, int ofs ) 
+static void edit_history_at(ic_env_t* env, editor_t* eb, int ofs ) 
 {
   if (eb->modified) { 
     history_update(env->history, sbuf_string(eb->input)); // update first entry if modified
@@ -36,11 +36,11 @@ static void edit_history_at(rp_env_t* env, editor_t* eb, int ofs )
   }
 }
 
-static void edit_history_prev(rp_env_t* env, editor_t* eb) {
+static void edit_history_prev(ic_env_t* env, editor_t* eb) {
   edit_history_at(env,eb, 1 );
 }
 
-static void edit_history_next(rp_env_t* env, editor_t* eb) {
+static void edit_history_next(ic_env_t* env, editor_t* eb) {
   edit_history_at(env,eb, -1 );
 }
 
@@ -83,7 +83,7 @@ static void hsearch_done( alloc_t* mem, hsearch_t* hs ) {
   }
 }
 
-static void edit_history_search(rp_env_t* env, editor_t* eb, char* initial ) {
+static void edit_history_search(ic_env_t* env, editor_t* eb, char* initial ) {
   if (history_count( env->history ) <= 0) {
     term_beep(env->term);
     return;
@@ -97,7 +97,7 @@ static void edit_history_search(rp_env_t* env, editor_t* eb, char* initial ) {
   }
 
   // set a search prompt
-  bool old_hint = rp_enable_hint(false);
+  bool old_hint = ic_enable_hint(false);
   ssize_t old_pos = eb->pos;
   const char* prompt_text = eb->prompt_text;
   eb->prompt_text = "history search";
@@ -111,7 +111,7 @@ static void edit_history_search(rp_env_t* env, editor_t* eb, char* initial ) {
   
   // Simulate per character searches for each letter in `initial` (so backspace works)
   if (initial != NULL) {
-    const ssize_t initial_len = rp_strlen(initial);
+    const ssize_t initial_len = ic_strlen(initial);
     ssize_t ipos = 0;
     while( ipos < initial_len ) {
       ssize_t next = str_next_ofs( initial, initial_len, ipos, NULL );
@@ -233,13 +233,13 @@ again:
   // done
   hsearch_done(env->mem,hs);
   eb->prompt_text = prompt_text;
-  rp_enable_hint(old_hint);
+  ic_enable_hint(old_hint);
   edit_refresh(env,eb);
   if (c != 0) tty_code_pushback(env->tty, c);
 }
 
 // Start an incremental search with the current word 
-static void edit_history_search_with_current_word(rp_env_t* env, editor_t* eb) {
+static void edit_history_search_with_current_word(ic_env_t* env, editor_t* eb) {
   char* initial = NULL;
   ssize_t start = sbuf_find_word_start( eb->input, eb->pos );
   if (start >= 0) {

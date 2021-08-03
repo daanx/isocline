@@ -56,14 +56,14 @@ struct tty_s {
 // Forward declarations of platform dependent primitives below
 //-------------------------------------------------------------
 
-rp_private bool tty_readc_noblock(tty_t* tty, uint8_t* c);  // does not modify `c` when no input (false is returned)
-rp_private bool tty_readc(tty_t* tty, uint8_t* c);          
+ic_private bool tty_readc_noblock(tty_t* tty, uint8_t* c);  // does not modify `c` when no input (false is returned)
+ic_private bool tty_readc(tty_t* tty, uint8_t* c);          
 
 //-------------------------------------------------------------
 // Key code helpers
 //-------------------------------------------------------------
 
-rp_private bool code_is_ascii_char(code_t c, char* chr ) {
+ic_private bool code_is_ascii_char(code_t c, char* chr ) {
   if (c >= ' ' && c <= 0x7F) {
     if (chr != NULL) *chr = (char)c;
     return true;
@@ -74,7 +74,7 @@ rp_private bool code_is_ascii_char(code_t c, char* chr ) {
   }
 }
 
-rp_private bool code_is_unicode(code_t c, unicode_t* uchr) {
+ic_private bool code_is_unicode(code_t c, unicode_t* uchr) {
   if (c <= KEY_UNICODE_MAX) {
     if (uchr != NULL) *uchr = c;
     return true;
@@ -85,7 +85,7 @@ rp_private bool code_is_unicode(code_t c, unicode_t* uchr) {
   }
 }
 
-rp_private bool code_is_virt_key(code_t c ) {
+ic_private bool code_is_virt_key(code_t c ) {
   return (KEY_NO_MODS(c) <= 0x20 || KEY_NO_MODS(c) >= KEY_VIRT);
 }
 
@@ -136,7 +136,7 @@ static code_t tty_read_utf8( tty_t* tty, uint8_t c0 ) {
 static bool tty_code_pop(tty_t* tty, code_t* code);
 
 // read a single char/key (data is used for events only)
-rp_private code_t tty_read(tty_t* tty) 
+ic_private code_t tty_read(tty_t* tty) 
 {
   // is there a push_count back code?
   code_t code;
@@ -222,7 +222,7 @@ static bool tty_code_pop( tty_t* tty, code_t* code ) {
   return true;
 }
 
-rp_private void tty_code_pushback( tty_t* tty, code_t c ) {   
+ic_private void tty_code_pushback( tty_t* tty, code_t c ) {   
   // note: must be signal safe
   if (tty->push_count >= TTY_PUSH_MAX) return;
   tty->pushbuf[tty->push_count] = c;
@@ -234,7 +234,7 @@ rp_private void tty_code_pushback( tty_t* tty, code_t c ) {
 // low-level character pushback (for escape sequences and windows)
 //-------------------------------------------------------------
 
-rp_private bool tty_cpop(tty_t* tty, uint8_t* c) {  
+ic_private bool tty_cpop(tty_t* tty, uint8_t* c) {  
   if (tty->cpush_count <= 0) {  // do not modify c on failure (see `tty_decode_unicode`)
     return false;
   }
@@ -246,7 +246,7 @@ rp_private bool tty_cpop(tty_t* tty, uint8_t* c) {
 }
 
 static void tty_cpush(tty_t* tty, const char* s) {
-  ssize_t len = rp_strlen(s);
+  ssize_t len = ic_strlen(s);
   if (tty->push_count + len > TTY_PUSH_MAX) {
     debug_msg("tty: cpush buffer full! (pushing %s)\n", s);
     assert(false);
@@ -271,7 +271,7 @@ static void tty_cpushf(tty_t* tty, const char* fmt, ...) {
   return;
 }
 
-rp_private void tty_cpush_char(tty_t* tty, uint8_t c) {  
+ic_private void tty_cpush_char(tty_t* tty, uint8_t c) {  
   uint8_t buf[2];
   buf[0] = c;
   buf[1] = 0;
@@ -326,13 +326,13 @@ static bool tty_init_utf8(tty_t* tty) {
   tty->is_utf8 = true;
   #else
   char* loc = setlocale(LC_ALL,"");
-  tty->is_utf8 = (rp_icontains(loc,"UTF-8") || rp_icontains(loc,"UTF8"));
+  tty->is_utf8 = (ic_icontains(loc,"UTF-8") || ic_icontains(loc,"UTF8"));
   debug_msg("tty: utf8: %s (loc=%s)\n", tty->is_utf8 ? "true" : "false", loc);
   #endif
   return true;
 }
 
-rp_private tty_t* tty_new(alloc_t* mem, int fd_in) 
+ic_private tty_t* tty_new(alloc_t* mem, int fd_in) 
 {
   tty_t* tty = mem_zalloc_tp(mem, tty_t);
   tty->mem = mem;
@@ -344,19 +344,19 @@ rp_private tty_t* tty_new(alloc_t* mem, int fd_in)
   return tty;
 }
 
-rp_private void tty_free(tty_t* tty) {
+ic_private void tty_free(tty_t* tty) {
   if (tty==NULL) return;
   tty_end_raw(tty);
   tty_done_raw(tty);
   mem_free(tty->mem,tty);
 }
 
-rp_private bool tty_is_utf8(const tty_t* tty) {
+ic_private bool tty_is_utf8(const tty_t* tty) {
   if (tty == NULL) return true;
   return (tty->is_utf8);
 }
 
-rp_private bool tty_term_resize_event(tty_t* tty) {
+ic_private bool tty_term_resize_event(tty_t* tty) {
   if (tty == NULL) return true;
   if (tty->has_term_resize_event) {
     if (!tty->term_resize_event) return false;
@@ -370,7 +370,7 @@ rp_private bool tty_term_resize_event(tty_t* tty) {
 //-------------------------------------------------------------
 #if !defined(_WIN32)
 
-rp_private bool tty_readc(tty_t* tty, uint8_t* c) {
+ic_private bool tty_readc(tty_t* tty, uint8_t* c) {
   if (tty_cpop(tty,c)) return true;
   *c = 0;
   ssize_t nread = read(tty->fd_in, (char*)c, 1);
@@ -380,7 +380,7 @@ rp_private bool tty_readc(tty_t* tty, uint8_t* c) {
   return (nread == 1);
 }
 
-rp_private bool tty_readc_noblock(tty_t* tty, uint8_t* c) {
+ic_private bool tty_readc_noblock(tty_t* tty, uint8_t* c) {
   // in our pushback buffer?
   if (tty_cpop(tty, c)) return true;
   
@@ -411,7 +411,7 @@ rp_private bool tty_readc_noblock(tty_t* tty, uint8_t* c) {
 }
 
 // non blocking read with a small timeout used for reading back escape sequence queries
-rp_private bool tty_readc_pause_noblock(tty_t* tty, uint8_t* c) {
+ic_private bool tty_readc_pause_noblock(tty_t* tty, uint8_t* c) {
   #if defined(FD_SET)   
   // we can use select to detect when input becomes available
   fd_set readset;
@@ -521,7 +521,7 @@ static void signals_restore(void) {
 
 #else
 static void signals_install(tty_t* tty) {
-  rp_unused(tty);
+  ic_unused(tty);
   // nothing
 }
 static void signals_restore(void) {
@@ -530,14 +530,14 @@ static void signals_restore(void) {
 
 #endif
 
-rp_private bool tty_start_raw(tty_t* tty) {
+ic_private bool tty_start_raw(tty_t* tty) {
   if (tty->raw_enabled) return true;
   if (tcsetattr(tty->fd_in,TCSAFLUSH,&tty->raw_ios) < 0) return false;  
   tty->raw_enabled = true;
   return true;
 }
 
-rp_private void tty_end_raw(tty_t* tty) {
+ic_private void tty_end_raw(tty_t* tty) {
   if (!tty->raw_enabled) return;
   tty->cpush_count = 0;
   if (tcsetattr(tty->fd_in,TCSAFLUSH,&tty->orig_ios) < 0) return;
@@ -566,7 +566,7 @@ static bool tty_init_raw(tty_t* tty)
 }
 
 static void tty_done_raw(tty_t* tty) {
-  rp_unused(tty);
+  ic_unused(tty);
   signals_restore();
 }
 
@@ -590,7 +590,7 @@ static bool tty_readc(tty_t* tty, uint8_t* c) {
   return tty_cpop(tty,c);
 }
 
-rp_private bool tty_readc_noblock(tty_t* tty, uint8_t* c) {  // don't modify `c` if there is no input
+ic_private bool tty_readc_noblock(tty_t* tty, uint8_t* c) {  // don't modify `c` if there is no input
   // in our pushback buffer?
   if (tty_cpop(tty, c)) return true;
   // any events in the input queue?
@@ -598,7 +598,7 @@ rp_private bool tty_readc_noblock(tty_t* tty, uint8_t* c) {  // don't modify `c`
   return tty_cpop(tty, c);
 }
 
-rp_private bool tty_readc_pause_noblock(tty_t* tty, uint8_t* c) {
+ic_private bool tty_readc_pause_noblock(tty_t* tty, uint8_t* c) {
   return tty_readc_noblock(tty,c); // no need for pauses on Windows
 }
 
@@ -710,7 +710,7 @@ static void tty_waitc_console(tty_t* tty, bool blocking)
   }
 }  
 
-rp_private bool tty_start_raw(tty_t* tty) {
+ic_private bool tty_start_raw(tty_t* tty) {
   if (tty->raw_enabled) return true;
   GetConsoleMode(tty->hcon,&tty->hcon_orig_mode);
   DWORD mode = ENABLE_QUICK_EDIT_MODE   // cut&paste allowed 
@@ -723,7 +723,7 @@ rp_private bool tty_start_raw(tty_t* tty) {
   return true; 
 }
 
-rp_private void tty_end_raw(tty_t* tty) {
+ic_private void tty_end_raw(tty_t* tty) {
   if (!tty->raw_enabled) return;
   SetConsoleMode(tty->hcon, tty->hcon_orig_mode );
   tty->raw_enabled = false;
@@ -736,7 +736,7 @@ static bool tty_init_raw(tty_t* tty) {
 }
 
 static void tty_done_raw(tty_t* tty) {
-  rp_unused(tty);
+  ic_unused(tty);
 }
 
 #endif

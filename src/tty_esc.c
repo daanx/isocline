@@ -339,7 +339,7 @@ static code_t tty_read_csi(tty_t* tty, uint8_t c1, uint8_t peek, code_t mods0) {
   return (code != KEY_NONE ? (code | modifiers) : KEY_NONE);
 }
 
-rp_private code_t tty_read_esc(tty_t* tty) {
+ic_private code_t tty_read_esc(tty_t* tty) {
   code_t  mods = 0;
   uint8_t peek = 0;
   

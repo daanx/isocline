@@ -7,7 +7,7 @@
 #include <string.h>
 #include <stdio.h>
 
-#include "../include/repline.h"
+#include "../include/isocline.h"
 #include "common.h"
 #include "env.h"
 #include "stringbuf.h"
@@ -25,13 +25,13 @@ typedef struct word_closure_s {
   long         delete_before_adjust;
   stringbuf_t* sbuf;
   void*        prev_env;
-  rp_is_char_class_fun_t* is_word_char;
-  rp_completion_fun_t*    prev_complete;
+  ic_is_char_class_fun_t* is_word_char;
+  ic_completion_fun_t*    prev_complete;
 } word_closure_t;
 
 
 // word completion callback
-static bool word_add_completion_ex(rp_env_t* env, void* closure, const char* display, const char* replacement, long delete_before, long delete_after) {
+static bool word_add_completion_ex(ic_env_t* env, void* closure, const char* display, const char* replacement, long delete_before, long delete_after) {
   word_closure_t* wenv = (word_closure_t*)(closure);
   sbuf_replace( wenv->sbuf, replacement );   
   if (wenv->quote != 0) {
@@ -56,17 +56,17 @@ static bool word_add_completion_ex(rp_env_t* env, void* closure, const char* dis
 }
 
 
-rp_public void rp_complete_word( rp_completion_env_t* cenv, const char* prefix, rp_completer_fun_t* fun ) {
-  rp_complete_quoted_word( cenv, prefix, fun, NULL, '\\', NULL);
+ic_public void ic_complete_word( ic_completion_env_t* cenv, const char* prefix, ic_completer_fun_t* fun ) {
+  ic_complete_quoted_word( cenv, prefix, fun, NULL, '\\', NULL);
 }
 
 
-rp_public void rp_complete_quoted_word( rp_completion_env_t* cenv, const char* prefix, rp_completer_fun_t* fun, 
-                                        rp_is_char_class_fun_t* is_word_char, char escape_char, const char* quote_chars ) {
-  if (is_word_char == NULL) is_word_char = &rp_char_is_nonseparator ;  
+ic_public void ic_complete_quoted_word( ic_completion_env_t* cenv, const char* prefix, ic_completer_fun_t* fun, 
+                                        ic_is_char_class_fun_t* is_word_char, char escape_char, const char* quote_chars ) {
+  if (is_word_char == NULL) is_word_char = &ic_char_is_nonseparator ;  
   if (quote_chars == NULL) quote_chars = "'\"";
 
-  ssize_t len = rp_strlen(prefix);
+  ssize_t len = ic_strlen(prefix);
   ssize_t pos; // will be start of the 'word' (excluding a potential start quote)
   char quote = 0;
   ssize_t quote_len = 0;
@@ -147,7 +147,7 @@ rp_public void rp_complete_quoted_word( rp_completion_env_t* cenv, const char* p
       if (word[wpos] == escape_char && word[wpos+1] != 0 &&
            !(*is_word_char)(word + wpos + 1, (long)ofs)) // strchr(non_word_char, word[wpos+1]) != NULL) {
       {
-        rp_memmove(word + wpos, word + wpos + 1, wlen - wpos /* including 0 */);
+        ic_memmove(word + wpos, word + wpos + 1, wlen - wpos /* including 0 */);
       }
       wpos += ofs;
     }
@@ -162,7 +162,7 @@ rp_public void rp_complete_quoted_word( rp_completion_env_t* cenv, const char* p
       if (ofs <= 0) break;
       if (word[wpos] == escape_char && word[wpos+1] == quote) {
         word[wpos+1] = escape_char;
-        rp_memmove(word + wpos, word + wpos + 1, wlen - wpos /* including 0 */);
+        ic_memmove(word + wpos, word + wpos + 1, wlen - wpos /* including 0 */);
       }
       wpos += ofs;
     }
@@ -244,7 +244,7 @@ static bool os_path_is_absolute( const char* path ) {
   else return false;
 }
 
-rp_private char rp_dirsep(void) {
+ic_private char ic_dirsep(void) {
   return '\\';
 }
 #else
@@ -269,7 +269,7 @@ static bool os_findnext(dir_cursor d, dir_entry* entry) {
 }
 
 static bool os_findfirst(alloc_t* mem, const char* cpath, dir_cursor* d, dir_entry* entry) {
-  rp_unused(mem);
+  ic_unused(mem);
   *d = opendir(cpath);
   if (*d == NULL) {
     return false;
@@ -291,7 +291,7 @@ static bool os_path_is_absolute( const char* path ) {
   return (path != NULL && path[0] == '/');
 }
 
-rp_private char rp_dirsep(void) {
+ic_private char ic_dirsep(void) {
   return '/';
 }
 #endif
@@ -309,7 +309,7 @@ static bool ends_with_n(const char* name, ssize_t name_len, const char* ending, 
     char c1 = name[name_len - i];
     char c2 = ending[len - i];
     #ifdef _WIN32
-    if (rp_tolower(c1) != rp_tolower(c2)) return false;
+    if (ic_tolower(c1) != ic_tolower(c2)) return false;
     #else
     if (c1 != c2) return false;
     #endif
@@ -320,8 +320,8 @@ static bool ends_with_n(const char* name, ssize_t name_len, const char* ending, 
 static bool match_extension(const char* name, const char* extensions) {
   if (extensions == NULL || extensions[0] == 0) return true;
   if (name == NULL) return false;
-  ssize_t name_len = rp_strlen(name);
-  ssize_t len = rp_strlen(extensions);
+  ssize_t name_len = ic_strlen(name);
+  ssize_t len = ic_strlen(extensions);
   ssize_t cur = 0;  
   //debug_msg("match extensions: %s ~ %s", name, extensions);
   for (ssize_t end = 0; end <= len; end++) {
@@ -335,7 +335,7 @@ static bool match_extension(const char* name, const char* extensions) {
   return false;
 }
 
-static bool filename_complete_indir( rp_completion_env_t* cenv, stringbuf_t* dir, 
+static bool filename_complete_indir( ic_completion_env_t* cenv, stringbuf_t* dir, 
                                       stringbuf_t* dir_prefix, stringbuf_t* display,
                                        const char* base_prefix, 
                                         char dir_sep, const char* extensions ) 
@@ -347,7 +347,7 @@ static bool filename_complete_indir( rp_completion_env_t* cenv, stringbuf_t* dir
     do {
       const char* name = os_direntry_name(&entry);
       if (name != NULL && strcmp(name, ".") != 0 && strcmp(name, "..") != 0 && 
-          rp_istarts_with(name, base_prefix))
+          ic_istarts_with(name, base_prefix))
       {
         // possible match, first check if it is a directory
         bool isdir;
@@ -356,7 +356,7 @@ static bool filename_complete_indir( rp_completion_env_t* cenv, stringbuf_t* dir
         sbuf_replace(display, name);
         { // check directory and potentially add a dirsep to the dir_prefix
           const ssize_t dlen = sbuf_len(dir);
-          sbuf_append_char(dir,rp_dirsep());
+          sbuf_append_char(dir,ic_dirsep());
           sbuf_append(dir,name);
           isdir = os_is_dir(sbuf_string(dir));
           if (isdir && dir_sep != 0) {
@@ -366,7 +366,7 @@ static bool filename_complete_indir( rp_completion_env_t* cenv, stringbuf_t* dir
           sbuf_delete_from(dir,dlen);  // restore dir
         }
         if (isdir || match_extension(name, extensions)) {
-          cont = rp_add_completion(cenv, sbuf_string(display), sbuf_string(dir_prefix));
+          cont = ic_add_completion(cenv, sbuf_string(display), sbuf_string(dir_prefix));
         }
         sbuf_delete_from( dir_prefix, plen ); // restore dir_prefix
       }
@@ -382,7 +382,7 @@ typedef struct filename_closure_s {
   char        dir_sep;
 } filename_closure_t;
 
-static void filename_completer( rp_completion_env_t* cenv, const char* prefix ) {
+static void filename_completer( ic_completion_env_t* cenv, const char* prefix ) {
   if (prefix == NULL) return;
   filename_closure_t* fclosure = (filename_closure_t*)cenv->arg;  
   stringbuf_t* root_dir   = sbuf_new(cenv->env->mem);
@@ -427,7 +427,7 @@ static void filename_completer( rp_completion_env_t* cenv, const char* prefix ) 
           sbuf_append_n( root_dir, root, next - root );
           root = next + 1;
         }      
-        sbuf_append_char( root_dir, rp_dirsep());
+        sbuf_append_char( root_dir, ic_dirsep());
           
         // add the dir_prefix to the root
         if (base != NULL) {
@@ -446,14 +446,14 @@ static void filename_completer( rp_completion_env_t* cenv, const char* prefix ) 
   sbuf_free(dir_prefix);
 }
 
-rp_public void rp_complete_filename( rp_completion_env_t* cenv, const char* prefix, char dir_sep, const char* roots, const char* extensions ) {
+ic_public void ic_complete_filename( ic_completion_env_t* cenv, const char* prefix, char dir_sep, const char* roots, const char* extensions ) {
   if (roots == NULL) roots = ".";
   if (extensions == NULL) extensions = "";
-  if (dir_sep == 0) dir_sep = rp_dirsep();
+  if (dir_sep == 0) dir_sep = ic_dirsep();
   filename_closure_t fclosure;
   fclosure.dir_sep = dir_sep;
   fclosure.roots = roots; 
   fclosure.extensions = extensions;
   cenv->arg = &fclosure;
-  rp_complete_quoted_word( cenv, prefix, &filename_completer, &rp_char_is_filename_letter, '\\', "'\"");  
+  ic_complete_quoted_word( cenv, prefix, &filename_completer, &ic_char_is_filename_letter, '\\', "'\"");  
 }

@@ -5,10 +5,10 @@
   found in the "LICENSE" file at the root of this distribution.
 -----------------------------------------------------------------------------*/
 #pragma once
-#ifndef RP_ENV_H
-#define RP_ENV_H
+#ifndef IC_ENV_H
+#define IC_ENV_H
 
-#include "../include/repline.h"
+#include "../include/isocline.h"
 #include "common.h"
 #include "term.h"
 #include "tty.h"
@@ -20,22 +20,22 @@
 // Environment
 //-------------------------------------------------------------
 
-struct rp_env_s {
+struct ic_env_s {
   alloc_t*        mem;              // potential custom allocator
-  rp_env_t*       next;             // next environment (used for proper deallocation)
+  ic_env_t*       next;             // next environment (used for proper deallocation)
   term_t*         term;             // terminal
   tty_t*          tty;              // keyboard (NULL if stdin is a pipe, file, etc)
   completions_t*  completions;      // current completions
   history_t*      history;          // edit history
   const char*     prompt_marker;    // the prompt marker (defaults to "> ")
   const char*     cprompt_marker;   // prompt marker for continuation lines (defaults to `prompt_marker`)
-  rp_highlight_fun_t* highlighter;  // highlight callback
+  ic_highlight_fun_t* highlighter;  // highlight callback
   void*           highlighter_arg;  // user state for the highlighter.
-  rp_color_t      color_prompt;     // color used to display the prompt
-  rp_color_t      color_info;       // information color, for example numbers in the completion menu. (=RP_DARKGRAY)
-  rp_color_t      color_diminish;   // diminish color, for example the non-highlighted part in a history search (=RP_DARKGRAY)
-  rp_color_t      color_emphasis;   // highlighted color, for example, the current match in a history search (=RP_DEFAULT_COLOR)
-  rp_color_t      color_hint;       // hint color.
+  ic_color_t      color_prompt;     // color used to display the prompt
+  ic_color_t      color_info;       // information color, for example numbers in the completion menu. (=IC_DARKGRAY)
+  ic_color_t      color_diminish;   // diminish color, for example the non-highlighted part in a history search (=IC_DARKGRAY)
+  ic_color_t      color_emphasis;   // highlighted color, for example, the current match in a history search (=IC_DEFAULT_COLOR)
+  ic_color_t      color_hint;       // hint color.
   char            multiline_eol;    // character used for multiline input ("\") (set to 0 to disable)
   bool            initialized;      // are we initialized?
   bool            noedit;           // is rich editing possible (tty != NULL)
@@ -48,8 +48,8 @@ struct rp_env_s {
   bool            no_highlight;     // enable highlighting?
 };
 
-rp_private char*      rp_editline(rp_env_t* env, const char* prompt_text);
+ic_private char*      ic_editline(ic_env_t* env, const char* prompt_text);
 
-rp_private rp_env_t*  rp_get_env(void);
+ic_private ic_env_t*  ic_get_env(void);
 
-#endif // RP_ENV_H
+#endif // IC_ENV_H
