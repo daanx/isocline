@@ -2,7 +2,8 @@
 
 <img align="right" width="400px" src="doc/completion-macos.png"/>
 
-# Isocline> <br>a portable readline alternative.
+
+# ![logo](doc/isocline-inline.svg) Isocline> <br>a portable readline alternative.
 
 Isocline is a pure C library that can be used as readline alternative. 
 
