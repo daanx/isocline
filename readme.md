@@ -161,7 +161,7 @@ $ cd build/release
 $ cmake ../..
 $ cmake --build .
 ```
-This builds a static library `librepline.a` (or `isocline.lib` on Windows)
+This builds a static library `libisocline.a` (or `isocline.lib` on Windows)
 and the example program:
 ```
 $ ./example
