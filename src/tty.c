@@ -56,7 +56,7 @@ struct tty_s {
 // Forward declarations of platform dependent primitives below
 //-------------------------------------------------------------
 
-ic_private bool tty_readc_noblock(tty_t* tty, uint8_t* c);  // does not modify `c` when no input (false is returned)
+ic_private bool tty_readc_noblock(tty_t* tty, uint8_t* c, long timeout_ms);  // does not modify `c` when no input (false is returned)
 ic_private bool tty_readc(tty_t* tty, uint8_t* c);          
 
 //-------------------------------------------------------------
@@ -103,13 +103,13 @@ static code_t tty_read_utf8( tty_t* tty, uint8_t c0 ) {
   buf[0] = c0;
   ssize_t count = 1;
   if (c0 > 0x7F) {
-    if (tty_readc_noblock(tty, buf+count)) {
+    if (tty_readc_noblock(tty, buf+count, 10)) {
       count++;
       if (c0 > 0xDF) {
-        if (tty_readc_noblock(tty, buf+count)) {
+        if (tty_readc_noblock(tty, buf+count, 10)) {
           count++;
           if (c0 > 0xEF) {
-            if (tty_readc_noblock(tty, buf+count)) {
+            if (tty_readc_noblock(tty, buf+count, 10)) {
               count++;
             }
           }
@@ -208,7 +208,6 @@ static code_t modify_code( code_t code ) {
   
   return code;
 }
-
 
 
 //-------------------------------------------------------------
@@ -380,52 +379,73 @@ ic_private bool tty_readc(tty_t* tty, uint8_t* c) {
   return (nread == 1);
 }
 
-ic_private bool tty_readc_noblock(tty_t* tty, uint8_t* c) {
+
+// non blocking read -- with a small timeout used for reading escape sequences.
+ic_private bool tty_readc_noblock(tty_t* tty, uint8_t* c, long timeout_ms) 
+{
   // in our pushback buffer?
   if (tty_cpop(tty, c)) return true;
-  
+
+  // if supported, peek first if any char is available.
   #if defined(FIONREAD)
-  // peek if any char is available.
   int navail = 0;
-  if (ioctl(0, FIONREAD, &navail) == 0 && navail >= 1) {
-    return tty_readc(tty, c);
-  }
-  #elif defined(O_NONBLOCK)
-  // set temporarily to non-blocking read mode
-  int fstatus = fcntl(tty->fd_in, F_GETFL, 0);
-  if (fstatus != -1) {
-    if (fcntl(tty->fd_in, F_SETFL, (fstatus | O_NONBLOCK)) != -1) {
-      char buf[2] = { 0, 0 };
-      ssize_t nread = read(tty->fd_in, buf, 1);
-      fcntl(tty->fd_in, F_SETFL, fstatus);
-      if (nread >= 1) {
-        *c = (uint8_t)buf[0];
-        return true;
-      }
+  if (ioctl(0, FIONREAD, &navail) == 0) {
+    if (navail >= 1) {
+      return tty_readc(tty, c);
+    }
+    else if (timeout_ms <= 0) {
+      return false;
     }
   }
-  #else
-  # error "define non-blocking read for this platform"
   #endif
-  return false;  
-}
 
-// non blocking read with a small timeout used for reading back escape sequence queries
-ic_private bool tty_readc_pause_noblock(tty_t* tty, uint8_t* c) {
+  // otherwise block for at most timeout milliseconds
   #if defined(FD_SET)   
-  // we can use select to detect when input becomes available
-  fd_set readset;
-  struct timeval time;
-  FD_ZERO(&readset);
-  FD_SET(tty->fd_in, &readset);
-  time.tv_sec  = 0;
-  time.tv_usec = 1000*100L;  // 0.05s
-  select(tty->fd_in + 1, &readset, NULL, NULL, &time);
+    // we can use select to detect when input becomes available
+    fd_set readset;
+    struct timeval time;
+    FD_ZERO(&readset);
+    FD_SET(tty->fd_in, &readset);
+    time.tv_sec  = (timeout_ms > 0 ? timeout_ms / 1000 : 0);
+    time.tv_usec = (timeout_ms > 0 ? 1000*(timeout_ms % 1000) : 0);      
+    if (select(tty->fd_in + 1, &readset, NULL, NULL, &time) == 1) {
+      return tty_readc(tty, c);
+    }    
   #else
-  // no select, we cannot timeout; use a usleep
-  usleep(100);  // 0.05s
+    // no select, we cannot timeout; use usleeps :-(
+    // todo: this seems very rare nowadays; should be even support this?
+    do {
+      // and do a non-blocking read
+      #if defined(FIONREAD)
+      if (ioctl(0, FIONREAD, &navail) == 0 && navail >= 1) {
+        return tty_readc(tty, c);
+      }
+      #elif defined(O_NONBLOCK)
+      // use a temporary non-blocking read mode
+      int fstatus = fcntl(tty->fd_in, F_GETFL, 0);
+      if (fstatus != -1) {
+        if (fcntl(tty->fd_in, F_SETFL, (fstatus | O_NONBLOCK)) != -1) {
+          char buf[2] = { 0, 0 };
+          ssize_t nread = read(tty->fd_in, buf, 1);
+          fcntl(tty->fd_in, F_SETFL, fstatus);
+          if (nread >= 1) {
+            *c = (uint8_t)buf[0];
+            return true;
+          }
+        }
+      }
+      #else
+      #error "define an nonblocking read for this platform"
+      #endif
+      // and sleep a bit
+      if (timeout_ms > 0) {
+        usleep( (timeout_ms > 100 ? 100 : timeout_ms) ); // sleep at most 0.1s at a time
+        timeout_ms -= 100;
+      }      
+    } 
+    while (timeout_ms > 0);
   #endif
-  return tty_readc_noblock(tty,c);  
+  return false;
 }
 
 // We install various signal handlers to restore the terminal settings
@@ -593,7 +613,9 @@ static bool tty_readc(tty_t* tty, uint8_t* c) {
   return tty_cpop(tty,c);
 }
 
-ic_private bool tty_readc_noblock(tty_t* tty, uint8_t* c) {  // don't modify `c` if there is no input
+ic_private bool tty_readc_noblock(tty_t* tty, uint8_t* c, long timeout_ms) {  // don't modify `c` if there is no input
+  // ignore timeout_ms as it is never needed on windows
+  ic_unused(timeout_ms);
   // in our pushback buffer?
   if (tty_cpop(tty, c)) return true;
   // any events in the input queue?
@@ -601,9 +623,6 @@ ic_private bool tty_readc_noblock(tty_t* tty, uint8_t* c) {  // don't modify `c`
   return tty_cpop(tty, c);
 }
 
-ic_private bool tty_readc_pause_noblock(tty_t* tty, uint8_t* c) {
-  return tty_readc_noblock(tty,c); // no need for pauses on Windows
-}
 
 // Read from the console input events and push escape codes into the tty cbuffer.
 static void tty_waitc_console(tty_t* tty, bool blocking) 

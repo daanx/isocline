@@ -40,14 +40,17 @@ ic_private bool   tty_term_resize_event(tty_t* tty); // did the terminal resize?
 
 // low level; used by term.c
 ic_private bool   tty_readc(tty_t* tty, uint8_t* c);        
-ic_private bool   tty_readc_noblock(tty_t* tty, uint8_t* c);
-ic_private bool   tty_readc_pause_noblock(tty_t* tty, uint8_t* c);
+ic_private bool   tty_readc_noblock(tty_t* tty, uint8_t* c, long timeout_ms);
 
 // shared between tty.c and tty_esc.c: low level character push
 ic_private void   tty_cpush_char(tty_t* tty, uint8_t c);
 ic_private bool   tty_cpop(tty_t* tty, uint8_t* c);
 ic_private code_t tty_read_esc(tty_t* tty); // in tty_esc.c
 
+
+// timeouts for reading back escape sequences.
+#define ESC_INITIAL_TIMEOUT  (100)  // milli-seconds (0.1s)
+#define ESC_TIMEOUT          (10)   // follow up timeouts after initial ESC (0.01s)
 
 //-------------------------------------------------------------
 // Key codes: a code_t is 32 bits.
