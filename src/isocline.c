@@ -392,8 +392,8 @@ static ic_env_t* ic_env_create( ic_malloc_fun_t* _malloc, ic_realloc_fun_t* _rea
     env->noedit = true;
   }
   env->multiline_eol = '\\';
-  for (ic_style_t style = 0; style < IC_STYLE_LAST; style++) {
-    set_style_color(env, style, IC_COLOR_NONE);  // set default colors
+  for (int style = 0; style < (int)IC_STYLE_LAST; style++) {
+    set_style_color(env, (ic_style_t)style, IC_COLOR_NONE);  // set default colors
   }
   set_prompt_marker(env, NULL, NULL);
   return env;

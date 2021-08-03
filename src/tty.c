@@ -438,12 +438,15 @@ ic_private bool tty_readc_pause_noblock(tty_t* tty, uint8_t* c) {
 static tty_t* sig_tty; // = NULL
 
 // Catch all termination signals (and SIGWINCH)
-typedef struct sighandler_s {
+typedef struct signal_handler_s {
   int signum;
-  struct sigaction previous;
-} sighandler_t;
+  union {
+    int _avoid_warning;
+    struct sigaction previous;
+  } action;
+} signal_handler_t;
 
-static sighandler_t sighandlers[] = {
+static signal_handler_t sighandlers[] = {
   { SIGWINCH, {0} },
   { SIGTERM , {0} }, 
   { SIGINT  , {0} }, 
@@ -477,11 +480,11 @@ static void sig_handler(int signum, siginfo_t* siginfo, void* uap ) {
     }
   }
   // call previous handler
-  sighandler_t* sh = sighandlers;
+  signal_handler_t* sh = sighandlers;
   while( sh->signum != 0 && sh->signum != signum) { sh++; }
   if (sh->signum == signum) {
-    if (sigaction_is_valid(&sh->previous)) {
-      (sh->previous.sa_sigaction)(signum, siginfo, uap);
+    if (sigaction_is_valid(&sh->action.previous)) {
+      (sh->action.previous.sa_sigaction)(signum, siginfo, uap);
     }
   }
 }
@@ -495,11 +498,11 @@ static void signals_install(tty_t* tty) {
   handler.sa_sigaction = &sig_handler; 
   handler.sa_flags = SA_RESTART;
   // install for all signals
-  for( sighandler_t* sh = sighandlers; sh->signum != 0; sh++ ) {
-    if (sigaction( sh->signum, NULL, &sh->previous) == 0) {            // get previous
-      if (sh->previous.sa_handler != SIG_IGN) {                        // if not to be ignored
-        if (sigaction( sh->signum, &handler, &sh->previous ) < 0) {    // install our handler
-          sh->previous.sa_sigaction = NULL;       // do not restore on error
+  for( signal_handler_t* sh = sighandlers; sh->signum != 0; sh++ ) {
+    if (sigaction( sh->signum, NULL, &sh->action.previous) == 0) {            // get previous
+      if (sh->action.previous.sa_handler != SIG_IGN) {                        // if not to be ignored
+        if (sigaction( sh->signum, &handler, &sh->action.previous ) < 0) {    // install our handler
+          sh->action.previous.sa_sigaction = NULL;       // do not restore on error
         }
         else if (sh->signum == SIGWINCH) {
           sig_tty->has_term_resize_event = true;
@@ -511,9 +514,9 @@ static void signals_install(tty_t* tty) {
 
 static void signals_restore(void) {
   // restore all signal handlers
-  for( sighandler_t* sh = sighandlers; sh->signum != 0; sh++ ) {
-    if (sigaction_is_valid(&sh->previous)) {
-      sigaction( sh->signum, &sh->previous, NULL );
+  for( signal_handler_t* sh = sighandlers; sh->signum != 0; sh++ ) {
+    if (sigaction_is_valid(&sh->action.previous)) {
+      sigaction( sh->signum, &sh->action.previous, NULL );
     };
   }
   sig_tty = NULL;

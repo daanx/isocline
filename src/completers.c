@@ -255,7 +255,8 @@ ic_private char ic_dirsep(void) {
 #include <errno.h>
 
 static bool os_is_dir(const char* cpath) {
-  struct stat st = { 0 };
+  struct stat st;
+  memset(&st,0,sizeof(st));
   stat(cpath, &st);
   return ((st.st_mode & S_IFDIR) != 0);
 }
