@@ -1,11 +1,9 @@
-<!-- <img align="right" width="400px" src="doc/syntaxhighlight-macos.png"/> -->
 
-<img align="right" width="400px" src="doc/completion-macos.png"/>
+# ![logo](doc/isocline-inline.svg) Isocline <img align="right" width="400px" src="doc/completion-macos.png"/> <br> a portable readline alternative.
 
+ 
 
-# ![logo](doc/isocline-inline.svg) Isocline> <br>a portable readline alternative.
-
-Isocline is a pure C library that can be used as readline alternative. 
+Isocline is a pure C library that can be used as an alternative to the GNU readline library.
 
 - Small: less than 6k lines and can be compiled as a single C file without 
   any dependencies or configuration (e.g. `gcc -c src/isocline.c`).
