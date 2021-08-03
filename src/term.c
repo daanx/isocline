@@ -800,8 +800,8 @@ static bool term_esc_query_raw( term_t* term, const char* query, char* buf, ssiz
   while( len < buflen ) {
     if (!tty_readc_noblock(term->tty,&c)) return false;
     if (osc) {
-      // terminated by BELL or ESC \ (ST)
-      if (c=='\x07') {
+      // terminated by BELL, or ESC \ (ST)  (and STX/ETX)
+      if (c=='\x07' || c=='\x02' || c=='\x03') {
         break;
       }
       else if (c=='\x1B') {

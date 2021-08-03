@@ -140,7 +140,8 @@ ic_private bool skip_esc( const char* s, ssize_t len, ssize_t* esclen ) {
     while (len > n) {
       char c = s[n++];
       if ((finalCSI && (uint8_t)c >= 0x40 && (uint8_t)c <= 0x7F) ||  // terminating byte: @A–Z[\]^_`a–z{|}~
-          (!finalCSI && c == '\x07'))              // bell
+          (!finalCSI && c == '\x07') ||   // bell
+          (c == '\x02' || c == '\x03'))   // STX/ETX terminate as well
       {
         if (esclen != NULL) *esclen = n;
         return true;
