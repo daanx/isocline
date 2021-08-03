@@ -328,6 +328,8 @@ rp_private void term_free(term_t* term) {
 //-------------------------------------------------------------
 
 #if !defined(_WIN32)
+
+// write to the console without further processing
 static bool term_write_console(term_t* term, const char* s, ssize_t n) {
   ssize_t count = 0; 
   while( count < n ) {
@@ -381,43 +383,39 @@ static bool term_write_utf8(term_t* term, const char* s, ssize_t len) {
   }
 }
 
+// handle CSI color and raw UTF8
 static bool term_write_direct(term_t* term, const char* s, ssize_t len ) {
-  if (!term->nocolor) {
-    return term_write_console(term, s, len);
-  }
-  else {
-    // strip CSI color sequences
-    ssize_t pos = 0;
-    while (pos < len) {
-      // handle ascii sequences in bulk
-      ssize_t ascii = 0;
-      ssize_t next;
-      while ((next = str_next_ofs(s, len, pos+ascii, NULL)) > 0 && 
-              s[pos + ascii] != '\x1B' && (uint8_t)s[pos + ascii] <= 0x7F ) 
-      {
-        ascii += next;
-      }
-      if (ascii > 0) {
-        term_write_console(term, s+pos, ascii);
-        pos += ascii;
-      }
-      if (next <= 0) break;
-
-      // handle utf8 sequences (for non-utf8 terminals)
-      if ((uint8_t)s[pos] >= 0x80) {
-        term_write_utf8(term, s+pos, next);
-      }
-      // handle escape sequence (note: str_next_ofs considers whole CSI escape sequences at a time)
-      else if (next > 1 && s[pos] == '\x1B') {
-        term_write_esc(term, s+pos, next);
-      }
-      else {
-        term_write_console(term, s+pos, next);
-      }
-      pos += next;
+  // strip CSI color sequences
+  ssize_t pos = 0;
+  while (pos < len) {
+    // handle ascii sequences in bulk
+    ssize_t ascii = 0;
+    ssize_t next;
+    while ((next = str_next_ofs(s, len, pos+ascii, NULL)) > 0 && 
+            s[pos + ascii] != '\x1B' && (uint8_t)s[pos + ascii] <= 0x7F ) 
+    {
+      ascii += next;
     }
-    return (pos == len);
+    if (ascii > 0) {
+      term_write_console(term, s+pos, ascii);
+      pos += ascii;
+    }
+    if (next <= 0) break;
+
+    // handle utf8 sequences (for non-utf8 terminals)
+    if ((uint8_t)s[pos] >= 0x80) {
+      term_write_utf8(term, s+pos, next);
+    }
+    // handle escape sequence (note: str_next_ofs considers whole CSI escape sequences at a time)
+    else if (next > 1 && s[pos] == '\x1B') {
+      term_write_esc(term, s+pos, next);
+    }
+    else {
+      term_write_console(term, s+pos, next);
+    }
+    pos += next;
   }
+  return (pos == len);
 }
 
 #else
@@ -437,6 +435,7 @@ static bool term_write_direct(term_t* term, const char* s, ssize_t len ) {
 #define ENABLE_LVB_GRID_WORLDWIDE (0)
 #endif
 
+// direct write to the console without further processing
 static bool term_write_console(term_t* term, const char* s, ssize_t n ) {
   DWORD written;
   WriteConsoleA(term->hcon, s, (DWORD)(to_size_t(n)), &written, NULL);
@@ -760,6 +759,7 @@ static bool term_write_direct(term_t* term, const char* s, ssize_t len ) {
 
 #if !defined(_WIN32)
 
+// send escape query that may return a response on the tty
 static bool term_esc_query_raw( term_t* term, const char* query, char* buf, ssize_t buflen ) 
 {
   if (buf==NULL || buflen <= 0 || query[0] == 0) return false;
@@ -804,6 +804,7 @@ static bool term_esc_query( term_t* term, const char* query, char* buf, ssize_t 
   return ok;
 }
 
+// get the cursor position via an ESC[6n
 static bool term_get_cursor_pos( term_t* term, ssize_t* row, ssize_t* col) 
 {
   // send escape query
@@ -847,7 +848,7 @@ rp_private bool term_update_dim(term_t* term) {
     }
   }
 
-  // update width and return if it changed.
+  // update width and return whether it changed.
   bool changed = (term->width != cols || term->height != rows);
   debug_msg("terminal dim: %zd,%zd: %s\n", rows, cols, changed ? "changed" : "unchanged");  
   if (cols > 0) { 
@@ -901,7 +902,7 @@ rp_private void term_end_raw(term_t* term) {
   term->raw_enabled = false;
 }
 
-static bool term_osc_query_color_raw(term_t* term, int color_idx, uint32_t* color ) {
+static bool term_esc_query_color_raw(term_t* term, int color_idx, uint32_t* color ) {
   char buf[128+1];
   snprintf(buf,128,"\x1B]4;%d;?\x1B\\", color_idx);
   if (!term_esc_query_raw( term, buf, buf, 128 )) return false;
@@ -912,11 +913,12 @@ static bool term_osc_query_color_raw(term_t* term, int color_idx, uint32_t* colo
   unsigned int r,g,b;
   if (sscanf(rgb,"%x/%x/%x",&r,&g,&b) != 3) return false;
   if (rgb[2]!='/') { // 48-bit rgb, hexadecimal round to 24-bit     
-    r = (r+0x7F)/0xFF; 
+    r = (r+0x7F)/0xFF;   // note: can "overflow", e.g. 0xFFFF -> 0x100. (and we need `rp_cap8` to convert.)
     g = (g+0x7F)/0xFF;
     b = (b+0x7F)/0xFF; 
   }
-  *color = ((uint32_t)(r&0xFF)<<16) | ((g&0xFF) << 8) | (b&0xFF);
+  *color = (rp_cap8(r)<<16) | (rp_cap8(g)<<8) | rp_cap8(b);
+  debug_msg("color query: %02x,%02x,%02x: %06x\n", r, g, b, *color);  
   return true;
 }
 
@@ -943,7 +945,7 @@ static void term_update_ansi16(term_t* term) {
   tty_start_raw(term->tty);
   for(ssize_t i = 0; i < 16; i++) {
     uint32_t color;
-    if (!term_osc_query_color_raw(term, i, &color)) break;
+    if (!term_esc_query_color_raw(term, i, &color)) break;
     debug_msg("term ansi color %d: 0x%06x\n", i, color);
     ansi256[i] = color;
   }  
