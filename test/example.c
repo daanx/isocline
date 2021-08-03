@@ -144,7 +144,7 @@ int main()
   
   // run until empty input
   char* input;
-  while((input = ic_readline("isoclinε")) != NULL)    // ctrl-d return NULL (as well as errors)
+  while((input = ic_readline("isocline" /*"ε"*/)) != NULL)    // ctrl-d return NULL (as well as errors)
   {
     bool stop = (strcmp(input,"exit") == 0 || strcmp(input,"") == 0); 
     printf("-----\n"           // echo the input

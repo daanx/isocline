@@ -345,23 +345,11 @@ static bool term_write_console(term_t* term, const char* s, ssize_t n) {
   return true;
 }
 
-static bool term_write_esc(term_t* term, const char* s, ssize_t len) {
-  if (term->nocolor && s[1]=='[' && s[len-1] == 'm') {
-    ssize_t n = 1;
-    ic_atoz(s + 2, &n);
-    if ((n >= 30 && n <= 49) || (n >= 90 && n <= 109)) {
-      // ignore color
-      return true;
-    }
-  }  
-  return term_write_console(term, s, len);
-}
-
 static bool term_write_utf8(term_t* term, const char* s, ssize_t len) {
   ssize_t nread;
   unicode_t uchr = unicode_from_qutf8((const uint8_t*)s, len, &nread);
   uint8_t c;
-  if (unicode_is_raw(uchr,&c)) {
+  if (unicode_is_raw(uchr, &c)) {
     // write bytes as is; this also ensure that on non-utf8 terminals characters between 0x80-0xFF
     // go through _as is_ due to the qutf8 encoding.
     char buf[2];
@@ -381,6 +369,18 @@ static bool term_write_utf8(term_t* term, const char* s, ssize_t len) {
     // write utf-8 as is
     return term_write_console(term, s, len);
   }
+}
+
+static bool term_write_esc(term_t* term, const char* s, ssize_t len) {
+  if (term->nocolor && s[1]=='[' && s[len-1] == 'm') {
+    ssize_t n = 1;
+    ic_atoz(s + 2, &n);
+    if ((n >= 30 && n <= 49) || (n >= 90 && n <= 109)) {
+      // ignore color
+      return true;
+    }
+  }  
+  return term_write_console(term, s, len);
 }
 
 // handle CSI color and raw UTF8
@@ -718,6 +718,24 @@ static void term_write_esc( term_t* term, const char* s, ssize_t len ) {
   }
 }
 
+static bool term_write_utf8(term_t* term, const char* s, ssize_t len) {
+  ssize_t nread;
+  unicode_t uchr = unicode_from_qutf8((const uint8_t*)s, len, &nread);
+  uint8_t c;
+  if (unicode_is_raw(uchr, &c)) {
+    // write bytes as is; this also ensure that on non-utf8 terminals characters between 0x80-0xFF
+    // go through _as is_ due to the qutf8 encoding.
+    char buf[2];
+    buf[0] = (char)c;
+    buf[1] = 0;
+    return term_write_console(term, buf, 1);
+  }
+  else {
+    // write utf-8 as is (as we use the CP_UTF8 codepage by default)
+    return term_write_console(term, s, len);
+  }
+}
+
 static bool term_write_direct(term_t* term, const char* s, ssize_t len ) {
   term_cursor_visible(term,false); // reduce flicker
   ssize_t pos = 0;
@@ -726,7 +744,8 @@ static bool term_write_direct(term_t* term, const char* s, ssize_t len ) {
     // (We don't need to handle utf-8 separately as we set the codepage to always be in utf-8 mode)
     ssize_t nonctrl = 0;
     ssize_t next;
-    while( (next = str_next_ofs( s, len, pos+nonctrl, NULL )) > 0 && (uint8_t)s[pos + nonctrl] >= ' ') {
+    while( (next = str_next_ofs( s, len, pos+nonctrl, NULL )) > 0 && 
+            (uint8_t)s[pos + nonctrl] >= ' ' && (uint8_t)s[pos + nonctrl] <= 0x7F) {
       nonctrl += next;
     }
     if (nonctrl > 0) {
@@ -735,12 +754,19 @@ static bool term_write_direct(term_t* term, const char* s, ssize_t len ) {
     }    
     if (next <= 0) break;
 
-    // handle control (note: str_next_ofs considers whole CSI escape sequences at a time)
-    if (next > 1 && s[pos] == '\x1B') {                                
-      term_write_esc(term, s+pos, next);                               
+    if ((uint8_t)s[pos] >= 0x80) {
+      // handle utf8 sequences 
+      term_write_utf8(term, s+pos, next);
+    }
+    else if (next > 1 && s[pos] == '\x1B') {                                
+      // handle control (note: str_next_ofs considers whole CSI escape sequences at a time)
+      term_write_esc(term, s+pos, next);
+    }
+    else if (next == 1 && (s[pos] == '\r' || s[pos] == '\n' || s[pos] == '\t' || s[pos] == '\b')) {
+      term_write_console( term, s+pos, next);
     }
     else {
-      term_write_console( term, s+pos, next);
+      // ignore
     }
     pos += next;
   }
