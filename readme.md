@@ -25,7 +25,7 @@ Enjoy,
   
 # Demo
 
-![recording](doc/record2-macos.svg)  
+![recording](doc/record-macos.svg)  
 
 Shows in order: syntax highlighting, multiline editing, 24-bit colors, inline hinting, filename completion, and incremental history search.
 
