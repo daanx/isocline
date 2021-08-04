@@ -274,7 +274,7 @@ static void edit_refresh(ic_env_t* env, editor_t* eb)
     last_row = first_row + termh - 1;
   }
   assert(last_row - first_row < termh);
-  assert(last_row - first_row >= rc.row);
+  // assert(last_row - first_row >= rc.row);
 
   // reduce flicker
   term_start_buffered(env->term);        
