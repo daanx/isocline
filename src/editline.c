@@ -279,7 +279,8 @@ static void edit_refresh(ic_env_t* env, editor_t* eb)
 
   // back up to the first line
   term_up(env->term, eb->cur_row);
-  
+  term_clear_lines_to_end(env->term);
+
   // render rows
   edit_refresh_rows( env, eb, promptw, cpromptw, false, first_row, last_row );
   if (rows_extra > 0) {
@@ -288,7 +289,9 @@ static void edit_refresh(ic_env_t* env, editor_t* eb)
     edit_refresh_rows(env, eb, 0, 0, true, first_rowx, last_rowx);
   }
   
-  // overwrite trailing rows we do not use anymore
+  /*
+  // no more needed as we cleared ahead of time
+  // overwrite trailing rows we do not use anymore  
   ssize_t rrows = last_row - first_row + 1;  // rendered rows
   if (rrows < termh && rows < eb->cur_rows) {
     ssize_t clear = eb->cur_rows - rows;
@@ -299,10 +302,12 @@ static void edit_refresh(ic_env_t* env, editor_t* eb)
       term_clear_line(env->term);
     }
   }
+  // abcdefghiklmnopqrstuvwxyz123456789abcdefg
+  */
   
   // move cursor back to edit position
   term_start_of_line(env->term);
-  term_up(env->term, first_row + rrows - 1 - rc.row );
+  term_up(env->term, last_row - first_row - rc.row );
   term_right(env->term, rc.col + (rc.row == 0 ? promptw : cpromptw));
 
   // stop buffering

@@ -100,6 +100,10 @@ ic_private void term_clear_line(term_t* term) {
   term_write( term, "\r" IC_CSI "2K");
 }
 
+ic_private void term_clear_lines_to_end(term_t* term) {
+  term_write( term, "\r" IC_CSI "J");
+}
+
 ic_private void term_start_of_line(term_t* term) {
   term_write( term, "\r" );
 }
@@ -253,14 +257,16 @@ ic_private term_t* term_new(alloc_t* mem, tty_t* tty, bool nocolor, bool silent,
   else if (ic_contains(colorterm,"8bit") || ic_contains(colorterm,"256color"))   { term->palette = ANSI256; } 
   else if (ic_contains(colorterm,"4bit") || ic_contains(colorterm,"16color"))    { term->palette = ANSI16; }
   else if (ic_contains(colorterm,"3bit") || ic_contains(colorterm,"8color"))     { term->palette = ANSI8; }
-  else if (ic_contains(colorterm,"1bit") || ic_contains(colorterm,"monochrome")) { term->palette = MONOCHROME; }
-  // then check for some specific terminals
+  else if (ic_contains(colorterm,"1bit") || ic_contains(colorterm,"nocolor") || ic_contains(colorterm,"monochrome")) { 
+    term->palette = MONOCHROME; 
+  }
+  // otherwise check for some specific terminals
   else if (getenv("WT_SESSION") != NULL) { term->palette = ANSIRGB; } // Windows terminal
   else if (getenv("ITERM_SESSION_ID") != NULL) { term->palette = ANSIRGB; } // iTerm2 terminal
   else {
     // and fall back to checking TERM
     const char* eterm = getenv("TERM");
-    if (ic_contains(eterm,"kitty")) {
+    if (ic_contains(eterm,"truecolor") || ic_contains(eterm,"kitty")) {
       term->palette = ANSIRGB;
     }
     else if (ic_contains(eterm,"xterm") || ic_contains(eterm,"256color") || ic_contains(eterm,"gnome")) { 
@@ -268,9 +274,11 @@ ic_private term_t* term_new(alloc_t* mem, tty_t* tty, bool nocolor, bool silent,
     }  
     else if (ic_contains(eterm,"16color")){ term->palette = ANSI16; }
     else if (ic_contains(eterm,"8color")) { term->palette = ANSI8; }
-    else if (ic_contains(eterm,"dumb"))   { term->palette = MONOCHROME; }
+    else if (ic_contains(eterm,"monochrome") || ic_contains(eterm,"nocolor") || ic_contains(eterm,"dumb")) { 
+      term->palette = MONOCHROME; 
+    }
   }
-  debug_msg("term; color-bits: %d (COLORTERM=%s, TERM=%s)\n", term_get_color_bits(term), colorterm, term);
+  debug_msg("term: color-bits: %d (COLORTERM=%s, TERM=%s)\n", term_get_color_bits(term), colorterm, term);
   
   // read COLUMS/LINES from the environment for a better initial guess.
   const char* env_columns = getenv("COLUMNS");
@@ -795,10 +803,10 @@ static bool term_esc_query_raw( term_t* term, const char* query, char* buf, ssiz
   // parse query response 
   ssize_t len = 0;
   uint8_t c = 0;
-  if (!tty_readc_noblock(term->tty, &c, 100 /*milli-sec timout*/) || c != '\x1B') return false;
-  if (!tty_readc_noblock(term->tty, &c, 10) || (c != query[1])) return false;
+  if (!tty_readc_noblock(term->tty, &c, ESC_INITIAL_TIMEOUT) || c != '\x1B') return false;
+  if (!tty_readc_noblock(term->tty, &c, ESC_TIMEOUT) || (c != query[1])) return false;
   while( len < buflen ) {
-    if (!tty_readc_noblock(term->tty, &c, 10)) return false;
+    if (!tty_readc_noblock(term->tty, &c, ESC_TIMEOUT)) return false;
     if (osc) {
       // terminated by BELL, or ESC \ (ST)  (and STX/ETX)
       if (c=='\x07' || c=='\x02' || c=='\x03') {
@@ -806,7 +814,7 @@ static bool term_esc_query_raw( term_t* term, const char* query, char* buf, ssiz
       }
       else if (c=='\x1B') {
         uint8_t c1;
-        if (!tty_readc_noblock(term->tty,&c1, 10)) return false;
+        if (!tty_readc_noblock(term->tty,&c1, ESC_TIMEOUT)) return false;
         if (c1=='\\') break;
         tty_cpush_char(term->tty,c1);
       }

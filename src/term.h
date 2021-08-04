@@ -49,18 +49,11 @@ ic_private void term_up(term_t* term, ssize_t n);
 ic_private void term_down(term_t* term, ssize_t n);
 ic_private void term_start_of_line(term_t* term );
 ic_private void term_clear_line(term_t* term);
+ic_private void term_clear_lines_to_end(term_t* term);
 
 ic_private void term_start_buffered(term_t* term);
 ic_private bool term_end_buffered(term_t* term);
 
-/*
-internal void term_end_of_line(term_t* term );
-internal void term_clear_line_from_cursor(term_t* term);
-internal void term_clear_screen(term_t* term);
-internal void term_clear(term_t* term, ssize_t n);
-internal void term_bold(term_t* term);
-internal void term_italic(term_t* term);
-*/
 
 ic_private void term_attr_reset(term_t* term);
 ic_private void term_underline(term_t* term, bool on);
