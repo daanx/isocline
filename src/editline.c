@@ -266,14 +266,16 @@ static void edit_refresh(ic_env_t* env, editor_t* eb)
   
   // only render at most terminal height rows
   ssize_t termh = term_get_height(env->term);
-  ssize_t first_row = 0;
-  ssize_t last_row = rows - 1;
+  ssize_t first_row = 0;                 // first visible row 
+  ssize_t last_row = rows - 1;           // last visible row
   if (rows > termh) {
-    first_row = rc.row - termh + 1;          // ensure cursor is visible
+    first_row = rc.row - termh + 1;      // ensure cursor is visible
     if (first_row < 0) first_row = 0;
     last_row = first_row + termh - 1;
   }
- 
+  assert(last_row - first_row < termh);
+  assert(last_row - first_row >= rc.row);
+
   // reduce flicker
   term_start_buffered(env->term);        
 
@@ -282,15 +284,15 @@ static void edit_refresh(ic_env_t* env, editor_t* eb)
   term_clear_lines_to_end(env->term);
 
   // render rows
-  edit_refresh_rows( env, eb, promptw, cpromptw, false, first_row, last_row );
+  edit_refresh_rows( env, eb, promptw, cpromptw, false, 0, last_row );  // always start at zero to scroll naturally
   if (rows_extra > 0) {
-    ssize_t first_rowx = (first_row > rows_input ? first_row - rows_input : 0);
+    // ssize_t first_rowx = (first_row > rows_input ? first_row - rows_input : 0);
     ssize_t last_rowx = last_row - rows_input; assert(last_rowx >= 0);
-    edit_refresh_rows(env, eb, 0, 0, true, first_rowx, last_rowx);
+    edit_refresh_rows(env, eb, 0, 0, true, 0, last_rowx);
   }
   
   /*
-  // no more needed as we cleared ahead of time
+  // no more needed as we cleared ahead of time; we still could use this to use less ANSI sequences?
   // overwrite trailing rows we do not use anymore  
   ssize_t rrows = last_row - first_row + 1;  // rendered rows
   if (rrows < termh && rows < eb->cur_rows) {
@@ -306,7 +308,7 @@ static void edit_refresh(ic_env_t* env, editor_t* eb)
   
   // move cursor back to edit position
   term_start_of_line(env->term);
-  term_up(env->term, last_row - first_row - rc.row );
+  term_up(env->term, (last_row - first_row) - rc.row );
   term_right(env->term, rc.col + (rc.row == 0 ? promptw : cpromptw));
 
   // stop buffering

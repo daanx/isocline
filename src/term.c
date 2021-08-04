@@ -97,7 +97,7 @@ ic_private void term_down(term_t* term, ssize_t n) {
 }
 
 ic_private void term_clear_line(term_t* term) {
-  term_write( term, "\r" IC_CSI "2K");
+  term_write( term, "\r" IC_CSI "K");
 }
 
 ic_private void term_clear_lines_to_end(term_t* term) {
@@ -117,7 +117,7 @@ ic_private ssize_t term_get_height(term_t* term) {
 }
 
 ic_private void term_attr_reset(term_t* term) {
-  term_write(term, IC_CSI "0m" );
+  term_write(term, IC_CSI "m" );
 }
 
 ic_private void term_underline(term_t* term, bool on) {

@@ -154,7 +154,7 @@ again:
       term_append_color(env->term, eb->extra, env->color_info );        
       sbuf_append(eb->extra, "\n(use tab for the next match)");
     }
-    sbuf_append(eb->extra, "\x1B[0m\n" );
+    sbuf_append(eb->extra, "\x1B[m\n" );
   }
   edit_refresh(env, eb);
 
