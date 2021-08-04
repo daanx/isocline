@@ -11,7 +11,8 @@ License     : MIT
 Maintainer  : daan@effp.org
 Stability   : Experimental
 
-![logo](https://raw.githubusercontent.com/daanx/isocline/main/doc/isocline-inline.svg) A Haskell wrapper around the [Isocline C library](https://github.com/daanx/isocline#readme) 
+![logo](https://raw.githubusercontent.com/daanx/isocline/main/doc/isocline-inline.svg) 
+A Haskell wrapper around the [Isocline C library](https://github.com/daanx/isocline#readme) 
 which can provide an alternative to GNU Readline.
 (The Isocline library is included whole and not a separate dependency).
 
@@ -148,11 +149,13 @@ module System.Console.Isocline(
       stopCompleting,
       hasCompletions,
 
+      asyncStop,
+
       -- * Low-level highlighting
       HighlightEnv,      
       setDefaultHighlighter,      
       setDefaultAttrHighlighter,
-      highlightEsc,
+      -- highlightEsc,
       highlightColor,
       highlightBgColor,
       highlightUnderline,
@@ -204,10 +207,12 @@ type HighlightFun  = HighlightEnv -> String -> IO ()
 -- Basic readline
 ----------------------------------------------------------------------------
 
-foreign import ccall ic_free      :: (Ptr a) -> IO () 
-foreign import ccall ic_malloc    :: CSize -> IO (Ptr a)
-foreign import ccall ic_readline  :: CString -> IO CString
-foreign import ccall ic_readline_ex  :: CString -> FunPtr CCompleterFun -> (Ptr ()) -> FunPtr CHighlightFun -> (Ptr ()) -> IO CString
+foreign import ccall ic_free        :: (Ptr a) -> IO () 
+foreign import ccall ic_malloc      :: CSize -> IO (Ptr a)
+foreign import ccall ic_strdup      :: CString -> IO CString
+foreign import ccall ic_readline    :: CString -> IO CString
+foreign import ccall ic_readline_ex :: CString -> FunPtr CCompleterFun -> (Ptr ()) -> FunPtr CHighlightFun -> (Ptr ()) -> IO CString
+foreign import ccall ic_async_stop  :: IO CCBool
 
 unmaybe :: IO (Maybe String) -> IO String
 unmaybe action
@@ -270,6 +275,13 @@ readlinePrimMaybe prompt completer highlighter
        when (ccompleter /= nullFunPtr)   $ freeHaskellFunPtr ccompleter
        when (chighlighter /= nullFunPtr) $ freeHaskellFunPtr chighlighter
        return res
+
+-- Thread safe call to asynchronously send a stop event to a 'readline' 
+-- which will return with 'Nothing' (or @\"\"@). Returns 'True' if
+-- the event was successfully delivered.
+asyncStop :: IO Bool
+asyncStop
+  = uncbool $ ic_async_stop
 
 ----------------------------------------------------------------------------
 -- History
@@ -548,12 +560,13 @@ foreign import ccall ic_highlight_bgcolor   :: Ptr IcHighlightEnv -> CLong -> CI
 foreign import ccall ic_highlight_underline :: Ptr IcHighlightEnv -> CLong -> CInt -> IO ()
 foreign import ccall ic_highlight_reverse   :: Ptr IcHighlightEnv -> CLong -> CInt -> IO ()
 
+{-
 type CHighlightEscFun = CString -> Ptr () -> IO CString
 type HighlightEscFun  = String -> String
 
 foreign import ccall ic_highlight_esc       :: Ptr IcHighlightEnv -> CString -> FunPtr CHighlightEscFun -> Ptr () -> IO ()
 foreign import ccall "wrapper" ic_make_highlight_esc_fun:: CHighlightEscFun -> IO (FunPtr CHighlightEscFun)
-foreign import ccall ic_strdup              :: CString -> IO CString
+-}
 
 -- | Set a syntax highlighter.
 -- There can only be one highlight function, setting it again disables the previous one.
@@ -576,7 +589,7 @@ makeCHighlighter (Just highlighter)
       = do input <- peekUTF8String0 cinput
            highlighter (HighlightEnv henv) input
 
-
+{-
 -- | Use an escape sequence highlighter from inside a highlighter callback.
 highlightEsc :: HighlightEnv -> String -> (String -> String) -> IO ()
 highlightEsc (HighlightEnv henv) input highlight
@@ -588,7 +601,7 @@ highlightEsc (HighlightEnv henv) input highlight
       = do input <- peekUTF8String0 cinput
            withUTF8String0 (highlight input) $ \coutput ->
              ic_strdup coutput
-
+-}
 
 -- | @highlightColor henv pos color@: Set the color of a character
 -- at position @pos@ in the input (from inside a highlighter).
@@ -625,11 +638,12 @@ highlightReverse (HighlightEnv henv) pos enable
 
 -- | Text attributes for a single character.
 data TextAttr = TextAttr{ 
-  attrColor     :: Color, -- ^ color
-  attrBgColor   :: Color, -- ^ background color
-  attrUnderline :: Bool,  -- ^ underline
-  attrReverse   :: Bool   -- ^ reverse video
-}
+    attrColor     :: Color, -- ^ color
+    attrBgColor   :: Color, -- ^ background color
+    attrUnderline :: Bool,  -- ^ underline
+    attrReverse   :: Bool   -- ^ reverse video
+  } 
+  deriving (Show)
 
 -- | Default text attribute.
 attrDefault :: TextAttr

@@ -1,11 +1,11 @@
 
-# ![logo](doc/isocline-inline.svg) Isocline <img align="right" width="400px" src="doc/completion-macos.png"/> <br> a portable readline alternative.
+# ![logo](doc/isocline-inline.svg) Isocline <img align="right" width="350px" src="doc/completion-macos.png"/> <br> a portable readline alternative.
 
  
 
 Isocline is a pure C library that can be used as an alternative to the GNU readline library.
 
-- Small: less than 6k lines and can be compiled as a single C file without 
+- Small: less than 8k lines and can be compiled as a single C file without 
   any dependencies or configuration (e.g. `gcc -c src/isocline.c`).
   
 - Portable: works on Unix, Windows, and macOS, and uses a minimal
@@ -25,7 +25,7 @@ Enjoy,
   
 # Demo
 
-![recording](doc/record2-macos.svg)  
+![recording](doc/record-macos.svg)  
 
 Shows in order: syntax highlighting, multiline editing, 24-bit colors, inline hinting, filename completion, and incremental history search.
 
@@ -149,6 +149,13 @@ These are also shown when pressing `F1` on a Isocline prompt. We use `^` as a sh
 
 See the Haskell [readme][Haskell] for instructions to build the Haskell library.
 
+### Build as a Single Source
+
+Copy the sources (in `include` and `src`) into your project, or add the library as a [submodule]:
+```
+$ git submodule add https://github.com/daanx/isocline
+```
+and add `isocline/src/isocline.c` to your build rules -- no configuration is needed. 
 
 ### Build with CMake
 
@@ -166,15 +173,6 @@ and the example program:
 ```
 $ ./example
 ```
-
-### Build as a Single Source
-
-Copy the sources (in `include` and `src`) into your project, or add the library as a [submodule]:
-```
-$ git submodule add https://github.com/daanx/isocline
-```
-and add `isocline/src/isocline.c` to your build rules -- no configuration is needed. 
-
 
 # C Interface
 

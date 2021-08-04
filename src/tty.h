@@ -36,7 +36,7 @@ ic_private bool   code_is_unicode(code_t c, unicode_t* uchr);
 ic_private bool   code_is_virt_key(code_t c );
 
 ic_private bool   tty_term_resize_event(tty_t* tty); // did the terminal resize?
-
+ic_private bool   tty_async_stop(const tty_t* tty);  // unblock the read asynchronously
 
 // low level; used by term.c
 ic_private bool   tty_readc(tty_t* tty, uint8_t* c);        
@@ -144,7 +144,6 @@ static inline code_t key_unicode( unicode_t u ) {
 #define KEY_EVENT_RESIZE  (KEY_EVENT_BASE+1)
 #define KEY_EVENT_AUTOTAB (KEY_EVENT_BASE+2)
 #define KEY_EVENT_STOP    (KEY_EVENT_BASE+3)
-#define KEY_EVENT_WRITELN (KEY_EVENT_BASE+4)
 
 // Convenience
 #define KEY_CTRL_UP       (WITH_CTRL(KEY_UP))

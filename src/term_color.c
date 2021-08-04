@@ -71,6 +71,20 @@ static uint32_t ansi256[256] = {
 
 
 //-------------------------------------------------------------
+// Create colors
+//-------------------------------------------------------------
+
+// Create a color from a 24-bit color value.
+ic_public ic_color_t ic_rgb(uint32_t hex) {
+  return (ic_color_t)(0x1000000 | (hex & 0xFFFFFF));
+}
+
+// Limit an int to values between 0 and 255.
+ic_public uint32_t ic_cap8(long i) {
+  return (i < 0 ? 0 : (i > 255 ? 255 : (uint32_t)i));
+}
+
+//-------------------------------------------------------------
 // Match an rgb color to a ansi8, ansi16, or ansi256
 //-------------------------------------------------------------
 

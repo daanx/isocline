@@ -210,10 +210,12 @@ ic_private void term_start_buffered(term_t* term) {
     }
   }
   term->buffered = true;
+  // term_write(term, IC_CSI "?25l"); // hide cursor
 }
 
 ic_private bool term_end_buffered(term_t* term) {
   if (!term->buffered) return true;
+  // term_write(term, IC_CSI "?25h"); // show cursor
   term->buffered = false;
   if (term->buf != NULL && sbuf_len(term->buf) > 0) {
     bool ok = term_write_direct(term, sbuf_string(term->buf), sbuf_len(term->buf));

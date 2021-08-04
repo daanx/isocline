@@ -147,14 +147,10 @@ void ic_complete_quoted_word( ic_completion_env_t* cenv, const char* prefix, ic_
 typedef uint32_t ic_color_t;
 
 // Create a color from a 24-bit color value.
-static inline ic_color_t ic_rgb(uint32_t hex) {
-  return (ic_color_t)(0x1000000 | (hex & 0xFFFFFF));
-}
+ic_color_t ic_rgb(uint32_t hex);
 
 // Limit an int to values between 0 and 255.
-static inline uint32_t ic_cap8(long i) {
-  return (i < 0 ? 0 : (i > 255 ? 255 : (uint32_t)i));
-}
+uint32_t ic_cap8(long i);
 
 // Create a color from a 24-bit color value
 #define IC_RGB(rgb)        ic_rgb(rgb)
@@ -185,7 +181,7 @@ static inline uint32_t ic_cap8(long i) {
 #define IC_ANSI_CYAN      (96)
 #define IC_ANSI_WHITE     (97)
 
-// Predifined RGB colors.
+// Predefined RGB colors.
 #define IC_BLACK          IC_RGB(0x000000)
 #define IC_MAROON         IC_RGB(0x800000)
 #define IC_GREEN          IC_RGB(0x008000)
@@ -470,7 +466,16 @@ void ic_term_reset( void );
 // 24: true-color terminal with full RGB colors. (truecolor/24bit)
 int ic_term_get_color_bits( void );
 
+//--------------------------------------------------------------
+// Async support
+//--------------------------------------------------------------
 
+// Thread-safe way to asynchronously unblock a readline with 
+// a stop event (resulting in returning NULL from `ic_readline`).
+// Returns `true` if the event was successfully delivered.
+// (This may not be supported on all platforms, but it works
+// on Linux, macOS and Windows).
+bool ic_async_stop(void);
 
 //--------------------------------------------------------------
 // Register allocation functions for custom allocators

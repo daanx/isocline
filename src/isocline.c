@@ -97,6 +97,12 @@ static char* ic_getline(alloc_t* mem)
 // Interface
 //-------------------------------------------------------------
 
+ic_public bool ic_async_stop(void) {
+  ic_env_t* env = ic_get_env(); if (env==NULL) return false;
+  if (env->tty==NULL) return false;
+  return tty_async_stop(env->tty);
+}
+
 static void set_prompt_marker(ic_env_t* env, const char* prompt_marker, const char* cprompt_marker) {
   if (prompt_marker == NULL) prompt_marker = "> ";
   if (cprompt_marker == NULL) cprompt_marker = prompt_marker;

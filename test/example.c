@@ -136,7 +136,7 @@ int main()
   ic_set_default_highlighter(highlighter, NULL);
 
   // try to auto complete after a completion as long as the completion is unique
-  ic_enable_auto_tab(true );
+  // ic_enable_auto_tab(true );
 
   // change interface colors (prompt info, diminish, emphasis, hint)
   // ic_set_style_color( IC_STYLE_PROMPT,   IC_ANSI_MAROON);

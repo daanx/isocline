@@ -191,7 +191,7 @@ static long pos_adjust( ic_highlight_env_t* henv, long pos ) {
     upos++;
     cpos += (long)next;
   }
-  assert(cpos < henv->attr_len);
+  // assert(cpos < henv->attr_len);
   return cpos;
 }
 
