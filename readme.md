@@ -1,5 +1,5 @@
 
-# ![logo](doc/isocline-inline.svg) Isocline <img align="right" width="400px" src="doc/completion-macos.png"/> <br> a portable readline alternative.
+# ![logo](doc/isocline-inline.svg) Isocline <img align="right" width="350px" src="doc/completion-macos.png"/> <br> a portable readline alternative.
 
  
 
