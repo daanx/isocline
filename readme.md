@@ -5,7 +5,7 @@
 
 Isocline is a pure C library that can be used as an alternative to the GNU readline library.
 
-- Small: less than 6k lines and can be compiled as a single C file without 
+- Small: less than 8k lines and can be compiled as a single C file without 
   any dependencies or configuration (e.g. `gcc -c src/isocline.c`).
   
 - Portable: works on Unix, Windows, and macOS, and uses a minimal
