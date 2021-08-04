@@ -12,7 +12,21 @@
 #include "common.h"
 #include "stringbuf.h"
 
+// get `wcwidth` for the column width of unicode characters
+#if defined(__linux__) || defined(__APPLE__) || defined(__freebsd__)
+// use the system supplied one
+#define  _XOPEN_SOURCE  (700)
+#include <wchar.h>
+#else
+// use our own
+#define  wcwidth(c)  mk_wcwidth(c)
+#include "wcwidth.c"
+#endif
+
+//-------------------------------------------------------------
 // In place growable utf-8 strings
+//-------------------------------------------------------------
+
 struct stringbuf_s {
   char*     buf;
   ssize_t   buflen;
@@ -24,9 +38,6 @@ struct stringbuf_s {
 //-------------------------------------------------------------
 // String column width
 //-------------------------------------------------------------
-
-// get `mk_wcwidth` for the column width of unicode characters
-#include "wcwidth.c"
 
 // column width of a utf8 single character sequence.
 static ssize_t utf8_char_width( const char* s, ssize_t n ) {
@@ -46,15 +57,15 @@ static ssize_t utf8_char_width( const char* s, ssize_t n ) {
   else if (b <= 0xDF && n >= 2) { // b >= 0xC2  // 2 bytes
     c = (((b & 0x1F) << 6) | (s[1] & 0x3F));
     assert(c < 0xD800 || c > 0xDFFF);
-    return mk_wcwidth(c);
+    return wcwidth(c);
   }
   else if (b <= 0xEF && n >= 3) { // b >= 0xE0  // 3 bytes 
     c = (((b & 0x0F) << 12) | ((s[1] & 0x3F) << 6) | (s[2] & 0x3F));
-    return mk_wcwidth(c);    
+    return wcwidth(c);    
   }
   else if (b <= 0xF4 && n >= 4) { // b >= 0xF0  // 4 bytes 
     c = (((b & 0x07) << 18) | ((s[1] & 0x3F) << 12) | ((s[2] & 0x3F) << 6) | (s[3] & 0x3F));
-    return mk_wcwidth(c);
+    return wcwidth(c);
   }
   else {
     // failed

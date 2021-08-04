@@ -302,7 +302,6 @@ static void edit_refresh(ic_env_t* env, editor_t* eb)
       term_clear_line(env->term);
     }
   }
-  // abcdefghiklmnopqrstuvwxyz123456789abcdefg
   */
   
   // move cursor back to edit position
