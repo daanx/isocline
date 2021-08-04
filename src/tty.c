@@ -751,6 +751,11 @@ static void tty_waitc_console(tty_t* tty, bool blocking)
   }
 }  
 
+ic_private bool tty_async_stop(tty_t* tty) {
+  // todo
+  return false;
+}
+
 ic_private bool tty_start_raw(tty_t* tty) {
   if (tty->raw_enabled) return true;
   GetConsoleMode(tty->hcon,&tty->hcon_orig_mode);
