@@ -628,11 +628,12 @@ highlightReverse (HighlightEnv henv) pos enable
 
 -- | Text attributes for a single character.
 data TextAttr = TextAttr{ 
-  attrColor     :: Color, -- ^ color
-  attrBgColor   :: Color, -- ^ background color
-  attrUnderline :: Bool,  -- ^ underline
-  attrReverse   :: Bool   -- ^ reverse video
-}
+    attrColor     :: Color, -- ^ color
+    attrBgColor   :: Color, -- ^ background color
+    attrUnderline :: Bool,  -- ^ underline
+    attrReverse   :: Bool   -- ^ reverse video
+  } 
+  deriving (Show)
 
 -- | Default text attribute.
 attrDefault :: TextAttr
