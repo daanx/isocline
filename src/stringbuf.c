@@ -414,27 +414,37 @@ static bool str_get_current_wrapped_pos_iter(
   while( i <= row_len ) {  // include rowlen as the cursor position can be just after the last character
     // get next position and column width
     ssize_t cw;
-    ssize_t next = str_next_ofs( s + row_start, row_len, i, &cw);
+    ssize_t next;
+    bool is_cursor = (warg->pos == row_start+i);
+    if (i < row_len) {
+      next = str_next_ofs(s + row_start, row_len, i, &cw);
+    }
+    else {
+      // end of row: take wrap or cursor into account
+      // (wrap has width 2 as it displays a back-arrow but also has an invisible newline that wraps)
+      cw = (is_wrap ? 2 : (is_cursor ? 1 : 0));
+      next = 1;
+    }
 
     if (next > 0) {
-      if (hwidth + cw + (is_wrap ? 1 : 0) >= warg->newtermw) {
+      if (hwidth + cw > warg->newtermw) {
         // hardwrap
         hwidth = 0;
         wrc->hrows++;
         debug_msg("str: found hardwrap: row: %zd, hrows: %zd\n", row, wrc->hrows);      
       }
-    }
+    }    
     else {
-      next++; // ensure we terminate (as we go up to rowlen)
+      next++; // ensure we terminate (as we go up to rowlen)      
     }
 
     // did we find our position?
-    if (warg->pos == row_start+i) {
+    if (is_cursor) {
       debug_msg("str: found position: row: %zd, hrows: %zd\n", row, wrc->hrows);
       wrc->rc.row_start = row_start;
-      wrc->rc.row_len   = row_len;
+      wrc->rc.row_len   = row_len;      
       wrc->rc.row       = wrc->hrows + row;
-      wrc->rc.col       = hwidth;
+      wrc->rc.col       = hwidth;      
       wrc->rc.first_on_row = (i==0);
       wrc->rc.last_on_row  = (i+next >= row_len - (is_wrap ? 1 : 0)); 
     }
