@@ -149,6 +149,8 @@ module System.Console.Isocline(
       stopCompleting,
       hasCompletions,
 
+      asyncStop,
+
       -- * Low-level highlighting
       HighlightEnv,      
       setDefaultHighlighter,      
@@ -210,6 +212,7 @@ foreign import ccall ic_malloc      :: CSize -> IO (Ptr a)
 foreign import ccall ic_strdup      :: CString -> IO CString
 foreign import ccall ic_readline    :: CString -> IO CString
 foreign import ccall ic_readline_ex :: CString -> FunPtr CCompleterFun -> (Ptr ()) -> FunPtr CHighlightFun -> (Ptr ()) -> IO CString
+foreign import ccall ic_async_stop  :: IO CCBool
 
 unmaybe :: IO (Maybe String) -> IO String
 unmaybe action
@@ -272,6 +275,13 @@ readlinePrimMaybe prompt completer highlighter
        when (ccompleter /= nullFunPtr)   $ freeHaskellFunPtr ccompleter
        when (chighlighter /= nullFunPtr) $ freeHaskellFunPtr chighlighter
        return res
+
+-- Thread safe call to asynchronously send a stop event to a 'readline' 
+-- which will return with 'Nothing' (or @\"\"@). Returns 'True' if
+-- the event was successfully delivered.
+asyncStop :: IO Bool
+asyncStop
+  = uncbool $ ic_async_stop
 
 ----------------------------------------------------------------------------
 -- History
