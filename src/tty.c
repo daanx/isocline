@@ -29,7 +29,7 @@
 #endif
 #endif
 
-#define TTY_PUSH_MAX (64)
+#define TTY_PUSH_MAX (32)
 
 struct tty_s {
   int       fd_in;                  // input handle
@@ -710,12 +710,11 @@ static void tty_waitc_console(tty_t* tty, bool blocking)
           }
         }
       }    
-      continue;  // ignore other control keys (shift etc).
+      // ignore other control keys (shift etc).
     }
     // high surrogate pair
     else if (chr >= 0xD800 && chr <= 0xDBFF) {
-			surrogate_hi = (chr - 0xD800);
-			continue;
+			surrogate_hi = (chr - 0xD800);			
     }
     // low surrogate pair
     else if (chr >= 0xDC00 && chr <= 0xDFFF) {
