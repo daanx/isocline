@@ -5,23 +5,25 @@
   found in the "LICENSE" file at the root of this distribution.
 -----------------------------------------------------------------------------*/
 
-#include <stdio.h>
-#include <string.h>
-#include <inttypes.h>
-
-#include "common.h"
-#include "stringbuf.h"
-
 // get `wcwidth` for the column width of unicode characters
 #if defined(__linux__) || defined(__APPLE__) || defined(__freebsd__)
 // use the system supplied one
-#define  _XOPEN_SOURCE  (700)
+#if !defined(_XOPEN_SOURCE)
+#define  _XOPEN_SOURCE  700    // so wcwidth is visible
+#endif
 #include <wchar.h>
 #else
 // use our own
 #define  wcwidth(c)  mk_wcwidth(c)
 #include "wcwidth.c"
 #endif
+
+#include <stdio.h>
+#include <string.h>
+#include <inttypes.h>
+
+#include "common.h"
+#include "stringbuf.h"
 
 //-------------------------------------------------------------
 // In place growable utf-8 strings

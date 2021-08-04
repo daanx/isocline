@@ -19,11 +19,12 @@
 #define read(fd,s,n)   _read(fd,s,n)
 #define STDIN_FILENO   0
 #else
-#include <termios.h>
-#include <unistd.h>
-#include <sys/ioctl.h>
 #include <signal.h>
 #include <errno.h>
+#include <unistd.h>
+#include <termios.h>
+#include <sys/ioctl.h>
+#include <sys/select.h>
 #if !defined(FIONREAD)
 #include <fcntl.h>
 #endif
@@ -441,7 +442,7 @@ ic_private bool tty_readc_noblock(tty_t* tty, uint8_t* c, long timeout_ms)
       #endif
       // and sleep a bit
       if (timeout_ms > 0) {
-        usleep( (timeout_ms > 100 ? 100 : timeout_ms) ); // sleep at most 0.1s at a time
+        usleep(100*1000L); // sleep at most 0.1s at a time
         timeout_ms -= 100;
       }      
     } 
