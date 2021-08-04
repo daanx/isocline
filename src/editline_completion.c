@@ -40,7 +40,7 @@ static void editor_append_completion(ic_env_t* env, editor_t* eb, ssize_t idx, s
   if (numbered) {
     term_append_color( env->term, eb->extra, env->color_info );
     char buf[32];
-    snprintf(buf, 32, "%s%zd \x1B[0m", (selected ? (tty_is_utf8(env->tty) ? "\xE2\x86\x92" : "*") : " "), 1 + idx);
+    snprintf(buf, 32, "%s%zd \x1B[m", (selected ? (tty_is_utf8(env->tty) ? "\xE2\x86\x92" : "*") : " "), 1 + idx);
     sbuf_append(eb->extra, buf);
     width -= 3;
   }
@@ -64,7 +64,7 @@ static void editor_append_completion(ic_env_t* env, editor_t* eb, ssize_t idx, s
     while( n-- > 0 ) { sbuf_append( eb->extra," "); }  
   }
   if (selected) {
-    sbuf_append(eb->extra, "\x1B[0m");
+    sbuf_append(eb->extra, "\x1B[m");
   }
 }
 
@@ -144,10 +144,10 @@ again:
   if (count > count_displayed) {
     term_append_color( env->term, eb->extra, env->color_info);
     if (more_available) {
-      sbuf_append(eb->extra, "\n(press page-down (or ctrl-j) to see all further completions)\x1B[0m");
+      sbuf_append(eb->extra, "\n(press page-down (or ctrl-j) to see all further completions)\x1B[m");
     }
     else {
-      sbuf_appendf(eb->extra, 256, "\n(press page-down (or ctrl-j) to see all %zd completions)\x1B[0m", count );
+      sbuf_appendf(eb->extra, 256, "\n(press page-down (or ctrl-j) to see all %zd completions)\x1B[m", count );
     }
   }
   if (!env->complete_nopreview && selected >= 0 && selected <= count_displayed) {
@@ -222,17 +222,17 @@ again:
     for(ssize_t i = 0; i < count; i++) {
       const char* display = completions_get_display(env->completions, i);
       if (display != NULL) {
-        // term_writef(env->term, "\x1B[90m%3d \x1B[0m%s\n", i+1, (cm->display != NULL ? cm->display : cm->replacement ));          
+        // term_writef(env->term, "\x1B[90m%3d \x1B[m%s\n", i+1, (cm->display != NULL ? cm->display : cm->replacement ));          
         term_writeln(env->term, display);
       }
     }
     term_attr_reset( env->term );
     term_color( env->term, env->color_info);
     if (count >= IC_MAX_COMPLETIONS_TO_SHOW) {
-      term_write(env->term, "... and more.\x1B[0m\n");
+      term_write(env->term, "... and more.\x1B[m\n");
     }
     else {
-      term_writef(env->term, 256, "(%zd possible completions)\x1B[0m\n", count );
+      term_writef(env->term, 256, "(%zd possible completions)\x1B[m\n", count );
     }
     for(ssize_t i = 0; i < rc.row+1; i++) {
       term_write(env->term, " \n");
