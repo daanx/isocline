@@ -27,6 +27,7 @@ static void show_color( ic_color_t color, const char* name ) {
 // main example
 int main() 
 {
+  /*
   // ic_writeln handles basic escape sequences in a portable way
   ic_writeln(
     "\n\x1B[33mIsocline sample program:\x1B[0m\n"
@@ -125,7 +126,7 @@ int main()
   
   ic_term_reset();
   ic_writeln("");
-
+*/
   // enable history; use a NULL filename to not persist history to disk
   ic_set_history("history.txt", -1 /* default entries (= 200) */);
 
@@ -136,7 +137,7 @@ int main()
   ic_set_default_highlighter(highlighter, NULL);
 
   // try to auto complete after a completion as long as the completion is unique
-  ic_enable_auto_tab(true );
+  // ic_enable_auto_tab(true );
 
   // change interface colors (prompt info, diminish, emphasis, hint)
   // ic_set_style_color( IC_STYLE_PROMPT,   IC_ANSI_MAROON);
@@ -204,7 +205,7 @@ static void completer(ic_completion_env_t* cenv, const char* prefix )
   ic_complete_filename(cenv, prefix, 0, "/usr/local;c:\\Program Files" , NULL /* any extension */);
 
   // and also use our custom completer  
-  ic_complete_word( cenv, prefix, &word_completer );        
+  // ic_complete_word( cenv, prefix, &word_completer );        
   
   // ic_complete_quoted_word( cenv, prefix, &word_completer, &ic_char_is_nonwhite, '\\', "'\"" );        
 }
