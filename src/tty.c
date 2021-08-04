@@ -388,13 +388,14 @@ ic_private bool tty_readc_noblock(tty_t* tty, uint8_t* c, long timeout_ms)
 
   // if supported, peek first if any char is available.
   #if defined(FIONREAD)
-  int navail = 0;
-  if (ioctl(0, FIONREAD, &navail) == 0) {
-    if (navail >= 1) {
-      return tty_readc(tty, c);
-    }
-    else if (timeout_ms <= 0) {
-      return false;
+  { int navail = 0;
+    if (ioctl(0, FIONREAD, &navail) == 0) {
+      if (navail >= 1) {
+        return tty_readc(tty, c);
+      }
+      else if (timeout_ms <= 0) {
+        return false;  // return early if there is no input available (with a zero timeout)
+      }
     }
   }
   #endif
@@ -417,6 +418,7 @@ ic_private bool tty_readc_noblock(tty_t* tty, uint8_t* c, long timeout_ms)
     do {
       // and do a non-blocking read
       #if defined(FIONREAD)
+      int navail = 0;
       if (ioctl(0, FIONREAD, &navail) == 0 && navail >= 1) {
         return tty_readc(tty, c);
       }
@@ -447,6 +449,23 @@ ic_private bool tty_readc_noblock(tty_t* tty, uint8_t* c, long timeout_ms)
   #endif
   return false;
 }
+
+#if defined(TIOCSTI) 
+ic_private bool tty_async_stop(const tty_t* tty) {
+  // insert escape code for the stop event into the input stream (unblock any blocking concurrent read)
+  char buf[64+1];
+  snprintf(buf,64,"\x1B[%uu", KEY_EVENT_STOP);  // unicode escape for the stop event
+  buf[64] = 0;
+  for(const char* c = buf; *c != 0; c++) {
+    if (ioctl(tty->fd_in, TIOCSTI, c) < 0) return false; // break on error    
+  }
+  return true;
+}
+#else
+ic_private bool tty_async_stop(const tty_t* tty) {
+  return false;
+}
+#endif
 
 // We install various signal handlers to restore the terminal settings
 // in case of a terminating signal. This is also used to catch terminal window resizes.

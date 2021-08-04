@@ -284,7 +284,7 @@ static void edit_refresh(ic_env_t* env, editor_t* eb)
   term_clear_lines_to_end(env->term);
 
   // render rows
-  edit_refresh_rows( env, eb, promptw, cpromptw, false, 0, last_row );  // always start at zero to scroll naturally
+  edit_refresh_rows( env, eb, promptw, cpromptw, false, first_row, last_row );  
   if (rows_extra > 0) {
     // ssize_t first_rowx = (first_row > rows_input ? first_row - rows_input : 0);
     ssize_t last_rowx = last_row - rows_input; assert(last_rowx >= 0);

@@ -316,7 +316,7 @@ static code_t tty_read_csi(tty_t* tty, uint8_t c1, uint8_t peek, code_t mods0) {
     // vt codes
     code = esc_decode_vt(num1);
   }
-  else if (final == 'u' && c1 == '[') {
+  else if (c1 == '[' && final == 'u') {
     // unicode
     code = key_unicode(num1);
   }

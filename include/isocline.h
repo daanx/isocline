@@ -470,7 +470,16 @@ void ic_term_reset( void );
 // 24: true-color terminal with full RGB colors. (truecolor/24bit)
 int ic_term_get_color_bits( void );
 
+//--------------------------------------------------------------
+// Async support
+//--------------------------------------------------------------
 
+// Thread-safe way to asynchronously unblock a readline with 
+// a stop event (resulting in returning NULL from `ic_readline`).
+// Returns `true` if the event was successfully delivered.
+// (This may not be supported on all platforms, but it works
+// on Linux, macOS and Windows).
+bool ic_async_stop(void);
 
 //--------------------------------------------------------------
 // Register allocation functions for custom allocators
