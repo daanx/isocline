@@ -21,13 +21,11 @@ static void highlighter(ic_highlight_env_t* henv, const char* input, void* arg);
 // main example
 int main() 
 {
-  // ic_writeln handles basic escape sequences in a portable way (e.g emulating on Windows)
-  ic_term_writeln(
-    "\n\x1B[33mIsocline sample program:\x1B[0m\n"
-    "- Type 'exit' to quit. (or use ctrl+d).\n"
-    "- Press F1 for help on editing commands.\n"
-    "- Use shift+tab for multiline input. (or ctrl+enter, or ctrl+j)\n"
-    "- Type 'p' (or 'id', 'f', or 'h') followed by tab for completion.\n");
+  printf( "Isocline sample program:\n"
+          "- Type 'exit' to quit. (or use ctrl+d).\n"
+          "- Press F1 for help on editing commands.\n"
+          "- Use shift+tab for multiline input. (or ctrl+enter, or ctrl+j)\n"
+          "- Type 'p' (or 'id', 'f', or 'h') followed by tab for completion.\n\n" );
   
   // enable history; use a NULL filename to not persist history to disk
   ic_set_history("history.txt", -1 /* default entries (= 200) */);
@@ -47,7 +45,7 @@ int main()
   
   // run until empty input
   char* input;
-  while((input = ic_readline("isoclinε")) != NULL)    // ctrl-d return NULL (as well as errors)
+  while((input = ic_readline("isoclinε")) != NULL)    // ctrl-d returns NULL (as well as errors)
   {
     bool stop = (strcmp(input,"exit") == 0 || strcmp(input,"") == 0); 
     printf("-----\n"           // echo the input

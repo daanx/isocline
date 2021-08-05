@@ -96,9 +96,9 @@ static void edit_history_search(ic_env_t* env, editor_t* eb, char* initial ) {
     eb->modified = false;
   }
 
-  // set a search prompt
-  bool old_hint = ic_enable_hint(false);
-  ssize_t old_pos = eb->pos;
+  // set a search prompt and remember the previous state
+  editor_undo_capture(eb);
+  bool old_hint = ic_enable_hint(false);  
   const char* prompt_text = eb->prompt_text;
   eb->prompt_text = "history search";
   
@@ -163,11 +163,11 @@ again:
   sbuf_clear(eb->extra);
   if (c == KEY_ESC || c == KEY_BELL /* ^G */ || c == KEY_CTRL_C) {
     c = 0;  
-    sbuf_replace( eb->input, history_get(env->history,0) );
-    eb->pos = old_pos;
+    editor_undo_restore(eb, false);
   } 
   else if (c == KEY_ENTER) {
     c = 0;
+    editor_undo_forget(eb);
     sbuf_replace( eb->input, hentry );
     eb->pos = sbuf_len(eb->input);
     eb->modified = false;
@@ -243,7 +243,10 @@ static void edit_history_search_with_current_word(ic_env_t* env, editor_t* eb) {
   char* initial = NULL;
   ssize_t start = sbuf_find_word_start( eb->input, eb->pos );
   if (start >= 0) {
-    initial = mem_strndup( eb->mem, sbuf_string(eb->input) + start, eb->pos - start);
+    start = sbuf_next(eb->input, start, NULL);
+    if (start >= 0 && start < eb->pos) {
+      initial = mem_strndup(eb->mem, sbuf_string(eb->input) + start, eb->pos - start);
+    }
   }
   edit_history_search( env, eb, initial);
   mem_free(env->mem, initial);

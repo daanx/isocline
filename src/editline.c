@@ -75,6 +75,13 @@ static void editor_undo_capture(editor_t* eb ) {
   editor_capture(eb, &eb->undo );
 }
 
+static void editor_undo_forget(editor_t* eb) {
+  const char* input = NULL;
+  ssize_t pos = 0;
+  editstate_restore(eb->mem, &eb->undo, &input, &pos);
+  mem_free(eb->mem, input);
+}
+
 static void editor_restore(editor_t* eb, editstate_t** from, editstate_t** to ) {
   if (*from == NULL) return;
   const char* input;
