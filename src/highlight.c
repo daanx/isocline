@@ -349,4 +349,4 @@ ic_private void highlight_match_braces(ic_highlight_env_t* henv, const char* s, 
       }
     }
   }
-};
+}
