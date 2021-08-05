@@ -211,10 +211,13 @@ support true color. Detection of full color support
 is not always possible to do automatically and you can
 set the `COLORTERM` environment variable expicitly to force Isocline to use
 a specific palette:
-- `COLORTERM=truecolor`: use 24-bit colors.
-- `COLORTERM=256color`: use the ANSI 256 color palette.
-- `COLORTERM=16color` : use the regular ANSI 16 color paletten (8 normal
-  and 8 bright colors).
+- `COLORTERM=truecolor`: use 24-bit colors.  
+  <img width="400px" src="doc/ansirgb.png"/>
+- `COLORTERM=256color`: use the ANSI 256 color palette.  
+  <img width="400px" src="doc/ansi256.png"/>
+- `COLORTERM=16color` : use the regular ANSI 16 color 
+   palette (8 normal and 8 bright colors).  
+  <img width="400px" src="doc/ansi16.png"/>
 - `COLORTERM=8color`: use bold for bright colors.
 - `COLORTERM=monochrome`: use no color.
 
@@ -241,6 +244,10 @@ supported:
   Set the environment variable `COLORTERM=truecolor` 
   to enable this on capable terminals.
     
+On Windows the above functionality is implemented using the Windows console API
+(except if running in the new Windows Terminal which supports these escape
+sequences natively).
+
 ## Possible Future Extensions
 
 - Vi key bindings
