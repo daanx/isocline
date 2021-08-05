@@ -64,14 +64,14 @@ int main()
 
 // A custom completer function.
 // Use `ic_add_completion( env, display, replacement)` to add actual completions.
-static void word_completer(ic_completion_env_t* cenv, const char* prefix ) 
+static void word_completer(ic_completion_env_t* cenv, const char* word ) 
 {
-  // complete with list of words; only if the input is a prefix it will be a completion candidate
+  // complete with list of words; only if the input is a word it will be a completion candidate
   static const char* completions[] = { "print", "println", "printer", "printsln", "prompt", NULL };
-  ic_add_completions(cenv, prefix, completions);
+  ic_add_completions(cenv, word, completions);
 
   // examples of more customized completions
-  if (strcmp(prefix,"id") == 0) {
+  if (strcmp(word,"id") == 0) {
     // display vs. replacement
     ic_add_completion(cenv,"D — (x) => x",       "(x) => x");                
     ic_add_completion(cenv,"Haskell — \\x -> x", "\\x -> x");
@@ -79,7 +79,7 @@ static void word_completer(ic_completion_env_t* cenv, const char* prefix )
     ic_add_completion(cenv,"Koka — fn(x){ x }",  "fn(x){ x }");    
     ic_add_completion(cenv,"Ocaml — fun x -> x", "fun x -> x");
   }  
-  else if (strcmp(prefix,"f") == 0) {  
+  else if (strcmp(word,"f") == 0) {  
     // unicode for f completion
     ic_add_completion(cenv,NULL,"banana 🍌 etc.");
     ic_add_completion(cenv,NULL,"〈pear〉with brackets"); 
@@ -87,7 +87,7 @@ static void word_completer(ic_completion_env_t* cenv, const char* prefix )
     ic_add_completion(cenv,NULL,"apples 🍎");
     ic_add_completion(cenv, NULL, "zero\xE2\x80\x8Dwidth-joiner");    
   }
-  else if (prefix[0] != 0 && ic_istarts_with("hello isocline ",prefix)) {
+  else if (word[0] != 0 && ic_istarts_with("hello isocline ",word)) {
     // many completions for hello isocline
     for(int i = 0; i < 100000; i++) {
       char buf[32];
@@ -99,15 +99,16 @@ static void word_completer(ic_completion_env_t* cenv, const char* prefix )
 
 // A completer function is called by isocline to complete on input.
 // We use `ic_complete_word` to handle escape characters and quoted words.
-static void completer(ic_completion_env_t* cenv, const char* prefix ) 
+static void completer(ic_completion_env_t* cenv, const char* input ) 
 {
   // try to complete file names from the roots "." and "/usr/local"
-  ic_complete_filename(cenv, prefix, 0, "/usr/local;c:\\Program Files" , NULL /* any extension */);
+  ic_complete_filename(cenv, input, 0, "/usr/local;c:\\Program Files" , NULL /* any extension */);
 
   // and also use our custom completer  
-  ic_complete_word( cenv, prefix, &word_completer );        
+  ic_complete_word( cenv, input, &word_completer, NULL /* default word boundary; whitespace or separator */ );        
   
-  // ic_complete_quoted_word( cenv, prefix, &word_completer, &ic_char_is_nonwhite, '\\', "'\"" );        
+  // ic_complete_word( cenv, input, &word_completer, &ic_char_is_idletter );        
+  // ic_complete_qword( cenv, input, &word_completer, &ic_char_is_idletter  );        
 }
 
 

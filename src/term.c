@@ -670,7 +670,7 @@ static void term_write_esc( term_t* term, const char* s, ssize_t len ) {
   }
   */
 
-  // otherwise emulate ourselves
+  // otherwise emulate ourselves  
   if (s[1] == '[') {
     switch (s[len-1]) {
     case 'A':
@@ -1011,12 +1011,11 @@ static void term_init_raw(term_t* term) {
 #else
 
 ic_private void term_start_raw(term_t* term) {
-  term->raw_enabled++;
+  if (term->raw_enabled++ > 0) return;  
   CONSOLE_SCREEN_BUFFER_INFO info;
   if (GetConsoleScreenBufferInfo(term->hcon, &info)) {
     term->hcon_orig_attr = info.wAttributes;
   }
-  GetConsoleMode(term->hcon, &term->hcon_orig_mode);
   term->hcon_orig_cp = GetConsoleOutputCP();
   SetConsoleOutputCP(CP_UTF8);
   if (term->hcon_mode == 0) {
@@ -1052,6 +1051,7 @@ ic_private void term_end_raw(term_t* term) {
 
 static void term_init_raw(term_t* term) {
   term->hcon = GetStdHandle(STD_OUTPUT_HANDLE);
+  GetConsoleMode(term->hcon, &term->hcon_orig_mode);
   CONSOLE_SCREEN_BUFFER_INFOEX info;
   memset(&info, 0, sizeof(info));
   info.cbSize = sizeof(info);

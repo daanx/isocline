@@ -12,13 +12,13 @@ import Control.Monad( when )
 
 main :: IO ()
 main
-  = do termWriteLn welcome                 -- like putStrLn but handles escape sequences portably
+  = do putStrLn welcome                 
        setHistory "history.txt" 200        -- history
        enableAutoTab True                  -- complete as far as possible
-       setStyleColor StylePrompt AnsiMaroon  
+       setStyleColor StylePrompt (RGB 0x00A060)       
        interaction
   where
-    welcome = "\n\x1B[33mHaskell Isocline sample program:\x1B[0m\n" ++
+    welcome = "\nHaskell Isocline sample program:\n" ++
               "- Type 'exit' to quit. (or use ctrl+d).\n" ++
               "- Press F1 for help on editing commands.\n" ++
               "- Use shift+tab for multiline input (or ctrl-enter).\n" ++
@@ -43,7 +43,7 @@ interaction
 completer :: CompletionEnv -> String -> IO () 
 completer compl input
   = do completeFileName compl input Nothing [".","/usr/local"] [] {-any extension-}
-       completeWord compl input wordCompletions
+       completeWord compl input Nothing wordCompletions
   
 wordCompletions :: String -> [Completion]
 wordCompletions input0
@@ -61,8 +61,8 @@ wordCompletions input0
               , ("Ocaml — fun x -> x", "fun x -> x")]
          else []) ++
        -- add many hello isocline completions; we should generate these lazily!
-       (if (not (null input) && input `isPrefixOf` "hello isocline ") 
-         then map (\i -> completion ("hello isocline " ++ show i)) [1..100000]
+       (if (not (null input) && input `isPrefixOf` "hello_isocline_") 
+         then map (\i -> completion ("hello_isocline_" ++ show i)) [1..100000]
          else [])
   
 

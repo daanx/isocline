@@ -14,12 +14,71 @@
 #include "completions.h"
 
 
+
 //-------------------------------------------------------------
-// Word completion (quoted and with escape characters)
+// Word completion 
 //-------------------------------------------------------------
 
 // free variables for word completion
 typedef struct word_closure_s {
+  long                  delete_before_adjust;
+  void*                 prev_env;
+  ic_completion_fun_t*  prev_complete;
+} word_closure_t;
+
+
+// word completion callback
+static bool token_add_completion_ex(ic_env_t* env, void* closure, const char* display, const char* replacement, long delete_before, long delete_after) {
+  word_closure_t* wenv = (word_closure_t*)(closure);
+  // call the previous completer with an adjusted delete-before
+  return (*wenv->prev_complete)(env, wenv->prev_env, (display!=NULL ? display : replacement), replacement, wenv->delete_before_adjust + delete_before, delete_after);
+}
+
+
+ic_public void ic_complete_word(ic_completion_env_t* cenv, const char* prefix, ic_completer_fun_t* fun,
+                                    ic_is_char_class_fun_t* is_word_char) 
+{
+  if (is_word_char == NULL) is_word_char = &ic_char_is_nonseparator;
+  
+  ssize_t len = ic_strlen(prefix);
+  ssize_t pos = len; // will be start of the 'word' (excluding a potential start quote)
+  while (pos > 0) {
+    // go back one code point
+    ssize_t ofs = str_prev_ofs(prefix, pos, NULL);
+    if (ofs <= 0) break;
+    if (!(*is_word_char)(prefix + (pos - ofs), (long)ofs)) { 
+      break;
+    }
+    pos -= ofs;
+  }
+  if (pos < 0) { pos = 0; }
+  
+  // stop if empty word
+  // if (len == pos) return;
+  
+  // set up the closure
+  word_closure_t wenv;
+  wenv.delete_before_adjust = (long)(len - pos);
+  wenv.prev_complete = cenv->complete;
+  wenv.prev_env = cenv->env;
+  cenv->complete = &token_add_completion_ex;
+  cenv->closure = &wenv;
+
+  // and call the user completion routine
+  (*fun)(cenv, prefix + pos);
+
+  // restore the original environment
+  cenv->complete = wenv.prev_complete;
+  cenv->closure = wenv.prev_env;
+}
+
+
+//-------------------------------------------------------------
+// Quoted word completion (with escape characters)
+//-------------------------------------------------------------
+
+// free variables for word completion
+typedef struct qword_closure_s {
   char         escape_char;
   char         quote;
   long         delete_before_adjust;
@@ -27,19 +86,19 @@ typedef struct word_closure_s {
   void*        prev_env;
   ic_is_char_class_fun_t* is_word_char;
   ic_completion_fun_t*    prev_complete;
-} word_closure_t;
+} qword_closure_t;
 
 
 // word completion callback
-static bool word_add_completion_ex(ic_env_t* env, void* closure, const char* display, const char* replacement, long delete_before, long delete_after) {
-  word_closure_t* wenv = (word_closure_t*)(closure);
+static bool qword_add_completion_ex(ic_env_t* env, void* closure, const char* display, const char* replacement, long delete_before, long delete_after) {
+  qword_closure_t* wenv = (qword_closure_t*)(closure);
   sbuf_replace( wenv->sbuf, replacement );   
   if (wenv->quote != 0) {
     // add end quote
     sbuf_append_char( wenv->sbuf, wenv->quote);
   }
   else {
-    // escape white space if it was not quoted
+    // escape non-word characters if it was not quoted
     ssize_t pos = 0;
     ssize_t next;
     while ( (next = sbuf_next_ofs(wenv->sbuf, pos, NULL)) > 0 ) 
@@ -52,16 +111,16 @@ static bool word_add_completion_ex(ic_env_t* env, void* closure, const char* dis
     }
   }
   // and call the previous completion function
-  return (*wenv->prev_complete)( env, closure, (display!=NULL ? display : replacement), sbuf_string(wenv->sbuf), wenv->delete_before_adjust + delete_before, delete_after );  
+  return (*wenv->prev_complete)( env, wenv->prev_env, (display!=NULL ? display : replacement), sbuf_string(wenv->sbuf), wenv->delete_before_adjust + delete_before, delete_after );  
 }
 
 
-ic_public void ic_complete_word( ic_completion_env_t* cenv, const char* prefix, ic_completer_fun_t* fun ) {
-  ic_complete_quoted_word( cenv, prefix, fun, NULL, '\\', NULL);
+ic_public void ic_complete_qword( ic_completion_env_t* cenv, const char* prefix, ic_completer_fun_t* fun, ic_is_char_class_fun_t* is_word_char ) {
+  ic_complete_qword_ex( cenv, prefix, fun, is_word_char, '\\', NULL);
 }
 
 
-ic_public void ic_complete_quoted_word( ic_completion_env_t* cenv, const char* prefix, ic_completer_fun_t* fun, 
+ic_public void ic_complete_qword_ex( ic_completion_env_t* cenv, const char* prefix, ic_completer_fun_t* fun, 
                                         ic_is_char_class_fun_t* is_word_char, char escape_char, const char* quote_chars ) {
   if (is_word_char == NULL) is_word_char = &ic_char_is_nonseparator ;  
   if (quote_chars == NULL) quote_chars = "'\"";
@@ -170,7 +229,7 @@ ic_public void ic_complete_quoted_word( ic_completion_env_t* cenv, const char* p
   #endif
 
   // set up the closure
-  word_closure_t wenv;
+  qword_closure_t wenv;
   wenv.quote          = quote;
   wenv.is_word_char   = is_word_char;
   wenv.escape_char    = escape_char;
@@ -179,7 +238,7 @@ ic_public void ic_complete_quoted_word( ic_completion_env_t* cenv, const char* p
   wenv.prev_env       =  cenv->env;
   wenv.sbuf = sbuf_new(cenv->env->mem);
   if (wenv.sbuf == NULL) { mem_free(cenv->env->mem, word); return; }
-  cenv->complete = &word_add_completion_ex;
+  cenv->complete = &qword_add_completion_ex;
   cenv->closure = &wenv;
 
   // and call the user completion routine
@@ -456,5 +515,5 @@ ic_public void ic_complete_filename( ic_completion_env_t* cenv, const char* pref
   fclosure.roots = roots; 
   fclosure.extensions = extensions;
   cenv->arg = &fclosure;
-  ic_complete_quoted_word( cenv, prefix, &filename_completer, &ic_char_is_filename_letter, '\\', "'\"");  
+  ic_complete_qword_ex( cenv, prefix, &filename_completer, &ic_char_is_filename_letter, '\\', "'\"");  
 }

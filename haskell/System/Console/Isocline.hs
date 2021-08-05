@@ -86,6 +86,7 @@ module System.Console.Isocline(
       completeFileName,
       completeWord,
       completeQuotedWord,
+      completeQuotedWordEx,
 
       Completion(..),
       completion,
@@ -139,9 +140,11 @@ module System.Console.Isocline(
       -- * Advanced
       setDefaultCompleter,      
       addCompletion,
+      addCompletionEx,
       addCompletions,
       completeWordPrim,
       completeQuotedWordPrim,
+      completeQuotedWordPrimEx,
 
       readlineMaybe,
       readlineExMaybe,
@@ -337,10 +340,12 @@ foreign import ccall ic_set_default_completer :: FunPtr CCompleterFun -> IO ()
 foreign import ccall "wrapper" ic_make_completer :: CCompleterFun -> IO (FunPtr CCompleterFun)
 foreign import ccall "wrapper" ic_make_charclassfun :: CCharClassFun -> IO (FunPtr CCharClassFun)
 
-foreign import ccall ic_add_completion        :: Ptr IcCompletionEnv -> CString -> CString -> IO CChar
+foreign import ccall ic_add_completion        :: Ptr IcCompletionEnv -> CString -> CString -> IO CCBool
+foreign import ccall ic_add_completion_ex     :: Ptr IcCompletionEnv -> CString -> CString -> CInt -> CInt -> IO CCBool
 foreign import ccall ic_complete_filename     :: Ptr IcCompletionEnv -> CString -> CChar -> CString -> CString -> IO ()
-foreign import ccall ic_complete_word         :: Ptr IcCompletionEnv -> CString -> FunPtr CCompleterFun -> IO ()
-foreign import ccall ic_complete_quoted_word  :: Ptr IcCompletionEnv -> CString -> FunPtr CCompleterFun -> FunPtr CCharClassFun -> CChar -> CString -> IO ()
+foreign import ccall ic_complete_word         :: Ptr IcCompletionEnv -> CString -> FunPtr CCompleterFun -> FunPtr CCharClassFun -> IO ()
+foreign import ccall ic_complete_qword        :: Ptr IcCompletionEnv -> CString -> FunPtr CCompleterFun -> FunPtr CCharClassFun -> IO ()
+foreign import ccall ic_complete_qword_ex     :: Ptr IcCompletionEnv -> CString -> FunPtr CCompleterFun -> FunPtr CCharClassFun -> CChar -> CString -> IO ()
 
 foreign import ccall ic_has_completions       :: Ptr IcCompletionEnv -> IO CCBool
 foreign import ccall ic_stop_completing       :: Ptr IcCompletionEnv -> IO CCBool
@@ -375,11 +380,11 @@ completionsFor input rs
 
 -- | Convenience: creates a completer function directly from a list
 -- of candidate completion strings. Uses `completionsFor` to filter the 
--- input and `completeWord` to handle quotes.
+-- input and `completeWord` to find the word boundary.
 -- For example: @'readlineEx' \"myprompt\" (Just ('wordCompleter' completer)) Nothing@.
 wordCompleter :: [String] -> (CompletionEnv -> String -> IO ()) 
 wordCompleter completions
-  = (\cenv input -> completeWord cenv input (\input -> completionsFor input completions))
+  = (\cenv input -> completeWord cenv input Nothing (\input -> completionsFor input completions))
 
 -- | @setDefaultCompleter completer@: Set a new tab-completion function @completer@ 
 -- that is called by Isocline automatically. 
@@ -391,6 +396,10 @@ setDefaultCompleter :: (CompletionEnv -> String -> IO ()) -> IO ()
 setDefaultCompleter completer 
   = do ccompleter <- makeCCompleter (Just completer)
        ic_set_default_completer ccompleter
+
+withCCompleter :: Maybe CompleterFun -> (FunPtr CCompleterFun -> IO a) -> IO a
+withCCompleter completer action
+  = bracket (makeCCompleter completer) (\cfun -> when (nullFunPtr /= cfun) (freeHaskellFunPtr cfun)) action
 
 makeCCompleter :: Maybe CompleterFun -> IO (FunPtr CCompleterFun)
 makeCCompleter Nothing = return nullFunPtr
@@ -413,6 +422,19 @@ addCompletion (CompletionEnv rpc) (Completion display replacement _)
     withUTF8String replacement $ \crepl ->
     do cbool <- ic_add_completion rpc cdisplay crepl
        return (fromEnum cbool /= 0)
+
+-- | @addCompletionEx compl completion deleteBefore deleteAfter@: 
+-- Primitive add completion, use with care and call only directly inside a completer callback.
+-- If 'addCompletion' returns 'True' keep adding completions,
+-- but if it returns 'False' an effort should be made to return from the completer
+-- callback without adding more completions.
+addCompletionEx :: CompletionEnv -> Completion -> Int -> Int -> IO Bool
+addCompletionEx (CompletionEnv rpc) (Completion display replacement _) deleteBefore deleteAfter
+  = withUTF8String0 display $ \cdisplay ->
+    withUTF8String replacement $ \crepl ->
+    do cbool <- ic_add_completion_ex rpc cdisplay crepl (toEnum deleteBefore) (toEnum deleteAfter)
+       return (fromEnum cbool /= 0)
+
     
 -- | @addCompletions compl completions@: add multiple completions at once.
 -- If 'addCompletions' returns 'True' keep adding completions,
@@ -446,7 +468,24 @@ completeFileName (CompletionEnv rpc) prefx dirSep roots extensions
                        Just c  -> castCharToCChar c
        ic_complete_filename rpc cprefx cdirSep croots cextensions
 
--- | @completeWord compl input completer@: 
+-- | @completeWord compl input isWordChar completer@: 
+-- Complete a /word/,/token/ and calls the user @completer@ function with just the current word
+-- (instead of the whole input)
+-- Takes the 'CompletionEnv' environment @compl@, the current @input@, an possible
+-- @isWordChar@ function, and a user defined 
+-- @completer@ function that is called with adjusted input which 
+-- is limited to the /word/ just before the cursor.
+-- Pass 'Nothing' to @isWordChar@ for the default @not . separator@
+-- where @separator = \c -> c `elem` \" \\t\\r\\n,.;:/\\\\(){}[]\"@.
+completeWord :: CompletionEnv -> String -> Maybe (Char -> Bool) -> (String -> [Completion]) -> IO () 
+completeWord cenv input isWordChar completer 
+  = completeWordPrim cenv input isWordChar cenvCompleter
+  where
+    cenvCompleter cenv input
+      = do addCompletions cenv (completer input)
+           return ()
+
+-- | @completeQuotedWord compl input isWordChar completer@: 
 -- Complete a /word/ taking care of automatically quoting and escaping characters.
 -- Takes the 'CompletionEnv' environment @compl@, the current @input@, and a user defined 
 -- @completer@ function that is called with adjusted input which is unquoted, unescaped,
@@ -459,35 +498,53 @@ completeFileName (CompletionEnv rpc) prefx dirSep roots extensions
 -- > "hel       -->  "hello world" 
 -- > "hello w   -->  "hello world"
 --
--- The call @('completeWord' compl prefx fun)@ is a short hand for 
--- @('completeQuotedWord' compl prefx fun (not . separator) \'\\\\\' \"\'\\\"\")@.
+-- The call @('completeWord' compl prefx isWordChar fun)@ is a short hand for 
+-- @('completeQuotedWord' compl prefx isWordChar \'\\\\\' \"\'\\\"\" fun)@.
+-- Pass 'Nothing' to @isWordChar@ for the default @not . separator@
 -- where @separator = \c -> c `elem` \" \\t\\r\\n,.;:/\\\\(){}[]\"@.
-completeWord :: CompletionEnv -> String -> (String -> [Completion]) -> IO () 
-completeWord cenv input completer
-  = completeWordPrim cenv input cenvCompleter
+completeQuotedWord :: CompletionEnv -> String -> Maybe (Char -> Bool) -> (String -> [Completion]) -> IO () 
+completeQuotedWord cenv input isWordChar completer 
+  = completeWordPrim cenv input isWordChar cenvCompleter
   where
     cenvCompleter cenv input
       = do addCompletions cenv (completer input)
            return ()
   
--- | @completeQuotedWord compl input completer isWordChar escapeChar quoteChars@: 
+-- | @completeQuotedWordEx compl input isWordChar escapeChar quoteChars completer@: 
 -- Complete a /word/ taking care of automatically quoting and escaping characters.
 -- Takes the 'CompletionEnv' environment @compl@, the current @input@, and a user defined 
 -- @completer@ function that is called with adjusted input which is unquoted, unescaped,
 -- and limited to the /word/ just before the cursor.
--- Unlike 'completeWord', this function takes an explicit function to determine /word/ characters,
--- the /escape/ character, and a string of /quote/ characters.
+-- Unlike 'completeQuotedWord', this function can specify 
+-- the /escape/ character and the /quote/ characters.
 -- See also 'completeWord'.
-completeQuotedWord :: CompletionEnv -> String -> (String -> [Completion]) -> (Char -> Bool) -> Maybe Char -> String -> IO () 
-completeQuotedWord cenv input completer isWordChar escapeChar quoteChars
-  = completeQuotedWordPrim cenv input cenvCompleter isWordChar escapeChar quoteChars
+completeQuotedWordEx :: CompletionEnv -> String -> Maybe (Char -> Bool) -> Maybe Char -> String -> (String -> [Completion]) -> IO () 
+completeQuotedWordEx cenv input isWordChar escapeChar quoteChars completer 
+  = completeQuotedWordPrimEx cenv input isWordChar escapeChar quoteChars cenvCompleter 
   where
     cenvCompleter cenv input 
       = do addCompletions cenv (completer input)
            return ()
 
 
--- | @completeWordPrim compl input completer@: 
+-- | @completeWord compl input isWordChar completer@: 
+-- Complete a /word/,/token/ and calls the user @completer@ function with just the current word
+-- (instead of the whole input)
+-- Takes the 'CompletionEnv' environment @compl@, the current @input@, an possible
+-- @isWordChar@ function, and a user defined 
+-- @completer@ function that is called with adjusted input which 
+-- is limited to the /word/ just before the cursor.
+-- Pass 'Nothing' to @isWordChar@ for the default @not . separator@
+-- where @separator = \c -> c `elem` \" \\t\\r\\n,.;:/\\\\(){}[]\"@.
+completeWordPrim :: CompletionEnv -> String -> Maybe (Char -> Bool) -> (CompletionEnv -> String -> IO ()) -> IO () 
+completeWordPrim (CompletionEnv rpc) prefx isWordChar completer 
+  = withUTF8String prefx $ \cprefx ->
+    withCharClassFun isWordChar $ \cisWordChar ->
+    withCCompleter (Just completer) $ \ccompleter ->
+    do ic_complete_word rpc cprefx ccompleter cisWordChar
+
+
+-- | @completeWordPrim compl input isWordChar completer@: 
 -- Complete a /word/ taking care of automatically quoting and escaping characters.
 -- Takes the 'CompletionEnv' environment @compl@, the current @input@, and a user defined 
 -- @completer@ function that is called with adjusted input which is unquoted, unescaped,
@@ -500,17 +557,19 @@ completeQuotedWord cenv input completer isWordChar escapeChar quoteChars
 -- > "hel       -->  "hello world" 
 -- > "hello w   -->  "hello world"
 --
--- The call @('completeWordPrim' compl prefx fun)@ is a short hand for 
--- @('completeQuotedWordPrim' compl prefx fun (not . separator) \'\\\\\' \"\'\\\"\")@.
+-- The call @('completeWordPrim' compl prefx isWordChar fun)@ is a short hand for 
+-- @('completeQuotedWordPrim' compl prefx isWordChar \'\\\\\' \"\'\\\"\" fun)@.
+-- Pass 'Nothing' to @isWordChar@ for the default @not . separator@
 -- where @separator = \c -> c `elem` \" \\t\\r\\n,.;:/\\\\(){}[]\"@.
-completeWordPrim :: CompletionEnv -> String -> (CompletionEnv -> String -> IO ()) -> IO () 
-completeWordPrim (CompletionEnv rpc) prefx completer
+completeQuotedWordPrim :: CompletionEnv -> String -> Maybe (Char -> Bool) -> (CompletionEnv -> String -> IO ()) -> IO () 
+completeQuotedWordPrim (CompletionEnv rpc) prefx isWordChar completer
   = withUTF8String prefx $ \cprefx ->
-    do ccompleter <- makeCCompleter (Just completer)
-       ic_complete_word rpc cprefx ccompleter
-       freeHaskellFunPtr ccompleter
+    withCharClassFun isWordChar $ \cisWordChar ->
+    withCCompleter (Just completer) $ \ccompleter ->
+    do ic_complete_qword rpc cprefx ccompleter cisWordChar
   
--- | @completeQuotedWordPrim compl input completer isWordChar escapeChar quoteChars@: 
+
+-- | @completeQuotedWordPrim compl input isWordChar escapeChar quoteChars completer@: 
 -- Complete a /word/ taking care of automatically quoting and escaping characters.
 -- Takes the 'CompletionEnv' environment @compl@, the current @input@, and a user defined 
 -- @completer@ function that is called with adjusted input which is unquoted, unescaped,
@@ -518,28 +577,33 @@ completeWordPrim (CompletionEnv rpc) prefx completer
 -- Unlike 'completeWord', this function takes an explicit function to determine /word/ characters,
 -- the /escape/ character, and a string of /quote/ characters.
 -- See also 'completeWord'.
-completeQuotedWordPrim :: CompletionEnv -> String -> (CompletionEnv -> String -> IO ()) -> (Char -> Bool) -> Maybe Char -> String -> IO () 
-completeQuotedWordPrim (CompletionEnv rpc) prefx completer isWordChar escapeChar quoteChars
+completeQuotedWordPrimEx :: CompletionEnv -> String -> Maybe (Char -> Bool) -> Maybe Char -> String -> (CompletionEnv -> String -> IO ()) ->  IO () 
+completeQuotedWordPrimEx (CompletionEnv rpc) prefx isWordChar escapeChar quoteChars completer
   = withUTF8String prefx $ \cprefx ->
     withUTF8String0 quoteChars $ \cquoteChars ->
+    withCharClassFun isWordChar $ \cisWordChar ->
+    withCCompleter (Just completer) $ \ccompleter ->
     do let cescapeChar = case escapeChar of
                           Nothing -> toEnum 0
                           Just c  -> castCharToCChar c                      
-       ccompleter <- makeCCompleter (Just completer)
-       cisWordChar <- makeCharClassFun isWordChar
-       ic_complete_quoted_word rpc cprefx ccompleter cisWordChar cescapeChar cquoteChars
-       freeHaskellFunPtr cisWordChar
-       freeHaskellFunPtr ccompleter
-  
-makeCharClassFun :: (Char -> Bool) -> IO (FunPtr CCharClassFun)
-makeCharClassFun isInClass
+       ic_complete_qword_ex rpc cprefx ccompleter cisWordChar cescapeChar cquoteChars
+       
+
+withCharClassFun :: Maybe (Char -> Bool) -> (FunPtr CCharClassFun -> IO a) -> IO a
+withCharClassFun isInClass action
+  = bracket (makeCharClassFun isInClass) (\cfun -> when (nullFunPtr /= cfun) (freeHaskellFunPtr cfun))  action 
+
+makeCharClassFun :: Maybe (Char -> Bool) -> IO (FunPtr CCharClassFun)
+makeCharClassFun Nothing = return nullFunPtr
+makeCharClassFun (Just isInClass)
   = let charClassFun :: CString -> CLong -> IO CCBool
         charClassFun cstr clen 
           = let len = (fromIntegral clen :: Int)
             in if (len <= 0) then return (cbool False)
                 else do s <- peekCStringLen (cstr,len)
                         return (if null s then (cbool False) else cbool (isInClass (head s)))
-    in ic_make_charclassfun charClassFun
+    in do ic_make_charclassfun charClassFun
+          
 
 -- | If this returns 'True' an effort should be made to stop completing and return from the callback.
 stopCompleting :: CompletionEnv -> IO Bool
