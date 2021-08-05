@@ -38,7 +38,8 @@ struct ic_env_s {
   ic_color_t      color_hint;       // hint color.
   ic_color_t      color_error;      // error color.
   ic_color_t      color_bracematch; // brace match color.
-  const char*     brace_pairs;      // matching braces, e.g "()[]{}"
+  const char*     match_braces;     // matching braces, e.g "()[]{}"
+  const char*     auto_braces;      // auto insertion braces, e.g "()[]{}\"\"''"
   char            multiline_eol;    // character used for multiline input ("\") (set to 0 to disable)
   bool            initialized;      // are we initialized?
   bool            noedit;           // is rich editing possible (tty != NULL)
@@ -50,12 +51,14 @@ struct ic_env_s {
   bool            no_hint;          // allow hinting?
   bool            no_highlight;     // enable highlighting?
   bool            no_bracematch;    // enable brace matching?
+  bool            no_autobrace;     // enable automatic brace insertion?
   long            hint_delay;       // delay before displaying a hint in milliseconds
 };
 
 ic_private char*        ic_editline(ic_env_t* env, const char* prompt_text);
 
 ic_private ic_env_t*    ic_get_env(void);
-ic_private const char*  ic_env_get_brace_pairs(ic_env_t* env);
+ic_private const char*  ic_env_get_auto_braces(ic_env_t* env);
+ic_private const char*  ic_env_get_match_braces(ic_env_t* env);
 
 #endif // IC_ENV_H

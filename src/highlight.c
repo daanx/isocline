@@ -324,20 +324,25 @@ ic_private void highlight_match_braces(ic_highlight_env_t* henv, const char* s, 
           // unmatched close brace
           ic_highlight_color(henv, i, error_color);
         }
-        else while (nesting > 0) {
-          nesting--;
-          if (open[nesting].close != c) {
+        else {
+          // can we fix an unmatched brace where we can match by popping just one?
+          if (open[nesting-1].close != c && nesting > 1 && open[nesting-2].close == c) {
+            // assume previous open brace was wrong
+            ic_highlight_color(henv, open[nesting-1].pos, error_color);
+            nesting--;
+          }
+          if (open[nesting-1].close != c) {
             // unmatched open brace
-            ic_highlight_color(henv, open[nesting].pos, error_color);
+            ic_highlight_color(henv, i, error_color);
           }
           else {
-            // match
+            // matching brace
+            nesting--;
             if (i == cursor_pos - 1 || open[nesting].show_match) {
               // highlight matching brace
               ic_highlight_color(henv, open[nesting].pos, match_color);
               ic_highlight_color(henv, i, match_color);
             }
-            break;
           }
         }
         break;

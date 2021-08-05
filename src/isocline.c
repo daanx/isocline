@@ -242,7 +242,7 @@ static void set_style_color(ic_env_t* env, ic_style_t iface_element, ic_color_t 
     case IC_STYLE_EMPHASIS: env->color_emphasis = (color == IC_COLOR_NONE ? IC_RGB(0xFFFFD7) : color); break;
     case IC_STYLE_HINT:     env->color_hint = (color == IC_COLOR_NONE ? IC_ANSI_DARKGRAY : color); break;
     case IC_STYLE_ERROR:      env->color_error = (color == IC_COLOR_NONE ? IC_RGB(0xD70000) : color); break;
-    case IC_STYLE_BRACEMATCH: env->color_bracematch = (color == IC_COLOR_NONE ? IC_RGB(0xFFD700) : color); break;
+    case IC_STYLE_BRACEMATCH: env->color_bracematch = (color == IC_COLOR_NONE ? IC_RGB(0xFFFF87) : color); break;
     default: break;
   }
 }
@@ -371,8 +371,12 @@ ic_public int ic_term_get_color_bits(void) {
   return term_get_color_bits(env->term);
 }
 
-ic_private const char* ic_env_get_brace_pairs(ic_env_t* env) {
-  return (env->brace_pairs == NULL ? "()[]{}" : env->brace_pairs);
+ic_private const char* ic_env_get_match_braces(ic_env_t* env) {
+  return (env->match_braces == NULL ? "()[]{}" : env->match_braces);
+}
+
+ic_private const char* ic_env_get_auto_braces(ic_env_t* env) {
+  return (env->auto_braces == NULL ? "()[]{}\"\"''" : env->auto_braces);
 }
 
 //-------------------------------------------------------------
@@ -416,7 +420,8 @@ static void ic_env_free(ic_env_t* env) {
   tty_free(env->tty);
   mem_free(env->mem, env->cprompt_marker);
   mem_free(env->mem,env->prompt_marker);
-  mem_free(env->mem, env->brace_pairs);
+  mem_free(env->mem, env->match_braces);
+  mem_free(env->mem, env->auto_braces);
   env->prompt_marker = NULL;
   
   // and deallocate ourselves

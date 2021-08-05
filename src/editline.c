@@ -257,7 +257,7 @@ static void edit_refresh(ic_env_t* env, editor_t* eb)
 
   // highlight matching braces
   if (!env->no_bracematch) {
-    highlight_match_braces(eb->henv, sbuf_string(eb->input), eb->pos, ic_env_get_brace_pairs(env),  
+    highlight_match_braces(eb->henv, sbuf_string(eb->input), eb->pos, ic_env_get_match_braces(env),  
                               env->color_bracematch, env->color_error);
   }
   
@@ -677,14 +677,28 @@ static void edit_multiline_eol(ic_env_t* env, editor_t* eb) {
 static void edit_insert_unicode(ic_env_t* env, editor_t* eb, unicode_t u) {
   editor_start_modify(eb);
   ssize_t nextpos = sbuf_insert_unicode_at(eb->input, u, eb->pos);
-  if (nextpos >= 0) eb->pos = nextpos;
+  if (nextpos >= 0) eb->pos = nextpos;  
   edit_refresh_hint(env, eb);
+}
+
+static void edit_auto_brace(ic_env_t* env, editor_t* eb, char c) {
+  if (env->no_autobrace) return;
+  for (const char* b = ic_env_get_auto_braces(env); *b != 0; b += 2) {
+    if (*b == c) {
+      const char close = b[1];
+      if (sbuf_char_at(eb->input, eb->pos) != close) {
+        sbuf_insert_char_at(eb->input, close, eb->pos);
+        return;
+      }
+    }
+  }
 }
 
 static void edit_insert_char(ic_env_t* env, editor_t* eb, char c) {
   editor_start_modify(eb);
   ssize_t nextpos = sbuf_insert_char_at( eb->input, c, eb->pos );
   if (nextpos >= 0) eb->pos = nextpos;
+  edit_auto_brace(env, eb, c);
   edit_refresh_hint(env,eb);  
 }
 
