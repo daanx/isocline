@@ -1,8 +1,9 @@
+<!-- <img align="right" width="350px" src="doc/completion-macos.png"/> -->
 
-# ![logo](doc/isocline-inline.svg) Isocline <img align="right" width="350px" src="doc/completion-macos.png"/> <br> a portable readline alternative.
+<img align="left" src="doc/isocline-inline.svg"/>
 
+# Isocline: a portable readline alternative.
  
-
 Isocline is a pure C library that can be used as an alternative to the GNU readline library.
 
 - Small: less than 8k lines and can be compiled as a single C file without 
@@ -46,7 +47,6 @@ while( (input = ic_readline("prompt")) != NULL ) { // ctrl+d/c or errors return 
 ```
 
 See the [example] for a full example with completion, history, etc.
-
 
 # Run the Example
 
@@ -147,8 +147,6 @@ These are also shown when pressing `F1` on a Isocline prompt. We use `^` as a sh
 
 # Build the Library
 
-See the Haskell [readme][Haskell] for instructions to build the Haskell library.
-
 ### Build as a Single Source
 
 Copy the sources (in `include` and `src`) into your project, or add the library as a [submodule]:
@@ -173,6 +171,11 @@ and the example program:
 ```
 $ ./example
 ```
+
+### Build the Haskell Library
+
+See the Haskell [readme][Haskell] for instructions to build the Haskell library.
+
 
 # C Interface
 
