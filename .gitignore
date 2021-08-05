@@ -1,6 +1,7 @@
 out/
 build/
 dist/
+doc/html/
 .vs/
 .vscode/
 .stack-work/

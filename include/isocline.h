@@ -17,10 +17,6 @@ extern "C" {
 #include <stdint.h>    // uint32_t
 #include <stdarg.h>    // term_vprintf
 
-//--------------------------------------------------------------
-// Main interface
-//--------------------------------------------------------------
-
 #define IC_VERSION   (100)    // 1.0.0
 
 // Read input from the user using rich editing abilities.
