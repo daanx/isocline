@@ -37,6 +37,7 @@ static const char* help[] = {
   "^home",       "go to the start of the current input",
   "pgdn,"
   "^end",       "go to the end of the current input",
+  "alt-m",      "jump to matching brace",
   "^p",         "go back in the history",
   "^n",         "go forward in the history",
   "^r,^s",      "search the history starting with the current word",
