@@ -50,7 +50,7 @@ static const char* help[] = {
   "alt-d",      "delete to the end of the current word",
   "^u",         "delete to the start of the current line",
   "^k",         "delete to the end of the current line",
-  "esc",        "delete the current line, or done with empty input",
+  "esc",        "delete the current input, or done with empty input",
   "","",
 
   "", "Editing:",
@@ -115,7 +115,7 @@ static const char* help_initial[] = {
   "         │        ┌───────┼──────┐        │    ctrl+r   : search history",
   "         ▼        ▼       ▼      ▼        ▼    tab      : complete word",
   "  \x1B[90mprompt> \x1B[37mit's the quintessential language" "\x1B[90m" "     shift-tab: insert new line",
-  "         ▲        ▲              ▲        ▲    esc      : delete line, done",
+  "         ▲        ▲              ▲        ▲    esc      : delete input, done",
   "         │        └──────────────┘        │    ctrl+z   : undo",
   "         │   alt-backsp        alt-d      │",
   //"       │                │               │",
