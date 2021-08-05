@@ -280,3 +280,68 @@ ic_public void ic_highlight_esc(ic_highlight_env_t* henv, const char* input, ic_
   }
   mem_free(henv->mem, s);
 }
+
+
+//-------------------------------------------------------------
+// Brace matching
+//-------------------------------------------------------------
+#define MAX_NESTING (64)
+
+typedef struct brace_s {
+  char close;
+  bool show_match;
+  long pos;
+} brace_t;
+
+ic_private void highlight_match_braces(ic_highlight_env_t* henv, const char* s, ssize_t cursor_pos, const char* braces, ic_color_t match_color, ic_color_t error_color) 
+{
+  brace_t open[MAX_NESTING+1];
+  ssize_t nesting = 0;
+  const ssize_t brace_len = ic_strlen(braces);
+  for (long i = 0; i < ic_strlen(s); i++) {
+    const char c = s[i];
+    // push open brace
+    bool found_open = false;
+    for (ssize_t b = 0; b < brace_len; b += 2) {
+      if (c == braces[b]) {
+        // open brace
+        if (nesting >= MAX_NESTING) return; // give up
+        open[nesting].close = braces[b+1];
+        open[nesting].pos = i;
+        open[nesting].show_match = (i == cursor_pos - 1);
+        nesting++;
+        found_open = true;
+        break;
+      }
+    }
+    if (found_open) continue;
+
+    // pop to closing brace and potentially highlight
+    for (ssize_t b = 1; b < brace_len; b += 2) {
+      if (c == braces[b]) {
+        // close brace
+        if (nesting <= 0) {
+          // unmatched close brace
+          ic_highlight_color(henv, i, error_color);
+        }
+        else while (nesting > 0) {
+          nesting--;
+          if (open[nesting].close != c) {
+            // unmatched open brace
+            ic_highlight_color(henv, open[nesting].pos, error_color);
+          }
+          else {
+            // match
+            if (i == cursor_pos - 1 || open[nesting].show_match) {
+              // highlight matching brace
+              ic_highlight_color(henv, open[nesting].pos, match_color);
+              ic_highlight_color(henv, i, match_color);
+            }
+            break;
+          }
+        }
+        break;
+      }
+    }
+  }
+};

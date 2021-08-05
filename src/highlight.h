@@ -22,4 +22,5 @@ ic_private void highlight_clear( ic_highlight_env_t* henv );
 ic_private bool highlight_init( ic_highlight_env_t* henv, const char* s, ic_highlight_fun_t* highlighter, void* arg );
 ic_private void highlight_term_write( ic_highlight_env_t* henv, term_t* term, const char* s, ssize_t start, ssize_t len );
 
+ic_private void highlight_match_braces(ic_highlight_env_t* henv, const char* s, ssize_t cursor_pos, const char* braces, ic_color_t match_color, ic_color_t error_color);
 #endif // IC_HIGHLIGHT_H

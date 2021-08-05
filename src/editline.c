@@ -205,7 +205,7 @@ static bool edit_refresh_rows_iter(
   edit_write_prompt(info->env, info->eb, row, info->in_extra);
 
   // write output
-  if (info->in_extra || info->env->no_highlight || info->eb->henv == NULL) {
+  if (info->in_extra || info->eb->henv == NULL || (info->env->no_highlight && info->env->no_bracematch)) {
     term_write_n( term, s + row_start, row_len );
   }
   else {
@@ -250,13 +250,20 @@ static void edit_refresh(ic_env_t* env, editor_t* eb)
   edit_get_prompt_width( env, eb, false, &promptw, &cpromptw );
 
   // highlight current input
-  if (!env->no_highlight) {
-    highlight_init( eb->henv, sbuf_string(eb->input), env->highlighter, env->highlighter_arg );
+  const bool has_highlight = !(env->no_highlight && env->no_bracematch);
+  if (has_highlight) {
+    highlight_init( eb->henv, sbuf_string(eb->input), (env->no_highlight ? NULL : env->highlighter), env->highlighter_arg );
+  }
+
+  // highlight matching braces
+  if (!env->no_bracematch) {
+    highlight_match_braces(eb->henv, sbuf_string(eb->input), eb->pos, ic_env_get_brace_pairs(env),  
+                              env->color_bracematch, env->color_error);
   }
   
   // insert hint  
   if (sbuf_len(eb->hint) > 0) {
-    if (!env->no_highlight) {
+    if (has_highlight) {
       highlight_insert_at( eb->henv, eb->pos, sbuf_len(eb->hint), env->color_hint);
     }
     sbuf_insert_at(eb->input, sbuf_string(eb->hint), eb->pos);
@@ -938,8 +945,13 @@ static char* edit_line( ic_env_t* env, const char* prompt_text )
   }
 
   // goto end
-  eb.pos = sbuf_len(eb.input);  
+  eb.pos = sbuf_len(eb.input);
+
+  // refresh once more but without brace matching
+  bool bm = env->no_bracematch;
+  env->no_bracematch = true;
   edit_refresh(env,&eb);
+  env->no_bracematch = bm;
 
   // save result
   char* res; 

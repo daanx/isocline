@@ -338,11 +338,13 @@ void ic_set_tty_esc_delay(long initial_delay_ms, long followup_delay_ms);
 
 // Styles for interface elements.
 typedef enum ic_style_e {
-  IC_STYLE_PROMPT,   // prompt style
-  IC_STYLE_INFO,     // info: for example, numbers in the completion menu(`IC_DARKGRAY` by default)
-  IC_STYLE_DIMINISH, // diminish: for example, non matching parts in a history search (`IC_LIGHTGRAY` by default)
-  IC_STYLE_EMPHASIS, // emphasis: for example, the matching part in a history search (`IC_WHITE` by default)
-  IC_STYLE_HINT,     // hint: for hints.
+  IC_STYLE_PROMPT,      // prompt style
+  IC_STYLE_INFO,        // info: for example, numbers in the completion menu(`IC_DARKGRAY` by default)
+  IC_STYLE_DIMINISH,    // diminish: for example, non matching parts in a history search (`IC_LIGHTGRAY` by default)
+  IC_STYLE_EMPHASIS,    // emphasis: for example, the matching part in a history search (`IC_WHITE` by default)
+  IC_STYLE_HINT,        // hint: for hints.
+  IC_STYLE_ERROR,       // errors
+  IC_STYLE_BRACEMATCH,  // matching braces
   IC_STYLE_LAST
 } ic_style_t;
 

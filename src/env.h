@@ -36,6 +36,9 @@ struct ic_env_s {
   ic_color_t      color_diminish;   // diminish color, for example the non-highlighted part in a history search (=IC_DARKGRAY)
   ic_color_t      color_emphasis;   // highlighted color, for example, the current match in a history search (=IC_DEFAULT_COLOR)
   ic_color_t      color_hint;       // hint color.
+  ic_color_t      color_error;      // error color.
+  ic_color_t      color_bracematch; // brace match color.
+  const char*     brace_pairs;      // matching braces, e.g "()[]{}"
   char            multiline_eol;    // character used for multiline input ("\") (set to 0 to disable)
   bool            initialized;      // are we initialized?
   bool            noedit;           // is rich editing possible (tty != NULL)
@@ -46,11 +49,13 @@ struct ic_env_s {
   bool            no_help;          // show short help line for history search etc.
   bool            no_hint;          // allow hinting?
   bool            no_highlight;     // enable highlighting?
+  bool            no_bracematch;    // enable brace matching?
   long            hint_delay;       // delay before displaying a hint in milliseconds
 };
 
-ic_private char*      ic_editline(ic_env_t* env, const char* prompt_text);
+ic_private char*        ic_editline(ic_env_t* env, const char* prompt_text);
 
-ic_private ic_env_t*  ic_get_env(void);
+ic_private ic_env_t*    ic_get_env(void);
+ic_private const char*  ic_env_get_brace_pairs(ic_env_t* env);
 
 #endif // IC_ENV_H

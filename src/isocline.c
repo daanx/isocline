@@ -241,6 +241,8 @@ static void set_style_color(ic_env_t* env, ic_style_t iface_element, ic_color_t 
     case IC_STYLE_DIMINISH: env->color_diminish = (color == IC_COLOR_NONE ? IC_ANSI_LIGHTGRAY : color); break;
     case IC_STYLE_EMPHASIS: env->color_emphasis = (color == IC_COLOR_NONE ? IC_RGB(0xFFFFD7) : color); break;
     case IC_STYLE_HINT:     env->color_hint = (color == IC_COLOR_NONE ? IC_ANSI_DARKGRAY : color); break;
+    case IC_STYLE_ERROR:      env->color_error = (color == IC_COLOR_NONE ? IC_RGB(0xD70000) : color); break;
+    case IC_STYLE_BRACEMATCH: env->color_bracematch = (color == IC_COLOR_NONE ? IC_RGB(0xFFD700) : color); break;
     default: break;
   }
 }
@@ -253,11 +255,13 @@ ic_public void ic_set_style_color(ic_style_t iface_element, ic_color_t color) {
 ic_public ic_color_t ic_get_style_color(ic_style_t iface_element) {
   ic_env_t* env = ic_get_env(); if (env==NULL) return IC_COLOR_NONE;
   switch (iface_element) {
-    case IC_STYLE_PROMPT:   return env->color_prompt;    
-    case IC_STYLE_INFO:     return env->color_info;
-    case IC_STYLE_DIMINISH: return env->color_diminish;
-    case IC_STYLE_EMPHASIS: return env->color_emphasis;
-    case IC_STYLE_HINT:     return env->color_hint;
+    case IC_STYLE_PROMPT:     return env->color_prompt;    
+    case IC_STYLE_INFO:       return env->color_info;
+    case IC_STYLE_DIMINISH:   return env->color_diminish;
+    case IC_STYLE_EMPHASIS:   return env->color_emphasis;
+    case IC_STYLE_HINT:       return env->color_hint;
+    case IC_STYLE_ERROR:      return env->color_error;
+    case IC_STYLE_BRACEMATCH: return env->color_bracematch;
     default: break;
   }
   return IC_COLOR_NONE;
@@ -367,6 +371,9 @@ ic_public int ic_term_get_color_bits(void) {
   return term_get_color_bits(env->term);
 }
 
+ic_private const char* ic_env_get_brace_pairs(ic_env_t* env) {
+  return (env->brace_pairs == NULL ? "()[]{}" : env->brace_pairs);
+}
 
 //-------------------------------------------------------------
 // Readline with temporary completer and highlighter
@@ -409,6 +416,7 @@ static void ic_env_free(ic_env_t* env) {
   tty_free(env->tty);
   mem_free(env->mem, env->cprompt_marker);
   mem_free(env->mem,env->prompt_marker);
+  mem_free(env->mem, env->brace_pairs);
   env->prompt_marker = NULL;
   
   // and deallocate ourselves
@@ -446,7 +454,7 @@ static ic_env_t* ic_env_create( ic_malloc_fun_t* _malloc, ic_realloc_fun_t* _rea
   env->term        = term_new(env->mem, env->tty, false, false, -1 );  
   env->history     = history_new(env->mem);
   env->completions = completions_new(env->mem);
-  env->hint_delay  = 400; 
+  env->hint_delay  = 400;   
   
   if (env->tty == NULL || env->term==NULL ||
       env->completions == NULL || env->history == NULL ||
