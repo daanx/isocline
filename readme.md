@@ -13,7 +13,8 @@ Isocline is a pure C library that can be used as an alternative to the GNU readl
   subset of ANSI escape sequences.
     
 - Features: extensive multi-line editing mode (`shift-tab`), (24-bit) color, history, completion, unicode, 
-  undo/redo, incremental history search, inline hints, syntax highlighting, graceful fallback, support for custom allocators, etc.
+  undo/redo, incremental history search, inline hints, syntax highlighting, brace matching,
+  close brace insertion, graceful fallback, support for custom allocators, etc.
   
 - License: MIT. 
 
