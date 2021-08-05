@@ -144,25 +144,23 @@ void ic_complete_quoted_word( ic_completion_env_t* cenv, const char* prefix, ic_
 //--------------------------------------------------------------
 
 // A color is either RGB or an ANSI code.
+// (RGB colors have bit 24 set to distinguish them from the ANSI color palette colors.)
 // (Isocline will automatically convert from RGB on terminals that do not support full colors)
 typedef uint32_t ic_color_t;
 
 // Create a color from a 24-bit color value.
 ic_color_t ic_rgb(uint32_t hex);
 
-// Limit an int to values between 0 and 255.
-uint32_t ic_cap8(long i);
+// Create a color from a 8-bit red/green/blue components.
+ic_color_t ic_rgbx(uint8_t r, uint8_t g, uint8_t b);
 
-// Create a color from a 24-bit color value
-#define IC_RGB(rgb)        ic_rgb(rgb)
 
-// Create a color from individual red, green, and blue value between 0 and 255
-#define IC_RGBX(r,g,b)     ic_rgb( ic_cap8(r)<<16 | ic_cap8(g)<<8 | ic_cap8(b) )
+#define IC_COLOR_NONE     (0)
+#define IC_RGB(rgb)       ic_rgb(rgb)
 
 // ANSI colors.
 // The actual colors used is usually determined by the terminal theme
 // See <https://en.wikipedia.org/wiki/ANSI_escape_code#3-bit_and_4-bit>
-#define IC_COLOR_NONE     (0)
 #define IC_ANSI_BLACK     (30)
 #define IC_ANSI_MAROON    (31)
 #define IC_ANSI_GREEN     (32)

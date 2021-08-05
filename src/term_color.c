@@ -80,9 +80,15 @@ ic_public ic_color_t ic_rgb(uint32_t hex) {
 }
 
 // Limit an int to values between 0 and 255.
-ic_public uint32_t ic_cap8(long i) {
+static uint32_t ic_cap8(long i) {
   return (i < 0 ? 0 : (i > 255 ? 255 : (uint32_t)i));
 }
+
+// Create a color from a 24-bit color value.
+ic_public ic_color_t ic_rgbx(uint8_t r, uint8_t g, uint8_t b) {
+  return ic_rgb( (ic_cap8(r)<<16) | (ic_cap8(g)<<8) | ic_cap8(b) );
+}
+
 
 //-------------------------------------------------------------
 // Match an rgb color to a ansi8, ansi16, or ansi256

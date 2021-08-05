@@ -28,7 +28,7 @@ static void write_palette( int order) {
     ic_term_write("\n  ");
     for (int y = 0; y <= 256; y += 32) {
       for (int z = 0; z <= 256; z += 32) {
-        ic_color_t c = (order == RGB ? IC_RGBX(x,y,z) : (order == BGR ? IC_RGBX(z,y,x) : IC_RGBX(y,x,z)));
+        ic_color_t c = (order == RGB ? ic_rgbx(x,y,z) : (order == BGR ? ic_rgbx(z,y,x) : ic_rgbx(y,x,z)));
         ic_term_color( c );
         ic_term_write("@");
       }
@@ -65,20 +65,20 @@ int main()
   // Shades
   ic_term_writeln("\nshades:");
   for (int i = 0; i <= 64; i++) {
-    ic_term_color(IC_RGBX((i==64 ? 255 : i*4), 0, 0)); ic_term_write((i%8==0 ? "#" : "@"));
+    ic_term_color(ic_rgbx((i==64 ? 255 : i*4), 0, 0)); ic_term_write((i%8==0 ? "#" : "@"));
   }
   ic_term_writeln("");  
   for (int i = 0; i <= 64; i++) {
-    ic_term_color(IC_RGBX(0, (i==64 ? 255 : i*4), 0)); ic_term_write((i%8==0 ? "#" : "@"));
+    ic_term_color(ic_rgbx(0, (i==64 ? 255 : i*4), 0)); ic_term_write((i%8==0 ? "#" : "@"));
   }
   ic_term_writeln("");  
   for (int i = 0; i <= 64; i++) {
-    ic_term_color(IC_RGBX(0, 0, (i==64 ? 255 : i*4))); ic_term_write((i%8==0 ? "#" : "@"));
+    ic_term_color(ic_rgbx(0, 0, (i==64 ? 255 : i*4))); ic_term_write((i%8==0 ? "#" : "@"));
   }
   ic_term_writeln("");  
   for (int i = 0; i <= 64; i++) {
     int g = (i==64 ? 255 : i*4);
-    ic_term_color(IC_RGBX(g, g, g)); ic_term_write((i%8==0 ? "#" : "@"));
+    ic_term_color(ic_rgbx(g, g, g)); ic_term_write((i%8==0 ? "#" : "@"));
   }
   ic_term_writeln("");
   ic_term_reset();
