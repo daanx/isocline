@@ -222,8 +222,8 @@ a specific palette:
 - `COLORTERM=monochrome`: use no color.
 
 The above screenshots are made with the 
-[`test_color`](https://github.com/daanx/isocline/blob/main/test/test_color.c) program which is built automatically with CMake
-and you can run for example `$ COLORTERM=truecolor ./test_color`
+[`test_colors.c`](https://github.com/daanx/isocline/blob/main/test/test_colors.c) program which is built automatically with CMake
+and you can run for example `$ COLORTERM=truecolor ./test_colors`
 to test your specific terminal.
 
 ## ANSI Escape Sequences
