@@ -212,12 +212,12 @@ is not always possible to do automatically and you can
 set the `COLORTERM` environment variable expicitly to force Isocline to use
 a specific palette:
 - `COLORTERM=truecolor`: use 24-bit colors.  
-  <img width="400px" src="doc/ansirgb.png"/>
+  <img width="500px" src="doc/ansirgb.jpg"/>
 - `COLORTERM=256color`: use the ANSI 256 color palette.  
-  <img width="400px" src="doc/ansi256.png"/>
+  <img width="500px" src="doc/ansi256.jpg"/>
 - `COLORTERM=16color` : use the regular ANSI 16 color 
    palette (8 normal and 8 bright colors).  
-  <img width="400px" src="doc/ansi16.png"/>
+  <img width="500px" src="doc/ansi16.jpg"/>
 - `COLORTERM=8color`: use bold for bright colors.
 - `COLORTERM=monochrome`: use no color.
 
