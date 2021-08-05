@@ -141,7 +141,7 @@ again:
   hentry = history_get(env->history,hidx);
   if (hentry != NULL) {
     term_append_color(env->term, eb->extra, env->color_info );
-    sbuf_appendf(eb->extra, 128, "%zd. ", hidx);
+    sbuf_appendf(eb->extra, "%zd. ", hidx);
     term_append_color(env->term, eb->extra, env->color_diminish );    
     sbuf_append_n( eb->extra, hentry, match_pos );  
     term_append_color(env->term, eb->extra, env->color_emphasis );    

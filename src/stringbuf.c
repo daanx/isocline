@@ -668,21 +668,30 @@ ic_private ssize_t sbuf_len(const stringbuf_t* s) {
   return s->count;
 }
 
-ic_private ssize_t sbuf_append_vprintf(stringbuf_t* sb, ssize_t max_needed, const char* fmt, va_list args) {
-  ssize_t extra = max_needed;
-  if (!sbuf_ensure_extra(sb, extra)) return sb->count;
+ic_private ssize_t sbuf_append_vprintf(stringbuf_t* sb, const char* fmt, va_list args) {
+  const ssize_t min_needed = ic_strlen(fmt);
+  if (!sbuf_ensure_extra(sb,min_needed + 16)) return sb->count;
   ssize_t avail = sb->buflen - sb->count;
-  ssize_t needed = vsnprintf(sb->buf + sb->count, to_size_t(avail), fmt, args);
+  va_list args0;
+  va_copy(args0, args);
+  ssize_t needed = vsnprintf(sb->buf + sb->count, to_size_t(avail), fmt, args0);
+  if (needed > avail) {
+    sb->buf[sb->count] = 0;
+    if (!sbuf_ensure_extra(sb, needed)) return sb->count;
+    avail = sb->buflen - sb->count;
+    needed = vsnprintf(sb->buf + sb->count, to_size_t(avail), fmt, args);
+  }
+  assert(needed <= avail);
   sb->count += (needed > avail ? avail : (needed >= 0 ? needed : 0));
   assert(sb->count <= sb->buflen);
   sb->buf[sb->count] = 0;
   return sb->count;
 }
 
-ic_private ssize_t sbuf_appendf(stringbuf_t* sb, ssize_t max_needed, const char* fmt, ...) {
+ic_private ssize_t sbuf_appendf(stringbuf_t* sb, const char* fmt, ...) {
   va_list args;
   va_start( args, fmt);
-  ssize_t res = sbuf_append_vprintf( sb, max_needed, fmt, args );
+  ssize_t res = sbuf_append_vprintf( sb, fmt, args );
   va_end(args);
   return res;
 }

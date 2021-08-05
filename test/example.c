@@ -22,7 +22,7 @@ static void highlighter(ic_highlight_env_t* henv, const char* input, void* arg);
 int main() 
 {
   // ic_writeln handles basic escape sequences in a portable way (e.g emulating on Windows)
-  ic_writeln(
+  ic_term_writeln(
     "\n\x1B[33mIsocline sample program:\x1B[0m\n"
     "- Type 'exit' to quit. (or use ctrl+d).\n"
     "- Press F1 for help on editing commands.\n"

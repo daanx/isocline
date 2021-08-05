@@ -134,11 +134,11 @@ static void edit_show_help(ic_env_t* env, editor_t* eb) {
   for (ssize_t i = 0; help[i] != NULL && help[i+1] != NULL; i += 2) {
     if (help[i][0] == 0) {  
       term_color(env->term, IC_ANSI_DARKGRAY);         
-      term_writef(env->term, 256, "%s\x1B[m\n", help[i+1]);
+      term_writef(env->term, "%s\x1B[m\n", help[i+1]);
     }
     else {
       term_color(env->term, IC_RGB(0xFFFFD7));
-      term_writef(env->term, 256, "  %-13s\x1B[m%s%s\n", help[i], (help[i+1][0] == 0 ? "" : ": "), help[i+1]);
+      term_writef(env->term, "  %-13s\x1B[m%s%s\n", help[i], (help[i+1][0] == 0 ? "" : ": "), help[i+1]);
     }
   }
   term_attr_reset(env->term);

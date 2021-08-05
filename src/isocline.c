@@ -273,12 +273,12 @@ ic_public const char* ic_strdup( const char* s ) {
 // Terminal
 //-------------------------------------------------------------
 
-ic_public void ic_write(const char* s) {
+ic_public void ic_term_write(const char* s) {
   ic_env_t* env = ic_get_env(); if (env==NULL) return;
   term_write(env->term, s);
 }
 
-ic_public void ic_writeln(const char* s) {
+ic_public void ic_term_writeln(const char* s) {
   ic_env_t* env = ic_get_env(); if (env==NULL) return;
   term_writeln(env->term, s);
 }

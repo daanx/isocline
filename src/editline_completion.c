@@ -148,7 +148,7 @@ again:
       sbuf_append(eb->extra, "\n(press page-down (or ctrl-j) to see all further completions)\x1B[m");
     }
     else {
-      sbuf_appendf(eb->extra, 256, "\n(press page-down (or ctrl-j) to see all %zd completions)\x1B[m", count );
+      sbuf_appendf(eb->extra, "\n(press page-down (or ctrl-j) to see all %zd completions)\x1B[m", count );
     }
   }
   if (!env->complete_nopreview && selected >= 0 && selected <= count_displayed) {
@@ -233,7 +233,7 @@ again:
       term_write(env->term, "... and more.\x1B[m\n");
     }
     else {
-      term_writef(env->term, 256, "(%zd possible completions)\x1B[m\n", count );
+      term_writef(env->term, "(%zd possible completions)\x1B[m\n", count );
     }
     for(ssize_t i = 0; i < rc.row+1; i++) {
       term_write(env->term, " \n");

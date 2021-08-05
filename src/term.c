@@ -64,7 +64,7 @@ struct term_s {
 };
 
 static bool term_write_direct(term_t* term, const char* s, ssize_t n );
-static bool term_vwritef(term_t* term, ssize_t max_needed, const char* fmt, va_list args );
+static bool term_vwritef(term_t* term, const char* fmt, va_list args );
 
 //-------------------------------------------------------------
 // Colors
@@ -78,22 +78,22 @@ static bool term_vwritef(term_t* term, ssize_t max_needed, const char* fmt, va_l
 
 ic_private void term_left(term_t* term, ssize_t n) {
   if (n <= 0) return;
-  term_writef( term, 64, IC_CSI "%zdD", n );
+  term_writef( term, IC_CSI "%zdD", n );
 }
 
 ic_private void term_right(term_t* term, ssize_t n) {
   if (n <= 0) return;
-  term_writef( term, 64, IC_CSI "%zdC", n );
+  term_writef( term, IC_CSI "%zdC", n );
 }
 
 ic_private void term_up(term_t* term, ssize_t n) {
   if (n <= 0) return;
-  term_writef( term, 64, IC_CSI "%zdA", n );
+  term_writef( term, IC_CSI "%zdA", n );
 }
 
 ic_private void term_down(term_t* term, ssize_t n) {
   if (n <= 0) return;
-  term_writef( term, 64, IC_CSI "%zdB", n );
+  term_writef( term, IC_CSI "%zdB", n );
 }
 
 ic_private void term_clear_line(term_t* term) {
@@ -152,19 +152,18 @@ ic_private void term_show_cursor(term_t* term, bool on) {
 // Formatted output
 //-------------------------------------------------------------
 
-ic_private bool term_writef(term_t* term, ssize_t max_needed, const char* fmt, ...) {
+ic_private bool term_writef(term_t* term, const char* fmt, ...) {
   va_list ap;
   va_start(ap, fmt);
-  int err = term_vwritef(term,max_needed,fmt,ap);
+  int err = term_vwritef(term,fmt,ap);
   va_end(ap);
   return err;
 }
 
-static bool term_vwritef(term_t* term, ssize_t max_needed, const char* fmt, va_list args ) {
-  ic_unused(max_needed);
+static bool term_vwritef(term_t* term, const char* fmt, va_list args ) {
   bool buffering = term->buffered;
   term_start_buffered(term);
-  sbuf_append_vprintf(term->buf, max_needed, fmt, args);
+  sbuf_append_vprintf(term->buf, fmt, args);
   if (!buffering) term_end_buffered(term);
   return true;
 }
@@ -857,7 +856,7 @@ static bool term_get_cursor_pos( term_t* term, ssize_t* row, ssize_t* col)
 }
 
 static void term_set_cursor_pos( term_t* term, ssize_t row, ssize_t col ) {
-  term_writef( term, 128, IC_CSI "%zd;%zdH", row, col );
+  term_writef( term, IC_CSI "%zd;%zdH", row, col );
 }
 
 ic_private bool term_update_dim(term_t* term) {  

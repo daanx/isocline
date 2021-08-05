@@ -42,7 +42,7 @@ ic_private ssize_t term_get_height(term_t* term);
 ic_private int  term_get_color_bits(term_t* term);
 
 // Helpers
-ic_private bool term_writef(term_t* term, ssize_t max_needed, const char* fmt, ...);
+ic_private bool term_writef(term_t* term, const char* fmt, ...);
 ic_private void term_left(term_t* term, ssize_t n);
 ic_private void term_right(term_t* term, ssize_t n);
 ic_private void term_up(term_t* term, ssize_t n);

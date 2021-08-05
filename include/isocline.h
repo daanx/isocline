@@ -436,10 +436,10 @@ long ic_match_any_token(const char* s, long pos, ic_is_char_class_fun_t* is_toke
 //--------------------------------------------------------------
 
 // Write a string to the console (and process CSI escape sequences).
-void ic_write(const char* s);
+void ic_term_write(const char* s);
 
 // Write a string to the console and end with a newline (and process CSI escape sequences).
-void ic_writeln(const char* s);
+void ic_term_writeln(const char* s);
 
 // Set the text color in a portable way where colors auto translate on terminals with less color.
 void ic_term_color( ic_color_t color );
