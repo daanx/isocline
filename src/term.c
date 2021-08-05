@@ -64,7 +64,7 @@ struct term_s {
 };
 
 static bool term_write_direct(term_t* term, const char* s, ssize_t n );
-static bool term_vwritef(term_t* term, const char* fmt, va_list args );
+
 
 //-------------------------------------------------------------
 // Colors
@@ -160,7 +160,7 @@ ic_private bool term_writef(term_t* term, const char* fmt, ...) {
   return err;
 }
 
-static bool term_vwritef(term_t* term, const char* fmt, va_list args ) {
+ic_private bool term_vwritef(term_t* term, const char* fmt, va_list args ) {
   bool buffering = term->buffered;
   term_start_buffered(term);
   sbuf_append_vprintf(term->buf, fmt, args);

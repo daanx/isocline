@@ -35,6 +35,7 @@
 #include <stdlib.h>
 #include <stdio.h>
 #include <string.h>
+#include <stdarg.h>
 
 #include "../include/isocline.h"
 #include "common.h"
@@ -275,41 +276,62 @@ ic_public const char* ic_strdup( const char* s ) {
 
 ic_public void ic_term_write(const char* s) {
   ic_env_t* env = ic_get_env(); if (env==NULL) return;
+  if (env->term == NULL) return;
   term_write(env->term, s);
 }
 
 ic_public void ic_term_writeln(const char* s) {
   ic_env_t* env = ic_get_env(); if (env==NULL) return;
+  if (env->term == NULL) return;
   term_writeln(env->term, s);
+}
+
+ic_public void ic_term_printf(const char* fmt, ...) {
+  va_list ap;
+  va_start(ap, fmt);
+  ic_term_vprintf(fmt, ap);
+  va_end(ap);
+}
+
+ic_public void ic_term_vprintf(const char* fmt, va_list args) {
+  ic_env_t* env = ic_get_env(); if (env==NULL) return;
+  if (env->term == NULL) return;
+  term_vwritef(env->term, fmt, args);
 }
 
 ic_public void ic_term_color( ic_color_t color ) {
   ic_env_t* env = ic_get_env(); if (env==NULL) return;
+  if (env->term == NULL) return;
   term_color(env->term, color);
 }
 
 ic_public void ic_term_bgcolor( ic_color_t color ) {
   ic_env_t* env = ic_get_env(); if (env==NULL) return;
+  if (env->term == NULL) return;
   term_bgcolor(env->term, color);
 }
 
 ic_public void ic_term_underline( bool enable ) {
   ic_env_t* env = ic_get_env(); if (env==NULL) return;
+  if (env->term == NULL) return;
   term_underline(env->term, enable);
 }
 
 ic_public void ic_term_reverse( bool enable ) {
   ic_env_t* env = ic_get_env(); if (env==NULL) return;
+  if (env->term == NULL) return;
   term_reverse(env->term, enable);
 }
 
 ic_public void ic_term_reset( void )  {
   ic_env_t* env = ic_get_env(); if (env==NULL) return;
+  if (env->term == NULL) return;
   term_attr_reset(env->term);
 }
 
 ic_public int ic_term_get_color_bits(void) {
-  ic_env_t* env = ic_get_env(); if (env==NULL) return 4;
+  ic_env_t* env = ic_get_env(); 
+  if (env==NULL || env->term==NULL) return 4;  
   return term_get_color_bits(env->term);
 }
 

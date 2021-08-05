@@ -43,6 +43,8 @@ ic_private int  term_get_color_bits(term_t* term);
 
 // Helpers
 ic_private bool term_writef(term_t* term, const char* fmt, ...);
+ic_private bool term_vwritef(term_t* term, const char* fmt, va_list args);
+
 ic_private void term_left(term_t* term, ssize_t n);
 ic_private void term_right(term_t* term, ssize_t n);
 ic_private void term_up(term_t* term, ssize_t n);

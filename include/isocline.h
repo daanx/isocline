@@ -15,6 +15,7 @@ extern "C" {
 #include <stddef.h>    // size_t
 #include <stdbool.h>   // bool
 #include <stdint.h>    // uint32_t
+#include <stdarg.h>    // term_vprintf
 
 //--------------------------------------------------------------
 // Main interface
@@ -440,6 +441,12 @@ void ic_term_write(const char* s);
 
 // Write a string to the console and end with a newline (and process CSI escape sequences).
 void ic_term_writeln(const char* s);
+
+// Write a formatted string to the console (and process CSI escape sequences)
+void ic_term_printf(const char* fmt, ...);
+
+// Write a formatted string to the console.
+void ic_term_vprintf(const char* fmt, va_list args);
 
 // Set the text color in a portable way where colors auto translate on terminals with less color.
 void ic_term_color( ic_color_t color );

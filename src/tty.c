@@ -454,7 +454,7 @@ ic_private bool tty_readc_noblock(tty_t* tty, uint8_t* c, long timeout_ms)
 #if defined(TIOCSTI) 
 ic_private bool tty_async_stop(const tty_t* tty) {
   // insert ^C in the input stream
-  char c = '\x03';
+  char c = KEY_CTRL_C;
   return (ioctl(tty->fd_in, TIOCSTI, &c) >= 0);
 }
 #else
@@ -752,7 +752,7 @@ ic_private bool tty_async_stop(const tty_t* tty) {
   memset(events, 0, 2*sizeof(INPUT_RECORD));
   events[0].EventType = KEY_EVENT;
   events[0].Event.KeyEvent.bKeyDown = TRUE;
-  events[0].Event.KeyEvent.uChar.AsciiChar = '\x03';
+  events[0].Event.KeyEvent.uChar.AsciiChar = KEY_CTRL_C;
   events[1] = events[0];
   events[1].Event.KeyEvent.bKeyDown = FALSE;
   DWORD nwritten = 0;
