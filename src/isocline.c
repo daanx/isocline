@@ -228,6 +228,44 @@ ic_public bool ic_enable_inline_help(bool enable) {
   return !prev;
 }
 
+ic_public bool ic_enable_brace_matching(bool enable) {
+  ic_env_t* env = ic_get_env(); if (env==NULL) return false;
+  bool prev = env->no_bracematch;
+  env->no_bracematch = !enable;
+  return !prev;
+}
+
+ic_public void ic_set_match_braces(const char* brace_pairs) {
+  ic_env_t* env = ic_get_env(); if (env==NULL) return;
+  mem_free(env->mem, env->match_braces);
+  env->match_braces = NULL;
+  if (brace_pairs != NULL) {
+    ssize_t len = ic_strlen(brace_pairs);
+    if (len > 0 && (len % 2) == 0) {
+      env->match_braces = mem_strdup(env->mem, brace_pairs);
+    }
+  }
+}
+
+ic_public bool ic_enable_brace_insertion(bool enable) {
+  ic_env_t* env = ic_get_env(); if (env==NULL) return false;
+  bool prev = env->no_autobrace;
+  env->no_autobrace = !enable;
+  return !prev;
+}
+
+ic_public void ic_set_insertion_braces(const char* brace_pairs) {
+  ic_env_t* env = ic_get_env(); if (env==NULL) return;
+  mem_free(env->mem, env->auto_braces);
+  env->auto_braces = NULL;
+  if (brace_pairs != NULL) {
+    ssize_t len = ic_strlen(brace_pairs);
+    if (len > 0 && (len % 2) == 0) { 
+      env->auto_braces = mem_strdup(env->mem, brace_pairs);
+    }
+  }
+}
+
 ic_public void ic_set_default_highlighter(ic_highlight_fun_t* highlighter, void* arg) {
   ic_env_t* env = ic_get_env(); if (env==NULL) return;
   env->highlighter = highlighter;
@@ -236,13 +274,13 @@ ic_public void ic_set_default_highlighter(ic_highlight_fun_t* highlighter, void*
 
 static void set_style_color(ic_env_t* env, ic_style_t iface_element, ic_color_t color) {
   switch (iface_element) {
-    case IC_STYLE_PROMPT:   env->color_prompt = (color == IC_COLOR_NONE ? IC_ANSI_GREEN : color); break;
-    case IC_STYLE_INFO:     env->color_info = (color == IC_COLOR_NONE ? IC_ANSI_DARKGRAY : color); break;
-    case IC_STYLE_DIMINISH: env->color_diminish = (color == IC_COLOR_NONE ? IC_ANSI_LIGHTGRAY : color); break;
-    case IC_STYLE_EMPHASIS: env->color_emphasis = (color == IC_COLOR_NONE ? IC_RGB(0xFFFFD7) : color); break;
-    case IC_STYLE_HINT:     env->color_hint = (color == IC_COLOR_NONE ? IC_ANSI_DARKGRAY : color); break;
+    case IC_STYLE_PROMPT:     env->color_prompt = (color == IC_COLOR_NONE ? IC_ANSI_GREEN : color); break;
+    case IC_STYLE_INFO:       env->color_info = (color == IC_COLOR_NONE ? IC_ANSI_DARKGRAY : color); break;
+    case IC_STYLE_DIMINISH:   env->color_diminish = (color == IC_COLOR_NONE ? IC_ANSI_LIGHTGRAY : color); break;
+    case IC_STYLE_EMPHASIS:   env->color_emphasis = (color == IC_COLOR_NONE ? IC_RGB(0xFFFFD7) : color); break;
+    case IC_STYLE_HINT:       env->color_hint = (color == IC_COLOR_NONE ? IC_ANSI_DARKGRAY : color); break;
     case IC_STYLE_ERROR:      env->color_error = (color == IC_COLOR_NONE ? IC_RGB(0xD70000) : color); break;
-    case IC_STYLE_BRACEMATCH: env->color_bracematch = (color == IC_COLOR_NONE ? IC_RGB(0xFFFF87) : color); break;
+    case IC_STYLE_BRACEMATCH: env->color_bracematch = (color == IC_COLOR_NONE ? IC_RGB(0xFFD75F) : color); break;
     default: break;
   }
 }

@@ -323,18 +323,31 @@ bool ic_enable_inline_help(bool enable);
 // Returns the previous setting.
 bool ic_enable_hint(bool enable);
 
+// Set millisecond delay before a hint is displayed. Can be zero. (500ms by default).
+long ic_set_hint_delay(long delay_ms);
+
 // Disable or enable syntax highlighting (enabled by default).
 // This applies regardless whether a syntax highlighter callback was set (`ic_set_highlighter`)
 // Returns the previous setting.
 bool ic_enable_highlight(bool enable);
 
-// Set millisecond delay before a hint is displayed. Can be zero. (500ms by default).
-long ic_set_hint_delay(long delay_ms);
 
 // Set millisecond delay for reading escape sequences in order to distinguish
 // a lone ESC from the start of a escape sequence. The defaults are 100ms and 10ms, 
 // but it may be increased if working with very slow terminals.
 void ic_set_tty_esc_delay(long initial_delay_ms, long followup_delay_ms);
+
+// Enable highlighting of matching braces (and error highlight unmatched braces).`
+bool ic_enable_brace_matching(bool enable);
+
+// Set matching brace pairs, pass NULL for the default `"()[]{}"`.
+void ic_set_match_braces(const char* brace_pairs);
+
+// Enable automatic brace insertion (enabled by default).
+bool ic_enable_brace_insertion(bool enable);
+
+// Set matching brace pairs for automatic insertion. Pass NULL for the default `"()[]{}\"\"''"`
+void ic_set_insertion_braces(const char* brace_pairs);
 
 // Styles for interface elements.
 typedef enum ic_style_e {
