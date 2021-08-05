@@ -40,14 +40,15 @@ static void write_palette( int order) {
 }
 
 static void show_ansi_color( ic_color_t color, const char* name ) {
-  printf("\x1B[%dm%16s\x1B[0m | \x1B[1;%dmbold\x1B[0m | \x1B[%dmbright\x1B[0m\n", color, name, color, color+60);    
+  ic_term_printf("\x1B[%dm%16s\x1B[0m | \x1B[1;%dmbold\x1B[0m | \x1B[%dmbright\x1B[0m\n", color, name, color, color+60);    
 }
 
 // main example
 int main() 
 {
+  ic_term_init();
   // how many bits has our palette? (24 bits is good :-)
-  printf("terminal color bits: %d\n", ic_term_get_color_bits());
+  ic_term_printf("terminal color bits: %d\n", ic_term_get_color_bits());
 
   // Write out a palette
   ic_term_writeln("colors rgb:"); 
@@ -97,5 +98,6 @@ int main()
   
   ic_term_reset();
   ic_term_writeln("");
+  ic_term_done();
   return 0;
 }

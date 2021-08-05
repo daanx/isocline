@@ -85,7 +85,7 @@ static uint32_t ic_cap8(long i) {
 }
 
 // Create a color from a 24-bit color value.
-ic_public ic_color_t ic_rgbx(uint8_t r, uint8_t g, uint8_t b) {
+ic_public ic_color_t ic_rgbx(int r, int g, int b) {
   return ic_rgb( (ic_cap8(r)<<16) | (ic_cap8(g)<<8) | ic_cap8(b) );
 }
 

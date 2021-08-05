@@ -164,7 +164,8 @@ typedef uint32_t ic_color_t;
 ic_color_t ic_rgb(uint32_t hex);
 
 // Create a color from a 8-bit red/green/blue components.
-ic_color_t ic_rgbx(uint8_t r, uint8_t g, uint8_t b);
+// The value of each component is capped between 0 and 255.
+ic_color_t ic_rgbx(int r, int g, int b);
 
 
 #define IC_COLOR_NONE     (0)
