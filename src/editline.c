@@ -261,11 +261,11 @@ static void edit_refresh(ic_env_t* env, editor_t* eb)
   rowcol_t rc_extra;
   ssize_t rows_extra = sbuf_get_rc_at_pos( eb->extra, eb->termw, 0, 0, 0 /*pos*/, &rc_extra );
   if (sbuf_len(eb->extra) == 0) rows_extra = 0;
-  ssize_t rows = rows_input + rows_extra; 
+  const ssize_t rows = rows_input + rows_extra; 
   debug_msg("edit: refresh: rows %zd, cursor: %zd,%zd (previous rows %zd, cursor row %zd)\n", rows, rc.row, rc.col, eb->cur_rows, eb->cur_row);
   
   // only render at most terminal height rows
-  ssize_t termh = term_get_height(env->term);
+  const ssize_t termh = term_get_height(env->term);
   ssize_t first_row = 0;                 // first visible row 
   ssize_t last_row = rows - 1;           // last visible row
   if (rows > termh) {
@@ -286,8 +286,8 @@ static void edit_refresh(ic_env_t* env, editor_t* eb)
   // render rows
   edit_refresh_rows( env, eb, promptw, cpromptw, false, first_row, last_row );  
   if (rows_extra > 0) {
-    ssize_t first_rowx = (first_row > rows_input ? first_row - rows_input : 0);
-    ssize_t last_rowx = last_row - rows_input; assert(last_rowx >= 0);
+    const ssize_t first_rowx = (first_row > rows_input ? first_row - rows_input : 0);
+    const ssize_t last_rowx = last_row - rows_input; assert(last_rowx >= 0);
     edit_refresh_rows(env, eb, 0, 0, true, first_rowx, last_rowx);
   }
     

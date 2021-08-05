@@ -201,10 +201,50 @@ Some other excellent libraries that we considered:
 [HaskellExample]: https://github.com/daanx/isocline/blob/main/test/Example.hs
 [example]: https://github.com/daanx/isocline/blob/main/test/example.c
 
-<!--
-## Potential Future Extensions
+# Internals
 
-- Syntax highlighting
-- Parenthesis matching
-- Vi mode
--->
+## Colors
+
+Isocline supports 24-bit colors and any RGB colors are automatically
+mapped to a reduced palette on older terminals if these do not
+support true color. Detection of full color support
+is not always possible to do automatically and you can
+set the `COLORTERM` environment variable expicitly to force Isocline to use
+a specific palette:
+- `COLORTERM=truecolor`: use 24-bit colors.
+- `COLORTERM=256color`: use the ANSI 256 color palette.
+- `COLORTERM=16color` : use the regular ANSI 16 color paletten (8 normal
+  and 8 bright colors).
+- `COLORTERM=8color`: use bold for bright colors.
+- `COLORTERM=monochrome`: use no color.
+
+The `ic_term_get_color_bits()` call returns how many bits the color
+palette has.
+
+## ANSI Escape Sequences
+
+Isocline uses just few ANSI escape sequences that are widely
+supported:
+- `ESC[`_n_`A`, `ESC[`_n_`B`, `ESC[`_n_`C`, and `ESC[`_n_`D`,
+  for moving the cursor _n_ places up, down, right, and left.
+- `ESC[K` to clear the line from the cursor.
+- `ESC[`_n_`m` for colors, with _n_ one of: 0 (reset), 1,22 (bold), 
+   4,24 (underline), 7,27 (reverse), 30-37,40-47,90-97,100-107 (color),
+   and 39,49 (select default color).
+- `ESC[38;5;`_n_`m`, `ESC[48;5;`_n_`m`: on terminals that support it, select 
+  entry _n_ from the
+  256 color ANSI palette (used with `XTERM=xterm-256color` for example)
+  for the foreground or background color.
+- `ESC[38;2;`_r_`;`_g_`;`_b_`m`, `ESC[48;2;`_r_`;`_g_`;`_b_`m`: 
+  on terminals that support it, select
+  any 24-bit RGB color for foreground or background. 
+  Set the environment variable `COLORTERM=truecolor` 
+  to enable this on capable terminals.
+    
+## Possible Future Extensions
+
+- Vi key bindings
+- kill buffer 
+- ...
+
+Contact me if you are interested in doing any of these :-)

@@ -100,10 +100,6 @@ ic_private void term_clear_line(term_t* term) {
   term_write( term, "\r" IC_CSI "K");
 }
 
-ic_private void term_clear_lines_to_end(term_t* term) {
-  term_write( term, "\r" IC_CSI "J");
-}
-
 ic_private void term_start_of_line(term_t* term) {
   term_write( term, "\r" );
 }
@@ -142,9 +138,15 @@ ic_private bool term_write_char(term_t* term, char c) {
 }
 
 
+/*
+ic_private void term_clear_lines_to_end(term_t* term) {
+  term_write(term, "\r" IC_CSI "J");
+}
+
 ic_private void term_show_cursor(term_t* term, bool on) {
   term_write(term, on ? IC_CSI "?25h" : IC_CSI "?25l");
 }
+*/
 
 //-------------------------------------------------------------
 // Formatted output
