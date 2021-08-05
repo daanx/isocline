@@ -106,6 +106,10 @@ module System.Console.Isocline(
       withAttrDefault,
 
       -- * Terminal
+      termInit, 
+      termDone,
+      withTerm,
+      termFlush,
       termWrite,
       termWriteLn,
       termColor,
@@ -276,9 +280,10 @@ readlinePrimMaybe prompt completer highlighter
        when (chighlighter /= nullFunPtr) $ freeHaskellFunPtr chighlighter
        return res
 
--- Thread safe call to asynchronously send a stop event to a 'readline' 
--- which will return with 'Nothing' (or @\"\"@). Returns 'True' if
--- the event was successfully delivered.
+-- | Thread safe call to asynchronously send a stop event to a 'readline' 
+-- which behaves as if the user pressed @ctrl-C@,
+-- which will return with 'Nothing' (or @\"\"@). 
+-- Returns 'True' if the event was successfully delivered.
 asyncStop :: IO Bool
 asyncStop
   = uncbool $ ic_async_stop
@@ -725,25 +730,52 @@ makeAttrHighlighter highlight
 -- Terminal
 ----------------------------------------------------------------------------
 
-foreign import ccall ic_write           :: CString -> IO ()
-foreign import ccall ic_writeln         :: CString -> IO ()
+foreign import ccall ic_term_init       :: IO ()
+foreign import ccall ic_term_done       :: IO ()
+foreign import ccall ic_term_flush      :: IO ()
+foreign import ccall ic_term_write      :: CString -> IO ()
+foreign import ccall ic_term_writeln    :: CString -> IO ()
 foreign import ccall ic_term_color      :: CInt -> IO ()
 foreign import ccall ic_term_bgcolor    :: CInt -> IO ()
 foreign import ccall ic_term_underline  :: CCBool -> IO ()
 foreign import ccall ic_term_reverse    :: CCBool -> IO ()
 foreign import ccall ic_term_reset      :: IO ()
 
+-- | Initialize the terminal for the @term@ functions.
+-- Does nothing on most platforms but on windows enables UTF8 output
+-- and potentially enables virtual terminal processing.
+-- See also 'withTerm'.
+termInit :: IO ()
+termInit 
+  = ic_term_init
+
+-- | Done using @term@ functions.
+-- See also 'withTerm'.
+termDone :: IO ()
+termDone 
+  = ic_term_done
+
+-- | Use the @term@ functions (brackets 'termInit' and 'termDone').
+withTerm :: IO a -> IO a
+withTerm action
+  = bracket termInit (\() -> termDone) (\() -> action) 
+
+-- | Flush terminal output. Happens automatically on newline (@'\\n'@) characters as well.
+termFlush :: IO ()
+termFlush
+  = ic_term_flush  
+
 -- | Write output to the terminal where ANSI CSI sequences are
 -- handled portably across platforms (including Windows).
 termWrite :: String -> IO ()
 termWrite s
-  = withUTF8String0 s $ \cs -> ic_write cs
+  = withUTF8String0 s $ \cs -> ic_term_write cs
 
 -- | Write output with a ending newline to the terminal where 
 -- ANSI CSI sequences are handled portably across platforms (including Windows).
 termWriteLn :: String -> IO ()
 termWriteLn s
-  = withUTF8String0 s $ \cs -> ic_writeln cs  
+  = withUTF8String0 s $ \cs -> ic_term_writeln cs  
 
 -- | Set the terminal text color. The color is auto adjusted for terminals with less colors.
 termColor :: Color -> IO ()

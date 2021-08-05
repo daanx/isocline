@@ -445,6 +445,9 @@ void ic_term_init(void);
 // Call this when done with the terminal functions.
 void ic_term_done(void);
 
+// Flush the terminal output. (happens automatically on newline characters ('\n') as well).
+void ic_term_flush(void);
+
 // Write a string to the console (and process CSI escape sequences).
 void ic_term_write(const char* s);
 

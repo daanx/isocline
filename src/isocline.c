@@ -286,6 +286,12 @@ ic_public void ic_term_done(void) {
   term_end_raw(env->term);
 }
 
+ic_public void ic_term_flush(void) {
+  ic_env_t* env = ic_get_env(); if (env==NULL) return;
+  if (env->term==NULL) return;
+  term_flush(env->term);
+}
+
 ic_public void ic_term_write(const char* s) {
   ic_env_t* env = ic_get_env(); if (env==NULL) return;
   if (env->term == NULL) return;
