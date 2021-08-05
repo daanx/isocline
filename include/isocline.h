@@ -240,6 +240,9 @@ void ic_highlight_underline(ic_highlight_env_t* henv, long pos, bool enable );
 // (Use a negative position to indicate a logical unicode character position).
 void ic_highlight_reverse(ic_highlight_env_t* henv, long pos, bool enable);
 
+// Experimental: Enable/Disable bold for characters starting at position `pos`.
+// (Use a negative position to indicate a logical unicode character position).
+void ic_highlight_bold(ic_highlight_env_t* henv, long pos, bool enable);
 
 // Convenience callback for a function that highlights `s` using ANSI CSI SGR escape sequences (`ESC [ <code> m`)
 // The returned string should be allocated and is free'd by the caller.

@@ -124,6 +124,10 @@ ic_private void term_reverse(term_t* term, bool on) {
   term_write(term, on ? IC_CSI "7m" : IC_CSI "27m");
 }
 
+ic_private void term_bold(term_t* term, bool on) {
+  term_write(term, on ? IC_CSI "1m" : IC_CSI "22m" );
+}
+
 ic_private void term_writeln(term_t* term, const char* s) {
   term_write(term,s);
   term_write(term,"\n");

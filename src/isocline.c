@@ -280,7 +280,7 @@ static void set_style_color(ic_env_t* env, ic_style_t iface_element, ic_color_t 
     case IC_STYLE_EMPHASIS:   env->color_emphasis = (color == IC_COLOR_NONE ? IC_RGB(0xFFFFD7) : color); break;
     case IC_STYLE_HINT:       env->color_hint = (color == IC_COLOR_NONE ? IC_ANSI_DARKGRAY : color); break;
     case IC_STYLE_ERROR:      env->color_error = (color == IC_COLOR_NONE ? IC_RGB(0xD70000) : color); break;
-    case IC_STYLE_BRACEMATCH: env->color_bracematch = (color == IC_COLOR_NONE ? IC_RGB(0xFFD75F) : color); break;
+    case IC_STYLE_BRACEMATCH: env->color_bracematch = (color == IC_COLOR_NONE ? IC_RGB(0xF7DC6F) : color); break;
     default: break;
   }
 }

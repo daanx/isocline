@@ -19,12 +19,13 @@
 typedef struct attr_s {
   int8_t     underline;       // -1 = off, 0 = keep as is, 1 = on
   int8_t     reverse;         // -1 = off, 0 = keep as is, 1 = on
+  int8_t     bold;            // -1 = off, 0 = keep as is, 1 = on
   ic_color_t color;           
   ic_color_t bgcolor;
 } attr_t;
 
 // static const attr_t attr_zero    = { 0, 0, IC_COLOR_NONE, IC_COLOR_NONE };
-static const attr_t attr_default = { -1, -1, IC_ANSI_DEFAULT, IC_ANSI_DEFAULT };
+static const attr_t attr_default = { -1, -1, -1, IC_ANSI_DEFAULT, IC_ANSI_DEFAULT };
 
 struct ic_highlight_env_s {
   attr_t*  attrs;
@@ -98,6 +99,7 @@ static void highlight_fillout( ic_highlight_env_t* henv ) {
     if (cur->bgcolor   == 0) { cur->bgcolor = attr.bgcolor; }
     if (cur->underline == 0) { cur->underline = attr.underline; }
     if (cur->reverse   == 0) { cur->reverse = attr.reverse; }
+    if (cur->bold      == 0) { cur->bold = attr.bold; }
     attr = *cur;
   }
 }
@@ -138,6 +140,9 @@ static void term_update_attr(term_t* term, attr_t term_attr, attr_t new_attr, at
   if (new_attr.underline != 0 && cur_attr->underline != new_attr.underline) {
     cur_attr->underline = new_attr.underline;
   }
+  if (new_attr.bold != 0 && cur_attr->bold != new_attr.bold) {
+    cur_attr->bold = new_attr.bold;
+  }
   // and write out escape sequences for any changes
   if (term_attr.color != cur_attr->color) {
     term_color(term, cur_attr->color);
@@ -150,6 +155,9 @@ static void term_update_attr(term_t* term, attr_t term_attr, attr_t new_attr, at
   }
   if (term_attr.reverse != cur_attr->reverse) {
     term_reverse(term, cur_attr->reverse > 0);
+  }
+  if (term_attr.bold != cur_attr->bold) {
+    term_bold(term, cur_attr->bold > 0);
   }
 }
 
@@ -227,6 +235,14 @@ ic_public void ic_highlight_reverse(ic_highlight_env_t* henv, long pos, bool ena
   henv->attrs[pos].underline = (enable ? 1 : -1);
 }
 
+// Enable/Disable bold for characters starting at position `pos`.
+ic_public void ic_highlight_bold(ic_highlight_env_t* henv, long pos, bool enable) {
+  if (henv==NULL) return;
+  pos = pos_adjust(henv,pos);
+  if (pos < 0) return;
+  henv->attrs[pos].bold = (enable ? 1 : -1);
+}
+
 
 // Convenience function for highlighting with escape sequences.
 ic_public void ic_highlight_esc(ic_highlight_env_t* henv, const char* input, ic_highlight_esc_fun_t* highlight, void* arg) {
@@ -250,7 +266,13 @@ ic_public void ic_highlight_esc(ic_highlight_env_t* henv, const char* input, ic_
       ssize_t code = 0;
       if (s[i] == '\x1B' && s[i+1] == '[' && s[i+next-1] == 'm' && ic_atoz(s+i+2,&code)) {
         // CSI escape
-        if (code == 4) {
+        if (code == 1) {
+          ic_highlight_bold(henv, pos, true);
+        }
+        else if (code == 22) {
+          ic_highlight_bold(henv, pos, false);
+        }
+        else if (code == 4) {
           ic_highlight_underline(henv, pos, true);
         }
         else if (code == 24) {
@@ -273,6 +295,7 @@ ic_public void ic_highlight_esc(ic_highlight_env_t* henv, const char* input, ic_
           ic_highlight_bgcolor(henv, pos, IC_ANSI_DEFAULT);
           ic_highlight_underline(henv, pos, false);
           ic_highlight_reverse(henv, pos, false);
+          ic_highlight_bold(henv, pos, false);
         }
       }
     }
@@ -338,10 +361,12 @@ ic_private void highlight_match_braces(ic_highlight_env_t* henv, const char* s, 
           else {
             // matching brace
             nesting--;
-            if (i == cursor_pos - 1 || open[nesting].show_match) {
+            if (i == cursor_pos - 1 || (open[nesting].show_match && open[nesting].pos != i - 1)) {
               // highlight matching brace
               ic_highlight_color(henv, open[nesting].pos, match_color);
               ic_highlight_color(henv, i, match_color);
+              //ic_highlight_bold(henv, open[nesting].pos, true);
+              //ic_highlight_bold(henv, i, true);
             }
           }
         }

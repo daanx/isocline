@@ -66,6 +66,7 @@ ic_private void term_clear_line(term_t* term);
 ic_private void term_attr_reset(term_t* term);
 ic_private void term_underline(term_t* term, bool on);
 ic_private void term_reverse(term_t* term, bool on);
+ic_private void term_bold(term_t* term, bool on);
 ic_private void term_color(term_t* term, ic_color_t color);
 ic_private void term_bgcolor(term_t* term, ic_color_t color);
 

@@ -42,6 +42,7 @@ int main()
   // change interface colors (prompt info, diminish, emphasis, hint)
   // ic_set_style_color( IC_STYLE_PROMPT,   IC_ANSI_MAROON);
   // ic_set_style_color( IC_STYLE_EMPHASIS, IC_RGB(0xD7FF00));
+  // ic_set_style_color( IC_STYLE_BRACEMATCH, IC_RGB(0xF7DC6F) );
   
   // run until empty input
   char* input;
