@@ -38,16 +38,17 @@ ic_private bool   code_is_virt_key(code_t c );
 
 ic_private bool   tty_term_resize_event(tty_t* tty); // did the terminal resize?
 ic_private bool   tty_async_stop(const tty_t* tty);  // unblock the read asynchronously
-
-// low level; used by term.c
-ic_private bool   tty_readc_noblock(tty_t* tty, uint8_t* c, long timeout_ms);
+ic_private void   tty_set_esc_delay(tty_t* tty, long initial_delay_ms, long followup_delay_ms);
 
 // shared between tty.c and tty_esc.c: low level character push
 ic_private void   tty_cpush_char(tty_t* tty, uint8_t c);
 ic_private bool   tty_cpop(tty_t* tty, uint8_t* c);
+ic_private bool   tty_readc_noblock(tty_t* tty, uint8_t* c, long timeout_ms);
 ic_private code_t tty_read_esc(tty_t* tty, long esc_initial_timeout, long esc_timeout); // in tty_esc.c
 
-ic_private void   tty_set_esc_delay(tty_t* tty, long initial_delay_ms, long followup_delay_ms);
+// used by term.c to read back ANSI escape responses
+ic_private bool   tty_read_esc_response(tty_t* tty, char esc_start, bool final_st, char* buf, ssize_t buflen ); 
+
 
 //-------------------------------------------------------------
 // Key codes: a code_t is 32 bits.

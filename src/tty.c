@@ -221,7 +221,46 @@ ic_private code_t tty_read(tty_t* tty)
   return code;
 }
 
+//-------------------------------------------------------------
+// Read back an ANSI query response
+//-------------------------------------------------------------
 
+ic_private bool tty_read_esc_response(tty_t* tty, char esc_start, bool final_st, char* buf, ssize_t buflen ) 
+{
+  buf[0] = 0;
+  ssize_t len = 0;
+  uint8_t c = 0;
+  if (!tty_readc_noblock(tty, &c, tty->esc_initial_timeout) || c != '\x1B') return false;
+  if (!tty_readc_noblock(tty, &c, tty->esc_timeout) || (c != esc_start)) return false;
+  while( len < buflen ) {
+    if (!tty_readc_noblock(tty, &c, tty->esc_timeout)) return false;
+    if (final_st) {
+      // OSC is terminated by BELL, or ESC \ (ST)  (and STX)
+      if (c=='\x07' || c=='\x02') {
+        break;
+      }
+      else if (c=='\x1B') {
+        uint8_t c1;
+        if (!tty_readc_noblock(tty, &c1, tty->esc_timeout)) return false;
+        if (c1=='\\') break;
+        tty_cpush_char(tty,c1);
+      }
+    }
+    else {
+      if (c == '\x02') { // STX
+        break;
+      }
+      else if (!((c >= '0' && c <= '9') || strchr("<=>?;:",c) != NULL)) {
+        buf[len++] = (char)c; // for non-OSC save the terminating character
+        break;
+      }
+    }
+    buf[len++] = (char)c; 
+  }
+  buf[len] = 0;
+  debug_msg("tty: escape query response: %s\n", buf);
+  return true;
+}
 
 //-------------------------------------------------------------
 // High level code pushback
