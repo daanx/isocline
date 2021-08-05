@@ -14,7 +14,7 @@ Stability   : Experimental
 ![logo](https://raw.githubusercontent.com/daanx/isocline/main/doc/isocline-inline.svg) 
 A Haskell wrapper around the [Isocline C library](https://github.com/daanx/isocline#readme) 
 which can provide an alternative to GNU Readline.
-(The Isocline library is included whole and not a separate dependency).
+(The Isocline library is included whole and there are no runtime dependencies).
 
 Isocline works across Unix, Windows, and macOS, and relies on a minimal subset of ANSI escape sequences.
 It has a good multi-line editing mode (use shift/ctrl-enter) which is nice for inputting small functions etc.
