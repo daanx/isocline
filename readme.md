@@ -221,8 +221,10 @@ a specific palette:
 - `COLORTERM=8color`: use bold for bright colors.
 - `COLORTERM=monochrome`: use no color.
 
-The `ic_term_get_color_bits()` call returns how many bits the color
-palette has.
+The above screenshots are made with the 
+[`test_color`](https://github.com/daanx/isocline/blob/main/test/test_color.c) program which is built automatically with CMake
+and you can run for example `$ COLORTERM=truecolor ./test_color`
+to test your specific terminal.
 
 ## ANSI Escape Sequences
 
