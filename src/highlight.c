@@ -312,7 +312,7 @@ ic_public void ic_highlight_esc(ic_highlight_env_t* henv, const char* input, ic_
 
 typedef struct brace_s {
   char close;
-  bool show_match;
+  bool at_cursor;
   long pos;
 } brace_t;
 
@@ -331,7 +331,7 @@ ic_private void highlight_match_braces(ic_highlight_env_t* henv, const char* s, 
         if (nesting >= MAX_NESTING) return; // give up
         open[nesting].close = braces[b+1];
         open[nesting].pos = i;
-        open[nesting].show_match = (i == cursor_pos - 1);
+        open[nesting].at_cursor = (i == cursor_pos - 1);
         nesting++;
         found_open = true;
         break;
@@ -361,7 +361,7 @@ ic_private void highlight_match_braces(ic_highlight_env_t* henv, const char* s, 
           else {
             // matching brace
             nesting--;
-            if (i == cursor_pos - 1 || (open[nesting].show_match && open[nesting].pos != i - 1)) {
+            if (i == cursor_pos - 1 || (open[nesting].at_cursor && open[nesting].pos != i - 1)) {
               // highlight matching brace
               ic_highlight_color(henv, open[nesting].pos, match_color);
               ic_highlight_color(henv, i, match_color);
@@ -374,4 +374,67 @@ ic_private void highlight_match_braces(ic_highlight_env_t* henv, const char* s, 
       }
     }
   }
+  // note: don't mark further unmatched open braces as in error
+}
+
+
+ic_private ssize_t find_matching_brace(const char* s, ssize_t cursor_pos, const char* braces, bool* is_balanced) 
+{
+  if (is_balanced != NULL) { *is_balanced = false; }
+  bool balanced = true;
+  ssize_t match = -1;
+  brace_t open[MAX_NESTING+1];
+  ssize_t nesting = 0;
+  const ssize_t brace_len = ic_strlen(braces);
+  for (long i = 0; i < ic_strlen(s); i++) {
+    const char c = s[i];
+    // push open brace
+    bool found_open = false;
+    for (ssize_t b = 0; b < brace_len; b += 2) {
+      if (c == braces[b]) {
+        // open brace
+        if (nesting >= MAX_NESTING) return -1; // give up
+        open[nesting].close = braces[b+1];
+        open[nesting].pos = i;
+        open[nesting].at_cursor = (i == cursor_pos - 1);
+        nesting++;
+        found_open = true;
+        break;
+      }
+    }
+    if (found_open) continue;
+
+    // pop to closing brace 
+    for (ssize_t b = 1; b < brace_len; b += 2) {
+      if (c == braces[b]) {
+        // close brace
+        if (nesting <= 0) {
+          // unmatched close brace
+          balanced = false;          
+        }
+        else {
+          if (open[nesting-1].close != c) {
+            // unmatched open brace
+            balanced = false;
+          }
+          else {
+            // matching brace
+            nesting--;
+            if (i == cursor_pos - 1) {
+              // found matching open brace
+              match = open[nesting].pos;
+            }
+            else if (open[nesting].at_cursor) {
+              // found matching close brace
+              match = i + 1;
+            }
+          }
+        }
+        break; 
+      }
+    }
+  }
+  if (nesting != 0) { balanced = false; }
+  if (is_balanced != NULL) { *is_balanced = balanced; }
+  return match;
 }
