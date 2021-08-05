@@ -280,8 +280,8 @@ static void edit_refresh(ic_env_t* env, editor_t* eb)
   term_start_buffered(env->term);        
 
   // back up to the first line
-  term_up(env->term, eb->cur_row);
-  term_clear_lines_to_end(env->term);
+  term_up(env->term, (eb->cur_row >= termh ? termh-1 : eb->cur_row) );
+  // term_clear_lines_to_end(env->term);  // gives flicker in old Windows cmd prompt 
 
   // render rows
   edit_refresh_rows( env, eb, promptw, cpromptw, false, first_row, last_row );  
@@ -290,9 +290,7 @@ static void edit_refresh(ic_env_t* env, editor_t* eb)
     ssize_t last_rowx = last_row - rows_input; assert(last_rowx >= 0);
     edit_refresh_rows(env, eb, 0, 0, true, 0, last_rowx);
   }
-  
-  /*
-  // no more needed as we cleared ahead of time; we still could use this to use less ANSI sequences?
+    
   // overwrite trailing rows we do not use anymore  
   ssize_t rrows = last_row - first_row + 1;  // rendered rows
   if (rrows < termh && rows < eb->cur_rows) {
@@ -304,11 +302,10 @@ static void edit_refresh(ic_env_t* env, editor_t* eb)
       term_clear_line(env->term);
     }
   }
-  */
   
   // move cursor back to edit position
   term_start_of_line(env->term);
-  term_up(env->term, (last_row - first_row) - rc.row );
+  term_up(env->term, first_row + rrows - 1 - rc.row );
   term_right(env->term, rc.col + (rc.row == 0 ? promptw : cpromptw));
 
   // stop buffering

@@ -142,6 +142,10 @@ ic_private bool term_write_char(term_t* term, char c) {
 }
 
 
+ic_private void term_show_cursor(term_t* term, bool on) {
+  term_write(term, on ? IC_CSI "?25h" : IC_CSI "?25l");
+}
+
 //-------------------------------------------------------------
 // Formatted output
 //-------------------------------------------------------------
@@ -209,16 +213,16 @@ ic_private void term_start_buffered(term_t* term) {
       return;
     }
   }
-  term->buffered = true;
-  // term_write(term, IC_CSI "?25l"); // hide cursor
+  term->buffered = true;  
 }
 
 ic_private bool term_end_buffered(term_t* term) {
   if (!term->buffered) return true;
-  // term_write(term, IC_CSI "?25h"); // show cursor
   term->buffered = false;
   if (term->buf != NULL && sbuf_len(term->buf) > 0) {
+    //term_show_cursor(term,false);
     bool ok = term_write_direct(term, sbuf_string(term->buf), sbuf_len(term->buf));
+    //term_show_cursor(term,true);
     sbuf_clear(term->buf);
     if (!ok) return false;
   }

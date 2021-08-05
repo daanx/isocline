@@ -453,14 +453,9 @@ ic_private bool tty_readc_noblock(tty_t* tty, uint8_t* c, long timeout_ms)
 
 #if defined(TIOCSTI) 
 ic_private bool tty_async_stop(const tty_t* tty) {
-  // insert escape code for the stop event into the input stream (unblock any blocking concurrent read)
-  char buf[64+1];
-  snprintf(buf,64,"\x1B[%uu", KEY_EVENT_STOP);  // unicode escape for the stop event
-  buf[64] = 0;
-  for(const char* c = buf; *c != 0; c++) {
-    if (ioctl(tty->fd_in, TIOCSTI, c) < 0) return false; // break on error    
-  }
-  return true;
+  // insert ^C in the input stream
+  char c = '\x03';
+  return (ioctl(tty->fd_in, TIOCSTI, &c) >= 0);
 }
 #else
 ic_private bool tty_async_stop(const tty_t* tty) {
@@ -751,9 +746,18 @@ static void tty_waitc_console(tty_t* tty, bool blocking)
   }
 }  
 
-ic_private bool tty_async_stop(tty_t* tty) {
-  // todo
-  return false;
+ic_private bool tty_async_stop(const tty_t* tty) {
+  // send ^c
+  INPUT_RECORD events[2];
+  memset(events, 0, 2*sizeof(INPUT_RECORD));
+  events[0].EventType = KEY_EVENT;
+  events[0].Event.KeyEvent.bKeyDown = TRUE;
+  events[0].Event.KeyEvent.uChar.AsciiChar = '\x03';
+  events[1] = events[0];
+  events[1].Event.KeyEvent.bKeyDown = FALSE;
+  DWORD nwritten = 0;
+  WriteConsoleInput(tty->hcon, events, 2, &nwritten);
+  return (nwritten == 2);
 }
 
 ic_private bool tty_start_raw(tty_t* tty) {
