@@ -436,6 +436,15 @@ long ic_match_any_token(const char* s, long pos, ic_is_char_class_fun_t* is_toke
 // in a portable way (including Windows)
 //--------------------------------------------------------------
 
+// Initialize for terminal output; call this before using the terminal functions (`ic_term_xxx`)
+// Does nothing on most platforms
+// but on Windows it sets the console to UTF8 output and possible enables
+// virtual terminal processing.
+void ic_term_init(void);
+
+// Call this when done with the terminal functions.
+void ic_term_done(void);
+
 // Write a string to the console (and process CSI escape sequences).
 void ic_term_write(const char* s);
 

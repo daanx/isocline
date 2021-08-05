@@ -277,7 +277,7 @@ static void edit_refresh(ic_env_t* env, editor_t* eb)
   // assert(last_row - first_row >= rc.row);
 
   // reduce flicker
-  term_start_buffered(env->term);        
+  buffer_mode_t bmode = term_set_buffer_mode(env->term, BUFFERED);        
 
   // back up to the first line
   term_up(env->term, (eb->cur_row >= termh ? termh-1 : eb->cur_row) );
@@ -308,8 +308,11 @@ static void edit_refresh(ic_env_t* env, editor_t* eb)
   term_up(env->term, first_row + rrows - 1 - rc.row );
   term_right(env->term, rc.col + (rc.row == 0 ? promptw : cpromptw));
 
+  // and refresh
+  term_flush(env->term);
+
   // stop buffering
-  term_end_buffered(env->term);
+  term_set_buffer_mode(env->term, bmode);
 
   // restore input by removing the hint
   sbuf_delete_at(eb->input, eb->pos, sbuf_len(eb->hint));
@@ -709,7 +712,7 @@ static char* edit_line( ic_env_t* env, const char* prompt_text )
   }
   
   // show prompt
-  edit_write_prompt(env, &eb, 0, false); 
+  edit_write_prompt(env, &eb, 0, false);   
 
   // always a history entry for the current input
   history_push(env->history, "");
@@ -718,6 +721,7 @@ static char* edit_line( ic_env_t* env, const char* prompt_text )
   code_t c;          // current key code
   while(true) {    
     // read a character
+    term_flush(env->term);
     c = tty_read(env->tty);
     
     // update terminal in case of a resize

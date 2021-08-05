@@ -16,6 +16,12 @@
 struct term_s;
 typedef struct term_s term_t;
 
+typedef enum buffer_mode_e {
+  UNBUFFERED,
+  LINEBUFFERED,
+  BUFFERED,
+} buffer_mode_t;
+
 // Primitives
 ic_private term_t* term_new(alloc_t* mem, tty_t* tty, bool nocolor, bool silent, int fd_out);
 ic_private void term_free(term_t* term);
@@ -27,12 +33,15 @@ ic_private void term_end_raw(term_t* term);
 ic_private bool term_enable_beep(term_t* term, bool enable);
 ic_private bool term_enable_color(term_t* term, bool enable);
 
-ic_private bool term_write_n(term_t* term, const char* s, ssize_t n);
-ic_private bool term_write(term_t* term, const char* s);
-ic_private bool term_writeln(term_t* term, const char* s);
-ic_private bool term_write_char(term_t* term, char c);
+ic_private void term_flush(term_t* term);
+ic_private buffer_mode_t term_set_buffer_mode(term_t* term, buffer_mode_t mode);
 
-ic_private bool term_write_repeat(term_t* term, const char* s, ssize_t count );
+ic_private void term_write_n(term_t* term, const char* s, ssize_t n);
+ic_private void term_write(term_t* term, const char* s);
+ic_private void term_writeln(term_t* term, const char* s);
+ic_private void term_write_char(term_t* term, char c);
+
+ic_private void term_write_repeat(term_t* term, const char* s, ssize_t count );
 ic_private void term_beep(term_t* term);
 
 ic_private bool term_update_dim(term_t* term);
@@ -42,8 +51,8 @@ ic_private ssize_t term_get_height(term_t* term);
 ic_private int  term_get_color_bits(term_t* term);
 
 // Helpers
-ic_private bool term_writef(term_t* term, const char* fmt, ...);
-ic_private bool term_vwritef(term_t* term, const char* fmt, va_list args);
+ic_private void term_writef(term_t* term, const char* fmt, ...);
+ic_private void term_vwritef(term_t* term, const char* fmt, va_list args);
 
 ic_private void term_left(term_t* term, ssize_t n);
 ic_private void term_right(term_t* term, ssize_t n);
@@ -52,9 +61,6 @@ ic_private void term_down(term_t* term, ssize_t n);
 ic_private void term_start_of_line(term_t* term );
 ic_private void term_clear_line(term_t* term);
 // ic_private void term_clear_lines_to_end(term_t* term);
-
-ic_private void term_start_buffered(term_t* term);
-ic_private bool term_end_buffered(term_t* term);
 
 
 ic_private void term_attr_reset(term_t* term);

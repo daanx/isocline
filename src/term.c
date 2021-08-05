@@ -40,31 +40,31 @@ typedef enum palette_e {
 
 // The terminal screen
 struct term_s {
-  int         fd_out;             // output handle
-  ssize_t     width;              // screen column width
-  ssize_t     height;             // screen row height
-  bool        nocolor;            // show colors?
-  bool        silent;             // enable beep?
-  bool        raw_enabled;        // is raw mode active?
-  bool        buffered;           // are we buffering output (to reduce flicker)?
-  bool        is_utf8;            // utf-8 output? determined by the tty
-  palette_t   palette;            // color support
-  stringbuf_t* buf;               // buffer for buffered output
-  tty_t*      tty;                // used on posix to get the cursor position
-  alloc_t*    mem;                // allocator
+  int           fd_out;             // output handle
+  ssize_t       width;              // screen column width
+  ssize_t       height;             // screen row height
+  bool          nocolor;            // show colors?
+  bool          silent;             // enable beep?
+  ssize_t       raw_enabled;        // is raw mode active? counted by start/end pairs
+  bool          is_utf8;            // utf-8 output? determined by the tty
+  palette_t     palette;            // color support
+  buffer_mode_t bufmode;            // buffer mode
+  stringbuf_t*  buf;                // buffer for buffered output
+  tty_t*        tty;                // used on posix to get the cursor position
+  alloc_t*      mem;                // allocator
   #ifdef _WIN32
-  HANDLE      hcon;               // output console handler
-  WORD        hcon_default_attr;  // default text attributes
-  WORD        hcon_orig_attr;     // original text attributes
-  DWORD       hcon_orig_mode;     // original console mode
-  DWORD       hcon_mode;          // used console mode
-  UINT        hcon_orig_cp;       // original console code-page (locale)
-  COORD       hcon_save_cursor;   // saved cursor position (for escape sequence emulation)
+  HANDLE        hcon;               // output console handler
+  WORD          hcon_default_attr;  // default text attributes
+  WORD          hcon_orig_attr;     // original text attributes
+  DWORD         hcon_orig_mode;     // original console mode
+  DWORD         hcon_mode;          // used console mode
+  UINT          hcon_orig_cp;       // original console code-page (locale)
+  COORD         hcon_save_cursor;   // saved cursor position (for escape sequence emulation)
   #endif
 };
 
 static bool term_write_direct(term_t* term, const char* s, ssize_t n );
-
+static void term_check_flush(term_t* term, const char* s, ssize_t n);
 
 //-------------------------------------------------------------
 // Colors
@@ -124,17 +124,16 @@ ic_private void term_reverse(term_t* term, bool on) {
   term_write(term, on ? IC_CSI "7m" : IC_CSI "27m");
 }
 
-ic_private bool term_writeln(term_t* term, const char* s) {
-  bool ok = term_write(term,s);
-  if (ok) { ok = term_write(term,"\n"); }
-  return ok;
+ic_private void term_writeln(term_t* term, const char* s) {
+  term_write(term,s);
+  term_write(term,"\n");
 }
 
-ic_private bool term_write_char(term_t* term, char c) {
+ic_private void term_write_char(term_t* term, char c) {
   char buf[2];
   buf[0] = c;
   buf[1] = 0;
-  return term_write_n(term, buf, 1 );
+  term_write_n(term, buf, 1 );
 }
 
 
@@ -152,20 +151,15 @@ ic_private void term_show_cursor(term_t* term, bool on) {
 // Formatted output
 //-------------------------------------------------------------
 
-ic_private bool term_writef(term_t* term, const char* fmt, ...) {
+ic_private void term_writef(term_t* term, const char* fmt, ...) {
   va_list ap;
   va_start(ap, fmt);
-  int err = term_vwritef(term,fmt,ap);
-  va_end(ap);
-  return err;
+  term_vwritef(term,fmt,ap);
+  va_end(ap);  
 }
 
-ic_private bool term_vwritef(term_t* term, const char* fmt, va_list args ) {
-  bool buffering = term->buffered;
-  term_start_buffered(term);
+ic_private void term_vwritef(term_t* term, const char* fmt, va_list args ) {
   sbuf_append_vprintf(term->buf, fmt, args);
-  if (!buffering) term_end_buffered(term);
-  return true;
 }
 
 
@@ -181,55 +175,71 @@ ic_private void term_beep(term_t* term) {
   fflush(stderr);
 }
 
-ic_private bool term_write_repeat(term_t* term, const char* s, ssize_t count) {
+ic_private void term_write_repeat(term_t* term, const char* s, ssize_t count) {
   for (; count > 0; count--) {
-    if (!term_write(term, s)) return false;
+    term_write(term, s);
   }
-  return true;
 }
 
-ic_private bool term_write(term_t* term, const char* s) {
-  if (s == NULL || s[0] == 0) return true;
+ic_private void term_write(term_t* term, const char* s) {
+  if (s == NULL || s[0] == 0) return;
   ssize_t n = ic_strlen(s);
-  return term_write_n(term,s,n);
+  term_write_n(term,s,n);
 }
 
-ic_private bool term_write_n(term_t* term, const char* s, ssize_t n) {
-  if (s == NULL || n <= 0) return true;
-  if (!term->buffered) {
-    return term_write_direct(term,s,n);
+// Primitive terminal write
+ic_private void term_write_n(term_t* term, const char* s, ssize_t n) {
+  if (s == NULL || n <= 0) return;
+  if (term->bufmode == UNBUFFERED) {
+    term_write_direct(term,s,n);
   }
   else {
     // write to buffer to reduce flicker
     sbuf_append_n(term->buf, s, n);
-    return true;
+    // possibly flush
+    term_check_flush(term, s, n);
   }
 }
 
-ic_private void term_start_buffered(term_t* term) {
-  if (term->buf == NULL) {
-    term->buf = sbuf_new(term->mem);
-    if (term->buf == NULL) {
-      term->buffered = false;
-      return;
-    }
-  }
-  term->buffered = true;  
-}
 
-ic_private bool term_end_buffered(term_t* term) {
-  if (!term->buffered) return true;
-  term->buffered = false;
-  if (term->buf != NULL && sbuf_len(term->buf) > 0) {
+//-------------------------------------------------------------
+// Buffering
+//-------------------------------------------------------------
+
+
+ic_private void term_flush(term_t* term) {
+  if (sbuf_len(term->buf) > 0) {
     //term_show_cursor(term,false);
-    bool ok = term_write_direct(term, sbuf_string(term->buf), sbuf_len(term->buf));
+    term_write_direct(term, sbuf_string(term->buf), sbuf_len(term->buf));
     //term_show_cursor(term,true);
     sbuf_clear(term->buf);
-    if (!ok) return false;
-  }
-  return true;
+  }  
 }
 
+ic_private buffer_mode_t term_set_buffer_mode(term_t* term, buffer_mode_t mode) {
+  buffer_mode_t oldmode = term->bufmode;
+  if (oldmode != mode) {
+    if (mode == UNBUFFERED) {
+      term_flush(term);
+    }
+    term->bufmode = mode;
+  }
+  return oldmode;
+}
+
+static void term_check_flush(term_t* term, const char* s, ssize_t n) {
+  if (sbuf_len(term->buf) > 4000) {
+    term_flush(term);
+  }
+  else if (term->bufmode == LINEBUFFERED) {
+    for (ssize_t i = 0; i < n; i++) {
+      if (s[i] == '\n') {
+        term_flush(term);
+        break;
+      }
+    }
+  }
+}
 
 //-------------------------------------------------------------
 // Init
@@ -251,6 +261,8 @@ ic_private term_t* term_new(alloc_t* mem, tty_t* tty, bool nocolor, bool silent,
   term->height  = 25;
   term->is_utf8 = tty_is_utf8(tty);
   term->palette = ANSI16; // almost universally supported
+  term->buf     = sbuf_new(mem);  
+  term->bufmode = LINEBUFFERED;
 
   // respect NO_COLOR
   if (getenv("NO_COLOR") != NULL) {
@@ -331,7 +343,7 @@ ic_private bool term_enable_color(term_t* term, bool enable) {
 
 ic_private void term_free(term_t* term) {
   if (term == NULL) return;
-  term_end_buffered(term);  
+  term_flush(term);
   term_end_raw(term);
   sbuf_free(term->buf); term->buf = NULL;
   mem_free(term->mem, term);
@@ -932,15 +944,12 @@ ic_private bool term_update_dim(term_t* term) {
 // On non-windows, the terminal is set in raw mode by the tty.
 
 ic_private void term_start_raw(term_t* term) {
-  if (term->raw_enabled) return;
-  //term_write(term,"\x1B[?7l");
-  term->raw_enabled = true;
+  term->raw_enabled++;
 }
 
 ic_private void term_end_raw(term_t* term) {
-  if (!term->raw_enabled) return;
-  //term_write(term,"\x1B[?7h");
-  term->raw_enabled = false;
+  if (term->raw_enabled <= 0) return;
+  term->raw_enabled--;
 }
 
 static bool term_esc_query_color_raw(term_t* term, int color_idx, uint32_t* color ) {
@@ -1002,7 +1011,7 @@ static void term_init_raw(term_t* term) {
 #else
 
 ic_private void term_start_raw(term_t* term) {
-  if (term->raw_enabled) return;
+  term->raw_enabled++;
   CONSOLE_SCREEN_BUFFER_INFO info;
   if (GetConsoleScreenBufferInfo(term->hcon, &info)) {
     term->hcon_orig_attr = info.wAttributes;
@@ -1030,16 +1039,15 @@ ic_private void term_start_raw(term_t* term) {
   }
   else {
     SetConsoleMode(term->hcon, term->hcon_mode);
-  }
-  term->raw_enabled = true;
+  }  
 }
 
 ic_private void term_end_raw(term_t* term) {
-  if (!term->raw_enabled) return;
+  if (term->raw_enabled <= 0) return;
   SetConsoleMode(term->hcon, term->hcon_orig_mode);
   SetConsoleOutputCP(term->hcon_orig_cp);
   SetConsoleTextAttribute(term->hcon, term->hcon_orig_attr);
-  term->raw_enabled = false;
+  term->raw_enabled--;
 }
 
 static void term_init_raw(term_t* term) {
