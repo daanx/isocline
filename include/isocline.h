@@ -341,7 +341,7 @@ void ic_set_tty_esc_delay(long initial_delay_ms, long followup_delay_ms);
 bool ic_enable_brace_matching(bool enable);
 
 // Set matching brace pairs, pass NULL for the default `"()[]{}"`.
-void ic_set_match_braces(const char* brace_pairs);
+void ic_set_matching_braces(const char* brace_pairs);
 
 // Enable automatic brace insertion (enabled by default).
 bool ic_enable_brace_insertion(bool enable);

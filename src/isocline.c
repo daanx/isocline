@@ -235,7 +235,7 @@ ic_public bool ic_enable_brace_matching(bool enable) {
   return !prev;
 }
 
-ic_public void ic_set_match_braces(const char* brace_pairs) {
+ic_public void ic_set_matching_braces(const char* brace_pairs) {
   ic_env_t* env = ic_get_env(); if (env==NULL) return;
   mem_free(env->mem, env->match_braces);
   env->match_braces = NULL;

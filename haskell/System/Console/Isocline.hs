@@ -132,6 +132,10 @@ module System.Console.Isocline(
       enableInlineHelp,
       enableHint,
       setHintDelay,
+      enableBraceMatching,
+      enableBraceInsertion,
+      setMatchingBraces,
+      setInsertionBraces,
       
       Color(..), 
       Style(..),
@@ -882,12 +886,15 @@ foreign import ccall ic_enable_color      :: CCBool -> IO CCBool
 foreign import ccall ic_enable_auto_tab   :: CCBool -> IO CCBool
 foreign import ccall ic_enable_inline_help:: CCBool -> IO CCBool
 foreign import ccall ic_enable_hint       :: CCBool -> IO CCBool
+foreign import ccall ic_set_hint_delay    :: CLong -> IO CLong
 foreign import ccall ic_enable_highlight  :: CCBool -> IO CCBool
 foreign import ccall ic_enable_history_duplicates :: CCBool -> IO CCBool
 foreign import ccall ic_enable_completion_preview :: CCBool -> IO CCBool
 foreign import ccall ic_enable_multiline_indent   :: CCBool -> IO CCBool
-foreign import ccall ic_set_hint_delay    :: CLong -> IO CLong
-
+foreign import ccall ic_enable_brace_matching     :: CCBool -> IO CCBool
+foreign import ccall ic_enable_brace_insertion    :: CCBool -> IO CCBool
+foreign import ccall ic_set_matching_braces       :: CString -> IO ()
+foreign import ccall ic_set_insertion_braces      :: CString -> IO ()
 
 cbool :: Bool -> CCBool
 cbool True  = toEnum 1
@@ -988,6 +995,31 @@ enableCompletionPreview :: Bool -> IO Bool
 enableCompletionPreview enable
   = do uncbool $ ic_enable_completion_preview (cbool enable)
 
+
+-- | Disable or enable brace matching (enabled by default)
+-- Returns the previous value.
+enableBraceMatching :: Bool -> IO Bool
+enableBraceMatching enable
+  = do uncbool $ ic_enable_brace_matching (cbool enable)
+
+-- | Disable or enable automatic close brace insertion (enabled by default)
+-- Returns the previous value.
+enableBraceInsertion :: Bool -> IO Bool
+enableBraceInsertion enable
+  = do uncbool $ ic_enable_brace_insertion (cbool enable)
+
+-- | Set pairs of matching braces, by default @\"(){}[]\"@.
+setMatchingBraces :: String -> IO ()
+setMatchingBraces bracePairs
+  = withUTF8String0 bracePairs $ \cbracePairs ->
+    do ic_set_matching_braces cbracePairs
+
+-- | Set pairs of auto insertion braces, by default @\"(){}[]\\\"\\\"\'\'\"@.
+setInsertionBraces :: String -> IO ()
+setInsertionBraces bracePairs
+  = withUTF8String0 bracePairs $ \cbracePairs ->
+    do ic_set_insertion_braces cbracePairs
+
 -- | Styles for user interface elements
 data Style
   = StylePrompt   -- ^ style for the prompt (text and marker) (`AnsiGreen` by default)
@@ -995,6 +1027,8 @@ data Style
   | StyleDiminish -- ^ diminish: for example, non matching parts in a history search (`AnsiLightGray` by default)
   | StyleEmphasis -- ^ emphasis: for example, the matching part in a history search (@'RGB' 0xFFFFD7@ by default).
   | StyleHint     -- ^ hint: for inline hints (`AnsiDarkGray` by default).
+  | StyleError    -- ^ errors: for example for unmatched braces (`AnsiRed` by default)
+  | StyleBraceMatch -- ^ highlight matching braces (@'RGB' 0xFFD75F@ by default)
   deriving (Show,Eq,Enum)
 
 cstyle :: Style -> CInt
