@@ -286,9 +286,9 @@ static void edit_refresh(ic_env_t* env, editor_t* eb)
   // render rows
   edit_refresh_rows( env, eb, promptw, cpromptw, false, first_row, last_row );  
   if (rows_extra > 0) {
-    // ssize_t first_rowx = (first_row > rows_input ? first_row - rows_input : 0);
+    ssize_t first_rowx = (first_row > rows_input ? first_row - rows_input : 0);
     ssize_t last_rowx = last_row - rows_input; assert(last_rowx >= 0);
-    edit_refresh_rows(env, eb, 0, 0, true, 0, last_rowx);
+    edit_refresh_rows(env, eb, 0, 0, true, first_rowx, last_rowx);
   }
     
   // overwrite trailing rows we do not use anymore  
