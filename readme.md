@@ -147,8 +147,6 @@ These are also shown when pressing `F1` on a Isocline prompt. We use `^` as a sh
 
 # Build the Library
 
-See the Haskell [readme][Haskell] for instructions to build the Haskell library.
-
 ### Build as a Single Source
 
 Copy the sources (in `include` and `src`) into your project, or add the library as a [submodule]:
@@ -173,6 +171,11 @@ and the example program:
 ```
 $ ./example
 ```
+
+### Build the Haskell Library
+
+See the Haskell [readme][Haskell] for instructions to build the Haskell library.
+
 
 # C Interface
 
