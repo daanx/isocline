@@ -128,9 +128,10 @@ module System.Console.Isocline(
       enableHistoryDuplicates,
       enableCompletionPreview,
       enableMultilineIndent,
-      enableHint,
       enableHighlight,
       enableInlineHelp,
+      enableHint,
+      setHintDelay,
       
       Color(..), 
       Style(..),
@@ -469,7 +470,7 @@ completeFileName (CompletionEnv rpc) prefx dirSep roots extensions
        ic_complete_filename rpc cprefx cdirSep croots cextensions
 
 -- | @completeWord compl input isWordChar completer@: 
--- Complete a /word/,/token/ and calls the user @completer@ function with just the current word
+-- Complete a /word/ (or /token/) and calls the user @completer@ function with just the current word
 -- (instead of the whole input)
 -- Takes the 'CompletionEnv' environment @compl@, the current @input@, an possible
 -- @isWordChar@ function, and a user defined 
@@ -885,7 +886,7 @@ foreign import ccall ic_enable_highlight  :: CCBool -> IO CCBool
 foreign import ccall ic_enable_history_duplicates :: CCBool -> IO CCBool
 foreign import ccall ic_enable_completion_preview :: CCBool -> IO CCBool
 foreign import ccall ic_enable_multiline_indent   :: CCBool -> IO CCBool
-
+foreign import ccall ic_set_hint_delay    :: CLong -> IO CLong
 
 
 cbool :: Bool -> CCBool
@@ -1032,6 +1033,12 @@ enableHighlight :: Bool -> IO Bool
 enableHighlight enable
   = do uncbool $ ic_enable_highlight (cbool enable)
 
+-- | Set the delay in milliseconds before a hint is displayed (500ms by default)
+-- See also 'enableHint'
+setHintDelay :: Int -> IO Int
+setHintDelay ms
+  = do cl <- ic_set_hint_delay (toEnum ms)
+       return (fromEnum cl)
 
 ----------------------------------------------------------------------------
 -- Colors

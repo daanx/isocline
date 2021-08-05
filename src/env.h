@@ -46,6 +46,7 @@ struct ic_env_s {
   bool            no_help;          // show short help line for history search etc.
   bool            no_hint;          // allow hinting?
   bool            no_highlight;     // enable highlighting?
+  long            hint_delay;       // delay before displaying a hint in milliseconds
 };
 
 ic_private char*      ic_editline(ic_env_t* env, const char* prompt_text);

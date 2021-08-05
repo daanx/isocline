@@ -29,6 +29,7 @@ ic_private bool   tty_is_utf8(const tty_t* tty);
 ic_private bool   tty_start_raw(tty_t* tty);
 ic_private void   tty_end_raw(tty_t* tty);
 ic_private code_t tty_read(tty_t* tty);
+ic_private bool   tty_read_timeout(tty_t* tty, long timeout_ms, code_t* c );
 
 ic_private void   tty_code_pushback( tty_t* tty, code_t c );
 ic_private bool   code_is_ascii_char(code_t c, char* chr );
@@ -39,18 +40,14 @@ ic_private bool   tty_term_resize_event(tty_t* tty); // did the terminal resize?
 ic_private bool   tty_async_stop(const tty_t* tty);  // unblock the read asynchronously
 
 // low level; used by term.c
-ic_private bool   tty_readc(tty_t* tty, uint8_t* c);        
 ic_private bool   tty_readc_noblock(tty_t* tty, uint8_t* c, long timeout_ms);
 
 // shared between tty.c and tty_esc.c: low level character push
 ic_private void   tty_cpush_char(tty_t* tty, uint8_t c);
 ic_private bool   tty_cpop(tty_t* tty, uint8_t* c);
-ic_private code_t tty_read_esc(tty_t* tty); // in tty_esc.c
+ic_private code_t tty_read_esc(tty_t* tty, long esc_initial_timeout, long esc_timeout); // in tty_esc.c
 
-
-// timeouts for reading back escape sequences.
-#define ESC_INITIAL_TIMEOUT  (100)  // milli-seconds (0.1s)
-#define ESC_TIMEOUT          (10)   // follow up timeouts after initial ESC (0.01s)
+ic_private void   tty_set_esc_delay(tty_t* tty, long initial_delay_ms, long followup_delay_ms);
 
 //-------------------------------------------------------------
 // Key codes: a code_t is 32 bits.

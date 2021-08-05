@@ -224,26 +224,26 @@ static code_t esc_decode_ss3( uint8_t ss3_code ) {
   return KEY_NONE;
 }
 
-static void tty_read_csi_num(tty_t* tty, uint8_t* ppeek, uint32_t* num) {
+static void tty_read_csi_num(tty_t* tty, uint8_t* ppeek, uint32_t* num, long esc_timeout) {
   *num = 1; // default
   ssize_t count = 0;
   uint32_t i = 0;
   while (*ppeek >= '0' && *ppeek <= '9' && count < 16) {    
     uint8_t digit = *ppeek - '0';
-    if (!tty_readc_noblock(tty,ppeek,ESC_TIMEOUT)) break;  // peek is not modified in this case 
+    if (!tty_readc_noblock(tty,ppeek,esc_timeout)) break;  // peek is not modified in this case 
     count++;
     i = 10*i + digit; 
   }
   if (count > 0) *num = i;
 }
 
-static code_t tty_read_csi(tty_t* tty, uint8_t c1, uint8_t peek, code_t mods0) {
+static code_t tty_read_csi(tty_t* tty, uint8_t c1, uint8_t peek, code_t mods0, long esc_timeout) {
   // CSI starts with 0x9b (c1=='[') | ESC [ (c1=='[') | ESC [Oo?] (c1 == 'O')  /* = SS3 */
   
   // check for extra starter '[' (Linux sends ESC [ [ 15 ~  for F5 for example)
   if (c1 == '[' && strchr("[Oo", (char)peek) != NULL) {
     uint8_t cx = peek;
-    if (tty_readc_noblock(tty,&peek,ESC_TIMEOUT)) {
+    if (tty_readc_noblock(tty,&peek,esc_timeout)) {
       c1 = cx;
     }
   }
@@ -252,7 +252,7 @@ static code_t tty_read_csi(tty_t* tty, uint8_t c1, uint8_t peek, code_t mods0) {
   uint8_t special = 0;
   if (strchr(":<=>?",(char)peek) != NULL) { 
     special = peek;
-    if (!tty_readc_noblock(tty,&peek,ESC_TIMEOUT)) {  
+    if (!tty_readc_noblock(tty,&peek,esc_timeout)) {  
       tty_cpush_char(tty,special); // recover
       return (key_unicode(c1) | KEY_MOD_ALT);       // Alt+<anychar>
     }
@@ -261,10 +261,10 @@ static code_t tty_read_csi(tty_t* tty, uint8_t c1, uint8_t peek, code_t mods0) {
   // up to 2 parameters that default to 1
   uint32_t num1 = 1;
   uint32_t num2 = 1;
-  tty_read_csi_num(tty,&peek,&num1);
+  tty_read_csi_num(tty,&peek,&num1,esc_timeout);
   if (peek == ';') {
-    if (!tty_readc_noblock(tty,&peek,ESC_TIMEOUT)) return KEY_NONE;
-    tty_read_csi_num(tty,&peek,&num2);
+    if (!tty_readc_noblock(tty,&peek,esc_timeout)) return KEY_NONE;
+    tty_read_csi_num(tty,&peek,&num2,esc_timeout);
   }
 
   // the final character (we do not allow 'intermediate characters')
@@ -339,35 +339,35 @@ static code_t tty_read_csi(tty_t* tty, uint8_t c1, uint8_t peek, code_t mods0) {
   return (code != KEY_NONE ? (code | modifiers) : KEY_NONE);
 }
 
-ic_private code_t tty_read_esc(tty_t* tty) {
+ic_private code_t tty_read_esc(tty_t* tty, long esc_initial_timeout, long esc_timeout) {
   code_t  mods = 0;
   uint8_t peek = 0;
   
   // lone ESC?
-  if (!tty_readc_noblock(tty, &peek, ESC_INITIAL_TIMEOUT)) return KEY_ESC;
+  if (!tty_readc_noblock(tty, &peek, esc_initial_timeout)) return KEY_ESC;
 
   // treat ESC ESC as Alt modifier (macOS sends ESC ESC [ [A-D] for alt-<cursor>)
   if (peek == KEY_ESC) {
-    if (!tty_readc_noblock(tty, &peek, ESC_TIMEOUT)) goto alt;
+    if (!tty_readc_noblock(tty, &peek, esc_timeout)) goto alt;
     mods |= KEY_MOD_ALT;
   }
 
   // CSI ?
   if (peek == '[') {
-    if (!tty_readc_noblock(tty, &peek, ESC_TIMEOUT)) goto alt;
-    return tty_read_csi(tty, '[', peek, mods);  // ESC [ ...
+    if (!tty_readc_noblock(tty, &peek, esc_timeout)) goto alt;
+    return tty_read_csi(tty, '[', peek, mods, esc_timeout);  // ESC [ ...
   }
 
   // SS3?
   if (peek == 'O' || peek == 'o' || peek == '?' /*vt52*/) {
     uint8_t c1 = peek;
-    if (!tty_readc_noblock(tty, &peek, ESC_TIMEOUT)) goto alt;
+    if (!tty_readc_noblock(tty, &peek, esc_timeout)) goto alt;
     if (c1 == 'o') { 
       // ETerm uses this for ctrl+<cursor>
       mods |= KEY_MOD_CTRL;
     }
     // treat all as standard SS3 'O'
-    return tty_read_csi(tty,'O',peek,mods);  // ESC [Oo?] ...
+    return tty_read_csi(tty,'O',peek,mods, esc_timeout);  // ESC [Oo?] ...
   }
 
 alt:  

@@ -327,6 +327,13 @@ bool ic_enable_hint(bool enable);
 // Returns the previous setting.
 bool ic_enable_highlight(bool enable);
 
+// Set millisecond delay before a hint is displayed. Can be zero. (500ms by default).
+long ic_set_hint_delay(long delay_ms);
+
+// Set millisecond delay for reading escape sequences in order to distinguish
+// a lone ESC from the start of a escape sequence. The defaults are 100ms and 10ms, 
+// but it may be increased if working with very slow terminals.
+void ic_set_tty_esc_delay(long initial_delay_ms, long followup_delay_ms);
 
 // Styles for interface elements.
 typedef enum ic_style_e {

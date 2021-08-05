@@ -822,10 +822,10 @@ static bool term_esc_query_raw( term_t* term, const char* query, char* buf, ssiz
   // parse query response 
   ssize_t len = 0;
   uint8_t c = 0;
-  if (!tty_readc_noblock(term->tty, &c, ESC_INITIAL_TIMEOUT) || c != '\x1B') return false;
-  if (!tty_readc_noblock(term->tty, &c, ESC_TIMEOUT) || (c != query[1])) return false;
+  if (!tty_readc_noblock(term->tty, &c, 100) || c != '\x1B') return false;
+  if (!tty_readc_noblock(term->tty, &c, 50) || (c != query[1])) return false;
   while( len < buflen ) {
-    if (!tty_readc_noblock(term->tty, &c, ESC_TIMEOUT)) return false;
+    if (!tty_readc_noblock(term->tty, &c, 50)) return false;
     if (osc) {
       // terminated by BELL, or ESC \ (ST)  (and STX/ETX)
       if (c=='\x07' || c=='\x02' || c=='\x03') {
@@ -833,7 +833,7 @@ static bool term_esc_query_raw( term_t* term, const char* query, char* buf, ssiz
       }
       else if (c=='\x1B') {
         uint8_t c1;
-        if (!tty_readc_noblock(term->tty,&c1, ESC_TIMEOUT)) return false;
+        if (!tty_readc_noblock(term->tty,&c1, 50)) return false;
         if (c1=='\\') break;
         tty_cpush_char(term->tty,c1);
       }

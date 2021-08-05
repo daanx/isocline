@@ -389,39 +389,47 @@ static bool edit_resize(ic_env_t* env, editor_t* eb ) {
 
 // refresh with possible hint
 static void edit_refresh_hint(ic_env_t* env, editor_t* eb) {
-  if (!env->no_hint) {
-    // see if we can hint
-    ssize_t count = completions_generate(env, env->completions, sbuf_string(eb->input), eb->pos, 2);
-    if (count == 1) {
-      const char* help = NULL;
-      const char* hint = completions_get_hint(env->completions, 0, &help);
-      if (hint != NULL) {
-        sbuf_replace(eb->hint, hint);        
-        // do auto-tabbing?
-        if (env->complete_autotab) {
-          stringbuf_t* sb = sbuf_new(env->mem);  // temporary buffer for completion
-          if (sb != NULL) { 
-            sbuf_replace( sb, sbuf_string(eb->input) ); 
-            ssize_t pos = eb->pos;
-            const char* extra_hint = hint;
-            do {
-              ssize_t newpos = sbuf_insert_at( sb, extra_hint, pos );
-              if (newpos <= pos) break;
-              pos = newpos;
-              count = completions_generate(env, env->completions, sbuf_string(sb), pos, 2);
-              if (count == 1) {
-                extra_hint = completions_get_hint(env->completions, 0, NULL);
-                sbuf_append(eb->hint, extra_hint);
-              }
+  if (env->no_hint || env->hint_delay > 0) {
+    // refresh without hint first
+    edit_refresh(env, eb);
+    if (env->no_hint) return;
+  }
+    
+  // and see if we can construct a hint (displayed after a delay)
+  ssize_t count = completions_generate(env, env->completions, sbuf_string(eb->input), eb->pos, 2);
+  if (count == 1) {
+    const char* help = NULL;
+    const char* hint = completions_get_hint(env->completions, 0, &help);
+    if (hint != NULL) {
+      sbuf_replace(eb->hint, hint);        
+      // do auto-tabbing?
+      if (env->complete_autotab) {
+        stringbuf_t* sb = sbuf_new(env->mem);  // temporary buffer for completion
+        if (sb != NULL) { 
+          sbuf_replace( sb, sbuf_string(eb->input) ); 
+          ssize_t pos = eb->pos;
+          const char* extra_hint = hint;
+          do {
+            ssize_t newpos = sbuf_insert_at( sb, extra_hint, pos );
+            if (newpos <= pos) break;
+            pos = newpos;
+            count = completions_generate(env, env->completions, sbuf_string(sb), pos, 2);
+            if (count == 1) {
+              extra_hint = completions_get_hint(env->completions, 0, NULL);
+              sbuf_append(eb->hint, extra_hint);
             }
-            while(count == 1);       
-            sbuf_free(sb);
-          }          
-        }
+          }
+          while(count == 1);       
+          sbuf_free(sb);
+        }          
       }
     }
   }
-  edit_refresh(env, eb);
+
+  if (env->hint_delay <= 0) {
+    // refresh with hint directly
+    edit_refresh(env, eb);
+  }
 }
 
 //-------------------------------------------------------------
@@ -729,7 +737,25 @@ static char* edit_line( ic_env_t* env, const char* prompt_text )
   while(true) {    
     // read a character
     term_flush(env->term);
-    c = tty_read(env->tty);
+    if (env->hint_delay <= 0 || sbuf_len(eb.hint) == 0) {
+      // blocking read
+      c = tty_read(env->tty);
+    }
+    else {
+      // timeout to display hint
+      if (!tty_read_timeout(env->tty, env->hint_delay, &c)) {
+        // timed-out
+        if (sbuf_len(eb.hint) > 0) {
+          // display hint
+          edit_refresh(env, &eb);
+        }
+        c = tty_read(env->tty);
+      }
+      else {
+        // clear the pending hint if we got input before the delay expired
+        sbuf_clear(eb.hint);
+      }
+    }
     
     // update terminal in case of a resize
     if (tty_term_resize_event(env->tty)) {

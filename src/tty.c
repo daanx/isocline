@@ -43,6 +43,8 @@ struct tty_s {
   ssize_t   push_count;               
   uint8_t   cpushbuf[TTY_PUSH_MAX]; // low level push back buffer for bytes
   ssize_t   cpush_count;
+  long      esc_initial_timeout;    // initial ms wait to see if ESC starts an escape sequence
+  long      esc_timeout;            // follow up delay for characters in an escape sequence
   #if defined(_WIN32)               
   HANDLE    hcon;                   // console input handle
   DWORD     hcon_orig_mode;         // original console mode
@@ -58,7 +60,6 @@ struct tty_s {
 //-------------------------------------------------------------
 
 ic_private bool tty_readc_noblock(tty_t* tty, uint8_t* c, long timeout_ms);  // does not modify `c` when no input (false is returned)
-ic_private bool tty_readc(tty_t* tty, uint8_t* c);          
 
 //-------------------------------------------------------------
 // Key code helpers
@@ -104,13 +105,13 @@ static code_t tty_read_utf8( tty_t* tty, uint8_t c0 ) {
   buf[0] = c0;
   ssize_t count = 1;
   if (c0 > 0x7F) {
-    if (tty_readc_noblock(tty, buf+count, 10)) {
+    if (tty_readc_noblock(tty, buf+count, tty->esc_timeout)) {
       count++;
       if (c0 > 0xDF) {
-        if (tty_readc_noblock(tty, buf+count, 10)) {
+        if (tty_readc_noblock(tty, buf+count, tty->esc_timeout)) {
           count++;
           if (c0 > 0xEF) {
-            if (tty_readc_noblock(tty, buf+count, 10)) {
+            if (tty_readc_noblock(tty, buf+count, tty->esc_timeout)) {
               count++;
             }
           }
@@ -136,37 +137,38 @@ static code_t tty_read_utf8( tty_t* tty, uint8_t c0 ) {
 // pop a code from the pushback buffer.
 static bool tty_code_pop(tty_t* tty, code_t* code);
 
-// read a single char/key (data is used for events only)
-ic_private code_t tty_read(tty_t* tty) 
+
+// read a single char/key 
+ic_private bool tty_read_timeout(tty_t* tty, long timeout_ms, code_t* code) 
 {
   // is there a push_count back code?
-  code_t code;
-  if (tty_code_pop(tty,&code)) {
+  if (tty_code_pop(tty,code)) {
     return code;
   }
 
   // read a single char/byte from a character stream
   uint8_t c;
-  if (!tty_readc(tty, &c)) return KEY_NONE;  
+  if (!tty_readc_noblock(tty, &c, timeout_ms)) return false;
   
   if (c == KEY_ESC) {
     // escape sequence?
-    code = tty_read_esc(tty);
+    *code = tty_read_esc(tty, tty->esc_initial_timeout, tty->esc_timeout);
   }
   else if (c <= 0x7F) {
     // ascii
-    code = key_unicode(c);
+    *code = key_unicode(c);
   }
   else if (tty->is_utf8) {
     // utf8 sequence
-    code = tty_read_utf8(tty,c);
+    *code = tty_read_utf8(tty,c);
   }
   else {
     // c >= 0x80 but tty is not utf8; use raw plane so we can translate it back in the end
-    code = key_unicode( unicode_from_raw(c) );
+    *code = key_unicode( unicode_from_raw(c) );
   }
 
-  return modify_code(code);
+  *code = modify_code(*code);
+  return true;
 }
 
 // Transform virtual keys to be more portable across platforms
@@ -209,6 +211,16 @@ static code_t modify_code( code_t code ) {
   
   return code;
 }
+
+
+// read a single char/key 
+ic_private code_t tty_read(tty_t* tty)
+{
+  code_t code;
+  if (!tty_read_timeout(tty, -1, &code)) return KEY_NONE;
+  return code;
+}
+
 
 
 //-------------------------------------------------------------
@@ -337,6 +349,8 @@ ic_private tty_t* tty_new(alloc_t* mem, int fd_in)
   tty_t* tty = mem_zalloc_tp(mem, tty_t);
   tty->mem = mem;
   tty->fd_in = (fd_in < 0 ? STDIN_FILENO : fd_in);
+  tty->esc_initial_timeout = 100;
+  tty->esc_timeout = 10;
   if (!(isatty(tty->fd_in) && tty_init_raw(tty) && tty_init_utf8(tty))) {
     tty_free(tty);
     return NULL;
@@ -365,12 +379,17 @@ ic_private bool tty_term_resize_event(tty_t* tty) {
   return true;  // always return true on systems without a resize event (more expensive but still ok)
 }
 
+ic_private void tty_set_esc_delay(tty_t* tty, long initial_delay_ms, long followup_delay_ms) {
+  tty->esc_initial_timeout = (initial_delay_ms < 0 ? 0 : (initial_delay_ms > 1000 ? 1000 : initial_delay_ms));
+  tty->esc_timeout = (followup_delay_ms < 0 ? 0 : (followup_delay_ms > 1000 ? 1000 : followup_delay_ms));
+}
+
 //-------------------------------------------------------------
 // Unix
 //-------------------------------------------------------------
 #if !defined(_WIN32)
 
-ic_private bool tty_readc(tty_t* tty, uint8_t* c) {
+static bool tty_readc_blocking(tty_t* tty, uint8_t* c) {
   if (tty_cpop(tty,c)) return true;
   *c = 0;
   ssize_t nread = read(tty->fd_in, (char*)c, 1);
@@ -387,14 +406,19 @@ ic_private bool tty_readc_noblock(tty_t* tty, uint8_t* c, long timeout_ms)
   // in our pushback buffer?
   if (tty_cpop(tty, c)) return true;
 
+  // blocking read?
+  if (timeout_ms < 0) {
+    return tty_readc_blocking(tty,c);
+  }
+
   // if supported, peek first if any char is available.
   #if defined(FIONREAD)
   { int navail = 0;
     if (ioctl(0, FIONREAD, &navail) == 0) {
       if (navail >= 1) {
-        return tty_readc(tty, c);
+        return tty_readc_blocking(tty, c);
       }
-      else if (timeout_ms <= 0) {
+      else if (timeout_ms == 0) {
         return false;  // return early if there is no input available (with a zero timeout)
       }
     }
@@ -411,17 +435,18 @@ ic_private bool tty_readc_noblock(tty_t* tty, uint8_t* c, long timeout_ms)
     time.tv_sec  = (timeout_ms > 0 ? timeout_ms / 1000 : 0);
     time.tv_usec = (timeout_ms > 0 ? 1000*(timeout_ms % 1000) : 0);      
     if (select(tty->fd_in + 1, &readset, NULL, NULL, &time) == 1) {
-      return tty_readc(tty, c);
+      // input available
+      return tty_readc_blocking(tty, c);
     }    
   #else
     // no select, we cannot timeout; use usleeps :-(
     // todo: this seems very rare nowadays; should be even support this?
     do {
-      // and do a non-blocking read
+      // peek ahead if possible
       #if defined(FIONREAD)
       int navail = 0;
       if (ioctl(0, FIONREAD, &navail) == 0 && navail >= 1) {
-        return tty_readc(tty, c);
+        return tty_readc_blocking(tty, c);
       }
       #elif defined(O_NONBLOCK)
       // use a temporary non-blocking read mode
@@ -442,12 +467,13 @@ ic_private bool tty_readc_noblock(tty_t* tty, uint8_t* c, long timeout_ms)
       #endif
       // and sleep a bit
       if (timeout_ms > 0) {
-        usleep(100*1000L); // sleep at most 0.1s at a time
+        usleep(50*1000L); // sleep at most 0.05s at a time
         timeout_ms -= 100;
+        if (timeout_ms < 0) { timeout_ms = 0; }
       }      
     } 
     while (timeout_ms > 0);
-  #endif
+  #endif  
   return false;
 }
 
@@ -617,44 +643,59 @@ static void tty_done_raw(tty_t* tty) {
 // to the character stream (instead of returning key codes).
 //-------------------------------------------------------------
 
-static void tty_waitc_console(tty_t* tty, bool blocking);
-
-static bool tty_readc(tty_t* tty, uint8_t* c) {
-  if (tty_cpop(tty,c)) return true;
-  // The following does not work as one cannot paste unicode characters this way :-(
-  //   DWORD nread; ReadConsole(tty->hcon, c, 1, &nread, NULL);
-  // so instead we read directly from the console input events and cpush into the tty:
-  tty_waitc_console(tty, true /* blocking */); 
-  return tty_cpop(tty,c);
-}
+static void tty_waitc_console(tty_t* tty, long timeout_ms);
 
 ic_private bool tty_readc_noblock(tty_t* tty, uint8_t* c, long timeout_ms) {  // don't modify `c` if there is no input
-  // ignore timeout_ms as it is never needed on windows
-  ic_unused(timeout_ms);
   // in our pushback buffer?
   if (tty_cpop(tty, c)) return true;
   // any events in the input queue?
-  tty_waitc_console(tty, false /* no block */);
+  tty_waitc_console(tty, timeout_ms);
   return tty_cpop(tty, c);
 }
 
-
 // Read from the console input events and push escape codes into the tty cbuffer.
-static void tty_waitc_console(tty_t* tty, bool blocking) 
+static void tty_waitc_console(tty_t* tty, long timeout_ms) 
 {
   //  wait for a key down event
   INPUT_RECORD inp;
 	DWORD count;
   uint32_t surrogate_hi = 0;
   while (true) {
-    // check if there are events if in non-blocking mode
-    if (!blocking) {
-      if (!GetNumberOfConsoleInputEvents(tty->hcon, &count)) return;
-      if (count == 0) return;
+    // check if there are events if in non-blocking timeout mode
+    if (timeout_ms >= 0) {
+      // first peek ahead
+      if (!GetNumberOfConsoleInputEvents(tty->hcon, &count)) return;  
+      if (count == 0) {
+        if (timeout_ms == 0) {
+          // out of time
+          return;
+        }
+        else {
+          // wait for input events for at most timeout milli seconds
+          DWORD start_ms = GetTickCount();
+          DWORD res = WaitForSingleObject(tty->hcon, (DWORD)timeout_ms);
+          switch (res) {
+            case WAIT_OBJECT_0: {
+              // input is available, decrease our timeout
+              DWORD waited_ms = GetTickCount() - start_ms;
+              timeout_ms -= waited_ms;
+              if (timeout_ms < 0) {
+                timeout_ms = 0;
+              }
+              break;
+            }
+            case WAIT_TIMEOUT:
+            case WAIT_ABANDONED:
+            case WAIT_FAILED:
+            default: 
+              return;
+          }
+        }
+      }
     }
 
-    // wait for an input event
-    if (!ReadConsoleInputW( tty->hcon, &inp, 1, &count)) return;
+    // (blocking) Read from the input
+    if (!ReadConsoleInputW(tty->hcon, &inp, 1, &count)) return;
     if (count != 1) return;
 
     // resize event?

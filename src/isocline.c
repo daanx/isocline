@@ -200,6 +200,20 @@ ic_public bool ic_enable_hint(bool enable) {
   return !prev;
 }
 
+ic_public long ic_set_hint_delay(long delay_ms) {
+  ic_env_t* env = ic_get_env(); if (env==NULL) return false;
+  long prev = env->hint_delay;
+  env->hint_delay = (delay_ms < 0 ? 0 : (delay_ms > 5000 ? 5000 : delay_ms));
+  return prev;
+}
+
+ic_public void ic_set_tty_esc_delay(long initial_delay_ms, long followup_delay_ms ) {
+  ic_env_t* env = ic_get_env(); if (env==NULL) return;
+  if (env->tty == NULL) return;
+  tty_set_esc_delay(env->tty, initial_delay_ms, followup_delay_ms);
+}
+
+
 ic_public bool ic_enable_highlight(bool enable) {
   ic_env_t* env = ic_get_env(); if (env==NULL) return false;
   bool prev = env->no_highlight;
@@ -432,6 +446,7 @@ static ic_env_t* ic_env_create( ic_malloc_fun_t* _malloc, ic_realloc_fun_t* _rea
   env->term        = term_new(env->mem, env->tty, false, false, -1 );  
   env->history     = history_new(env->mem);
   env->completions = completions_new(env->mem);
+  env->hint_delay  = 400; 
   
   if (env->tty == NULL || env->term==NULL ||
       env->completions == NULL || env->history == NULL ||
