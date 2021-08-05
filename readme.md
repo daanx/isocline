@@ -75,7 +75,7 @@ Isocline tries to be as compatible as possible with standard [GNU Readline] key 
          │         ┌───────┼──────┐        │    ctrl+r   : search history
          ▼         ▼       ▼      ▼        ▼    tab      : complete word
   prompt> it is the quintessential language     shift-tab: insert new line
-         ▲         ▲              ▲        ▲    esc      : delete line, done
+         ▲         ▲              ▲        ▲    esc      : delete input, done
          │         └──────────────┘        │    ctrl+z   : undo
          │    alt-backsp        alt-d      │
          └─────────────────────────────────┘    (delete)
@@ -112,7 +112,7 @@ These are also shown when pressing `F1` on a Isocline prompt. We use `^` as a sh
 | `alt-d        `   | delete to the end of the current word |
 | `^u           `   | delete to the start of the current line |
 | `^k           `   | delete to the end of the current line |
-| `esc          `   | delete the current line, or done with empty input |
+| `esc          `   | delete the current input, or done with empty input |
   
 
 | Editing           |                                                 |
