@@ -582,9 +582,18 @@ static void edit_delete_all(ic_env_t* env, editor_t* eb) {
 }
 
 static void edit_delete_to_end_of_line(ic_env_t* env, editor_t* eb) { 
+  ssize_t start = sbuf_find_line_start(eb->input,eb->pos);
+  if (start < 0) return;
   ssize_t end = sbuf_find_line_end(eb->input,eb->pos);
   if (end < 0) return;
   editor_start_modify(eb);
+  // if on an empty line, remove it completely    
+  if (start == end && sbuf_char_at(eb->input,end) == '\n') {
+    end++;
+  }
+  else if (start == end && sbuf_char_at(eb->input,start - 1) == '\n') {
+    eb->pos--;
+  }
   sbuf_delete_from_to( eb->input, eb->pos, end );
   edit_refresh(env,eb);
 }
@@ -592,9 +601,20 @@ static void edit_delete_to_end_of_line(ic_env_t* env, editor_t* eb) {
 static void edit_delete_to_start_of_line(ic_env_t* env, editor_t* eb) {
   ssize_t start = sbuf_find_line_start(eb->input,eb->pos);
   if (start < 0) return;
+  ssize_t end   = sbuf_find_line_end(eb->input,eb->pos);
+  if (end < 0) return;
   editor_start_modify(eb);
+  // delete start newline if it was an empty line
+  bool goright = false;
+  if (start > 0 && sbuf_char_at(eb->input,start-1) == '\n' && start == end) {
+    // if it is an empty line remove it
+    start--;
+    // afterwards, move to start of next line if it exists (so the cursor stays on the same row)
+    goright = true;
+  }
   sbuf_delete_from_to( eb->input, start, eb->pos );
   eb->pos = start;
+  if (goright) edit_cursor_right(env,eb); 
   edit_refresh(env,eb);
 }
 
@@ -605,14 +625,15 @@ static void edit_delete_line(ic_env_t* env, editor_t* eb) {
   if (end < 0) return;
   editor_start_modify(eb);
   // delete newline as well so no empty line is left;
-  const char* s = sbuf_string(eb->input);
   bool goright = false;
-  if (start > 0 && s[start-1] == '\n') {
+  if (start > 0 && sbuf_char_at(eb->input,start-1) == '\n') {
     start--;
     // afterwards, move to start of next line if it exists (so the cursor stays on the same row)
     goright = true;
   }
-  else if (s[end] == '\n') end++;
+  else if (sbuf_char_at(eb->input,end) == '\n') {
+    end++;
+  }
   sbuf_delete_from_to(eb->input,start,end);
   eb->pos = start;
   if (goright) edit_cursor_right(env,eb); 
@@ -709,11 +730,26 @@ static void edit_auto_brace(ic_env_t* env, editor_t* eb, char c) {
   }
 }
 
+static void editor_auto_indent(editor_t* eb, const char* pre, const char* post ) {
+  assert(eb->pos > 0 && sbuf_char_at(eb->input,eb->pos-1) == '\n');
+  ssize_t prelen = ic_strlen(pre);
+  if (prelen > 0) {
+    if (eb->pos - 1 < prelen) return;
+    if (!ic_starts_with(sbuf_string(eb->input) + eb->pos - 1 - prelen, pre)) return;
+    if (!ic_starts_with(sbuf_string(eb->input) + eb->pos, post)) return;
+    eb->pos = sbuf_insert_at(eb->input, "  ", eb->pos);
+    sbuf_insert_char_at(eb->input, '\n', eb->pos);
+  }
+}
+
 static void edit_insert_char(ic_env_t* env, editor_t* eb, char c) {
   editor_start_modify(eb);
   ssize_t nextpos = sbuf_insert_char_at( eb->input, c, eb->pos );
   if (nextpos >= 0) eb->pos = nextpos;
   edit_auto_brace(env, eb, c);
+  if (c=='\n') {
+    editor_auto_indent(eb, "{", "}");  // todo: custom auto indent tokens?
+  }
   edit_refresh_hint(env,eb);  
 }
 
@@ -922,10 +958,10 @@ static char* edit_line( ic_env_t* env, const char* prompt_text )
       case WITH_ALT('>'):
         edit_cursor_to_end(env,&eb);
         break;
-      case KEY_CTRL_X:
       case WITH_ALT('m'):
         edit_cursor_match_brace(env,&eb);
         break;
+
       // deletion
       case KEY_BACKSP:
         edit_backspace(env,&eb);
@@ -956,7 +992,9 @@ static char* edit_line( ic_env_t* env, const char* prompt_text )
       // Editing
       case KEY_SHIFT_TAB:
       case KEY_LINEFEED: // '\n' (ctrl+J, shift+enter)
-        if (!env->singleline_only) { edit_insert_char(env, &eb, '\n'); }
+        if (!env->singleline_only) { 
+          edit_insert_char(env, &eb, '\n'); 
+        }
         break;
       default: {
         char chr;

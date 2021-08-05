@@ -392,7 +392,7 @@ ic_private tty_t* tty_new(alloc_t* mem, int fd_in)
   tty->mem = mem;
   tty->fd_in = (fd_in < 0 ? STDIN_FILENO : fd_in);
   #if defined(__APPLE__)
-  tty->esc_initial_timeout = 250;  // apple use ESC+<key> for alt-<key>
+  tty->esc_initial_timeout = 200;  // apple use ESC+<key> for alt-<key>
   #else
   tty->esc_initial_timeout = 100; 
   #endif
