@@ -672,13 +672,13 @@ static void tty_waitc_console(tty_t* tty, long timeout_ms)
         }
         else {
           // wait for input events for at most timeout milli seconds
-          DWORD start_ms = GetTickCount();
+          ULONGLONG start_ms = GetTickCount64();
           DWORD res = WaitForSingleObject(tty->hcon, (DWORD)timeout_ms);
           switch (res) {
             case WAIT_OBJECT_0: {
               // input is available, decrease our timeout
-              DWORD waited_ms = GetTickCount() - start_ms;
-              timeout_ms -= waited_ms;
+              ULONGLONG waited_ms = (GetTickCount64() - start_ms);
+              timeout_ms -= (long)waited_ms;
               if (timeout_ms < 0) {
                 timeout_ms = 0;
               }
