@@ -422,7 +422,7 @@ ic_private ssize_t find_matching_brace(const char* s, ssize_t cursor_pos, const 
             nesting--;
             if (i == cursor_pos - 1) {
               // found matching open brace
-              match = open[nesting].pos;
+              match = open[nesting].pos + 1;
             }
             else if (open[nesting].at_cursor) {
               // found matching close brace

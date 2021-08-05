@@ -551,6 +551,14 @@ static void edit_cursor_row_down(ic_env_t* env, editor_t* eb) {
   }
 }
 
+
+static void edit_cursor_match_brace(ic_env_t* env, editor_t* eb) {
+  ssize_t match = find_matching_brace( sbuf_string(eb->input), eb->pos, ic_env_get_match_braces(env), NULL );
+  if (match < 0) return;
+  eb->pos = match;
+  edit_refresh(env,eb);
+}
+
 static void edit_backspace(ic_env_t* env, editor_t* eb) {
   if (eb->pos <= 0) return;
   editor_start_modify(eb);
@@ -683,13 +691,20 @@ static void edit_insert_unicode(ic_env_t* env, editor_t* eb, unicode_t u) {
 
 static void edit_auto_brace(ic_env_t* env, editor_t* eb, char c) {
   if (env->no_autobrace) return;
-  for (const char* b = ic_env_get_auto_braces(env); *b != 0; b += 2) {
+  const char* braces = ic_env_get_auto_braces(env);
+  for (const char* b = braces; *b != 0; b += 2) {
     if (*b == c) {
       const char close = b[1];
-      if (sbuf_char_at(eb->input, eb->pos) != close) {
+      //if (sbuf_char_at(eb->input, eb->pos) != close) {
         sbuf_insert_char_at(eb->input, close, eb->pos);
-        return;
-      }
+        bool balanced = false;
+        find_matching_brace(sbuf_string(eb->input), eb->pos, braces, &balanced );
+        if (!balanced) {
+          // don't insert if it leads to an unbalanced expression.
+          sbuf_delete_char_at(eb->input, eb->pos);
+        }
+      //}
+      return;
     }
   }
 }
@@ -907,7 +922,10 @@ static char* edit_line( ic_env_t* env, const char* prompt_text )
       case WITH_ALT('>'):
         edit_cursor_to_end(env,&eb);
         break;
-
+      case KEY_CTRL_X:
+      case WITH_ALT('m'):
+        edit_cursor_match_brace(env,&eb);
+        break;
       // deletion
       case KEY_BACKSP:
         edit_backspace(env,&eb);

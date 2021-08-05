@@ -119,6 +119,9 @@ static code_t tty_read_utf8( tty_t* tty, uint8_t c0 ) {
       }
     }
   }
+  
+  buf[count] = 0;
+  debug_msg("tty: read utf8: count: %zd: %02x,%02x,%02x,%02x", count, buf[0], buf[1], buf[2], buf[3]);
 
   // decode the utf8 to unicode
   ssize_t read = 0;
@@ -388,7 +391,11 @@ ic_private tty_t* tty_new(alloc_t* mem, int fd_in)
   tty_t* tty = mem_zalloc_tp(mem, tty_t);
   tty->mem = mem;
   tty->fd_in = (fd_in < 0 ? STDIN_FILENO : fd_in);
-  tty->esc_initial_timeout = 100;
+  #if defined(__APPLE__)
+  tty->esc_initial_timeout = 250;  // apple use ESC+<key> for alt-<key>
+  #else
+  tty->esc_initial_timeout = 100; 
+  #endif
   tty->esc_timeout = 10;
   if (!(isatty(tty->fd_in) && tty_init_raw(tty) && tty_init_utf8(tty))) {
     tty_free(tty);
