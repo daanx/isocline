@@ -28,6 +28,7 @@ typedef struct editor_s {
   stringbuf_t*  input;        // current user input
   stringbuf_t*  extra;        // extra displayed info (for completion menu etc)
   stringbuf_t*  hint;         // hint displayed as part of the input
+  stringbuf_t*  hint_help;    // help for a hint.
   ssize_t       pos;          // current cursor position in the input
   ssize_t       cur_rows;     // current used rows to display our content (including extra content)
   ssize_t       cur_row;      // current row that has the cursor (0 based, relative to the prompt)
@@ -267,6 +268,7 @@ static void edit_refresh(ic_env_t* env, editor_t* eb)
       highlight_insert_at( eb->henv, eb->pos, sbuf_len(eb->hint), env->color_hint);
     }
     sbuf_insert_at(eb->input, sbuf_string(eb->hint), eb->pos);
+    sbuf_insert_at(eb->extra, sbuf_string(eb->hint_help), 0);
   }
 
   // calculate rows and row/col position
@@ -330,6 +332,7 @@ static void edit_refresh(ic_env_t* env, editor_t* eb)
 
   // restore input by removing the hint
   sbuf_delete_at(eb->input, eb->pos, sbuf_len(eb->hint));
+  sbuf_delete_at(eb->extra, 0, sbuf_len(eb->hint_help));
 
   // update previous
   eb->cur_rows = rows;
@@ -373,6 +376,7 @@ static bool edit_resize(ic_env_t* env, editor_t* eb ) {
   ssize_t promptw, cpromptw;
   edit_get_prompt_width( env, eb, false, &promptw, &cpromptw );
   sbuf_insert_at(eb->input, sbuf_string(eb->hint), eb->pos); // insert used hint    
+  sbuf_insert_at(eb->extra, sbuf_string(eb->hint_help), 0);
   rowcol_t rc;
   const ssize_t rows_input = sbuf_get_wrapped_rc_at_pos( eb->input, eb->termw, newtermw, promptw, cpromptw, eb->pos, &rc );
   rowcol_t rc_extra;
@@ -391,8 +395,18 @@ static bool edit_resize(ic_env_t* env, editor_t* eb ) {
 
   // remove hint again
   sbuf_delete_at(eb->input, eb->pos, sbuf_len(eb->hint)); 
+  sbuf_delete_at(eb->extra, 0, sbuf_len(eb->hint_help));
   return true;
 } 
+
+static void edit_append_hint_help(ic_env_t* env, editor_t* eb, const char* help) {
+  sbuf_clear(eb->hint_help);
+  if (help != NULL) {
+    term_append_color(env->term, eb->hint_help, env->color_info);
+    sbuf_append(eb->hint_help, help);
+    sbuf_append(eb->hint_help, "\n");
+  }
+}
 
 // refresh with possible hint
 static void edit_refresh_hint(ic_env_t* env, editor_t* eb) {
@@ -409,6 +423,7 @@ static void edit_refresh_hint(ic_env_t* env, editor_t* eb) {
     const char* hint = completions_get_hint(env->completions, 0, &help);
     if (hint != NULL) {
       sbuf_replace(eb->hint, hint);        
+      edit_append_hint_help(env, eb, help);
       // do auto-tabbing?
       if (env->complete_autotab) {
         stringbuf_t* sb = sbuf_new(env->mem);  // temporary buffer for completion
@@ -422,8 +437,12 @@ static void edit_refresh_hint(ic_env_t* env, editor_t* eb) {
             pos = newpos;
             count = completions_generate(env, env->completions, sbuf_string(sb), pos, 2);
             if (count == 1) {
-              extra_hint = completions_get_hint(env->completions, 0, NULL);
-              sbuf_append(eb->hint, extra_hint);
+              const char* extra_help = NULL;
+              extra_hint = completions_get_hint(env->completions, 0, &extra_help);
+              if (extra_hint != NULL) {
+                edit_append_hint_help(env, eb, extra_help);
+                sbuf_append(eb->hint, extra_hint);
+              }
             }
           }
           while(count == 1);       
@@ -784,6 +803,7 @@ static char* edit_line( ic_env_t* env, const char* prompt_text )
   eb.input    = sbuf_new(env->mem);
   eb.extra    = sbuf_new(env->mem);
   eb.hint     = sbuf_new(env->mem);
+  eb.hint_help= sbuf_new(env->mem);
   eb.termw    = term_get_width(env->term);  
   eb.pos      = 0;
   eb.cur_rows = 1; 
@@ -794,7 +814,7 @@ static char* edit_line( ic_env_t* env, const char* prompt_text )
   eb.henv     = (env->no_highlight ? NULL : highlight_new(env->mem) );
   editstate_init(&eb.undo);
   editstate_init(&eb.redo);
-  if (eb.input==NULL || eb.extra==NULL || eb.hint==NULL) {
+  if (eb.input==NULL || eb.extra==NULL || eb.hint==NULL || eb.hint_help==NULL) {
     return NULL;
   }
   
@@ -826,6 +846,7 @@ static char* edit_line( ic_env_t* env, const char* prompt_text )
       else {
         // clear the pending hint if we got input before the delay expired
         sbuf_clear(eb.hint);
+        sbuf_clear(eb.hint_help);
       }
     }
     
@@ -837,6 +858,7 @@ static char* edit_line( ic_env_t* env, const char* prompt_text )
     // clear hint only after a potential resize (so resize row calculations are correct)
     const bool had_hint = (sbuf_len(eb.hint) > 0);
     sbuf_clear(eb.hint);
+    sbuf_clear(eb.hint_help);
 
     // if the user tries to move into a hint with left-cursor or end, we complete it first
     if ((c == KEY_RIGHT || c == KEY_END) && had_hint) {
@@ -1047,6 +1069,7 @@ static char* edit_line( ic_env_t* env, const char* prompt_text )
   sbuf_free(eb.input);
   sbuf_free(eb.extra);
   sbuf_free(eb.hint);
+  sbuf_free(eb.hint_help);
 
   return res;
 }

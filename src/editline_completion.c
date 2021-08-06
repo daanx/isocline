@@ -35,13 +35,12 @@ static bool edit_complete_longest_prefix(ic_env_t* env, editor_t* eb ) {
 }
 
 static void editor_append_completion(ic_env_t* env, editor_t* eb, ssize_t idx, ssize_t width, bool numbered, bool selected ) {
-  const char* display = completions_get_display(env->completions, idx);
+  const char* help = NULL;
+  const char* display = completions_get_display(env->completions, idx, &help);
   if (display == NULL) return;
   if (numbered) {
     term_append_color( env->term, eb->extra, env->color_info );
-    char buf[32];
-    snprintf(buf, 32, "%s%zd \x1B[m", (selected ? (tty_is_utf8(env->tty) ? "\xE2\x86\x92" : "*") : " "), 1 + idx);
-    sbuf_append(eb->extra, buf);
+    sbuf_appendf(eb->extra, "%s%zd \x1B[m", (selected ? (tty_is_utf8(env->tty) ? "\xE2\x86\x92" : "*") : " "), 1 + idx);
     width -= 3;
   }
 
@@ -50,6 +49,11 @@ static void editor_append_completion(ic_env_t* env, editor_t* eb, ssize_t idx, s
   }
   if (width <= 0) {
     sbuf_append(eb->extra, display);
+    if (help != NULL) {
+      sbuf_append(eb->extra, "  ");
+      term_append_color(env->term, eb->extra, env->color_info);
+      sbuf_append(eb->extra, help);
+    }
   }
   else {
     // fit to width
@@ -59,9 +63,26 @@ static void editor_append_completion(ic_env_t* env, editor_t* eb, ssize_t idx, s
       sc = str_skip_until_fit( display, width - 3);
     }    
     sbuf_append( eb->extra, sc);
-    // fill out with spaces
+    // fill out with help & spaces
     ssize_t n = width - str_column_width(sc);
-    while( n-- > 0 ) { sbuf_append( eb->extra," "); }  
+    if (n >= 8 && help != NULL) {
+      sbuf_append(eb->extra, "  ");
+      term_append_color(env->term, eb->extra, env->color_info);
+      n -= 2;
+      ssize_t help_len = ic_strlen(help);
+      if (n < help_len) {
+        // no fit
+        sbuf_append_n(eb->extra, help, n - 3);
+        sbuf_append(eb->extra, "...");
+        n = 0;
+      }
+      else {
+        // help fits
+        sbuf_append(eb->extra, help);
+        n -= help_len;
+      }
+    }
+    while (n-- > 0) { sbuf_append(eb->extra, " "); }
   }
   if (selected) {
     sbuf_append(eb->extra, "\x1B[m");
@@ -94,10 +115,13 @@ static void editor_append_completion3(ic_env_t* env, editor_t* eb, ssize_t col_w
 static ssize_t edit_completions_max_width( ic_env_t* env, ssize_t count ) {
   ssize_t max_width = 0;
   for( ssize_t i = 0; i < count; i++) {
-    const char* display = completions_get_display(env->completions,i);
-    if (display != NULL) {
-      ssize_t w = str_column_width( display);
-      if (w > max_width) max_width = w;
+    const char* help = NULL;
+    ssize_t w = str_column_width(completions_get_display(env->completions, i, &help));
+    if (help != NULL) {
+      w += 2 + str_column_width(help);
+    }
+    if (w > max_width) {
+      max_width = w;
     }
   }
   return max_width;
@@ -221,7 +245,7 @@ again:
     edit_write_prompt(env,eb,0,false);
     term_writeln(env->term, "");
     for(ssize_t i = 0; i < count; i++) {
-      const char* display = completions_get_display(env->completions, i);
+      const char* display = completions_get_display(env->completions, i, NULL);
       if (display != NULL) {
         // term_writef(env->term, "\x1B[90m%3d \x1B[m%s\n", i+1, (cm->display != NULL ? cm->display : cm->replacement ));          
         term_writeln(env->term, display);

@@ -53,13 +53,14 @@ wordCompletions input0
        ++
        -- with display versus replacement
        (if (input == "id") 
-         then map (\(d,r) -> completionWithDisplay d r) $ 
+         then map (\(d,r) -> Completion r d "") $    -- Completion replacement display help
               [ ("D — (x) => x",       "(x) => x")
               , ("Haskell — \\x -> x", "\\x -> x")
               , ("Idris — \\x => x",   "\\x => x")
               , ("Koka — fn(x){ x }",  "fn(x){ x }")
               , ("Ocaml — fun x -> x", "fun x -> x")]
-         else []) ++
+         else []) 
+       ++
        -- add many hello isocline completions; we should generate these lazily!
        (if (not (null input) && input `isPrefixOf` "hello_isocline_") 
          then map (\i -> completion ("hello_isocline_" ++ show i)) [1..100000]

@@ -28,10 +28,10 @@ typedef struct word_closure_s {
 
 
 // word completion callback
-static bool token_add_completion_ex(ic_env_t* env, void* closure, const char* display, const char* replacement, long delete_before, long delete_after) {
+static bool token_add_completion_ex(ic_env_t* env, void* closure, const char* replacement, const char* display, const char* help, long delete_before, long delete_after) {
   word_closure_t* wenv = (word_closure_t*)(closure);
   // call the previous completer with an adjusted delete-before
-  return (*wenv->prev_complete)(env, wenv->prev_env, (display!=NULL ? display : replacement), replacement, wenv->delete_before_adjust + delete_before, delete_after);
+  return (*wenv->prev_complete)(env, wenv->prev_env, replacement, display, help, wenv->delete_before_adjust + delete_before, delete_after);
 }
 
 
@@ -90,7 +90,8 @@ typedef struct qword_closure_s {
 
 
 // word completion callback
-static bool qword_add_completion_ex(ic_env_t* env, void* closure, const char* display, const char* replacement, long delete_before, long delete_after) {
+static bool qword_add_completion_ex(ic_env_t* env, void* closure, const char* replacement, const char* display, const char* help, 
+                                       long delete_before, long delete_after) {
   qword_closure_t* wenv = (qword_closure_t*)(closure);
   sbuf_replace( wenv->sbuf, replacement );   
   if (wenv->quote != 0) {
@@ -111,7 +112,7 @@ static bool qword_add_completion_ex(ic_env_t* env, void* closure, const char* di
     }
   }
   // and call the previous completion function
-  return (*wenv->prev_complete)( env, wenv->prev_env, (display!=NULL ? display : replacement), sbuf_string(wenv->sbuf), wenv->delete_before_adjust + delete_before, delete_after );  
+  return (*wenv->prev_complete)( env, wenv->prev_env, sbuf_string(wenv->sbuf), display, help, wenv->delete_before_adjust + delete_before, delete_after );  
 }
 
 
@@ -426,7 +427,7 @@ static bool filename_complete_indir( ic_completion_env_t* cenv, stringbuf_t* dir
           sbuf_delete_from(dir,dlen);  // restore dir
         }
         if (isdir || match_extension(name, extensions)) {
-          cont = ic_add_completion(cenv, sbuf_string(display), sbuf_string(dir_prefix));
+          cont = ic_add_completion_ex(cenv, sbuf_string(dir_prefix), sbuf_string(display), NULL);
         }
         sbuf_delete_from( dir_prefix, plen ); // restore dir_prefix
       }
