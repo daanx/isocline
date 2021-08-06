@@ -37,7 +37,7 @@ int main()
   ic_set_default_highlighter(highlighter, NULL);
 
   // try to auto complete after a completion as long as the completion is unique
-  ic_enable_auto_tab(true );
+  // ic_enable_auto_tab(true );
 
   // change interface colors (prompt info, diminish, emphasis, hint)
   // ic_set_style_color( IC_STYLE_PROMPT,   IC_ANSI_MAROON);
@@ -106,7 +106,7 @@ static void completer(ic_completion_env_t* cenv, const char* input )
   ic_complete_filename(cenv, input, 0, "/usr/local;c:\\Program Files" , NULL /* any extension */);
 
   // and also use our custom completer  
-  ic_complete_word( cenv, input, &word_completer, NULL /* default word boundary; whitespace or separator */ );        
+  // ic_complete_word( cenv, input, &word_completer, NULL /* default word boundary; whitespace or separator */ );        
   
   // ic_complete_word( cenv, input, &word_completer, &ic_char_is_idletter );        
   // ic_complete_qword( cenv, input, &word_completer, &ic_char_is_idletter  );        
