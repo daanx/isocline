@@ -29,7 +29,7 @@ Enjoy,
 
 ![recording](doc/record-macos.svg)  
 
-Shows in order: syntax highlighting, multiline editing, 24-bit colors, inline hinting, filename completion, and incremental history search.
+Shows in order: unicode, syntax highlighting, brace matching, jump to matching brace, auto indent, multiline editing, 24-bit colors, inline hinting, filename completion, and incremental history search.
 
 # Usage
 
