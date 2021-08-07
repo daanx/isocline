@@ -90,7 +90,6 @@ module System.Console.Isocline(
 
       Completion(..),
       completion,
-      completionWithDisplay,
       isPrefix,
       completionsFor,
       wordCompleter,
@@ -145,7 +144,7 @@ module System.Console.Isocline(
       -- * Advanced
       setDefaultCompleter,      
       addCompletion,
-      addCompletionEx,
+      addCompletionPrim,
       addCompletions,
       completeWordPrim,
       completeQuotedWordPrim,
@@ -345,8 +344,8 @@ foreign import ccall ic_set_default_completer :: FunPtr CCompleterFun -> IO ()
 foreign import ccall "wrapper" ic_make_completer :: CCompleterFun -> IO (FunPtr CCompleterFun)
 foreign import ccall "wrapper" ic_make_charclassfun :: CCharClassFun -> IO (FunPtr CCharClassFun)
 
-foreign import ccall ic_add_completion        :: Ptr IcCompletionEnv -> CString -> CString -> IO CCBool
-foreign import ccall ic_add_completion_ex     :: Ptr IcCompletionEnv -> CString -> CString -> CInt -> CInt -> IO CCBool
+foreign import ccall ic_add_completion_ex     :: Ptr IcCompletionEnv -> CString -> CString -> CString -> IO CCBool
+foreign import ccall ic_add_completion_prim   :: Ptr IcCompletionEnv -> CString -> CString -> CString -> CInt -> CInt -> IO CCBool
 foreign import ccall ic_complete_filename     :: Ptr IcCompletionEnv -> CString -> CChar -> CString -> CString -> IO ()
 foreign import ccall ic_complete_word         :: Ptr IcCompletionEnv -> CString -> FunPtr CCompleterFun -> FunPtr CCharClassFun -> IO ()
 foreign import ccall ic_complete_qword        :: Ptr IcCompletionEnv -> CString -> FunPtr CCompleterFun -> FunPtr CCharClassFun -> IO ()
@@ -357,20 +356,21 @@ foreign import ccall ic_stop_completing       :: Ptr IcCompletionEnv -> IO CCBoo
 
 -- | A completion entry
 data Completion = Completion { 
-  display :: String,      -- ^ display of the completion in the completion menu
   replacement :: String,  -- ^ actual replacement
-  help :: String          -- ^ help message (currently not supported)
+  display :: String,      -- ^ display of the completion in the completion menu
+  help :: String          -- ^ help message 
 }
 
 -- | Create a completion with just a replacement
 completion :: String -> Completion
 completion replacement
-  = Completion "" replacement ""
+  = Completion replacement "" ""
 
--- | Create a completion with a separate display string
-completionWithDisplay :: String -> String -> Completion
-completionWithDisplay display replacement
-  = Completion display replacement ""  
+-- | @completionFull replacement display help@: Create a completion with a separate display and help string.
+completionFull :: String -> String -> String -> Completion
+completionFull replacement display help
+  = Completion  replacement display help 
+
 
 -- | Is the given input a prefix of the completion replacement?
 isPrefix :: String -> Completion -> Bool
@@ -422,22 +422,24 @@ makeCCompleter (Just completer)
 -- but if it returns 'False' an effort should be made to return from the completer
 -- callback without adding more completions.
 addCompletion :: CompletionEnv -> Completion -> IO Bool
-addCompletion (CompletionEnv rpc) (Completion display replacement _)
-  = withUTF8String0 display $ \cdisplay ->
-    withUTF8String replacement $ \crepl ->
-    do cbool <- ic_add_completion rpc cdisplay crepl
+addCompletion (CompletionEnv rpc) (Completion replacement display help)
+  = withUTF8String replacement $ \crepl ->
+    withUTF8String0 display $ \cdisplay ->
+    withUTF8String0 help $ \chelp ->    
+    do cbool <- ic_add_completion_ex rpc crepl cdisplay chelp
        return (fromEnum cbool /= 0)
 
--- | @addCompletionEx compl completion deleteBefore deleteAfter@: 
+-- | @addCompletionPrim compl completion deleteBefore deleteAfter@: 
 -- Primitive add completion, use with care and call only directly inside a completer callback.
 -- If 'addCompletion' returns 'True' keep adding completions,
 -- but if it returns 'False' an effort should be made to return from the completer
 -- callback without adding more completions.
-addCompletionEx :: CompletionEnv -> Completion -> Int -> Int -> IO Bool
-addCompletionEx (CompletionEnv rpc) (Completion display replacement _) deleteBefore deleteAfter
-  = withUTF8String0 display $ \cdisplay ->
-    withUTF8String replacement $ \crepl ->
-    do cbool <- ic_add_completion_ex rpc cdisplay crepl (toEnum deleteBefore) (toEnum deleteAfter)
+addCompletionPrim :: CompletionEnv -> Completion -> Int -> Int -> IO Bool
+addCompletionPrim (CompletionEnv rpc) (Completion replacement display help) deleteBefore deleteAfter
+  = withUTF8String replacement $ \crepl ->
+    withUTF8String0 display $ \cdisplay ->
+    withUTF8String0 help $ \chelp ->
+    do cbool <- ic_add_completion_prim rpc crepl cdisplay chelp (toEnum deleteBefore) (toEnum deleteAfter)
        return (fromEnum cbool /= 0)
 
     

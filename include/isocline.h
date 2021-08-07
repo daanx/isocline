@@ -73,12 +73,20 @@ void ic_set_default_completer( ic_completer_fun_t* completer, void* arg);
 
 
 // In a completion callback (usually from `ic_complete_word`), use this function to add a completion.
-// The `display` is used to display the completion in the completion menu.
-// (both `display` and `completion` are copied by isocline and do not need to be preserved or allocated).
+// (the completion string is copied by isocline and do not need to be preserved or allocated).
 //
 // Returns `true` if the callback should continue trying to find more possible completions.
 // If `false` is returned, the callback should try to return and not add more completions (for improved latency).
-bool ic_add_completion( ic_completion_env_t* cenv, const char* display, const char* completion );
+bool ic_add_completion(ic_completion_env_t* cenv, const char* completion);
+
+// In a completion callback (usually from `ic_complete_word`), use this function to add a completion.
+// The `display` is used to display the completion in the completion menu, and `help` is
+// displayed for hints for example. Both can be `NULL` for the default.
+// (all are copied by isocline and do not need to be preserved or allocated).
+//
+// Returns `true` if the callback should continue trying to find more possible completions.
+// If `false` is returned, the callback should try to return and not add more completions (for improved latency).
+bool ic_add_completion_ex( ic_completion_env_t* cenv, const char* completion, const char* display, const char* help );
 
 // In a completion callback (usually from `ic_complete_word`), use this function to add completions.
 // The `completions` array should be terminated with a NULL element, and all elements
@@ -390,15 +398,18 @@ bool ic_has_completions( ic_completion_env_t* cenv );
 bool ic_stop_completing(ic_completion_env_t* cenv);
 
 
-// Primitive completion, cannot be used with most transformers (like `ic_complete_word` and `ic_complete_quoted_word`).
+// Primitive completion, cannot be used with most transformers (like `ic_complete_word` and `ic_complete_qword`).
 // When completed, `delete_before` _bytes_ are deleted before the cursor position,
 // `delete_after` _bytes_ are deleted after the cursor, and finally `completion` is inserted.
-// The `display` is used to display the completion in the completion menu.
-// (both `display` and `completion` are copied by isocline and do not need to be preserved or allocated).
+// The `display` is used to display the completion in the completion menu, and `help` is displayed
+// with hinting. Both `display` and `help` can be NULL.
+// (all are copied by isocline and do not need to be preserved or allocated).
 //
 // Returns `true` if the callback should continue trying to find more possible completions.
 // If `false` is returned, the callback should try to return and not add more completions (for improved latency).
-bool ic_add_completion_ex( ic_completion_env_t* cenv, const char* display, const char* completion, long delete_before, long delete_after);
+bool ic_add_completion_prim( ic_completion_env_t* cenv, const char* completion, 
+                              const char* display, const char* help, 
+                               long delete_before, long delete_after);
 
 
 //--------------------------------------------------------------

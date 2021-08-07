@@ -29,7 +29,8 @@ Enjoy,
 
 ![recording](doc/record-macos.svg)  
 
-Shows in order: syntax highlighting, multiline editing, 24-bit colors, inline hinting, filename completion, and incremental history search.
+Shows in order: unicode, syntax highlighting, brace matching, jump to matching brace, auto indent, multiline editing, 24-bit colors, inline hinting, filename completion, and incremental history search.  
+<sub>(screen capture was made with [termtosvg] by Nicolas Bedos)</sub>
 
 # Usage
 
@@ -47,7 +48,7 @@ while( (input = ic_readline("prompt")) != NULL ) { // ctrl+d/c or errors return 
 }
 ```
 
-See the [example] for a full example with completion, history, etc.
+See the [example] for a full example with completion, syntax highligting, history, etc.
 
 # Run the Example
 
@@ -73,11 +74,11 @@ Isocline tries to be as compatible as possible with standard [GNU Readline] key 
        home/ctrl-a       cursor     end/ctrl-e
          ┌─────────────────┼───────────────┐    (navigate)
          │     ctrl-left   │  ctrl-right   │
-         │         ┌───────┼──────┐        │    ctrl+r   : search history
+         │         ┌───────┼──────┐        │    ctrl-r   : search history
          ▼         ▼       ▼      ▼        ▼    tab      : complete word
   prompt> it is the quintessential language     shift-tab: insert new line
          ▲         ▲              ▲        ▲    esc      : delete input, done
-         │         └──────────────┘        │    ctrl+z   : undo
+         │         └──────────────┘        │    ctrl-z   : undo
          │    alt-backsp        alt-d      │
          └─────────────────────────────────┘    (delete)
        ctrl-u                          ctrl-k
@@ -205,6 +206,7 @@ Some other excellent libraries that we considered:
 [Haskell]: https://github.com/daanx/isocline/tree/main/haskell
 [HaskellExample]: https://github.com/daanx/isocline/blob/main/test/Example.hs
 [example]: https://github.com/daanx/isocline/blob/main/test/example.c
+[termtosvg]: https://github.com/nbedos/termtosvg
 
 # Internals
 

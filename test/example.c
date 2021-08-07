@@ -41,10 +41,8 @@ int main()
   // try to auto complete after a completion as long as the completion is unique
   ic_enable_auto_tab(true );
 
-  // change interface colors (prompt info, diminish, emphasis, hint)
-  // ic_set_style_color( IC_STYLE_PROMPT,   IC_ANSI_MAROON);
-  // ic_set_style_color( IC_STYLE_EMPHASIS, IC_RGB(0xD7FF00));
-  // ic_set_style_color( IC_STYLE_BRACEMATCH, IC_RGB(0xF7DC6F) );
+  // change interface colors (prompt, info, diminish, emphasis, hint, error, and bracematch)
+  // ic_set_style_color( IC_STYLE_PROMPT, IC_ANSI_MAROON);
   
   // run until empty input
   char* input;
@@ -66,7 +64,7 @@ int main()
 // -------------------------------------------------------------------------------
 
 // A custom completer function.
-// Use `ic_add_completion( env, display, replacement)` to add actual completions.
+// Use `ic_add_completion( env, replacement, display, help)` to add actual completions.
 static void word_completer(ic_completion_env_t* cenv, const char* word ) 
 {
   // complete with list of words; only if the input is a word it will be a completion candidate
@@ -74,41 +72,42 @@ static void word_completer(ic_completion_env_t* cenv, const char* word )
   ic_add_completions(cenv, word, completions);
 
   // examples of more customized completions
-  if (strcmp(word,"id") == 0) {
-    // display vs. replacement
-    ic_add_completion(cenv,"D — (x) => x",       "(x) => x");                
-    ic_add_completion(cenv,"Haskell — \\x -> x", "\\x -> x");
-    ic_add_completion(cenv,"Idris — \\x => x",   "\\x => x");
-    ic_add_completion(cenv,"Koka — fn(x){ x }",  "fn(x){ x }");    
-    ic_add_completion(cenv,"Ocaml — fun x -> x", "fun x -> x");
-  }  
-  else if (strcmp(word,"f") == 0) {  
-    // unicode for f completion
-    ic_add_completion(cenv,NULL,"banana 🍌 etc.");
-    ic_add_completion(cenv,NULL,"〈pear〉with brackets"); 
-    ic_add_completion(cenv,NULL,"猕猴桃 wide");
-    ic_add_completion(cenv,NULL,"apples 🍎");
-    ic_add_completion(cenv, NULL, "zero\xE2\x80\x8Dwidth-joiner");    
+  if (strcmp(word,"f") == 0) {  
+    // test unicode, and replace "f" with something else completely (useful for templating)
+    ic_add_completion(cenv, "banana 🍌 etc.");
+    ic_add_completion(cenv, "〈pear〉with brackets");
+    ic_add_completion(cenv, "猕猴桃 wide");
+    ic_add_completion(cenv, "apples 🍎");   
+    ic_add_completion(cenv, "zero\xE2\x80\x8Dwidth-joiner");
+  }
+  else if (strcmp(word, "id") == 0) {
+    // replacement, display, and help
+    ic_add_completion_ex(cenv, "(x) => x",   "D — (x) => x",       "identity function in D");
+    ic_add_completion_ex(cenv, "\\x -> x",   "Haskell — \\x -> x", "identity_bot function in Haskell");
+    ic_add_completion_ex(cenv, "\\x => x",   "Idris — \\x => x",   "dependent identity function in Idris");
+    ic_add_completion_ex(cenv, "fn(x){ x }", "Koka — fn(x){ x }",  "total identity function in Koka");
+    ic_add_completion_ex(cenv, "fun x -> x", "Ocaml — fun x -> x", "identity lambda in OCaml");
   }
   else if (word[0] != 0 && ic_istarts_with("hello isocline ",word)) {
     // many completions for hello isocline
     for(int i = 0; i < 100000; i++) {
       char buf[32];
       snprintf(buf,32,"hello isocline %03d", i+1);
-      if (!ic_add_completion(cenv, NULL, buf)) break;  // break early if not all completions are needed (for better latency)
+      if (!ic_add_completion(cenv, buf)) break;  // break early if not all completions are needed (for better latency)
     }
   }
 }
 
-// A completer function is called by isocline to complete on input.
-// We use `ic_complete_word` to have `word_completer` limited to the word before the cursor.
+// A completer function is called by isocline to complete. The input parameter is the input up to the cursor.
+// We use `ic_complete_word` to only consider the final token on the input. 
+// (almost all user defined completers should use this)
 static void completer(ic_completion_env_t* cenv, const char* input ) 
 {
   // try to complete file names from the roots "." and "/usr/local"
   ic_complete_filename(cenv, input, 0, "/usr/local;c:\\Program Files" , NULL /* any extension */);
 
   // and also use our custom completer  
-  ic_complete_word( cenv, input, &word_completer, NULL /* default word boundary; whitespace or separator */ );        
+  ic_complete_word( cenv, input, &word_completer, NULL /* from default word boundary; whitespace or separator */ );        
   
   // ic_complete_word( cenv, input, &word_completer, &ic_char_is_idletter );        
   // ic_complete_qword( cenv, input, &word_completer, &ic_char_is_idletter  );        

@@ -20,8 +20,9 @@
 //-------------------------------------------------------------
 
 typedef struct completion_s {
-  const char* display;
   const char* replacement;
+  const char* display;
+  const char* help;
   ssize_t     delete_before;
   ssize_t     delete_after;
 } completion_t;
@@ -64,12 +65,13 @@ ic_private void completions_clear(completions_t* cms) {
     completion_t* cm = cms->elems + cms->count - 1;
     mem_free( cms->mem, cm->display);
     mem_free( cms->mem, cm->replacement);
+    mem_free( cms->mem, cm->help);
     memset(cm,0,sizeof(*cm));
     cms->count--;    
   }
 }
 
-static void completions_push(completions_t* cms, const char* display, const char* replacement, ssize_t delete_before, ssize_t delete_after) 
+static void completions_push(completions_t* cms, const char* replacement, const char* display, const char* help, ssize_t delete_before, ssize_t delete_after) 
 {
   if (cms->count >= cms->len) {
     ssize_t newlen = (cms->len <= 0 ? 32 : cms->len*2);
@@ -80,8 +82,9 @@ static void completions_push(completions_t* cms, const char* display, const char
   }
   assert(cms->count < cms->len);
   completion_t* cm  = cms->elems + cms->count;
-  cm->display       = mem_strdup(cms->mem,display);
   cm->replacement   = mem_strdup(cms->mem,replacement);
+  cm->display       = mem_strdup(cms->mem,display);
+  cm->help          = mem_strdup(cms->mem,help);
   cm->delete_before = delete_before;
   cm->delete_after  = delete_after;
   cms->count++;
@@ -92,11 +95,11 @@ ic_private ssize_t completions_count(completions_t* cms) {
 }
 
 
-ic_private bool completions_add(completions_t* cms, const char* display, const char* replacement, ssize_t delete_before, ssize_t delete_after) {
+ic_private bool completions_add(completions_t* cms, const char* replacement, const char* display, const char* help, ssize_t delete_before, ssize_t delete_after) {
   if (cms->completer_max <= 0) return false;
   cms->completer_max--;
   //debug_msg("completion: add: %d,%d, %s\n", delete_before, delete_after, replacement);
-  completions_push(cms, display, replacement, delete_before, delete_after);
+  completions_push(cms, replacement, display, help, delete_before, delete_after);
   return true;
 }
 
@@ -105,20 +108,29 @@ static completion_t* completions_get(completions_t* cms, ssize_t index) {
   return &cms->elems[index];
 }
 
-ic_private const char* completions_get_display( completions_t* cms, ssize_t index ) {
+ic_private const char* completions_get_display( completions_t* cms, ssize_t index, const char** help ) {
+  if (help != NULL) { *help = NULL;  }
   completion_t* cm = completions_get(cms, index);
   if (cm == NULL) return NULL;
+  if (help != NULL) { *help = cm->help; }
   return (cm->display != NULL ? cm->display : cm->replacement);
 }
 
+ic_private const char* completions_get_help( completions_t* cms, ssize_t index ) {
+  completion_t* cm = completions_get(cms, index);
+  if (cm == NULL) return NULL;
+  return cm->help;
+}
+
 ic_private const char* completions_get_hint(completions_t* cms, ssize_t index, const char** help) {
-  ic_unused(help);
+  if (help != NULL) { *help = NULL; }
   completion_t* cm = completions_get(cms, index);
   if (cm == NULL) return NULL;
   ssize_t len = ic_strlen(cm->replacement);
   if (len < cm->delete_before) return NULL;
   const char* hint = (cm->replacement + cm->delete_before);
   if (*hint == 0 || utf8_is_cont((uint8_t)(*hint))) return NULL;  // utf8 boundary?
+  if (help != NULL) { *help = cm->help; }
   return hint;
 }
 
@@ -215,10 +227,9 @@ ic_private ssize_t completions_apply_longest_prefix(completions_t* cms, stringbu
 
   // we found a prefix :-)
   completion_t cprefix;
-  cprefix.delete_after = 0;
+  memset(&cprefix,0,sizeof(cprefix));
   cprefix.delete_before = delete_before;
-  cprefix.display = NULL;
-  cprefix.replacement = prefix;
+  cprefix.replacement   = prefix;
   ssize_t newpos = completion_apply( &cprefix, sbuf, pos);
   if (newpos < 0) return newpos;  
 
@@ -239,23 +250,27 @@ ic_private ssize_t completions_apply_longest_prefix(completions_t* cms, stringbu
 ic_public bool ic_add_completions(ic_completion_env_t* cenv, const char* prefix, const char** completions) {
   for (const char** pc = completions; *pc != NULL; pc++) {
     if (ic_istarts_with(*pc, prefix)) {
-      if (!ic_add_completion(cenv, NULL, *pc)) return false;
+      if (!ic_add_completion_ex(cenv, *pc, NULL, NULL)) return false;
     }
   }
   return true;
 }
 
-ic_public bool ic_add_completion( ic_completion_env_t* cenv, const char* display, const char* replacement ) {
-  return ic_add_completion_ex(cenv,display,replacement,0,0);
+ic_public bool ic_add_completion(ic_completion_env_t* cenv, const char* replacement) {
+  return ic_add_completion_ex(cenv, replacement, NULL, NULL);
 }
 
-ic_public bool ic_add_completion_ex(ic_completion_env_t* cenv, const char* display, const char* replacement, long delete_before, long delete_after) {
-  return (*cenv->complete)(cenv->env, cenv->closure, display, replacement, delete_before, delete_after );
+ic_public bool ic_add_completion_ex( ic_completion_env_t* cenv, const char* replacement, const char* display, const char* help ) {
+  return ic_add_completion_prim(cenv,replacement,display,help,0,0);
 }
 
-static bool prim_add_completion(ic_env_t* env, void* funenv, const char* display, const char* replacement, long delete_before, long delete_after) {
+ic_public bool ic_add_completion_prim(ic_completion_env_t* cenv, const char* replacement, const char* display, const char* help, long delete_before, long delete_after) {
+  return (*cenv->complete)(cenv->env, cenv->closure, replacement, display, help, delete_before, delete_after );
+}
+
+static bool prim_add_completion(ic_env_t* env, void* funenv, const char* replacement, const char* display, const char* help, long delete_before, long delete_after) {
   ic_unused(funenv);
-  return completions_add(env->completions, display, replacement, delete_before, delete_after);
+  return completions_add(env->completions, replacement, display, help, delete_before, delete_after);
 }
 
 ic_public void ic_set_default_completer(ic_completer_fun_t* completer, void* arg) {

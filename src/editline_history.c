@@ -244,7 +244,7 @@ static void edit_history_search_with_current_word(ic_env_t* env, editor_t* eb) {
   ssize_t start = sbuf_find_word_start( eb->input, eb->pos );
   if (start >= 0) {
     const ssize_t next = sbuf_next(eb->input, start, NULL);
-    if (!ic_char_is_idletter(sbuf_string(eb->input) + start, next - start)) { 
+    if (!ic_char_is_idletter(sbuf_string(eb->input) + start, (long)(next - start))) { 
       start = next; 
     }
     if (start >= 0 && start < eb->pos) {

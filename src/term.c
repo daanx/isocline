@@ -1038,7 +1038,7 @@ static void term_init_raw(term_t* term) {
     // update our color table with the actual colors used.    
     for (unsigned i = 0; i < 16; i++) {
       COLORREF cr = info.ColorTable[i];
-      uint32_t color = (GetRValue(cr)<<16) | (GetGValue(cr)<<8) | GetBValue(cr); // COLORREF = BGR
+      uint32_t color = (ic_cap8(GetRValue(cr))<<16) | (ic_cap8(GetGValue(cr))<<8) | ic_cap8(GetBValue(cr)); // COLORREF = BGR
       // index is also in reverse in the bits 0 and 2 
       unsigned j = (i&0x08) | ((i&0x04)>>2) | (i&0x02) | (i&0x01)<<2;
       debug_msg("term: ansi color %d is 0x%06x\n", j, color);
