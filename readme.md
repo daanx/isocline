@@ -219,12 +219,12 @@ is not always possible to do automatically and you can
 set the `COLORTERM` environment variable expicitly to force Isocline to use
 a specific palette:
 - `COLORTERM=truecolor`: use 24-bit colors.  
-  [<img width="500px" src="doc/ansirgb.jpg"/>](https://github.com/daanx/isocline/blob/main/doc/ansirgb-full.png)
+  <img width="500px" src="doc/color/ansi-truecolor.jpg"/>
 - `COLORTERM=256color`: use the ANSI 256 color palette.  
-  [<img width="500px" src="doc/ansi256.jpg"/>](https://github.com/daanx/isocline/blob/main/doc/ansi256-full.png)
+  <img width="500px" src="doc/color/ansi-256color.jpg"/>
 - `COLORTERM=16color` : use the regular ANSI 16 color 
    palette (8 normal and 8 bright colors).  
-  [<img width="500px" src="doc/ansi16.jpg"/>](https://github.com/daanx/isocline/blob/main/doc/ansi16-full.png)
+   <img width="500px" src="doc/color/ansi-16color.jpg"/>
 - `COLORTERM=8color`: use bold for bright colors.
 - `COLORTERM=monochrome`: use no color.
 
