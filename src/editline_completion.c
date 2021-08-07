@@ -188,8 +188,11 @@ again:
   
   // direct selection?
   if (c >= '1' && c <= '9') {
-    selected = (c - '1');
-    c = KEY_ENTER;
+    ssize_t i = (c - '1');
+    if (i < count) {
+      selected = i;
+      c = KEY_ENTER;
+    }
   }
 
   if (c == KEY_DOWN || c == KEY_TAB) {

@@ -280,35 +280,10 @@ typedef enum file_type_e {
   FT_LAST
 } file_type_t;
 
-static bool file_type_is_dir(file_type_t ft) {
-  return (ft == FT_DIR || (ft >= FT_SETUID && ft <= FT_DIR_STICKY));
-}
-
-typedef struct file_type_mapping_s {
-  const char* ft_key;
-  file_type_t ft;
-} file_type_mapping_t;
-
-static const char* ls_colors_names[] = {
-  "no=",  
-  "di=",
-  "ln=",
-  "so=",
-  "pi=",
-  "bd=",
-  "cd=",
-  "su=",
-  "sg=",
-  "tw=",
-  "ow=",
-  "st=",
-  "ex=",
-  NULL,
-};
-
-static int cli_color;        // 1 enabled, 0 not initialized, -1 disabled
+static int         cli_color; // 1 enabled, 0 not initialized, -1 disabled
 static const char* lscolors  = "exfxcxdxbxegedabagacad";  // default BSD setting
-static const char* ls_colors = "";
+static const char* ls_colors;
+static const char* ls_colors_names[] = { "no=","di=","ln=","so=","pi=","bd=","cd=","su=","sg=","tw=","ow=","st=","ex=", NULL };
 
 static bool ls_colors_init(void) {
   if (cli_color != 0) return (cli_color >= 1);
@@ -323,6 +298,10 @@ static bool ls_colors_init(void) {
   if (s != NULL) { ls_colors = s;  }
   s = getenv("LSCOLORS");
   if (s != NULL) { lscolors = s; }
+  // make sure we can index into lscolors
+  if (ic_strlen(lscolors) < 2*FT_LAST) {
+    lscolors = NULL;
+  }
   return true;
 }
 
@@ -359,7 +338,17 @@ static bool ls_colors_from_key(stringbuf_t* sb, const char* key) {
   return true;
 }
 
-static void ls_color_append(stringbuf_t* sb, file_type_t ft, const char* ext) {
+static void ls_colors_from_char(stringbuf_t* sb, char c, bool background) {
+  int code = 0;
+  if (c >= 'a' && c <= 'h')      { code = (c - 'a' + 30); }
+  else if (c >= 'A' && c <= 'H') { code = (c - 'A' + 90); }
+  else if (c == 'x')             { code = 39; }
+  else return;
+  if (background) { code += 10; }
+  sbuf_appendf(sb, "\x1B[%dm", code);
+}
+
+static void ls_colors_append(stringbuf_t* sb, file_type_t ft, const char* ext) {
   if (!ls_colors_init()) return;
   if (ls_colors != NULL) {
     // GNU style
@@ -372,6 +361,14 @@ static void ls_color_append(stringbuf_t* sb, file_type_t ft, const char* ext) {
       const char* key = ls_colors_names[ft];
       ls_colors_from_key(sb, key);
     }    
+  }
+  else if (lscolors != NULL) {
+    // BSD style
+    assert(ic_strlen(lscolors) >= 2*FT_LAST);
+    char fg = lscolors[2*ft];
+    char bg = lscolors[2*ft + 1];
+    ls_colors_from_char(sb,fg,false);
+    ls_colors_from_char(sb,bg,true);
   }
 }
 
@@ -388,7 +385,7 @@ static bool os_is_dir(const char* cpath) {
 
 static file_type_t os_get_filetype(const char* cpath) {
   struct _stat64 st = { 0 };
-  _lstat64(cpath, &st);
+  _stat64(cpath, &st);
   if (((st.st_mode) & _S_IFDIR) != 0) return FT_DIR;
   if (((st.st_mode) & _S_IFCHR) != 0) return FT_CHAR;
   if (((st.st_mode) & _S_IFIFO) != 0) return FT_PIPE;
@@ -584,7 +581,7 @@ static bool filename_complete_indir( ic_completion_env_t* cenv, stringbuf_t* dir
         if (isdir || match_extension(name, extensions)) {
           // add completion
           sbuf_clear(display);
-          ls_color_append(display, ft, NULL);
+          ls_colors_append(display, ft, NULL);
           sbuf_append(display, name);
           if (isdir && dir_sep != 0) {
             sbuf_append_char(display, dir_sep);
