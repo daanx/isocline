@@ -303,6 +303,12 @@ ic_private void term_append_color(term_t* term, stringbuf_t* sbuf, ic_color_t co
   sbuf_append(sbuf,buf);
 }
 
+ic_private void term_append_bgcolor(term_t* term, stringbuf_t* sbuf, ic_color_t color) {
+  char buf[128+1];
+  fmt_color_ex(buf, 128, term->palette, color, true);
+  sbuf_append(sbuf, buf);
+}
+
 ic_private int term_get_color_bits(term_t* term) {
   switch (term->palette) {
   case MONOCHROME: return 1;

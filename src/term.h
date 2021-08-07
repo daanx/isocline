@@ -71,5 +71,6 @@ ic_private void term_color(term_t* term, ic_color_t color);
 ic_private void term_bgcolor(term_t* term, ic_color_t color);
 
 ic_private void term_append_color(term_t* term, stringbuf_t* sbuf, ic_color_t color);
+ic_private void term_append_bgcolor(term_t* term, stringbuf_t* sbuf, ic_color_t color);
 
 #endif // IC_TERM_H

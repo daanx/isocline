@@ -54,6 +54,7 @@ static void editor_append_completion(ic_env_t* env, editor_t* eb, ssize_t idx, s
       term_append_color(env->term, eb->extra, env->color_info);
       sbuf_append(eb->extra, help);
     }
+    sbuf_append(eb->extra, "\x1B[m");
   }
   else {
     // fit to width
@@ -82,10 +83,8 @@ static void editor_append_completion(ic_env_t* env, editor_t* eb, ssize_t idx, s
         n -= help_len;
       }
     }
-    while (n-- > 0) { sbuf_append(eb->extra, " "); }
-  }
-  if (selected) {
     sbuf_append(eb->extra, "\x1B[m");
+    while (n-- > 0) { sbuf_append(eb->extra, " "); }
   }
 }
 

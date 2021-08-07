@@ -260,16 +260,142 @@ ic_public void ic_complete_qword_ex( ic_completion_env_t* cenv, const char* pref
 // Complete file names
 // Listing files
 //-------------------------------------------------------------
+#include <stdlib.h>
+
+typedef enum file_type_e {
+  // must follow BSD style LSCOLORS order
+  FT_DEFAULT = 0,
+  FT_DIR,
+  FT_SYM,
+  FT_SOCK,
+  FT_PIPE,
+  FT_BLOCK,
+  FT_CHAR,
+  FT_SETUID,
+  FT_SETGID,
+  FT_DIR_OW_STICKY,
+  FT_DIR_OW,
+  FT_DIR_STICKY,
+  FT_EXE,
+  FT_LAST
+} file_type_t;
+
+static bool file_type_is_dir(file_type_t ft) {
+  return (ft == FT_DIR || (ft >= FT_SETUID && ft <= FT_DIR_STICKY));
+}
+
+typedef struct file_type_mapping_s {
+  const char* ft_key;
+  file_type_t ft;
+} file_type_mapping_t;
+
+static const char* ls_colors_names[] = {
+  "no=",  
+  "di=",
+  "ln=",
+  "so=",
+  "pi=",
+  "bd=",
+  "cd=",
+  "su=",
+  "sg=",
+  "tw=",
+  "ow=",
+  "st=",
+  "ex=",
+  NULL,
+};
+
+static int cli_color;        // 1 enabled, 0 not initialized, -1 disabled
+static const char* lscolors  = "exfxcxdxbxegedabagacad";  // default BSD setting
+static const char* ls_colors = "";
+
+static bool ls_colors_init(void) {
+  if (cli_color != 0) return (cli_color >= 1);
+  // colors enabled?
+  const char* s = getenv("CLICOLOR");
+  if (s==NULL || (strcmp(s, "1")!=0 && strcmp(s, "") != 0)) {
+    cli_color = -1;
+    return false;
+  }
+  cli_color = 1;
+  s = getenv("LS_COLORS");
+  if (s != NULL) { ls_colors = s;  }
+  s = getenv("LSCOLORS");
+  if (s != NULL) { lscolors = s; }
+  return true;
+}
+
+static bool ls_valid_esc(ssize_t c) {
+  return ((c==0 || c==1 || c==4 || c==7 || c==22 || c==24  || c==27) ||
+    (c >= 30 && c <= 37) || (c >= 40 && c <= 47) ||
+    (c >= 90 && c <= 97) || (c >= 100 && c <= 107));
+}
+
+static bool ls_colors_from_key(stringbuf_t* sb, const char* key) {
+  // find key
+  ssize_t keylen = ic_strlen(key);
+  if (keylen <= 0) return false;
+  const char* p = strstr(ls_colors, key);
+  if (p != NULL) {
+    p += keylen;
+    if (key[keylen-1] != '=') {
+      if (*p != '=') return false;
+      p++;
+    }
+    // parse colors
+    while (*p != 0 && *p != ':') {
+      while (*p == ';') { p++;  }
+      const char* q = p;
+      while (ic_char_is_digit(q, 1)) { q++; }
+      if (q == p) break;
+      ssize_t clr;
+      if (ic_atoz(p, &clr) && ls_valid_esc(clr)) {
+        sbuf_appendf(sb, "\x1B[%zdm", clr);
+      }
+      p = q;
+    }
+  } 
+  return true;
+}
+
+static void ls_color_append(stringbuf_t* sb, file_type_t ft, const char* ext) {
+  if (!ls_colors_init()) return;
+  if (ls_colors != NULL) {
+    // GNU style
+    if (ft == FT_DEFAULT && ext != NULL) {
+      // first try extension match
+      if (ls_colors_from_key(sb, ext)) return;
+    }
+    if (ft >= FT_DEFAULT && ft < FT_LAST) {
+      // then a filetype match
+      const char* key = ls_colors_names[ft];
+      ls_colors_from_key(sb, key);
+    }    
+  }
+}
+
 
 #if defined(_WIN32)
 #include <io.h>
 #include <sys/stat.h>
 
-static bool os_is_dir(const char* cpath) {  
+static bool os_is_dir(const char* cpath) {
   struct _stat64 st = { 0 };
   _stat64(cpath, &st);
-  return ((st.st_mode & _S_IFDIR) != 0);  // true for symbolic link as well
+  return ((st.st_mode & _S_IFDIR) != 0);
 }
+
+static file_type_t os_get_filetype(const char* cpath) {
+  struct _stat64 st = { 0 };
+  _lstat64(cpath, &st);
+  if (((st.st_mode) & _S_IFDIR) != 0) return FT_DIR;
+  if (((st.st_mode) & _S_IFCHR) != 0) return FT_CHAR;
+  if (((st.st_mode) & _S_IFIFO) != 0) return FT_PIPE;
+  if (((st.st_mode) & _S_IEXEC) != 0) return FT_EXE;
+  return FT_DEFAULT;
+}
+
 
 #define dir_cursor intptr_t
 #define dir_entry  struct __finddata64_t
@@ -316,10 +442,39 @@ ic_private char ic_dirsep(void) {
 
 static bool os_is_dir(const char* cpath) {
   struct stat st;
-  memset(&st,0,sizeof(st));
+  memset(&st, 0, sizeof(st));
   stat(cpath, &st);
-  return ((st.st_mode & S_IFDIR) != 0);
+  return (S_ISDIR(st.st_mode));
 }
+
+static file_type_t os_get_filetype(const char* cpath) {
+  struct stat st;
+  memset(&st, 0, sizeof(st));
+  lstat(cpath, &st);
+  switch ((st.st_mode)&S_IFMT) {
+    case S_IFSOCK: return FT_SOCK;
+    case S_IFLNK: {
+      return FT_SYM;
+    }
+    case S_IFIFO:  return FT_PIPE;
+    case S_IFCHR:  return FT_CHAR;
+    case S_IFBLK:  return FT_BLOCK;
+    case S_IFDIR: {
+      if ((st.st_mode & S_ISUID) != 0) return FT_SETUID;
+      if ((st.st_mode & S_ISGID) != 0) return FT_SETGID;
+      if ((st.st_mode & S_IWGRP) != 0 && (st.st_mode & S_ISVTX) != 0) return FT_DIR_OW_STICKY;
+      if ((st.st_mode & S_IWGRP)) return FT_DIR_OW;
+      if ((st.st_mode & S_ISVTX)) return FT_DIR_STICKY;
+      return FT_DIR;
+    }
+    case S_IFREG:
+    default: {
+      if ((st.st_mode & S_IXUSR) != 0) return FT_EXE;
+      return FT_DEFAULT;
+    }
+  }  
+}
+
 
 #define dir_cursor DIR*
 #define dir_entry  struct dirent*
@@ -411,22 +566,29 @@ static bool filename_complete_indir( ic_completion_env_t* cenv, stringbuf_t* dir
           ic_istarts_with(name, base_prefix))
       {
         // possible match, first check if it is a directory
+        file_type_t ft;
         bool isdir;
         const ssize_t plen = sbuf_len(dir_prefix);
         sbuf_append(dir_prefix, name);
-        sbuf_replace(display, name);
         { // check directory and potentially add a dirsep to the dir_prefix
           const ssize_t dlen = sbuf_len(dir);
           sbuf_append_char(dir,ic_dirsep());
           sbuf_append(dir,name);
+          ft = os_get_filetype(sbuf_string(dir));
           isdir = os_is_dir(sbuf_string(dir));
           if (isdir && dir_sep != 0) {
             sbuf_append_char(dir_prefix,dir_sep); 
-            sbuf_append_char(display, dir_sep);
           }
           sbuf_delete_from(dir,dlen);  // restore dir
         }
         if (isdir || match_extension(name, extensions)) {
+          // add completion
+          sbuf_clear(display);
+          ls_color_append(display, ft, NULL);
+          sbuf_append(display, name);
+          if (isdir && dir_sep != 0) {
+            sbuf_append_char(display, dir_sep);
+          }
           cont = ic_add_completion_ex(cenv, sbuf_string(dir_prefix), sbuf_string(display), NULL);
         }
         sbuf_delete_from( dir_prefix, plen ); // restore dir_prefix
