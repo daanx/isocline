@@ -210,6 +210,14 @@ Some other excellent libraries that we considered:
 
 # Internals
 
+## Environment Variables
+
+- `NO_COLOR`: if present no colors are displayed.
+- `CLICOLOR=1`: if set, the `LSCOLORS` or `LS_COLORS` environment variables are used to colorize
+  filename completions.
+- `COLORTERM=`(`truecolor`|`256color`|`16color`|`8color`|`monochrome`): enable a certain color palette, see the next section.
+- `TERM`: used on some systems to determine the color
+
 ## Colors
 
 Isocline supports 24-bit colors and any RGB colors are automatically
@@ -254,13 +262,25 @@ supported:
   for the foreground or background color.
 - `ESC[38;2;`_r_`;`_g_`;`_b_`m`, `ESC[48;2;`_r_`;`_g_`;`_b_`m`: 
   on terminals that support it, select
-  any 24-bit RGB color for foreground or background. 
-  Set the environment variable `COLORTERM=truecolor` 
-  to enable this on capable terminals.
+  any 24-bit RGB color for foreground or background.  
     
 On Windows the above functionality is implemented using the Windows console API
 (except if running in the new Windows Terminal which supports these escape
 sequences natively).
+
+## Async
+
+The best way to use `ic_readline` asynchronously is
+to run it in a (blocking) dedicated thread and deliver
+results from there to the async event loop. Isocline has the
+```C
+bool ic_async_stop(void)
+```
+function that is thread-safe and can deliver an
+asynchronous event to Isocline that unblocks a current
+`ic_readline` and makes it behave as if the user pressed
+`ctrl-c` (which returns NULL from the read line call).
+
 
 ## Possible Future Extensions
 

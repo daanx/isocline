@@ -25,7 +25,9 @@ int main()
           "- Type 'exit' to quit. (or use ctrl+d).\n"
           "- Press F1 for help on editing commands.\n"
           "- Use shift+tab for multiline input. (or ctrl+enter, or ctrl+j)\n"
-          "- Type 'p' (or 'id', 'f', or 'h') followed by tab for completion.\n\n" );
+          "- Type 'p' (or 'id', 'f', or 'h') followed by tab for completion.\n"
+          "- Type 'fun' or 'int' to see syntax highlighting\n"
+          "- Use ctrl+r to search the history.\n\n" );
   
   // enable history; use a NULL filename to not persist history to disk
   ic_set_history("history.txt", -1 /* default entries (= 200) */);
@@ -118,7 +120,8 @@ static void completer(ic_completion_env_t* cenv, const char* input )
 
 // A highlight function is called by isocline when input can be highlighted.
 // Use `ic_highlight_color` (or `bgcolor`, `underline`) to highlight characters from
-// a given position. Here we use some convenience functions to easily highlight
+// a given position until another attribute is set. 
+// Here we use some convenience functions to easily highlight
 // simple tokens but a full-fledged highlighter probably needs regular expressions.
 static void highlighter(ic_highlight_env_t* henv, const char* input, void* arg) {
   (void)(arg); // unused
