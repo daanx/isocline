@@ -289,3 +289,30 @@ asynchronous event to Isocline that unblocks a current
 - ...
 
 Contact me if you are interested in doing any of these :-)
+
+
+## Color Mapping
+
+To map full RGB colors to an ANSI 256 or 16-color palette
+Isoclines pick a color with a minimal distance. There are various
+ways of calculating this: one way is to take the euclidean distance
+in the sRGB space (_simple-rgb_), a slightly better way is to 
+take a weighted distance that takes the human perception of each
+color component into account (_delta-rgb_, this is used by Iscoclines),
+and finally, we can first translate into the perceptual color space
+CIElab and calculate the distance there using the CIEDE2000 
+algorithm (_ciede2000_). Here are these three methods compared on
+some colors: 
+
+![color space comparison](doc/color/colorspace-map.png)
+
+Each top row is the true 24-bit RGB color. Surprisingly,
+the sophisticated CIEDE2000 seems not so good compared to the 
+simpler methods.
+This might be because this algorithm was created to find close
+perceptual colors in images where lightness differences may be given
+less weight. The CIEDE2000 also leads to more "outliers", for example
+in column 5. Given these results Isoclines uses _delta-rgb_ for
+color mapping. It adds to this a gray correction that makes it less
+likely to substitute a color for a gray value (and the other way
+around).
