@@ -210,6 +210,14 @@ Some other excellent libraries that we considered:
 
 # Internals
 
+## Environment Variables
+
+- `NO_COLOR`: if present no colors are displayed.
+- `CLICOLOR=1`: if set, the `LSCOLORS` or `LS_COLORS` environment variables are used to colorize
+  filename completions.
+- `COLORTERM=`(`truecolor`|`256color`|`16color`|`8color`|`monochrome`): enable a certain color palette, see the next section.
+- `TERM`: used on some systems to determine the color
+
 ## Colors
 
 Isocline supports 24-bit colors and any RGB colors are automatically
@@ -254,9 +262,7 @@ supported:
   for the foreground or background color.
 - `ESC[38;2;`_r_`;`_g_`;`_b_`m`, `ESC[48;2;`_r_`;`_g_`;`_b_`m`: 
   on terminals that support it, select
-  any 24-bit RGB color for foreground or background. 
-  Set the environment variable `COLORTERM=truecolor` 
-  to enable this on capable terminals.
+  any 24-bit RGB color for foreground or background.  
     
 On Windows the above functionality is implemented using the Windows console API
 (except if running in the new Windows Terminal which supports these escape
