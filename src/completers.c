@@ -297,11 +297,7 @@ static bool ls_colors_init(void) {
   s = getenv("LS_COLORS");
   if (s != NULL) { ls_colors = s;  }
   s = getenv("LSCOLORS");
-  if (s != NULL) { lscolors = s; }
-  // make sure we can index into lscolors
-  if (ic_strlen(lscolors) < 2*FT_LAST) {
-    lscolors = NULL;
-  }
+  if (s != NULL) { lscolors = s; }  
   return true;
 }
 
@@ -364,9 +360,12 @@ static void ls_colors_append(stringbuf_t* sb, file_type_t ft, const char* ext) {
   }
   else if (lscolors != NULL) {
     // BSD style
-    assert(ic_strlen(lscolors) >= 2*FT_LAST);
-    char fg = lscolors[2*ft];
-    char bg = lscolors[2*ft + 1];
+    char fg = 'x';
+    char bg = 'x';
+    if (ic_strlen(lscolors) > 2*ft+1) {
+      fg = lscolors[2*ft];
+      bg = lscolors[2*ft + 1];
+    }
     ls_colors_from_char(sb,fg,false);
     ls_colors_from_char(sb,bg,true);
   }
@@ -581,7 +580,9 @@ static bool filename_complete_indir( ic_completion_env_t* cenv, stringbuf_t* dir
         if (isdir || match_extension(name, extensions)) {
           // add completion
           sbuf_clear(display);
-          ls_colors_append(display, ft, NULL);
+          if (!cenv->env->no_lscolors) {
+            ls_colors_append(display, ft, NULL);
+          }
           sbuf_append(display, name);
           if (isdir && dir_sep != 0) {
             sbuf_append_char(display, dir_sep);
