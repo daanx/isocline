@@ -162,7 +162,7 @@ typedef struct rgb_cache_s {
   ic_color_t colors[RGB_CACHE_LEN];
 } rgb_cache_t;
 
-// remember a color in the cache
+// remember a color in the LRU cache
 void rgb_remember( rgb_cache_t* cache, ic_color_t color, int idx ) {
   if (cache == NULL) return;
   cache->colors[cache->last] = color;
@@ -195,7 +195,7 @@ static int rgb_match( uint32_t* palette, int start, int len, rgb_cache_t* cache,
   min = start;
   int_least32_t mindist = INT_LEAST32_MAX;
   for(int i = start; i < len; i++) {
-    //int_least32_t dist = rgb_distance_delta(palette[i],r,g,b);
+    //int_least32_t dist = rgb_distance_rbmean(palette[i],r,g,b);
     int_least32_t dist = rgb_distance_rmean(palette[i],r,g,b);
     if (len <= 16 && is_grayish_color(palette[i]) != is_grayish(r, g, b)) { 
       // with few colors, make it less eager to substitute a gray for a non-gray (or the other way around)

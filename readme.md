@@ -294,7 +294,8 @@ Contact me if you are interested in doing any of these :-)
 ## Color Mapping
 
 To map full RGB colors to an ANSI 256 or 16-color palette
-Isoclines pick a color with a minimal distance. There are various
+Isoclines finds a palette color with the minimal "color distance" to
+the original color. There are various
 ways of calculating this: one way is to take the euclidean distance
 in the sRGB space (_simple-rgb_), a slightly better way is to 
 take a weighted distance where the weight distribution is adjusted
@@ -310,11 +311,11 @@ some colors:
 
 Each top row is the true 24-bit RGB color. Surprisingly,
 the sophisticated CIEDE2000 distance seems less good here compared to the 
-simpler methods as in the upper left block for example
+simpler methods (as in the upper left block for example)
 (perhaps  because this algorithm was created to find close
 perceptual colors in images where lightness differences may be given
 less weight?). CIEDE2000 also leads to more "outliers", for example as seen
-in column 5. Given these results Isoclines uses _redmean_ for
-color mapping. It adds to this a gray correction that makes it less
+in column 5. Given these results, Isoclines uses _redmean_ for
+color mapping. We also add a gray correction that makes it less
 likely to substitute a color for a gray value (and the other way
 around).

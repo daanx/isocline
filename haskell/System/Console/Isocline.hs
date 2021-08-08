@@ -19,7 +19,7 @@ which can provide an alternative to GNU Readline.
 Isocline works across Unix, Windows, and macOS, and relies on a minimal subset of ANSI escape sequences.
 It has a good multi-line editing mode (use shift/ctrl-enter) which is nice for inputting small functions etc.
 Other features include support for colors, history, completion, unicode, undo/redo, 
-incremental history search, inline hints, syntax highlighting, etc.
+incremental history search, inline hints, brace matching, syntax highlighting, etc.
 
 Minimal example with history:
 
