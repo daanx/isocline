@@ -310,11 +310,11 @@ some colors:
 
 Each top row is the true 24-bit RGB color. Surprisingly,
 the sophisticated CIEDE2000 distance seems less good here compared to the 
-simpler methods 
+simpler methods as in the upper left block for example
 (perhaps  because this algorithm was created to find close
 perceptual colors in images where lightness differences may be given
 less weight?). The CIEDE2000 also leads to more "outliers", for example as seen
-in column 5. Given these results Isoclines uses _delta-rgb_ (_redmean_) for
+in column 5. Given these results Isoclines uses _redmean_ for
 color mapping. It adds to this a gray correction that makes it less
 likely to substitute a color for a gray value (and the other way
 around).
