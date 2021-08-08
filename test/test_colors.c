@@ -12,6 +12,7 @@
 #include <string.h>
 #include "isocline.h"
 
+static const char* patch = "■";
 
 typedef enum color_order_e {
   RGB,
@@ -30,13 +31,13 @@ static void write_palette( int order) {
       for (int z = 0; z <= 256; z += 32) {
         ic_color_t c = (order == RGB ? ic_rgbx(x,y,z) : (order == BGR ? ic_rgbx(z,y,x) : ic_rgbx(y,x,z)));
         ic_term_color( c );
-        ic_term_write("@");
+        ic_term_write(patch);
       }
+      ic_term_reset();
       ic_term_write(" ");
     }
   }
   ic_term_reset();
-  ic_term_write("\n\n");
 }
 
 static void show_ansi_color( ic_color_t color, const char* name ) {
@@ -60,26 +61,26 @@ int main()
   ic_term_color(IC_ANSI_MAROON); ic_term_write("ansi8-red ");
   ic_term_color(IC_ANSI_RED); ic_term_write("ansi16-bright-red ");
   ic_term_color(IC_RGB(0xD70000)); ic_term_write("ansi256-red160 ");
-  ic_term_color(IC_RGB(0xfa1754)); ic_term_write("rgb-cherry");
+  ic_term_color(IC_RGB(0xfa1754)); ic_term_write("ansirgb-cherry");
   ic_term_reset(); ic_term_writeln("");
 
   // Shades
   ic_term_writeln("\nshades:");
   for (int i = 0; i <= 64; i++) {
-    ic_term_color(ic_rgbx((i==64 ? 255 : i*4), 0, 0)); ic_term_write((i%8==0 ? "#" : "@"));
+    ic_term_color(ic_rgbx((i==64 ? 255 : i*4), 0, 0)); ic_term_write(patch);
   }
   ic_term_writeln("");  
   for (int i = 0; i <= 64; i++) {
-    ic_term_color(ic_rgbx(0, (i==64 ? 255 : i*4), 0)); ic_term_write((i%8==0 ? "#" : "@"));
+    ic_term_color(ic_rgbx(0, (i==64 ? 255 : i*4), 0)); ic_term_write(patch);
   }
   ic_term_writeln("");  
   for (int i = 0; i <= 64; i++) {
-    ic_term_color(ic_rgbx(0, 0, (i==64 ? 255 : i*4))); ic_term_write((i%8==0 ? "#" : "@"));
+    ic_term_color(ic_rgbx(0, 0, (i==64 ? 255 : i*4))); ic_term_write(patch);
   }
   ic_term_writeln("");  
   for (int i = 0; i <= 64; i++) {
     int g = (i==64 ? 255 : i*4);
-    ic_term_color(ic_rgbx(g, g, g)); ic_term_write((i%8==0 ? "#" : "@"));
+    ic_term_color(ic_rgbx(g, g, g)); ic_term_write(patch);
   }
   ic_term_writeln("");
   ic_term_reset();

@@ -109,29 +109,51 @@ static bool is_grayish(int r, int g, int b) {
   return (abs(r-g) <= 4) && (abs((r+g)/2 - b) <= 4);
 }
 
+static bool is_grayish_color( uint32_t rgb ) {
+  int r, g, b;
+  color_to_rgb(IC_RGB(rgb),&r,&g,&b);
+  return is_grayish(r,g,b);
+}
+
+static int_least32_t sqr(int_least32_t x) {
+  return x*x;
+}
 
 // Approximation to delta-E CIE color distance using much 
-// simpler calculations. See <https://www.compuphase.com/cmetric.htm>
+// simpler calculations. See <https://www.compuphase.com/cmetric.htm>.
+// This is essentialy weighted euclidean distance but the weight distribution
+// depends on how big the "red" component of the color is.
 // We do not take the square root as we only need to find 
 // the minimal distance (and multiply by 256 to increase precision).
 // Needs at least 28-bit signed integers to avoid overflow. 
-static int_least32_t rgb_distance( uint32_t color, int r2, int g2, int b2 ) {
+static int_least32_t rgb_distance_rmean( uint32_t color, int r2, int g2, int b2 ) {
   int r1, g1, b1;
   color_to_rgb(IC_RGB(color),&r1,&g1,&b1);
   int_least32_t rmean = (r1 + r2) / 2;
-  int_least32_t dr = r1 - r2;
-  int_least32_t dg = g1 - g2;
-  int_least32_t db = b1 - b2;
-  int_least32_t dist = ((512+rmean)*dr*dr) + 1024*dg*dg + ((767-rmean)*db*db);  
-  if (is_grayish(r1, g1, b1) != is_grayish(r2, g2, b2)) { 
-    // make it less eager to substitute a gray for a non-gray (or the other way around)
-    dist *= 3;
-  } 
+  int_least32_t dr2 = sqr(r1 - r2);
+  int_least32_t dg2 = sqr(g1 - g2);
+  int_least32_t db2 = sqr(b1 - b2);
+  int_least32_t dist = ((512+rmean)*dr2) + 1024*dg2 + ((767-rmean)*db2);    
   return dist;
 }
 
+// Another approximation to delta-E CIE color distance using
+// simpler calculations. Similar to `rmean` but adds an adjustment factor
+// based on the "red/blue" difference.
+static int_least32_t rgb_distance_delta( uint32_t color, int r2, int g2, int b2 ) {
+  int r1, g1, b1;
+  color_to_rgb(IC_RGB(color),&r1,&g1,&b1);
+  int_least32_t rmean = (r1 + r2) / 2;
+  int_least32_t dr2 = sqr(r1 - r2);
+  int_least32_t dg2 = sqr(g1 - g2);
+  int_least32_t db2 = sqr(b1 - b2);
+  int_least32_t dist = 2*dr2 + 4*dg2 + 3*db2 + ((rmean*(dr2 - db2))/256);  
+  return dist;
+}
+
+
 // Maintain a small cache of recently used colors. Should be short enough to be effectively constant time.
-// If we use a more expensive color distance method, we may increase the size a bit (64?) 
+// If we ever use a more expensive color distance method, we may increase the size a bit (64?) 
 // (Initial zero initialized cache is valid.)
 #define RGB_CACHE_LEN (16)
 typedef struct rgb_cache_s {
@@ -173,7 +195,12 @@ static int rgb_match( uint32_t* palette, int start, int len, rgb_cache_t* cache,
   min = start;
   int_least32_t mindist = INT_LEAST32_MAX;
   for(int i = start; i < len; i++) {
-    int_least32_t dist = rgb_distance(palette[i],r,g,b);
+    //int_least32_t dist = rgb_distance_delta(palette[i],r,g,b);
+    int_least32_t dist = rgb_distance_rmean(palette[i],r,g,b);
+    if (len <= 16 && is_grayish_color(palette[i]) != is_grayish(r, g, b)) { 
+      // with few colors, make it less eager to substitute a gray for a non-gray (or the other way around)
+      dist *= 4;
+    } 
     if (dist < mindist) {
       min = i;
       mindist = dist;
