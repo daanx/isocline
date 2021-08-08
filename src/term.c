@@ -940,9 +940,9 @@ static bool term_esc_query_color_raw(term_t* term, int color_idx, uint32_t* colo
   unsigned int r,g,b;
   if (sscanf(rgb,"%x/%x/%x",&r,&g,&b) != 3) return false;
   if (rgb[2]!='/') { // 48-bit rgb, hexadecimal round to 24-bit     
-    r = (r+0x7F)/0xFF;   // note: can "overflow", e.g. 0xFFFF -> 0x100. (and we need `ic_cap8` to convert.)
-    g = (g+0x7F)/0xFF;
-    b = (b+0x7F)/0xFF; 
+    r = (r+0x7F)/0x100;   // note: can "overflow", e.g. 0xFFFF -> 0x100. (and we need `ic_cap8` to convert.)
+    g = (g+0x7F)/0x100;
+    b = (b+0x7F)/0x100; 
   }
   *color = (ic_cap8(r)<<16) | (ic_cap8(g)<<8) | ic_cap8(b);
   debug_msg("color query: %02x,%02x,%02x: %06x\n", r, g, b, *color);  
