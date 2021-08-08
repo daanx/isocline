@@ -193,13 +193,18 @@ static int rgb_match( uint32_t* palette, int start, int len, rgb_cache_t* cache,
   int r, g, b;
   color_to_rgb(color,&r,&g,&b);
   min = start;
-  int_least32_t mindist = INT_LEAST32_MAX;
+  int_least32_t mindist = (INT_LEAST32_MAX)/4;
   for(int i = start; i < len; i++) {
     //int_least32_t dist = rgb_distance_rbmean(palette[i],r,g,b);
     int_least32_t dist = rgb_distance_rmean(palette[i],r,g,b);
-    if (len <= 16 && is_grayish_color(palette[i]) != is_grayish(r, g, b)) { 
+    if (is_grayish_color(palette[i]) != is_grayish(r, g, b)) { 
       // with few colors, make it less eager to substitute a gray for a non-gray (or the other way around)
-      dist *= 4;
+      if (len <= 16) {
+        dist *= 4;
+      } 
+      else {
+        dist = (dist/4)*5;
+      }
     } 
     if (dist < mindist) {
       min = i;
@@ -245,7 +250,7 @@ static int color_to_ansi8(ic_color_t color) {
     // and then adjust for brightness
     int r, g, b;
     color_to_rgb(color,&r,&g,&b);
-    if (r>196 || g>196 || b>196) c += 60;
+    if (r>=196 || g>=196 || b>=196) c += 60;
     //debug_msg("term: rgb %x -> ansi 8: %d\n", color, c );
     return c;
   }
