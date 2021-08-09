@@ -20,6 +20,32 @@ typedef enum color_order_e {
   GRB
 } color_order_t;
 
+#include "../src/bbcode_colors.c"
+
+static int color_weight(ic_color_t c) {
+  return (int)(c);
+}
+static int html_color_compare(const void* p1, const void* p2) {
+  const style_color_t* s1 = (const style_color_t*)p1;
+  const style_color_t* s2 = (const style_color_t*)p2;
+  int w1 = color_weight(s1->color);
+  int w2 = color_weight(s2->color);
+  return (w1 - w2);
+}
+
+#define COL 10
+static void write_html_colors(void) {
+  qsort(html_colors, IC_HTML_COLOR_COUNT, sizeof(html_colors[0]), &html_color_compare );
+  ic_term_print("print html colors\n");  
+  for(int i = 0; i < IC_HTML_COLOR_COUNT-1; i++) {
+    char buf[COL+1];
+    snprintf(buf,COL+1,"%s                  ", html_colors[i].name);
+    ic_term_printf("[bgcolor=%s]%s[/] ", html_colors[i].name, buf);
+    if ((i+1)%8 == 0) ic_term_print("\n\n");
+  }
+  ic_term_writeln("");  
+}
+
 static void write_palette( int order) {
   ic_term_write("\n  // ");
   ic_term_write(order == RGB ? "17x9x9" : (order == BGR ? "9x9x17" : "9x17x9"));
@@ -40,8 +66,8 @@ static void write_palette( int order) {
   ic_term_reset();
 }
 
-static void show_ansi_color( ic_color_t color, const char* name ) {
-  ic_term_printf("\x1B[%dm%16s\x1B[0m | \x1B[1;%dmbold\x1B[0m | \x1B[%dmbright\x1B[0m\n", color, name, color, color+60);    
+static void show_ansi_color( ic_color_t color, const char* name, const char* brightname ) {
+  ic_term_writef("\x1B[%dm%16s\x1B[0m | \x1B[1;%dmbold\x1B[0m | \x1B[%dm%s\x1B[0m\n", color, name, color, color+60, brightname);    
 }
 
 // main example
@@ -49,7 +75,7 @@ int main()
 {
   ic_term_init();
   // how many bits has our palette? (24 bits is good :-)
-  ic_term_printf("terminal color bits: %d\n", ic_term_get_color_bits());
+  ic_term_writef("terminal color bits: %d\n", ic_term_get_color_bits());
 
   // Write out a palette
   ic_term_writeln("colors rgb:"); 
@@ -87,21 +113,22 @@ int main()
   
   // direct ANSI escapes
   ic_term_write("\n\ndirect ansi escape sequence colors:\n");
-  show_ansi_color(IC_ANSI_BLACK,"black");
-  show_ansi_color(IC_ANSI_MAROON,"maroon");
-  show_ansi_color(IC_ANSI_GREEN,"green");
-  show_ansi_color(IC_ANSI_ORANGE,"orange/brown");
-  show_ansi_color(IC_ANSI_NAVY,"navy");
-  show_ansi_color(IC_ANSI_PURPLE,"purple");
-  show_ansi_color(IC_ANSI_TEAL,"teal");
-  show_ansi_color(IC_ANSI_LIGHTGRAY,"lighgray/white");
-  show_ansi_color(IC_ANSI_DEFAULT,"default");
+  show_ansi_color(IC_ANSI_BLACK,"black","gray");
+  show_ansi_color(IC_ANSI_MAROON,"maroon","red");
+  show_ansi_color(IC_ANSI_GREEN,"green","lime");
+  show_ansi_color(IC_ANSI_OLIVE,"olive","yellow");
+  show_ansi_color(IC_ANSI_NAVY,"navy","blue");
+  show_ansi_color(IC_ANSI_PURPLE,"purple","fuchsia");
+  show_ansi_color(IC_ANSI_TEAL,"teal","aqua");
+  show_ansi_color(IC_ANSI_LIGHTGRAY,"silver","white");
+  show_ansi_color(IC_ANSI_DEFAULT,"default","default");
   
   ic_term_reset();
   ic_term_writeln("");
 
 
-  ic_fmt_print( "[b]bold [i]bold and italic[/i] [red]bold and red[/red][/b] default\n");
+  ic_term_print( "[b]bold [i]bold and italic[/i] [red]bold and red[/red][/b] default\n");  
+  write_html_colors();
 
   ic_term_done();
   return 0;

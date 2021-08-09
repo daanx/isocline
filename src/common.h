@@ -68,6 +68,7 @@ ic_private bool    ic_icontains(const char* big, const char* s);
 ic_private char    ic_tolower(char c);
 ic_private void    ic_str_tolower(char* s);
 ic_private int     ic_stricmp(const char* s1, const char* s2);
+ic_private int     ic_strnicmp(const char* s1, const char* s2, ssize_t n);
 
 
 

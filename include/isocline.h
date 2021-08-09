@@ -185,39 +185,44 @@ ic_color_t ic_rgbx(int r, int g, int b);
 #define IC_ANSI_BLACK     (30)
 #define IC_ANSI_MAROON    (31)
 #define IC_ANSI_GREEN     (32)
-#define IC_ANSI_ORANGE    (33)
+#define IC_ANSI_OLIVE     (33)
 #define IC_ANSI_NAVY      (34)
 #define IC_ANSI_PURPLE    (35)
 #define IC_ANSI_TEAL      (36)
-#define IC_ANSI_LIGHTGRAY (37)
+#define IC_ANSI_SILVER    (37)
 #define IC_ANSI_DEFAULT   (39)
 
-#define IC_ANSI_DARKGRAY  (90)
+#define IC_ANSI_GRAY      (90)
 #define IC_ANSI_RED       (91)
 #define IC_ANSI_LIME      (92)
 #define IC_ANSI_YELLOW    (93)
 #define IC_ANSI_BLUE      (94)
-#define IC_ANSI_MAGENTA   (95)
-#define IC_ANSI_CYAN      (96)
+#define IC_ANSI_FUCHSIA   (95)
+#define IC_ANSI_AQUA      (96)
 #define IC_ANSI_WHITE     (97)
+
+#define IC_ANSI_DARKGRAY  IC_ANSI_GRAY
+#define IC_ANSI_LIGHTGRAY IC_ANSI_SILVER
+#define IC_ANSI_MAGENTA   IC_ANSI_FUCHSIA
+#define IC_ANSI_CYAN      IC_ANSI_AQUA
 
 // Predefined RGB colors.
 #define IC_BLACK          IC_RGB(0x000000)
 #define IC_MAROON         IC_RGB(0x800000)
 #define IC_GREEN          IC_RGB(0x008000)
-#define IC_ORANGE         IC_RGB(0x808000)
+#define IC_OLIVE          IC_RGB(0x808000)
 #define IC_NAVY           IC_RGB(0x000080)
 #define IC_PURPLE         IC_RGB(0x800080)
 #define IC_TEAL           IC_RGB(0x008080)
-#define IC_LIGHTGRAY      IC_RGB(0xC0C0C0)
+#define IC_SILVER         IC_RGB(0xC0C0C0)
 
-#define IC_DARKGRAY       IC_RGB(0x808080)
+#define IC_GRAY           IC_RGB(0x808080)
 #define IC_RED            IC_RGB(0xFF0000)
 #define IC_LIME           IC_RGB(0x00FF00)
 #define IC_YELLOW         IC_RGB(0xFFFF00)
 #define IC_BLUE           IC_RGB(0x0000FF)
-#define IC_MAGENTA        IC_RGB(0xFF00FF)
-#define IC_CYAN           IC_RGB(0x00FFFF)
+#define IC_FUCHSIA        IC_RGB(0xFF00FF)
+#define IC_AQUA           IC_RGB(0x00FFFF)
 #define IC_WHITE          IC_RGB(0xFFFFFF)
 
 
@@ -502,10 +507,10 @@ void ic_term_write(const char* s);
 void ic_term_writeln(const char* s);
 
 // Write a formatted string to the console (and process CSI escape sequences)
-void ic_term_printf(const char* fmt, ...);
+void ic_term_writef(const char* fmt, ...);
 
 // Write a formatted string to the console.
-void ic_term_vprintf(const char* fmt, va_list args);
+void ic_term_vwritef(const char* fmt, va_list args);
 
 // Set the text color in a portable way where colors auto translate on terminals with less color.
 void ic_term_color( ic_color_t color );
@@ -536,7 +541,13 @@ int ic_term_get_color_bits( void );
 // bbcode formatting
 //--------------------------------------------------------------
 
-void ic_fmt_print( const char* s );
+void ic_term_print( const char* s );
+void ic_term_printf(const char* fmt, ...);
+void ic_term_vprintf(const char* fmt, va_list args);
+
+void ic_term_add_style( const char* s, const char* fmt );
+void ic_term_start_style( const char* fmt );
+void ic_term_end_style( const char* name );
 
 //--------------------------------------------------------------
 // Async support

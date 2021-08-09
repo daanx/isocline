@@ -361,14 +361,14 @@ ic_public void ic_term_writeln(const char* s) {
   term_writeln(env->term, s);
 }
 
-ic_public void ic_term_printf(const char* fmt, ...) {
+ic_public void ic_term_writef(const char* fmt, ...) {
   va_list ap;
   va_start(ap, fmt);
-  ic_term_vprintf(fmt, ap);
+  ic_term_vwritef(fmt, ap);
   va_end(ap);
 }
 
-ic_public void ic_term_vprintf(const char* fmt, va_list args) {
+ic_public void ic_term_vwritef(const char* fmt, va_list args) {
   ic_env_t* env = ic_get_env(); if (env==NULL) return;
   if (env->term == NULL) return;
   term_vwritef(env->term, fmt, args);
@@ -418,9 +418,37 @@ ic_private const char* ic_env_get_auto_braces(ic_env_t* env) {
   return (env->auto_braces == NULL ? "()[]{}\"\"''" : env->auto_braces);
 }
 
-ic_public void ic_fmt_print( const char* s ) {
+
+ic_public void ic_term_printf(const char* fmt, ...) {
+  va_list ap;
+  va_start(ap, fmt);
+  ic_term_vprintf(fmt, ap);
+  va_end(ap);
+}
+
+ic_public void ic_term_vprintf(const char* fmt, va_list args) {
+  ic_env_t* env = ic_get_env(); if (env==NULL || env->bbcode == NULL) return;
+  bbcode_vprintf(env->bbcode, fmt, args);
+}
+
+ic_public void ic_term_print( const char* s ) {
   ic_env_t* env = ic_get_env(); if (env==NULL || env->bbcode==NULL) return;
   bbcode_print( env->bbcode, s );
+}
+
+void ic_term_add_style( const char* name, const char* fmt ) {
+  ic_env_t* env = ic_get_env(); if (env==NULL || env->bbcode==NULL) return;
+  bbcode_parse_style(env->bbcode, name, fmt);
+}
+
+void ic_term_start_style( const char* fmt ) {
+  ic_env_t* env = ic_get_env(); if (env==NULL || env->bbcode==NULL) return;
+  bbcode_start_style( env->bbcode, fmt );
+}
+
+void ic_term_end_style( const char* name ) {
+  ic_env_t* env = ic_get_env(); if (env==NULL || env->bbcode==NULL) return;
+  bbcode_end_style( env->bbcode, name );
 }
 
 //-------------------------------------------------------------

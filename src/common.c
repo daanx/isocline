@@ -113,7 +113,7 @@ ic_public bool ic_istarts_with( const char* s, const char* prefix ) {
 }
 
 
-static int ic_strnicmp(const char* s1, const char* s2, ssize_t n) {
+ic_private int ic_strnicmp(const char* s1, const char* s2, ssize_t n) {
   if (s1 == NULL && s2 == NULL) return 0;
   if (s1 == NULL) return -1;
   if (s2 == NULL) return 1;

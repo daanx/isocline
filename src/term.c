@@ -169,8 +169,8 @@ ic_private void term_set_attr( term_t* term, term_attr_t attr ) {
   if (attr.italic != term->attr.italic && attr.italic != IC_NONE) {
     term_italic(term,attr.italic == IC_ON);
   }
-  assert(attr.color == term->attr.color || attr.color == IC_COLOR_NONE);
-  assert(attr.bgcolor == term->attr.bgcolor || attr.bgcolor == IC_COLOR_NONE);
+  assert(attr.color == term->attr.color || attr.color == IC_COLOR_NONE || term->palette < ANSIRGB);
+  assert(attr.bgcolor == term->attr.bgcolor || attr.bgcolor == IC_COLOR_NONE || term->palette < ANSIRGB);
   assert(attr.bold == term->attr.bold || attr.bold == IC_NONE);
   assert(attr.reverse == term->attr.reverse || attr.reverse == IC_NONE);
   assert(attr.underline == term->attr.underline || attr.underline == IC_NONE);
@@ -451,7 +451,7 @@ static void sgr_process( term_attr_t* attr, const char* s, ssize_t len) {
         else if (cmd >= 40 && cmd <= 47) {
           attr->bgcolor = IC_ANSI_BLACK + (cmd - 40);
         }
-        if (cmd >= 90 && cmd <= 97) {
+        else if (cmd >= 90 && cmd <= 97) {
           attr->color = IC_ANSI_DARKGRAY + (cmd - 90);
         }
         else if (cmd >= 100 && cmd <= 107) {
