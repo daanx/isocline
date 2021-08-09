@@ -177,7 +177,7 @@ ic_color_t ic_rgbx(int r, int g, int b);
 
 
 #define IC_COLOR_NONE     (0)
-#define IC_RGB(rgb)       ic_rgb(rgb)
+#define IC_RGB(rgb)       (0x1000000 | (uint32_t)(rgb)) // ic_rgb(rgb)  // define to it can be used as a constant
 
 // ANSI colors.
 // The actual colors used is usually determined by the terminal theme
@@ -531,6 +531,12 @@ void ic_term_reset( void );
 //  8: terminal with ANSI 256 color palette.     (256color/8bit)
 // 24: true-color terminal with full RGB colors. (truecolor/24bit)
 int ic_term_get_color_bits( void );
+
+//--------------------------------------------------------------
+// bbcode formatting
+//--------------------------------------------------------------
+
+void ic_fmt_print( const char* s );
 
 //--------------------------------------------------------------
 // Async support

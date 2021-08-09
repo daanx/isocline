@@ -43,10 +43,11 @@ struct term_s {
   int           fd_out;             // output handle
   ssize_t       width;              // screen column width
   ssize_t       height;             // screen row height
+  ssize_t       raw_enabled;        // is raw mode active? counted by start/end pairs
   bool          nocolor;            // show colors?
   bool          silent;             // enable beep?
-  ssize_t       raw_enabled;        // is raw mode active? counted by start/end pairs
   bool          is_utf8;            // utf-8 output? determined by the tty
+  term_attr_t   attr;               // current text attributes
   palette_t     palette;            // color support
   buffer_mode_t bufmode;            // buffer mode
   stringbuf_t*  buf;                // buffer for buffered output
@@ -65,6 +66,7 @@ struct term_s {
 
 static bool term_write_direct(term_t* term, const char* s, ssize_t n );
 static void term_check_flush(term_t* term, const char* s, ssize_t n);
+static void term_append_buf(term_t* term, const char* s, ssize_t n);
 
 //-------------------------------------------------------------
 // Colors
@@ -128,6 +130,10 @@ ic_private void term_bold(term_t* term, bool on) {
   term_write(term, on ? IC_CSI "1m" : IC_CSI "22m" );
 }
 
+ic_private void term_italic(term_t* term, bool on) {
+  term_write(term, on ? IC_CSI "3m" : IC_CSI "23m" );
+}
+
 ic_private void term_writeln(term_t* term, const char* s) {
   term_write(term,s);
   term_write(term,"\n");
@@ -138,6 +144,37 @@ ic_private void term_write_char(term_t* term, char c) {
   buf[0] = c;
   buf[1] = 0;
   term_write_n(term, buf, 1 );
+}
+
+ic_private term_attr_t term_get_attr( const term_t* term ) {
+  return term->attr;
+}
+
+ic_private void term_set_attr( term_t* term, term_attr_t attr ) {
+  if (attr.color != term->attr.color && attr.color != IC_COLOR_NONE) {
+    term_color(term,attr.color);
+  }
+  if (attr.bgcolor != term->attr.bgcolor && attr.bgcolor != IC_COLOR_NONE) {
+    term_bgcolor(term,attr.bgcolor);
+  }
+  if (attr.bold != term->attr.bold && attr.bold != IC_NONE) {
+    term_bold(term,attr.bold == IC_ON);
+  }
+  if (attr.underline != term->attr.underline && attr.underline != IC_NONE) {
+    term_underline(term,attr.underline == IC_ON);
+  }
+  if (attr.reverse != term->attr.reverse && attr.reverse != IC_NONE) {
+    term_reverse(term,attr.reverse == IC_ON);
+  }
+  if (attr.italic != term->attr.italic && attr.italic != IC_NONE) {
+    term_italic(term,attr.italic == IC_ON);
+  }
+  assert(attr.color == term->attr.color || attr.color == IC_COLOR_NONE);
+  assert(attr.bgcolor == term->attr.bgcolor || attr.bgcolor == IC_COLOR_NONE);
+  assert(attr.bold == term->attr.bold || attr.bold == IC_NONE);
+  assert(attr.reverse == term->attr.reverse || attr.reverse == IC_NONE);
+  assert(attr.underline == term->attr.underline || attr.underline == IC_NONE);
+  assert(attr.italic == term->attr.italic || attr.italic == IC_NONE);
 }
 
 
@@ -191,18 +228,13 @@ ic_private void term_write(term_t* term, const char* s) {
   term_write_n(term,s,n);
 }
 
-// Primitive terminal write
+// Primitive terminal write; all writes go through here
 ic_private void term_write_n(term_t* term, const char* s, ssize_t n) {
   if (s == NULL || n <= 0) return;
-  if (term->bufmode == UNBUFFERED) {
-    term_write_direct(term,s,n);
-  }
-  else {
-    // write to buffer to reduce flicker
-    sbuf_append_n(term->buf, s, n);
-    // possibly flush
-    term_check_flush(term, s, n);
-  }
+  // write to buffer to reduce flicker and/or to process escape sequences
+  term_append_buf(term, s, n);
+  // possibly flush
+  term_check_flush(term, s, n);  
 }
 
 
@@ -232,7 +264,7 @@ ic_private buffer_mode_t term_set_buffer_mode(term_t* term, buffer_mode_t mode) 
 }
 
 static void term_check_flush(term_t* term, const char* s, ssize_t n) {
-  if (sbuf_len(term->buf) > 4000) {
+  if (term->bufmode == UNBUFFERED || sbuf_len(term->buf) > 4000) {
     term_flush(term);
   }
   else if (term->bufmode == LINEBUFFERED) {
@@ -251,6 +283,8 @@ static void term_check_flush(term_t* term, const char* s, ssize_t n) {
 
 static void term_init_raw(term_t* term);
 
+static const term_attr_t text_attr_default = { IC_ANSI_DEFAULT, IC_ANSI_DEFAULT, IC_OFF, IC_OFF, IC_OFF, IC_OFF };
+
 ic_private term_t* term_new(alloc_t* mem, tty_t* tty, bool nocolor, bool silent, int fd_out ) 
 {
   term_t* term = mem_zalloc_tp(mem, term_t);
@@ -267,6 +301,7 @@ ic_private term_t* term_new(alloc_t* mem, tty_t* tty, bool nocolor, bool silent,
   term->palette = ANSI16; // almost universally supported
   term->buf     = sbuf_new(mem);  
   term->bufmode = LINEBUFFERED;
+  term->attr    = text_attr_default;
 
   // respect NO_COLOR
   if (getenv("NO_COLOR") != NULL) {
@@ -312,6 +347,7 @@ ic_private term_t* term_new(alloc_t* mem, tty_t* tty, bool nocolor, bool silent,
   // initialize raw terminal output and terminal dimensions
   term_init_raw(term);
   term_update_dim(term);
+  term_attr_reset(term);
 
   return term;
 }
@@ -353,6 +389,167 @@ ic_private void term_free(term_t* term) {
   mem_free(term->mem, term);
 }
 
+//-------------------------------------------------------------
+// For best portability and applications inserting CSI SGR (ESC[ .. m)
+// codes themselves in strings, we interpret these at the 
+// lowest level so we can have a `term_get_attr` function which
+// is needed for bracketed styles etc.
+//-------------------------------------------------------------
+
+static bool sgr_next_par(const char** sp, ssize_t* par) {
+  const char* start = *sp;
+  const char* end = start;
+  while( *end >= '0' && *end <= '9' ) { end++; }
+  if (end <= start) { 
+    *par = 0;
+    if (*end != 'm') { end++; } // ensure progress
+    return true;
+  }
+  else {
+    *sp = end;
+    return ic_atoz(start, par);
+  }
+}
+
+static bool sgr_is_sep( char c ) {
+  return (c==';' || c==':');
+}
+
+static bool sgr_next_par3(const char** sp, ssize_t* p1, ssize_t* p2, ssize_t* p3) {
+  if (sgr_next_par(sp,p1) && sgr_is_sep(**sp)) {
+    (*sp)++;
+    if (sgr_next_par(sp,p2) && sgr_is_sep(**sp)) {
+      (*sp)++;
+      return sgr_next_par(sp,p3);
+    }
+  }
+  return false;
+}
+
+static void sgr_process( term_attr_t* attr, const char* s, ssize_t len) {
+  if (s[1] != '[' || s[len-1] != 'm') return;
+  const char* p = s + 1;  // at [
+  while( *p++ != 'm' ) {  // there may be multiple settings at once
+    ssize_t cmd = 0;
+    if (!sgr_next_par(&p,&cmd)) continue;
+    switch(cmd) {
+      case  0: *attr = text_attr_default; break;
+      case  1: attr->bold = IC_ON; break;
+      case  3: attr->italic = IC_ON; break;
+      case  4: attr->underline = IC_ON; break;
+      case  7: attr->reverse = IC_ON; break;
+      case 22: attr->bold = IC_OFF; break;
+      case 23: attr->italic = IC_OFF; break;
+      case 24: attr->underline = IC_OFF; break;
+      case 27: attr->reverse = IC_OFF; break;
+      case 39: attr->color = IC_ANSI_DEFAULT; break;
+      case 49: attr->bgcolor = IC_ANSI_DEFAULT; break;
+      default: {
+        if (cmd >= 30 && cmd <= 37) {
+          attr->color = IC_ANSI_BLACK + (cmd - 30);
+        }
+        else if (cmd >= 40 && cmd <= 47) {
+          attr->bgcolor = IC_ANSI_BLACK + (cmd - 40);
+        }
+        if (cmd >= 90 && cmd <= 97) {
+          attr->color = IC_ANSI_DARKGRAY + (cmd - 90);
+        }
+        else if (cmd >= 100 && cmd <= 107) {
+          attr->bgcolor = IC_ANSI_DARKGRAY + (cmd - 100);
+        }
+        else if ((cmd == 38 || cmd == 48) && sgr_is_sep(*p)) {
+          // non-associative SGR :-(          
+          ic_color_t* field = (cmd == 38 ? &attr->color : &attr->bgcolor);
+          ssize_t par = 0;
+          p++;
+          if (sgr_next_par(&p,&par)) {
+            if (par==5 && sgr_is_sep(*p)) {
+              // ansi 256 index
+              p++;
+              if (sgr_next_par(&p,&par) && par >= 0 && par <= 0xFF) {
+                *field = color_from_ansi256(par);
+              }
+            }
+            else if (par == 2 && sgr_is_sep(*p)) {
+              // rgb value
+              p++;
+              ssize_t r,g,b;
+              if (sgr_next_par3(&p,&r,&g,&b)) {
+                *field = ic_rgbx(r,g,b);
+              }
+            }
+          }
+        }
+        else {
+          debug_msg("term: unknow SGR code %zd\n", cmd );
+        }
+      }
+    }
+  }
+}
+
+static void term_append_esc(term_t* term, const char* const s, ssize_t len) {
+  if (s[1]=='[' && s[len-1] == 'm') {    
+    // it is a CSI SGR sequence: ESC[ ... m
+    if (term->nocolor) return;       // ignore escape sequences if nocolor is set
+    sgr_process(&term->attr,s,len);  // otherwise update our current text attributes
+  }
+  // and write out the escape sequence as-is
+  sbuf_append_n(term->buf, s, len);
+}
+
+
+static void term_append_utf8(term_t* term, const char* s, ssize_t len) {
+  ssize_t nread;
+  unicode_t uchr = unicode_from_qutf8((const uint8_t*)s, len, &nread);
+  uint8_t c;
+  if (unicode_is_raw(uchr, &c)) {
+    // write bytes as is; this also ensure that on non-utf8 terminals characters between 0x80-0xFF
+    // go through _as is_ due to the qutf8 encoding.
+    sbuf_append_char(term->buf,(char)c);
+  }
+  else if (!term->is_utf8) {
+    // on non-utf8 terminals send unicode escape sequences and hope for the best
+    // todo: we could try to convert to the locale first?
+    sbuf_appendf(term->buf, "\x1B[%" PRIu32 "u", uchr);
+  }
+  else {
+    // write utf-8 as is
+    sbuf_append_n(term->buf, s, len);
+  }
+}
+
+static void term_append_buf( term_t* term, const char* s, ssize_t len ) {
+  ssize_t pos = 0;
+  while (pos < len) {
+    // handle ascii sequences in bulk
+    ssize_t ascii = 0;
+    ssize_t next;
+    while ((next = str_next_ofs(s, len, pos+ascii, NULL)) > 0 && 
+            s[pos + ascii] != '\x1B' && (uint8_t)s[pos + ascii] <= 0x7F ) 
+    {
+      ascii += next;
+    }
+    if (ascii > 0) {
+      sbuf_append_n(term->buf, s+pos, ascii);
+      pos += ascii;
+    }
+    if (next <= 0) break;
+
+    // handle utf8 sequences (for non-utf8 terminals)
+    if ((uint8_t)s[pos] >= 0x80) {
+      term_append_utf8(term, s+pos, next);
+    }
+    // handle escape sequence (note: str_next_ofs considers whole CSI escape sequences at a time)
+    else if (next > 1 && s[pos] == '\x1B') {
+      term_append_esc(term, s+pos, next);
+    }
+    else {
+      sbuf_append_n(term->buf, s+pos, next);
+    }
+    pos += next;
+  }  
+}
 
 //-------------------------------------------------------------
 // Platform dependent: Write directly to the terminal
@@ -361,7 +558,7 @@ ic_private void term_free(term_t* term) {
 #if !defined(_WIN32)
 
 // write to the console without further processing
-static bool term_write_console(term_t* term, const char* s, ssize_t n) {
+static bool term_write_direct(term_t* term, const char* s, ssize_t n) {
   ssize_t count = 0; 
   while( count < n ) {
     ssize_t nwritten = write(term->fd_out, s + count, to_size_t(n - count));
@@ -374,79 +571,6 @@ static bool term_write_console(term_t* term, const char* s, ssize_t n) {
     }
   }
   return true;
-}
-
-static bool term_write_utf8(term_t* term, const char* s, ssize_t len) {
-  ssize_t nread;
-  unicode_t uchr = unicode_from_qutf8((const uint8_t*)s, len, &nread);
-  uint8_t c;
-  if (unicode_is_raw(uchr, &c)) {
-    // write bytes as is; this also ensure that on non-utf8 terminals characters between 0x80-0xFF
-    // go through _as is_ due to the qutf8 encoding.
-    char buf[2];
-    buf[0] = (char)c;
-    buf[1] = 0;
-    return term_write_console(term, buf, 1);
-  }
-  else if (!term->is_utf8) {
-    // on non-utf8 terminals send unicode escape sequences and hope for the best
-    // todo: we could try to convert to the locale first?
-    char buf[64+1];
-    snprintf(buf, 64, "\x1B[%" PRIu32 "u", uchr);
-    buf[64] = 0;
-    return term_write_console(term, buf, ic_strlen(buf));
-  }
-  else {
-    // write utf-8 as is
-    return term_write_console(term, s, len);
-  }
-}
-
-static bool term_write_esc(term_t* term, const char* s, ssize_t len) {
-  if (term->nocolor && s[1]=='[' && s[len-1] == 'm') {
-    ssize_t n = 1;
-    ic_atoz(s + 2, &n);
-    if ((n >= 30 && n <= 49) || (n >= 90 && n <= 109)) {
-      // ignore color
-      return true;
-    }
-  }  
-  return term_write_console(term, s, len);
-}
-
-// handle CSI color and raw UTF8
-static bool term_write_direct(term_t* term, const char* s, ssize_t len ) {
-  // strip CSI color sequences
-  ssize_t pos = 0;
-  while (pos < len) {
-    // handle ascii sequences in bulk
-    ssize_t ascii = 0;
-    ssize_t next;
-    while ((next = str_next_ofs(s, len, pos+ascii, NULL)) > 0 && 
-            s[pos + ascii] != '\x1B' && (uint8_t)s[pos + ascii] <= 0x7F ) 
-    {
-      ascii += next;
-    }
-    if (ascii > 0) {
-      term_write_console(term, s+pos, ascii);
-      pos += ascii;
-    }
-    if (next <= 0) break;
-
-    // handle utf8 sequences (for non-utf8 terminals)
-    if ((uint8_t)s[pos] >= 0x80) {
-      term_write_utf8(term, s+pos, next);
-    }
-    // handle escape sequence (note: str_next_ofs considers whole CSI escape sequences at a time)
-    else if (next > 1 && s[pos] == '\x1B') {
-      term_write_esc(term, s+pos, next);
-    }
-    else {
-      term_write_console(term, s+pos, next);
-    }
-    pos += next;
-  }
-  return (pos == len);
 }
 
 #else
@@ -588,7 +712,8 @@ static WORD attr_color[8] = {
   FOREGROUND_RED | FOREGROUND_GREEN | FOREGROUND_BLUE, // light gray
 };
 
-static void term_esc_attr( term_t* term, ssize_t cmd ) {
+static void term_sgr_attr( term_t* term, ssize_t cmd ) {
+  // TODO: reuse sgr_process here for parsing?
   WORD def_attr = term->hcon_default_attr;
   CONSOLE_SCREEN_BUFFER_INFO info;
   if (!GetConsoleScreenBufferInfo( term->hcon, &info )) return;  
@@ -697,7 +822,7 @@ static void term_write_esc( term_t* term, const char* s, ssize_t len ) {
       term_erase_line(term, esc_param(s+2, 0));
       break;
     case 'm': 
-      term_esc_attr(term, esc_param(s+2, 0) );
+      term_sgr_attr(term, esc_param(s+2, 0) );
       break;
 
     // support some less standard escape codes (currently not used by isocline)
@@ -749,24 +874,6 @@ static void term_write_esc( term_t* term, const char* s, ssize_t len ) {
   }
 }
 
-static bool term_write_utf8(term_t* term, const char* s, ssize_t len) {
-  ssize_t nread;
-  unicode_t uchr = unicode_from_qutf8((const uint8_t*)s, len, &nread);
-  uint8_t c;
-  if (unicode_is_raw(uchr, &c)) {
-    // write bytes as is; this also ensure that on non-utf8 terminals characters between 0x80-0xFF
-    // go through _as is_ due to the qutf8 encoding.
-    char buf[2];
-    buf[0] = (char)c;
-    buf[1] = 0;
-    return term_write_console(term, buf, 1);
-  }
-  else {
-    // write utf-8 as is (as we use the CP_UTF8 codepage by default)
-    return term_write_console(term, s, len);
-  }
-}
-
 static bool term_write_direct(term_t* term, const char* s, ssize_t len ) {
   term_cursor_visible(term,false); // reduce flicker
   ssize_t pos = 0;
@@ -786,8 +893,8 @@ static bool term_write_direct(term_t* term, const char* s, ssize_t len ) {
     if (next <= 0) break;
 
     if ((uint8_t)s[pos] >= 0x80) {
-      // handle utf8 sequences 
-      term_write_utf8(term, s+pos, next);
+      // utf8 is already processed
+      term_write_console(term, s+pos, next);
     }
     else if (next > 1 && s[pos] == '\x1B') {                                
       // handle control (note: str_next_ofs considers whole CSI escape sequences at a time)
@@ -821,7 +928,7 @@ static bool term_esc_query_raw( term_t* term, const char* query, char* buf, ssiz
 {
   if (buf==NULL || buflen <= 0 || query[0] == 0) return false;
   bool osc = (query[1] == ']');
-  if (!term_write_console(term, query, ic_strlen(query))) return false;
+  if (!term_write_direct(term, query, ic_strlen(query))) return false;
   debug_msg("term: read tty query response to: ESC %s\n", query + 1);  
   return tty_read_esc_response( term->tty, query[1], osc, buf, buflen );
 }

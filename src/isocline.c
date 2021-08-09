@@ -16,6 +16,7 @@
 # define _CRT_SECURE_NO_WARNINGS  // for msvc
 # define _XOPEN_SOURCE   700      // for wcwidth
 # define _DEFAULT_SOURCE          // ensure usleep stays visible with _XOPEN_SOURCE >= 700
+# include "bbcode.c"
 # include "editline.c"
 # include "highlight.c"
 # include "undo.c"
@@ -417,6 +418,11 @@ ic_private const char* ic_env_get_auto_braces(ic_env_t* env) {
   return (env->auto_braces == NULL ? "()[]{}\"\"''" : env->auto_braces);
 }
 
+ic_public void ic_fmt_print( const char* s ) {
+  ic_env_t* env = ic_get_env(); if (env==NULL || env->bbcode==NULL) return;
+  bbcode_print( env->bbcode, s );
+}
+
 //-------------------------------------------------------------
 // Readline with temporary completer and highlighter
 //-------------------------------------------------------------
@@ -454,6 +460,7 @@ static void ic_env_free(ic_env_t* env) {
   history_save(env->history);
   history_free(env->history);
   completions_free(env->completions);
+  bbcode_free(env->bbcode);
   term_free(env->term);
   tty_free(env->tty);
   mem_free(env->mem, env->cprompt_marker);
@@ -497,10 +504,11 @@ static ic_env_t* ic_env_create( ic_malloc_fun_t* _malloc, ic_realloc_fun_t* _rea
   env->term        = term_new(env->mem, env->tty, false, false, -1 );  
   env->history     = history_new(env->mem);
   env->completions = completions_new(env->mem);
+  env->bbcode      = bbcode_new(env->mem, env->term);
   env->hint_delay  = 400;   
   
   if (env->tty == NULL || env->term==NULL ||
-      env->completions == NULL || env->history == NULL ||
+      env->completions == NULL || env->history == NULL || env->bbcode == NULL ||
       !term_is_interactive(env->term)) 
   {
     env->noedit = true;

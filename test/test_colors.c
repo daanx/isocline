@@ -99,6 +99,10 @@ int main()
   
   ic_term_reset();
   ic_term_writeln("");
+
+
+  ic_fmt_print( "[b]bold [i]bold and italic[/i] [red]bold and red[/red][/b] default\n");
+
   ic_term_done();
   return 0;
 }

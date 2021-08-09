@@ -60,11 +60,16 @@ ic_private bool ic_strcpy( char* dest, ssize_t dest_size /* including 0 */, cons
 
 
 ic_private bool ic_strncpy( char* dest, ssize_t dest_size /* including 0 */, const char* src, ssize_t n) {
-  assert(dest!=NULL && src != NULL && n < dest_size);
+  assert(dest!=NULL && n < dest_size);
   if (dest == NULL || dest_size <= 0) return false;
   if (n >= dest_size) return false;
-  strncpy(dest,src,to_size_t(n));
-  dest[n] = 0;
+  if (src==NULL || n <= 0) {
+    dest[0] = 0;
+  }
+  else {
+    strncpy(dest,src,to_size_t(n));
+    dest[n] = 0;  
+  }
   return true;
 }
 
@@ -86,6 +91,13 @@ ic_public bool ic_starts_with( const char* s, const char* prefix ) {
 
 ic_private char ic_tolower( char c ) {
   return (c >= 'A' && c <= 'Z'  ?  c - 'A' + 'a' : c);
+}
+
+ic_private void ic_str_tolower(char* s) {
+  while(*s != 0) {
+    *s = ic_tolower(*s);
+    s++;
+  }
 }
 
 ic_public bool ic_istarts_with( const char* s, const char* prefix ) {

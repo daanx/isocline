@@ -27,6 +27,7 @@ set(ic_install_dir)
 if(IC_SEPARATE_OBJS)
   list(APPEND ic_cdefs IC_SEPARATE_OBJS)
   list(APPEND ic_sources  
+              src/bbcode.c
               src/common.c
               src/completions.c
               src/completers.c

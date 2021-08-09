@@ -67,10 +67,28 @@ ic_private void term_attr_reset(term_t* term);
 ic_private void term_underline(term_t* term, bool on);
 ic_private void term_reverse(term_t* term, bool on);
 ic_private void term_bold(term_t* term, bool on);
+ic_private void term_italic(term_t* term, bool on);
 ic_private void term_color(term_t* term, ic_color_t color);
 ic_private void term_bgcolor(term_t* term, ic_color_t color);
 
 ic_private void term_append_color(term_t* term, stringbuf_t* sbuf, ic_color_t color);
 ic_private void term_append_bgcolor(term_t* term, stringbuf_t* sbuf, ic_color_t color);
+
+
+#define IC_ON   (1)
+#define IC_OFF  (-1)
+#define IC_NONE (0)
+
+typedef struct term_attr_s {
+  ic_color_t color;
+  ic_color_t bgcolor;
+  int8_t     bold;
+  int8_t     reverse;
+  int8_t     underline;
+  int8_t     italic;
+} term_attr_t;
+
+ic_private term_attr_t term_get_attr( const term_t* term );
+ic_private void        term_set_attr( term_t* term, term_attr_t attr );
 
 #endif // IC_TERM_H

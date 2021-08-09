@@ -105,6 +105,21 @@ static void color_to_rgb(ic_color_t color, int* r, int* g, int* b) {
   *b = (color & 0xFF);
 }
 
+static ic_color_t color_from_ansi256(ssize_t i) {
+  if (i >= 0 && i < 8) {
+    return (IC_ANSI_BLACK + i);
+  }
+  else if (i >= 8 && i < 16) {
+    return (IC_ANSI_DARKGRAY + (i - 8));
+  }
+  else if (i >= 16 && i <= 255) {
+    return ic_rgb( ansi256[i] );
+  }
+  else {
+    return IC_ANSI_DEFAULT;
+  }
+}
+
 static bool is_grayish(int r, int g, int b) {
   return (abs(r-g) <= 4) && (abs((r+g)/2 - b) <= 4);
 }
