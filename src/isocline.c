@@ -453,8 +453,7 @@ ic_public void ic_println( const char* s ) {
   bbcode_println( env->bbcode, s );
 }
 
-
-void ic_style_add( const char* name, const char* fmt ) {
+void ic_style_def( const char* name, const char* fmt ) {
   ic_env_t* env = ic_get_env(); if (env==NULL || env->bbcode==NULL) return;
   bbcode_parse_style(env->bbcode, name, fmt);
 }

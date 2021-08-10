@@ -746,6 +746,13 @@ static void edit_auto_brace(ic_env_t* env, editor_t* eb, char c) {
       //}
       return;
     }
+    else if (b[1] == c) {
+      // close brace, check if there we don't overwrite to the right
+      if (sbuf_char_at(eb->input, eb->pos) == c) {
+        sbuf_delete_char_at(eb->input, eb->pos);
+      }
+      return;
+    }
   }
 }
 

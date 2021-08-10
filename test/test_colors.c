@@ -117,7 +117,7 @@ int main()
   // bbcodes
   ic_print( "[b]bold [i]bold and italic[/i] [yellow on blue]yellow on blue in bold[/][/b] default\n");  
 
-  ic_style_add("em", "underline ansi-olive");
+  ic_style_def("em", "underline ansi-olive");
   ic_style_start("i");
   ic_print( "[em]emphasis[/em]\n" );  
   ic_style_end();

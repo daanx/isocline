@@ -579,10 +579,10 @@ void ic_printf(const char* fmt, ...);
 // Print formatted with bbcode markup.
 void ic_vprintf(const char* fmt, va_list args);
 
-// Add a new style. The `fmt` string is the content of a tag and can contain
+// Define or redefine a style. The `fmt` string is the content of a tag and can contain
 // other styles. This is very useful to theme the output of a program
 // by assigning standard styles like `em` or `warning` etc.
-void ic_style_add( const char* style_name, const char* fmt );
+void ic_style_def( const char* style_name, const char* fmt );
 
 // Start a global style that is only reset when calling a matching `ic_style_end`.
 void ic_style_start( const char* fmt );
