@@ -47,7 +47,7 @@ struct term_s {
   bool          nocolor;            // show colors?
   bool          silent;             // enable beep?
   bool          is_utf8;            // utf-8 output? determined by the tty
-  term_attr_t   attr;               // current text attributes
+  attr_t   attr;               // current text attributes
   palette_t     palette;            // color support
   buffer_mode_t bufmode;            // buffer mode
   stringbuf_t*  buf;                // buffer for buffered output
@@ -145,11 +145,11 @@ ic_private void term_write_char(term_t* term, char c) {
   term_write_n(term, buf, 1 );
 }
 
-ic_private term_attr_t term_get_attr( const term_t* term ) {
+ic_private attr_t term_get_attr( const term_t* term ) {
   return term->attr;
 }
 
-ic_private void term_set_attr( term_t* term, term_attr_t attr ) {
+ic_private void term_set_attr( term_t* term, attr_t attr ) {
   if (attr.x.color != term->attr.x.color && attr.x.color != IC_COLOR_NONE) {
     term_color(term,attr.x.color);
     if (term->palette < ANSIRGB && color_is_rgb(attr.x.color)) {
@@ -281,13 +281,13 @@ static void term_check_flush(term_t* term, bool contains_nl) {
 
 static void term_init_raw(term_t* term);
 
-ic_private term_attr_t term_attr_none(void) {
-  term_attr_t attr = { 0 };
+ic_private attr_t attr_none(void) {
+  attr_t attr = { 0 };
   return attr;
 }
 
-ic_private term_attr_t term_attr_default(void) {
-  term_attr_t attr = term_attr_none();
+ic_private attr_t attr_default(void) {
+  attr_t attr = attr_none();
   attr.x.color = IC_ANSI_DEFAULT;
   attr.x.bgcolor = IC_ANSI_DEFAULT;
   attr.x.bold = IC_OFF;
@@ -297,11 +297,11 @@ ic_private term_attr_t term_attr_default(void) {
   return attr;
 }
 
-ic_private bool term_attr_is_none(term_attr_t attr) {
+ic_private bool attr_is_none(attr_t attr) {
   return (attr.value == 0);
 }
 
-ic_private bool term_attr_is_eq(term_attr_t attr1, term_attr_t attr2) {
+ic_private bool attr_is_eq(attr_t attr1, attr_t attr2) {
   return (attr1.value == attr2.value);
 }
 
@@ -322,7 +322,7 @@ ic_private term_t* term_new(alloc_t* mem, tty_t* tty, bool nocolor, bool silent,
   term->palette = ANSI16; // almost universally supported
   term->buf     = sbuf_new(mem);  
   term->bufmode = LINEBUFFERED;
-  term->attr    = term_attr_default();
+  term->attr    = attr_default();
 
   // respect NO_COLOR
   if (getenv("NO_COLOR") != NULL) {
@@ -446,14 +446,14 @@ static bool sgr_next_par3(const char** sp, ssize_t* p1, ssize_t* p2, ssize_t* p3
   return false;
 }
 
-static void sgr_process( term_attr_t* attr, const char* s, ssize_t len) {
+static void sgr_process( attr_t* attr, const char* s, ssize_t len) {
   if (s[1] != '[' || s[len-1] != 'm') return;
   const char* p = s + 1;  // at [
   while( *p++ != 'm' ) {  // there may be multiple settings at once
     ssize_t cmd = 0;
     if (!sgr_next_par(&p,&cmd)) continue;
     switch(cmd) {
-      case  0: *attr = term_attr_default(); break;
+      case  0: *attr = attr_default(); break;
       case  1: attr->x.bold = IC_ON; break;
       case  3: attr->x.italic = IC_ON; break;
       case  4: attr->x.underline = IC_ON; break;
@@ -739,7 +739,7 @@ static WORD attr_color[8] = {
   FOREGROUND_RED | FOREGROUND_GREEN | FOREGROUND_BLUE, // light gray
 };
 
-static void term_sgr_win_attr( term_t* term, term_attr_t ta ) {
+static void term_sgr_win_attr( term_t* term, attr_t ta ) {
   WORD def_attr = term->hcon_default_attr;
   CONSOLE_SCREEN_BUFFER_INFO info;
   if (!GetConsoleScreenBufferInfo( term->hcon, &info )) return;  
@@ -779,7 +779,7 @@ static void term_sgr_win_attr( term_t* term, term_attr_t ta ) {
 }
 
 static void term_sgr_attr( term_t* term, const char* s, ssize_t n ) {
-  term_attr_t attr = term_attr_none();
+  attr_t attr = attr_none();
   sgr_process(&attr, s, n);
   term_sgr_win_attr( term, attr );
 }

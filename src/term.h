@@ -83,7 +83,7 @@ ic_private void term_append_bgcolor(term_t* term, stringbuf_t* sbuf, ic_color_t 
 // try to fit in 64 bits 
 // note: order is important for some compilers
 // note: each color can actually be 25 bits
-typedef union term_attr_s {
+typedef union attr_s {
   struct {
     unsigned int  color:28;
     signed int    bold:2;
@@ -93,15 +93,15 @@ typedef union term_attr_s {
     signed int    italic:2;
   } x;
   uint64_t        value;  
-} term_attr_t;
+} attr_t;
 
-ic_private term_attr_t term_attr_none(void);
-ic_private term_attr_t term_attr_default(void);
+ic_private attr_t attr_none(void);
+ic_private attr_t attr_default(void);
 
-ic_private bool term_attr_is_none(term_attr_t attr);
-ic_private bool term_attr_is_eq(term_attr_t attr1, term_attr_t attr2);
+ic_private bool attr_is_none(attr_t attr);
+ic_private bool attr_is_eq(attr_t attr1, attr_t attr2);
 
-ic_private term_attr_t term_get_attr( const term_t* term );
-ic_private void        term_set_attr( term_t* term, term_attr_t attr );
+ic_private attr_t term_get_attr( const term_t* term );
+ic_private void        term_set_attr( term_t* term, attr_t attr );
 
 #endif // IC_TERM_H

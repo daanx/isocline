@@ -25,12 +25,12 @@
 
 typedef struct style_s {
   const char*  name;  // name of the style
-  term_attr_t  attr;  // attribute to apply
+  attr_t  attr;  // attribute to apply
 } style_t;
 
 typedef struct tag_s {  
   const char*  name;  // tag open name
-  term_attr_t  attr;  // the saved attribute before applying the style
+  attr_t  attr;  // the saved attribute before applying the style
 } tag_t;
 
 
@@ -71,7 +71,7 @@ ic_private void bbcode_free( bbcode_t* bb ) {
   mem_free(bb->mem, bb);
 }
 
-static void bbcode_add_style( bbcode_t* bb, const char* style_name, term_attr_t attr ) {
+static void bbcode_add_style( bbcode_t* bb, const char* style_name, attr_t attr ) {
   if (bb->styles_count >= bb->styles_capacity) {
     ssize_t newlen = bb->styles_capacity + 32;
     style_t* p = mem_realloc_tp( bb->mem, style_t, bb->styles, newlen );
@@ -128,7 +128,7 @@ static void bbcode_invalid(const char* fmt, ... ) {
 // Set attributes
 //-------------------------------------------------------------
 
-ic_private void bbcode_set( bbcode_t* bb, term_attr_t attr ) {
+ic_private void bbcode_set( bbcode_t* bb, attr_t attr ) {
   term_set_attr(bb->term,attr);
 }
 
@@ -204,7 +204,7 @@ static const char* attr_update_color( const char* fname, ic_color_t* field, cons
   return fname;
 }
 
-static const char* attr_update_property( term_attr_t* attr, const char* attr_name, const char* value ) {
+static const char* attr_update_property( attr_t* attr, const char* attr_name, const char* value ) {
   const char* fname = NULL;
   fname = "bold";
   if (strcmp(attr_name,fname) == 0) {    
@@ -253,7 +253,7 @@ static const char* attr_update_property( term_attr_t* attr, const char* attr_nam
   }
 }
 
-static void attr_update_with( term_attr_t* attr, term_attr_t newattr ) {
+static void attr_update_with( attr_t* attr, attr_t newattr ) {
   if (newattr.x.color != IC_COLOR_NONE) { attr->x.color = newattr.x.color; }
   if (newattr.x.bgcolor != IC_COLOR_NONE) { attr->x.bgcolor = newattr.x.bgcolor; }
   if (newattr.x.bold != IC_NONE) { attr->x.bold = newattr.x.bold; }
@@ -270,7 +270,7 @@ static const style_t builtin_styles[] = {
   { NULL, { { IC_COLOR_NONE, IC_NONE, IC_NONE, IC_COLOR_NONE, IC_NONE, IC_NONE } } }
 };
 
-static const char* attr_update_with_styles( term_attr_t* attr, const char* attr_name, const char* value, 
+static const char* attr_update_with_styles( attr_t* attr, const char* attr_name, const char* value, 
                                             bool usebgcolor, const style_t* styles, ssize_t count ) 
 {
   // first try if it is a builtin property
@@ -307,7 +307,7 @@ static const char* attr_update_with_styles( term_attr_t* attr, const char* attr_
       hi = mid-1;
     }
     else {
-      term_attr_t cattr = { 0 };
+      attr_t cattr = { 0 };
       if (usebgcolor) { cattr.x.bgcolor = info->color; }
                 else  { cattr.x.color = info->color; }
       attr_update_with(attr,cattr);

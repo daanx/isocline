@@ -15,7 +15,7 @@
 //-------------------------------------------------------------
 
 struct ic_highlight_env_s {
-  term_attr_t*  attrs;
+  attr_t*  attrs;
   ssize_t       attr_capacity;  
   ssize_t       attr_len;  
   const char*   input;        // only valid during initial highlight  
@@ -46,7 +46,7 @@ static bool highlight_ensure_extra( ic_highlight_env_t* henv, ssize_t extra ) {
   if (henv->attr_capacity < needed) {
     ssize_t capacity = (henv->attr_capacity <= 0 ? 128 : 2*henv->attr_capacity);
     if (capacity < needed) { capacity = needed; }
-    term_attr_t* newattrs = mem_realloc_tp( henv->mem, term_attr_t, henv->attrs, capacity );
+    attr_t* newattrs = mem_realloc_tp( henv->mem, attr_t, henv->attrs, capacity );
     if (newattrs == NULL) return false;
     henv->attrs = newattrs;
     henv->attr_capacity = capacity;
@@ -59,9 +59,9 @@ ic_private bool highlight_insert_at( ic_highlight_env_t* henv, ssize_t pos, ssiz
   if (henv == NULL) return false;
   if (pos < 0 || pos > henv->attr_len) return false;
   if (!highlight_ensure_extra(henv,len)) return false;
-  ic_memmove(henv->attrs + pos + len, henv->attrs + pos, ssizeof(term_attr_t)*(henv->attr_len - pos));
+  ic_memmove(henv->attrs + pos + len, henv->attrs + pos, ssizeof(attr_t)*(henv->attr_len - pos));
   henv->attr_len += len;
-  term_attr_t attr = term_attr_none();
+  attr_t attr = attr_none();
   attr.x.color = color;
   for (ssize_t i = 0; i < len; i++) {
     henv->attrs[pos + i] = attr;
@@ -76,9 +76,9 @@ ic_private void highlight_clear( ic_highlight_env_t* henv ) {
 
 static void highlight_fillout( ic_highlight_env_t* henv ) {
   if (henv == NULL) return;
-  term_attr_t attr = term_attr_default();
+  attr_t attr = attr_default();
   for( ssize_t i = 0; i < henv->attr_len; i++ ) {
-    term_attr_t* cur = &henv->attrs[i];
+    attr_t* cur = &henv->attrs[i];
     // propagate attribute
     if (cur->x.color     == IC_COLOR_NONE) { cur->x.color = attr.x.color; }
     if (cur->x.bgcolor   == IC_COLOR_NONE) { cur->x.bgcolor = attr.x.bgcolor; }
@@ -97,7 +97,7 @@ ic_private bool highlight_init( ic_highlight_env_t* henv, const char* s, ic_high
   if (len > 0) {
     if (!highlight_ensure_extra(henv,len)) return false;
     henv->attr_len = len;
-    ic_memset(henv->attrs, 0, henv->attr_len * ssizeof(term_attr_t));
+    ic_memset(henv->attrs, 0, henv->attr_len * ssizeof(attr_t));
     if (highlighter != NULL) {
       henv->input = s;
       (*highlighter)( henv, s, arg );
