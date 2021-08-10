@@ -80,13 +80,16 @@ ic_private void term_append_bgcolor(term_t* term, stringbuf_t* sbuf, ic_color_t 
 #define IC_OFF  (-1)
 #define IC_NONE (0)
 
+// try to fit in 64 bits 
+// note: order is important for some compilers
+// note: each color can actually be 25 bits
 typedef struct term_attr_s {
-  ic_color_t color;
-  ic_color_t bgcolor;
-  int8_t     bold;
-  int8_t     reverse;
-  int8_t     underline;
-  int8_t     italic;
+  unsigned int  color:28;
+  signed int    bold:2;
+  signed int    reverse:2;
+  unsigned int  bgcolor:28;
+  signed int    underline:2;
+  signed int    italic:2;
 } term_attr_t;
 
 ic_private term_attr_t term_attr_none(void);

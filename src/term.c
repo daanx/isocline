@@ -470,7 +470,6 @@ static void sgr_process( term_attr_t* attr, const char* s, ssize_t len) {
         }
         else if ((cmd == 38 || cmd == 48) && sgr_is_sep(*p)) {
           // non-associative SGR :-(          
-          ic_color_t* field = (cmd == 38 ? &attr->color : &attr->bgcolor);
           ssize_t par = 0;
           p++;
           if (sgr_next_par(&p,&par)) {
@@ -478,7 +477,9 @@ static void sgr_process( term_attr_t* attr, const char* s, ssize_t len) {
               // ansi 256 index
               p++;
               if (sgr_next_par(&p,&par) && par >= 0 && par <= 0xFF) {
-                *field = color_from_ansi256(par);
+                ic_color_t color = color_from_ansi256(par);
+                if (cmd==38) { attr->color = color; }
+                        else { attr->bgcolor = color; }
               }
             }
             else if (par == 2 && sgr_is_sep(*p)) {
@@ -486,7 +487,9 @@ static void sgr_process( term_attr_t* attr, const char* s, ssize_t len) {
               p++;
               ssize_t r,g,b;
               if (sgr_next_par3(&p,&r,&g,&b)) {
-                *field = ic_rgbx(r,g,b);
+                ic_color_t color = ic_rgbx(r,g,b);
+                if (cmd==38) { attr->color = color; }
+                        else { attr->bgcolor = color; }
               }
             }
           }

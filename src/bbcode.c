@@ -163,7 +163,7 @@ static void bbcode_close( bbcode_t* bb, const char* name ) {
 // Update attributes
 //-------------------------------------------------------------
 
-static const char* attr_update_bool( const char* fname, int8_t* field, const char* value ) {
+static const char* attr_update_bool( const char* fname, signed int* field, const char* value ) {
   if (value == NULL || value[0] == 0 || strcmp(value,"on") || strcmp(value,"true") || strcmp(value,"1")) {
     *field = IC_ON;
   }
@@ -205,23 +205,48 @@ static const char* attr_update_color( const char* fname, ic_color_t* field, cons
 }
 
 static const char* attr_update_property( term_attr_t* attr, const char* attr_name, const char* value ) {
-  if (strcmp(attr_name,"bold") == 0) {
-    return attr_update_bool("bold",&attr->bold, value);
+  const char* fname = NULL;
+  fname = "bold";
+  if (strcmp(attr_name,fname) == 0) {    
+    signed int b = IC_NONE;    
+    attr_update_bool(fname,&b, value); 
+    if (b != IC_NONE) { attr->bold = b; }
+    return fname;
   }
-  else if (strcmp(attr_name,"italic") == 0) {
-    return attr_update_bool("italic",&attr->italic, value);
+  fname = "italic";
+  if (strcmp(attr_name,fname) == 0) {    
+    signed int b = IC_NONE;      
+    attr_update_bool(fname,&b, value); 
+    if (b != IC_NONE) { attr->italic = b; }
+    return fname;
   }
-  else if (strcmp(attr_name,"underline") == 0) {
-    return attr_update_bool("underline",&attr->underline, value);
+  fname = "underline";
+  if (strcmp(attr_name,fname) == 0) {  
+    signed int b = IC_NONE;        
+    attr_update_bool(fname,&b, value); 
+    if (b != IC_NONE) { attr->underline = b; }
+    return fname;
   }
-  else if (strcmp(attr_name,"reverse") == 0) {
-    return attr_update_bool("reverse",&attr->reverse, value);
+  fname = "reverse";
+  if (strcmp(attr_name,fname) == 0) {
+    signed int b = IC_NONE;          
+    attr_update_bool(fname,&b, value); 
+    if (b != IC_NONE) { attr->reverse = b; }
+    return fname;
   }
-  else if (strcmp(attr_name,"color") == 0) {
-    return attr_update_color("color",&attr->color, value);
+  fname = "color";
+  if (strcmp(attr_name,fname) == 0) {
+    unsigned int color = IC_COLOR_NONE;
+    attr_update_color(fname, &color, value);
+    if (color != IC_COLOR_NONE) { attr->color = color; }
+    return fname;
   }
-  else if (strcmp(attr_name,"bgcolor") == 0) {
-    return attr_update_color("bgcolor",&attr->bgcolor, value);
+  fname = "bgcolor";
+  if (strcmp(attr_name,fname) == 0) {
+    unsigned int color = IC_COLOR_NONE;
+    attr_update_color(fname, &color, value);
+    if (color != IC_COLOR_NONE) { attr->bgcolor = color; }
+    return fname;
   }
   else {
     return NULL;
@@ -238,11 +263,11 @@ static void attr_update_with( term_attr_t* attr, term_attr_t newattr ) {
 }
 
 static const style_t builtin_styles[] = {
-  { "b",  { IC_COLOR_NONE, IC_COLOR_NONE, IC_ON  , IC_NONE, IC_NONE, IC_NONE } },
-  { "r",  { IC_COLOR_NONE, IC_COLOR_NONE, IC_NONE, IC_ON  , IC_NONE, IC_NONE } },
-  { "u",  { IC_COLOR_NONE, IC_COLOR_NONE, IC_NONE, IC_NONE, IC_ON  , IC_NONE } },
-  { "i",  { IC_COLOR_NONE, IC_COLOR_NONE, IC_NONE, IC_NONE, IC_NONE, IC_ON   } },
-  { NULL, { IC_COLOR_NONE, IC_COLOR_NONE, IC_NONE, IC_NONE, IC_NONE, IC_NONE } }
+  { "b",  { IC_COLOR_NONE, IC_ON  , IC_NONE, IC_COLOR_NONE, IC_NONE, IC_NONE } },
+  { "r",  { IC_COLOR_NONE, IC_NONE, IC_ON  , IC_COLOR_NONE, IC_NONE, IC_NONE } },
+  { "u",  { IC_COLOR_NONE, IC_NONE, IC_NONE, IC_COLOR_NONE, IC_ON  , IC_NONE } },
+  { "i",  { IC_COLOR_NONE, IC_NONE, IC_NONE, IC_COLOR_NONE, IC_NONE, IC_ON   } },
+  { NULL, { IC_COLOR_NONE, IC_NONE, IC_NONE, IC_COLOR_NONE, IC_NONE, IC_NONE } }
 };
 
 static const char* attr_update_with_styles( term_attr_t* attr, const char* attr_name, const char* value, 
