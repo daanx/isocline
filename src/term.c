@@ -150,36 +150,36 @@ ic_private term_attr_t term_get_attr( const term_t* term ) {
 }
 
 ic_private void term_set_attr( term_t* term, term_attr_t attr ) {
-  if (attr.color != term->attr.color && attr.color != IC_COLOR_NONE) {
-    term_color(term,attr.color);
-    if (term->palette < ANSIRGB && color_is_rgb(attr.color)) {
-      term->attr.color = attr.color; // actual color may have been approximated but we keep the actual color to avoid updating every time
+  if (attr.x.color != term->attr.x.color && attr.x.color != IC_COLOR_NONE) {
+    term_color(term,attr.x.color);
+    if (term->palette < ANSIRGB && color_is_rgb(attr.x.color)) {
+      term->attr.x.color = attr.x.color; // actual color may have been approximated but we keep the actual color to avoid updating every time
     }
   }
-  if (attr.bgcolor != term->attr.bgcolor && attr.bgcolor != IC_COLOR_NONE) {
-    term_bgcolor(term,attr.bgcolor);
-    if (term->palette < ANSIRGB && color_is_rgb(attr.bgcolor)) {
-      term->attr.bgcolor = attr.bgcolor; 
+  if (attr.x.bgcolor != term->attr.x.bgcolor && attr.x.bgcolor != IC_COLOR_NONE) {
+    term_bgcolor(term,attr.x.bgcolor);
+    if (term->palette < ANSIRGB && color_is_rgb(attr.x.bgcolor)) {
+      term->attr.x.bgcolor = attr.x.bgcolor; 
     }
   }
-  if (attr.bold != term->attr.bold && attr.bold != IC_NONE) {
-    term_bold(term,attr.bold == IC_ON);
+  if (attr.x.bold != term->attr.x.bold && attr.x.bold != IC_NONE) {
+    term_bold(term,attr.x.bold == IC_ON);
   }
-  if (attr.underline != term->attr.underline && attr.underline != IC_NONE) {
-    term_underline(term,attr.underline == IC_ON);
+  if (attr.x.underline != term->attr.x.underline && attr.x.underline != IC_NONE) {
+    term_underline(term,attr.x.underline == IC_ON);
   }
-  if (attr.reverse != term->attr.reverse && attr.reverse != IC_NONE) {
-    term_reverse(term,attr.reverse == IC_ON);
+  if (attr.x.reverse != term->attr.x.reverse && attr.x.reverse != IC_NONE) {
+    term_reverse(term,attr.x.reverse == IC_ON);
   }
-  if (attr.italic != term->attr.italic && attr.italic != IC_NONE) {
-    term_italic(term,attr.italic == IC_ON);
+  if (attr.x.italic != term->attr.x.italic && attr.x.italic != IC_NONE) {
+    term_italic(term,attr.x.italic == IC_ON);
   }
-  assert(attr.color == term->attr.color || attr.color == IC_COLOR_NONE);
-  assert(attr.bgcolor == term->attr.bgcolor || attr.bgcolor == IC_COLOR_NONE);
-  assert(attr.bold == term->attr.bold || attr.bold == IC_NONE);
-  assert(attr.reverse == term->attr.reverse || attr.reverse == IC_NONE);
-  assert(attr.underline == term->attr.underline || attr.underline == IC_NONE);
-  assert(attr.italic == term->attr.italic || attr.italic == IC_NONE);
+  assert(attr.x.color == term->attr.x.color || attr.x.color == IC_COLOR_NONE);
+  assert(attr.x.bgcolor == term->attr.x.bgcolor || attr.x.bgcolor == IC_COLOR_NONE);
+  assert(attr.x.bold == term->attr.x.bold || attr.x.bold == IC_NONE);
+  assert(attr.x.reverse == term->attr.x.reverse || attr.x.reverse == IC_NONE);
+  assert(attr.x.underline == term->attr.x.underline || attr.x.underline == IC_NONE);
+  assert(attr.x.italic == term->attr.x.italic || attr.x.italic == IC_NONE);
 }
 
 
@@ -288,14 +288,23 @@ ic_private term_attr_t term_attr_none(void) {
 
 ic_private term_attr_t term_attr_default(void) {
   term_attr_t attr = term_attr_none();
-  attr.color = IC_ANSI_DEFAULT;
-  attr.bgcolor = IC_ANSI_DEFAULT;
-  attr.bold = IC_OFF;
-  attr.underline = IC_OFF; 
-  attr.reverse = IC_OFF;
-  attr.italic = IC_OFF; 
+  attr.x.color = IC_ANSI_DEFAULT;
+  attr.x.bgcolor = IC_ANSI_DEFAULT;
+  attr.x.bold = IC_OFF;
+  attr.x.underline = IC_OFF; 
+  attr.x.reverse = IC_OFF;
+  attr.x.italic = IC_OFF; 
   return attr;
 }
+
+ic_private bool term_attr_is_none(term_attr_t attr) {
+  return (attr.value == 0);
+}
+
+ic_private bool term_attr_is_eq(term_attr_t attr1, term_attr_t attr2) {
+  return (attr1.value == attr2.value);
+}
+
 
 ic_private term_t* term_new(alloc_t* mem, tty_t* tty, bool nocolor, bool silent, int fd_out ) 
 {
@@ -445,28 +454,28 @@ static void sgr_process( term_attr_t* attr, const char* s, ssize_t len) {
     if (!sgr_next_par(&p,&cmd)) continue;
     switch(cmd) {
       case  0: *attr = term_attr_default(); break;
-      case  1: attr->bold = IC_ON; break;
-      case  3: attr->italic = IC_ON; break;
-      case  4: attr->underline = IC_ON; break;
-      case  7: attr->reverse = IC_ON; break;
-      case 22: attr->bold = IC_OFF; break;
-      case 23: attr->italic = IC_OFF; break;
-      case 24: attr->underline = IC_OFF; break;
-      case 27: attr->reverse = IC_OFF; break;
-      case 39: attr->color = IC_ANSI_DEFAULT; break;
-      case 49: attr->bgcolor = IC_ANSI_DEFAULT; break;
+      case  1: attr->x.bold = IC_ON; break;
+      case  3: attr->x.italic = IC_ON; break;
+      case  4: attr->x.underline = IC_ON; break;
+      case  7: attr->x.reverse = IC_ON; break;
+      case 22: attr->x.bold = IC_OFF; break;
+      case 23: attr->x.italic = IC_OFF; break;
+      case 24: attr->x.underline = IC_OFF; break;
+      case 27: attr->x.reverse = IC_OFF; break;
+      case 39: attr->x.color = IC_ANSI_DEFAULT; break;
+      case 49: attr->x.bgcolor = IC_ANSI_DEFAULT; break;
       default: {
         if (cmd >= 30 && cmd <= 37) {
-          attr->color = IC_ANSI_BLACK + (cmd - 30);
+          attr->x.color = IC_ANSI_BLACK + (cmd - 30);
         }
         else if (cmd >= 40 && cmd <= 47) {
-          attr->bgcolor = IC_ANSI_BLACK + (cmd - 40);
+          attr->x.bgcolor = IC_ANSI_BLACK + (cmd - 40);
         }
         else if (cmd >= 90 && cmd <= 97) {
-          attr->color = IC_ANSI_DARKGRAY + (cmd - 90);
+          attr->x.color = IC_ANSI_DARKGRAY + (cmd - 90);
         }
         else if (cmd >= 100 && cmd <= 107) {
-          attr->bgcolor = IC_ANSI_DARKGRAY + (cmd - 100);
+          attr->x.bgcolor = IC_ANSI_DARKGRAY + (cmd - 100);
         }
         else if ((cmd == 38 || cmd == 48) && sgr_is_sep(*p)) {
           // non-associative SGR :-(          
@@ -478,8 +487,8 @@ static void sgr_process( term_attr_t* attr, const char* s, ssize_t len) {
               p++;
               if (sgr_next_par(&p,&par) && par >= 0 && par <= 0xFF) {
                 ic_color_t color = color_from_ansi256(par);
-                if (cmd==38) { attr->color = color; }
-                        else { attr->bgcolor = color; }
+                if (cmd==38) { attr->x.color = color; }
+                        else { attr->x.bgcolor = color; }
               }
             }
             else if (par == 2 && sgr_is_sep(*p)) {
@@ -488,8 +497,8 @@ static void sgr_process( term_attr_t* attr, const char* s, ssize_t len) {
               ssize_t r,g,b;
               if (sgr_next_par3(&p,&r,&g,&b)) {
                 ic_color_t color = ic_rgbx(r,g,b);
-                if (cmd==38) { attr->color = color; }
-                        else { attr->bgcolor = color; }
+                if (cmd==38) { attr->x.color = color; }
+                        else { attr->x.bgcolor = color; }
               }
             }
           }

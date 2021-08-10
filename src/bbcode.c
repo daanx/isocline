@@ -210,42 +210,42 @@ static const char* attr_update_property( term_attr_t* attr, const char* attr_nam
   if (strcmp(attr_name,fname) == 0) {    
     signed int b = IC_NONE;    
     attr_update_bool(fname,&b, value); 
-    if (b != IC_NONE) { attr->bold = b; }
+    if (b != IC_NONE) { attr->x.bold = b; }
     return fname;
   }
   fname = "italic";
   if (strcmp(attr_name,fname) == 0) {    
     signed int b = IC_NONE;      
     attr_update_bool(fname,&b, value); 
-    if (b != IC_NONE) { attr->italic = b; }
+    if (b != IC_NONE) { attr->x.italic = b; }
     return fname;
   }
   fname = "underline";
   if (strcmp(attr_name,fname) == 0) {  
     signed int b = IC_NONE;        
     attr_update_bool(fname,&b, value); 
-    if (b != IC_NONE) { attr->underline = b; }
+    if (b != IC_NONE) { attr->x.underline = b; }
     return fname;
   }
   fname = "reverse";
   if (strcmp(attr_name,fname) == 0) {
     signed int b = IC_NONE;          
     attr_update_bool(fname,&b, value); 
-    if (b != IC_NONE) { attr->reverse = b; }
+    if (b != IC_NONE) { attr->x.reverse = b; }
     return fname;
   }
   fname = "color";
   if (strcmp(attr_name,fname) == 0) {
     unsigned int color = IC_COLOR_NONE;
     attr_update_color(fname, &color, value);
-    if (color != IC_COLOR_NONE) { attr->color = color; }
+    if (color != IC_COLOR_NONE) { attr->x.color = color; }
     return fname;
   }
   fname = "bgcolor";
   if (strcmp(attr_name,fname) == 0) {
     unsigned int color = IC_COLOR_NONE;
     attr_update_color(fname, &color, value);
-    if (color != IC_COLOR_NONE) { attr->bgcolor = color; }
+    if (color != IC_COLOR_NONE) { attr->x.bgcolor = color; }
     return fname;
   }
   else {
@@ -254,20 +254,20 @@ static const char* attr_update_property( term_attr_t* attr, const char* attr_nam
 }
 
 static void attr_update_with( term_attr_t* attr, term_attr_t newattr ) {
-  if (newattr.color != IC_COLOR_NONE) { attr->color = newattr.color; }
-  if (newattr.bgcolor != IC_COLOR_NONE) { attr->bgcolor = newattr.bgcolor; }
-  if (newattr.bold != IC_NONE) { attr->bold = newattr.bold; }
-  if (newattr.italic != IC_NONE) { attr->italic = newattr.italic; }
-  if (newattr.reverse != IC_NONE) { attr->reverse = newattr.reverse; }
-  if (newattr.underline != IC_NONE) { attr->underline = newattr.underline; }
+  if (newattr.x.color != IC_COLOR_NONE) { attr->x.color = newattr.x.color; }
+  if (newattr.x.bgcolor != IC_COLOR_NONE) { attr->x.bgcolor = newattr.x.bgcolor; }
+  if (newattr.x.bold != IC_NONE) { attr->x.bold = newattr.x.bold; }
+  if (newattr.x.italic != IC_NONE) { attr->x.italic = newattr.x.italic; }
+  if (newattr.x.reverse != IC_NONE) { attr->x.reverse = newattr.x.reverse; }
+  if (newattr.x.underline != IC_NONE) { attr->x.underline = newattr.x.underline; }
 }
 
 static const style_t builtin_styles[] = {
-  { "b",  { IC_COLOR_NONE, IC_ON  , IC_NONE, IC_COLOR_NONE, IC_NONE, IC_NONE } },
-  { "r",  { IC_COLOR_NONE, IC_NONE, IC_ON  , IC_COLOR_NONE, IC_NONE, IC_NONE } },
-  { "u",  { IC_COLOR_NONE, IC_NONE, IC_NONE, IC_COLOR_NONE, IC_ON  , IC_NONE } },
-  { "i",  { IC_COLOR_NONE, IC_NONE, IC_NONE, IC_COLOR_NONE, IC_NONE, IC_ON   } },
-  { NULL, { IC_COLOR_NONE, IC_NONE, IC_NONE, IC_COLOR_NONE, IC_NONE, IC_NONE } }
+  { "b",  { { IC_COLOR_NONE, IC_ON  , IC_NONE, IC_COLOR_NONE, IC_NONE, IC_NONE } } },
+  { "r",  { { IC_COLOR_NONE, IC_NONE, IC_ON  , IC_COLOR_NONE, IC_NONE, IC_NONE } } },
+  { "u",  { { IC_COLOR_NONE, IC_NONE, IC_NONE, IC_COLOR_NONE, IC_ON  , IC_NONE } } },
+  { "i",  { { IC_COLOR_NONE, IC_NONE, IC_NONE, IC_COLOR_NONE, IC_NONE, IC_ON   } } },
+  { NULL, { { IC_COLOR_NONE, IC_NONE, IC_NONE, IC_COLOR_NONE, IC_NONE, IC_NONE } } }
 };
 
 static const char* attr_update_with_styles( term_attr_t* attr, const char* attr_name, const char* value, 
@@ -308,8 +308,8 @@ static const char* attr_update_with_styles( term_attr_t* attr, const char* attr_
     }
     else {
       term_attr_t cattr = { 0 };
-      if (usebgcolor) { cattr.bgcolor = info->color; }
-                else  { cattr.color = info->color; }
+      if (usebgcolor) { cattr.x.bgcolor = info->color; }
+                else  { cattr.x.color = info->color; }
       attr_update_with(attr,cattr);
       return info->name;
     }

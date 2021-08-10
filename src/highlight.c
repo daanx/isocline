@@ -62,7 +62,7 @@ ic_private bool highlight_insert_at( ic_highlight_env_t* henv, ssize_t pos, ssiz
   ic_memmove(henv->attrs + pos + len, henv->attrs + pos, ssizeof(term_attr_t)*(henv->attr_len - pos));
   henv->attr_len += len;
   term_attr_t attr = term_attr_none();
-  attr.color = color;
+  attr.x.color = color;
   for (ssize_t i = 0; i < len; i++) {
     henv->attrs[pos + i] = attr;
   }
@@ -80,12 +80,12 @@ static void highlight_fillout( ic_highlight_env_t* henv ) {
   for( ssize_t i = 0; i < henv->attr_len; i++ ) {
     term_attr_t* cur = &henv->attrs[i];
     // propagate attribute
-    if (cur->color     == IC_COLOR_NONE) { cur->color = attr.color; }
-    if (cur->bgcolor   == IC_COLOR_NONE) { cur->bgcolor = attr.bgcolor; }
-    if (cur->underline == IC_NONE) { cur->underline = attr.underline; }
-    if (cur->reverse   == IC_NONE) { cur->reverse = attr.reverse; }
-    if (cur->bold      == IC_NONE) { cur->bold = attr.bold; }
-    if (cur->italic    == IC_NONE) { cur->italic = attr.italic; }
+    if (cur->x.color     == IC_COLOR_NONE) { cur->x.color = attr.x.color; }
+    if (cur->x.bgcolor   == IC_COLOR_NONE) { cur->x.bgcolor = attr.x.bgcolor; }
+    if (cur->x.underline == IC_NONE) { cur->x.underline = attr.x.underline; }
+    if (cur->x.reverse   == IC_NONE) { cur->x.reverse = attr.x.reverse; }
+    if (cur->x.bold      == IC_NONE) { cur->x.bold = attr.x.bold; }
+    if (cur->x.italic    == IC_NONE) { cur->x.italic = attr.x.italic; }
     attr = *cur;
   }
 }
@@ -157,7 +157,7 @@ ic_public void ic_highlight_color(ic_highlight_env_t* henv, long pos, ic_color_t
   if (henv==NULL) return;
   pos = pos_adjust(henv,pos);
   if (pos < 0) return;
-  henv->attrs[pos].color = color;
+  henv->attrs[pos].x.color = color;
 }
 
 // Set the background color of characters starting at position `pos` to `bgcolor`.
@@ -165,7 +165,7 @@ ic_public void ic_highlight_bgcolor(ic_highlight_env_t* henv, long pos, ic_color
   if (henv==NULL) return;
   pos = pos_adjust(henv,pos);
   if (pos < 0) return;
-  henv->attrs[pos].bgcolor = bgcolor;
+  henv->attrs[pos].x.bgcolor = bgcolor;
 }
 
 // Enable/Disable underlining for characters starting at position `pos`.
@@ -173,7 +173,7 @@ ic_public void ic_highlight_underline(ic_highlight_env_t* henv, long pos, bool e
   if (henv==NULL) return;
   pos = pos_adjust(henv,pos);
   if (pos < 0) return;
-  henv->attrs[pos].underline = (enable ? 1 : -1);
+  henv->attrs[pos].x.underline = (enable ? 1 : -1);
 }
 
 // Enable/Disable reverse video for characters starting at position `pos`.
@@ -181,7 +181,7 @@ ic_public void ic_highlight_reverse(ic_highlight_env_t* henv, long pos, bool ena
   if (henv==NULL) return;
   pos = pos_adjust(henv,pos);
   if (pos < 0) return;
-  henv->attrs[pos].underline = (enable ? 1 : -1);
+  henv->attrs[pos].x.underline = (enable ? 1 : -1);
 }
 
 // Enable/Disable bold for characters starting at position `pos`.
@@ -189,7 +189,7 @@ ic_public void ic_highlight_bold(ic_highlight_env_t* henv, long pos, bool enable
   if (henv==NULL) return;
   pos = pos_adjust(henv,pos);
   if (pos < 0) return;
-  henv->attrs[pos].bold = (enable ? 1 : -1);
+  henv->attrs[pos].x.bold = (enable ? 1 : -1);
 }
 
 // Enable/Disable italic for characters starting at position `pos`.
@@ -197,7 +197,7 @@ ic_public void ic_highlight_italic(ic_highlight_env_t* henv, long pos, bool enab
   if (henv==NULL) return;
   pos = pos_adjust(henv,pos);
   if (pos < 0) return;
-  henv->attrs[pos].italic = (enable ? 1 : -1);
+  henv->attrs[pos].x.italic = (enable ? 1 : -1);
 }
 
 
