@@ -10,6 +10,7 @@
 #include <stdlib.h>  
 
 #include "common.h"
+#include "attr.h"
 #include "term.h"
 #include "bbcode.h" 
 
@@ -71,7 +72,7 @@ ic_private void bbcode_free( bbcode_t* bb ) {
   mem_free(bb->mem, bb);
 }
 
-static void bbcode_add_style( bbcode_t* bb, const char* style_name, attr_t attr ) {
+ic_private void bbcode_add_style( bbcode_t* bb, const char* style_name, attr_t attr ) {
   if (bb->styles_count >= bb->styles_capacity) {
     ssize_t newlen = bb->styles_capacity + 32;
     style_t* p = mem_realloc_tp( bb->mem, style_t, bb->styles, newlen );
@@ -128,35 +129,32 @@ static void bbcode_invalid(const char* fmt, ... ) {
 // Set attributes
 //-------------------------------------------------------------
 
-ic_private void bbcode_set( bbcode_t* bb, attr_t attr ) {
-  term_set_attr(bb->term,attr);
-}
 
-static void bbcode_open( bbcode_t* bb, const tag_t* tag ) { 
+static attr_t bbcode_open( bbcode_t* bb, const tag_t* tag, attr_t current ) { 
   // save current and set
   tag_t cur;
   tag_init(&cur);
   cur.name = tag->name;
-  cur.attr = term_get_attr(bb->term);
+  cur.attr = current;
   bbcode_tag_push(bb,&cur);
-  bbcode_set(bb,tag->attr);
+  return attr_update_with( current, tag->attr );
 }
 
-static void bbcode_close( bbcode_t* bb, const char* name ) {
+static attr_t bbcode_close( bbcode_t* bb, const char* name ) {
   // pop until match
   while (bb->tags_nesting > 0) {
     tag_t prev;
     bbcode_tag_pop(bb,&prev);
     if (name==NULL || prev.name==NULL || ic_stricmp(prev.name,name) == 0) {
       // matched
-      bbcode_set(bb,prev.attr);
-      break;
+      return prev.attr;
     }
     else {
       // unbalanced, continue
-      bbcode_invalid("bbcode: unbalanced tags: open [%s], close [/%s]\n", prev.name, name);      
+      bbcode_invalid("bbcode: unbalanced tags: open [%s], close [/%s]\n", prev.name, name);            
     }
-  }  
+  }
+  return attr_none();
 }
 
 //-------------------------------------------------------------
@@ -253,15 +251,6 @@ static const char* attr_update_property( attr_t* attr, const char* attr_name, co
   }
 }
 
-static void attr_update_with( attr_t* attr, attr_t newattr ) {
-  if (newattr.x.color != IC_COLOR_NONE) { attr->x.color = newattr.x.color; }
-  if (newattr.x.bgcolor != IC_COLOR_NONE) { attr->x.bgcolor = newattr.x.bgcolor; }
-  if (newattr.x.bold != IC_NONE) { attr->x.bold = newattr.x.bold; }
-  if (newattr.x.italic != IC_NONE) { attr->x.italic = newattr.x.italic; }
-  if (newattr.x.reverse != IC_NONE) { attr->x.reverse = newattr.x.reverse; }
-  if (newattr.x.underline != IC_NONE) { attr->x.underline = newattr.x.underline; }
-}
-
 static const style_t builtin_styles[] = {
   { "b",  { { IC_COLOR_NONE, IC_ON  , IC_NONE, IC_COLOR_NONE, IC_NONE, IC_NONE } } },
   { "r",  { { IC_COLOR_NONE, IC_NONE, IC_ON  , IC_COLOR_NONE, IC_NONE, IC_NONE } } },
@@ -282,14 +271,14 @@ static const char* attr_update_with_styles( attr_t* attr, const char* attr_name,
   while( count-- > 0 ) {
     const style_t* style = styles + count;
     if (strcmp(style->name,attr_name) == 0) {
-      attr_update_with(attr,style->attr);
+      *attr = attr_update_with(*attr,style->attr);
       return style->name;
     }    
   }
   // check builtin styles; todo: binary search?
   for( const style_t* style = builtin_styles; style->name != NULL; style++) {
     if (strcmp(style->name,attr_name) == 0) {
-      attr_update_with(attr,style->attr);
+      *attr = attr_update_with(*attr,style->attr);
       return style->name;
     }
   }
@@ -310,7 +299,7 @@ static const char* attr_update_with_styles( attr_t* attr, const char* attr_name,
       attr_t cattr = { 0 };
       if (usebgcolor) { cattr.x.bgcolor = info->color; }
                 else  { cattr.x.color = info->color; }
-      attr_update_with(attr,cattr);
+      *attr = attr_update_with(*attr,cattr);
       return info->name;
     }
   }
@@ -472,20 +461,21 @@ ic_private void bbcode_parse_style( bbcode_t* bb, const char* style_name, const 
 ic_private void bbcode_start_style( bbcode_t* bb, const char* fmt ) {
   tag_t tag;
   bbcode_parse_tag_content(bb, fmt, &tag);
-  bbcode_open(bb,&tag);
+  term_set_attr( bb->term, bbcode_open(bb,&tag,term_get_attr(bb->term)) );
 }
 
 ic_private void bbcode_end_style( bbcode_t* bb, const char* fmt ) {
   tag_t tag;
   bbcode_parse_tag_content(bb, fmt, &tag);  
-  bbcode_close(bb, tag.name);
+  term_set_attr( bb->term, bbcode_close(bb, tag.name) );
 }
 
 //---------------------------------------------------------
 // Print
 //---------------------------------------------------------
 
-ic_private ssize_t bbcode_process_tag( bbcode_t* bb, const char* s, const ssize_t nesting_base ) {
+ic_private ssize_t bbcode_process_tag( bbcode_t* bb, const char* s, const ssize_t nesting_base, 
+                                        stringbuf_t* out, attrbuf_t* attr_out, attr_t* cur_attr ) {
   assert(*s == '[');
   tag_t tag;
   tag_init(&tag);  
@@ -494,7 +484,7 @@ ic_private ssize_t bbcode_process_tag( bbcode_t* bb, const char* s, const ssize_
   const char* end = parse_tag( &tag, &open, &ispre, s, bb->styles, bb->styles_count ); // todo: styles
   assert(end > s);
   if (open) {
-    bbcode_open( bb, &tag );
+    attr_t attr = bbcode_open( bb, &tag, *cur_attr );
     if (ispre) {
       // set end tag
       stringbuf_t* pre = sbuf_new(bb->mem);
@@ -505,51 +495,60 @@ ic_private ssize_t bbcode_process_tag( bbcode_t* bb, const char* s, const ssize_
         const char* etag = strstr(end,sbuf_string(pre));
         if (etag == NULL) {
           const ssize_t len = ic_strlen(end);
-          term_write_n(bb->term, end, len);
+          attrbuf_append_n(out, attr_out, end, len, attr);
           end += len;
         }
         else {
-          term_write_n(bb->term, end, (etag - end));
+          attrbuf_append_n(out, attr_out, end, (etag - end), attr);
           end = etag + sbuf_len(pre);
         }
       }
+    }
+    else {
+      *cur_attr = attr;
     }
   }
   else {
     // don't pop beyond the base
     if (bb->tags_nesting > nesting_base) {
-      bbcode_close( bb, tag.name );
+      *cur_attr = bbcode_close( bb, tag.name );
     }
   }  
   return (end - s);
 }
 
-ic_private void bbcode_print( bbcode_t* bb, const char* s ) {
-  tag_t tag;
-  tag_init(&tag); 
-  tag.attr = term_get_attr(bb->term);
-  bbcode_tag_push(bb,&tag); 
+ic_private void bbcode_append_buf( bbcode_t* bb, const char* s, stringbuf_t* out, attrbuf_t* attr_out ) {
+  attr_t attr = attr_none();
   const ssize_t base = bb->tags_nesting; // base; will not be popped
   ssize_t i = 0;
   while( s[i] != 0 ) {
-    // handler no tags in bulk
+    // handle no tags in bulk
     ssize_t nobb = 0;
     while( s[i+nobb] != 0 && s[i+nobb] != '[') {
       nobb++;
     }
-    if (nobb > 0) { term_write_n(bb->term, s+i, nobb); }
+    if (nobb > 0) { attrbuf_append_n(out, attr_out, s+i, nobb, attr); }
     i += nobb;
     // tag
     if (s[i] == '[') {
-      i += bbcode_process_tag(bb, s+i, base);
+      i += bbcode_process_tag(bb, s+i, base, out, attr_out, &attr);
     }
   }
-  // restore unclosed openings
+  // pop unclosed openings
   assert(bb->tags_nesting >= base);
-  while( bb->tags_nesting >= base ) {
+  while( bb->tags_nesting > base ) {
     bbcode_tag_pop(bb,NULL);
   };
-  bbcode_set(bb,tag.attr);
+}
+
+ic_private void bbcode_print( bbcode_t* bb, const char* s ) {
+  stringbuf_t* out = sbuf_new(bb->mem);
+  attrbuf_t* attr_out = attrbuf_new(bb->mem);
+  if (out == NULL || attr_out == NULL) return;
+  bbcode_append_buf( bb, s, out, attr_out );
+  term_write_formatted( bb->term, sbuf_string(out), attrbuf_attrs(attr_out,sbuf_len(out)) );
+  attrbuf_free(attr_out);
+  sbuf_free(out);
 }
 
 ic_private void bbcode_println( bbcode_t* bb, const char* s ) {

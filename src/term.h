@@ -8,10 +8,10 @@
 #ifndef IC_TERM_H
 #define IC_TERM_H
 
-#include "../include/isocline.h"  // ic_color_t
 #include "common.h"
 #include "tty.h"
 #include "stringbuf.h"
+#include "attr.h"
 
 struct term_s;
 typedef struct term_s term_t;
@@ -75,33 +75,8 @@ ic_private void term_bgcolor(term_t* term, ic_color_t color);
 ic_private void term_append_color(term_t* term, stringbuf_t* sbuf, ic_color_t color);
 ic_private void term_append_bgcolor(term_t* term, stringbuf_t* sbuf, ic_color_t color);
 
-
-#define IC_ON   (1)
-#define IC_OFF  (-1)
-#define IC_NONE (0)
-
-// try to fit in 64 bits 
-// note: order is important for some compilers
-// note: each color can actually be 25 bits
-typedef union attr_s {
-  struct {
-    unsigned int  color:28;
-    signed int    bold:2;
-    signed int    reverse:2;
-    unsigned int  bgcolor:28;
-    signed int    underline:2;
-    signed int    italic:2;
-  } x;
-  uint64_t        value;  
-} attr_t;
-
-ic_private attr_t attr_none(void);
-ic_private attr_t attr_default(void);
-
-ic_private bool attr_is_none(attr_t attr);
-ic_private bool attr_is_eq(attr_t attr1, attr_t attr2);
-
 ic_private attr_t term_get_attr( const term_t* term );
-ic_private void        term_set_attr( term_t* term, attr_t attr );
+ic_private void   term_set_attr( term_t* term, attr_t attr );
+ic_private void   term_write_formatted( term_t* term, const char* s, const attr_t* attrs );
 
 #endif // IC_TERM_H

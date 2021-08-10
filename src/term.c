@@ -208,6 +208,33 @@ ic_private void term_vwritef(term_t* term, const char* fmt, va_list args ) {
   sbuf_append_vprintf(term->buf, fmt, args);
 }
 
+ic_private void term_write_formatted( term_t* term, const char* s, const attr_t* attrs ) {
+  if (attrs == NULL) {
+    term_write(term,s);
+  }
+  else {
+    const attr_t default_attr = term_get_attr(term);
+    attr_t attr = attr_none();
+    ssize_t i = 0;
+    while( s[i] != 0 ) {
+      // handle in bulk while attributes stay the same
+      ssize_t n = 0;
+      while( s[i+n] != 0 && attr_is_eq(attr, attrs[i+n])) { 
+        n++; 
+      }
+      if (n > 0) {
+        term_write_n(term, s+i, n);
+      }
+      i+= n;
+      // set new attribute
+      attr = attrs[i];
+      term_set_attr( term, attr_update_with(default_attr,attr) );
+      term_write_char( term, s[i] );
+      i++;
+    }
+    term_set_attr(term, default_attr);
+  }
+}
 
 //-------------------------------------------------------------
 // Write to the terminal
@@ -280,30 +307,6 @@ static void term_check_flush(term_t* term, bool contains_nl) {
 //-------------------------------------------------------------
 
 static void term_init_raw(term_t* term);
-
-ic_private attr_t attr_none(void) {
-  attr_t attr = { 0 };
-  return attr;
-}
-
-ic_private attr_t attr_default(void) {
-  attr_t attr = attr_none();
-  attr.x.color = IC_ANSI_DEFAULT;
-  attr.x.bgcolor = IC_ANSI_DEFAULT;
-  attr.x.bold = IC_OFF;
-  attr.x.underline = IC_OFF; 
-  attr.x.reverse = IC_OFF;
-  attr.x.italic = IC_OFF; 
-  return attr;
-}
-
-ic_private bool attr_is_none(attr_t attr) {
-  return (attr.value == 0);
-}
-
-ic_private bool attr_is_eq(attr_t attr1, attr_t attr2) {
-  return (attr1.value == attr2.value);
-}
 
 
 ic_private term_t* term_new(alloc_t* mem, tty_t* tty, bool nocolor, bool silent, int fd_out ) 

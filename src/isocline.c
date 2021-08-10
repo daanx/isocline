@@ -16,6 +16,7 @@
 # define _CRT_SECURE_NO_WARNINGS  // for msvc
 # define _XOPEN_SOURCE   700      // for wcwidth
 # define _DEFAULT_SOURCE          // ensure usleep stays visible with _XOPEN_SOURCE >= 700
+# include "attr.c"
 # include "bbcode.c"
 # include "editline.c"
 # include "highlight.c"
