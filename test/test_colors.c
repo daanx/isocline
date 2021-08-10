@@ -115,7 +115,7 @@ int main()
   write_html_colors();
 
   // bbcodes
-  ic_print( "[b]bold [i]bold and italic[/i] [yellow on blue]yellow on blue in bold[/][/b] default\n");  
+  ic_print( "\n[b]bold [i]bold and italic[/i] [yellow on blue]yellow on blue in bold[/][/b] default\n");  
 
   ic_style_def("em", "underline ansi-olive");
   ic_style_start("i");
