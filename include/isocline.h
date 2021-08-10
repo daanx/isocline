@@ -552,13 +552,42 @@ int ic_term_get_color_bits( void );
 // bbcode formatting
 //--------------------------------------------------------------
 
+// Print to the terminal while respection bbcode markup. 
+// Any unclosed tags are closed automatically at the end of the print.
+// For example:
+// ```
+// ic_print("[b]bold, [i]bold and italic[/i], [red]red and bold[/][/b] default.");
+// ic_print("[b]bold[/], [i b]bold and italic[/], [yellow on blue]yellow on blue background");
+// ic_style_add("em","i color=#888800");
+// ic_print("[em]emphasis");
+// ```
+// Properties that can be assigned are:
+// * `color=`_clr_, `bgcolor=`_clr_: where _clr_ is either a hex value `#`RRGGBB or `#`RGB, a
+//    standard HTML color name, or an ANSI palette name, like `ansi-maroon`, `ansi-default`, etc.
+// * `bold`,`italic`,`reverse`,`underline`: can be `on` or `off`. 
+// * everything else is a style; all HTML and ANSI color names are also a style (so we can just use `red`
+//   instead of `color=red`, or `on red` instead of `bgcolor=red`), and there are
+//   the `b`, `i`, `u`, and `r` styles for bold, italic, underline, and reverse.
 void ic_print( const char* s );
+
+// Print with bbcode markup ending with a newline.
 void ic_println( const char* s );
+
+// Print formatted with bbcode markup.
 void ic_printf(const char* fmt, ...);
+
+// Print formatted with bbcode markup.
 void ic_vprintf(const char* fmt, va_list args);
 
-void ic_style_add( const char* s, const char* fmt );
+// Add a new style. The `fmt` string is the content of a tag and can contain
+// other styles. This is very useful to theme the output of a program
+// by assigning standard styles like `em` or `warning` etc.
+void ic_style_add( const char* style_name, const char* fmt );
+
+// Start a global style that is only reset when calling a matching `ic_style_end`.
 void ic_style_start( const char* fmt );
+
+// End a global style.
 void ic_style_end(void);
 
 

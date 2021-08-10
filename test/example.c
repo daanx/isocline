@@ -21,13 +21,15 @@ static void highlighter(ic_highlight_env_t* henv, const char* input, void* arg);
 // main example
 int main() 
 {
-  printf( "Isocline sample program:\n"
-          "- Type 'exit' to quit. (or use ctrl+d).\n"
-          "- Press F1 for help on editing commands.\n"
-          "- Use shift+tab for multiline input. (or ctrl+enter, or ctrl+j)\n"
-          "- Type 'p' (or 'id', 'f', or 'h') followed by tab for completion.\n"
-          "- Type 'fun' or 'int' to see syntax highlighting\n"
-          "- Use ctrl+r to search the history.\n\n" );
+  // use `ic_print` functions to use bbcode's for markup
+  ic_style_add("kbd","gray");  // you can define your own styles
+  ic_printf( "[b]Isocline[/b] sample program:\n"
+              "- Type 'exit' to quit. (or use [kbd]ctrl-d[/]).\n"
+              "- Press [kbd]F1[/] for help on editing commands.\n"
+              "- Use [kbd]shift-tab[/] for multiline input. (or [kbd]ctrl-enter[/], or [kbd]ctrl-j[/])\n"
+              "- Type 'p' (or 'id', 'f', or 'h') followed by tab for completion.\n"
+              "- Type 'fun' or 'int' to see syntax highlighting\n"
+              "- Use [kbd]ctrl-r[/] to search the history.\n\n" );
   
   // enable history; use a NULL filename to not persist history to disk
   ic_set_history("history.txt", -1 /* default entries (= 200) */);
@@ -49,13 +51,13 @@ int main()
   while((input = ic_readline("isoclinε")) != NULL)    // ctrl-d returns NULL (as well as errors)
   {
     bool stop = (strcmp(input,"exit") == 0 || strcmp(input,"") == 0); 
-    printf("-----\n"           // echo the input
-           "%s\n"
-           "-----\n", input );    
+    ic_printf("[gray]-----[/]\n"           // echo the input
+              "%s\n"
+              "[gray]-----[/]\n", input );    
     free(input);               // do not forget to free the returned input!
     if (stop) break;
   }
-  printf("done\n");
+  ic_println("done");
   return 0;
 }
 

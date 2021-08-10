@@ -291,7 +291,7 @@ ic_private term_attr_t term_attr_default(void) {
   attr.color = IC_ANSI_DEFAULT;
   attr.bgcolor = IC_ANSI_DEFAULT;
   attr.bold = IC_OFF;
-  attr.italic = IC_OFF; 
+  attr.underline = IC_OFF; 
   attr.reverse = IC_OFF;
   attr.italic = IC_OFF; 
   return attr;
@@ -759,7 +759,7 @@ static void term_sgr_win_attr( term_t* term, term_attr_t ta ) {
     attr = (attr & ~COMMON_LVB_UNDERSCORE) | (ta.underline == IC_ON ? COMMON_LVB_UNDERSCORE : 0);
   }
   if (ta.reverse != IC_NONE) {
-    attr = (attr & ~COMMON_LVB_REVERSE_VIDEO) | (ta.underline == IC_ON ? COMMON_LVB_REVERSE_VIDEO : 0);
+    attr = (attr & ~COMMON_LVB_REVERSE_VIDEO) | (ta.reverse == IC_ON ? COMMON_LVB_REVERSE_VIDEO : 0);
   }  
   if (attr != cur_attr) {
     SetConsoleTextAttribute(term->hcon, attr);
