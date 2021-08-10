@@ -257,6 +257,10 @@ void ic_highlight_reverse(ic_highlight_env_t* henv, long pos, bool enable);
 // (Use a negative position to indicate a logical unicode character position).
 void ic_highlight_bold(ic_highlight_env_t* henv, long pos, bool enable);
 
+// Experimental: Enable/Disable italic for characters starting at position `pos`.
+// (Use a negative position to indicate a logical unicode character position).
+void ic_highlight_italic(ic_highlight_env_t* henv, long pos, bool enable);
+
 // Convenience callback for a function that highlights `s` using ANSI CSI SGR escape sequences (`ESC [ <code> m`)
 // The returned string should be allocated and is free'd by the caller.
 // See: <https://en.wikipedia.org/wiki/ANSI_escape_code#SGR_(Select_Graphic_Rendition)_parameters>
@@ -524,6 +528,13 @@ void ic_term_underline( bool enable );
 // Set the text reverse video mode.
 void ic_term_reverse( bool enable );
 
+// Set the text italic mode.
+// May not be supported on all systems.
+void ic_term_italic( bool enable );
+
+// Set the text bold mode.
+void ic_term_bold( bool enable );
+
 // Reset the text attributes.
 void ic_term_reset( void );
 
@@ -541,13 +552,15 @@ int ic_term_get_color_bits( void );
 // bbcode formatting
 //--------------------------------------------------------------
 
-void ic_term_print( const char* s );
-void ic_term_printf(const char* fmt, ...);
-void ic_term_vprintf(const char* fmt, va_list args);
+void ic_print( const char* s );
+void ic_println( const char* s );
+void ic_printf(const char* fmt, ...);
+void ic_vprintf(const char* fmt, va_list args);
 
-void ic_term_add_style( const char* s, const char* fmt );
-void ic_term_start_style( const char* fmt );
-void ic_term_end_style( const char* name );
+void ic_style_add( const char* s, const char* fmt );
+void ic_style_start( const char* fmt );
+void ic_style_end(void);
+
 
 //--------------------------------------------------------------
 // Async support

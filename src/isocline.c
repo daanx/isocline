@@ -392,6 +392,18 @@ ic_public void ic_term_underline( bool enable ) {
   term_underline(env->term, enable);
 }
 
+ic_public void ic_term_bold( bool enable ) {
+  ic_env_t* env = ic_get_env(); if (env==NULL) return;
+  if (env->term == NULL) return;
+  term_bold(env->term, enable);
+}
+
+ic_public void ic_term_italic( bool enable ) {
+  ic_env_t* env = ic_get_env(); if (env==NULL) return;
+  if (env->term == NULL) return;
+  term_italic(env->term, enable);
+}
+
 ic_public void ic_term_reverse( bool enable ) {
   ic_env_t* env = ic_get_env(); if (env==NULL) return;
   if (env->term == NULL) return;
@@ -419,36 +431,42 @@ ic_private const char* ic_env_get_auto_braces(ic_env_t* env) {
 }
 
 
-ic_public void ic_term_printf(const char* fmt, ...) {
+ic_public void ic_printf(const char* fmt, ...) {
   va_list ap;
   va_start(ap, fmt);
-  ic_term_vprintf(fmt, ap);
+  ic_vprintf(fmt, ap);
   va_end(ap);
 }
 
-ic_public void ic_term_vprintf(const char* fmt, va_list args) {
+ic_public void ic_vprintf(const char* fmt, va_list args) {
   ic_env_t* env = ic_get_env(); if (env==NULL || env->bbcode == NULL) return;
   bbcode_vprintf(env->bbcode, fmt, args);
 }
 
-ic_public void ic_term_print( const char* s ) {
+ic_public void ic_print( const char* s ) {
   ic_env_t* env = ic_get_env(); if (env==NULL || env->bbcode==NULL) return;
   bbcode_print( env->bbcode, s );
 }
 
-void ic_term_add_style( const char* name, const char* fmt ) {
+ic_public void ic_println( const char* s ) {
+  ic_env_t* env = ic_get_env(); if (env==NULL || env->bbcode==NULL) return;
+  bbcode_println( env->bbcode, s );
+}
+
+
+void ic_style_add( const char* name, const char* fmt ) {
   ic_env_t* env = ic_get_env(); if (env==NULL || env->bbcode==NULL) return;
   bbcode_parse_style(env->bbcode, name, fmt);
 }
 
-void ic_term_start_style( const char* fmt ) {
+void ic_style_start( const char* fmt ) {
   ic_env_t* env = ic_get_env(); if (env==NULL || env->bbcode==NULL) return;
   bbcode_start_style( env->bbcode, fmt );
 }
 
-void ic_term_end_style( const char* name ) {
+void ic_style_end(void) {
   ic_env_t* env = ic_get_env(); if (env==NULL || env->bbcode==NULL) return;
-  bbcode_end_style( env->bbcode, name );
+  bbcode_end_style( env->bbcode, NULL );
 }
 
 //-------------------------------------------------------------

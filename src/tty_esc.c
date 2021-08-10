@@ -9,14 +9,14 @@
 
 /*-------------------------------------------------------------
 Decoding escape sequences to key codes.
-This is a bit tricky as there is no clear standard; see:
+This is a bit tricky there are many variants to encode keys as escape sequences, see for example:
 - <http://www.leonerd.org.uk/hacks/fixterms/>.
 - <https://en.wikipedia.org/wiki/ANSI_escape_code#CSI_(Control_Sequence_Introducer)_sequences>
 - <https://www.xfree86.org/current/ctlseqs.html>
 - <https://vt100.net/docs/vt220-rm/contents.html>
 - <https://www.ecma-international.org/wp-content/uploads/ECMA-48_5th_edition_june_1991.pdf>
 
-Generally, for our purposes we accept a subset of escape sequence as:
+Generally, for our purposes we accept a subset of escape sequences as:
 
   escseq ::= ESC 
           |  ESC char

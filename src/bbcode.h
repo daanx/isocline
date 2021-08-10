@@ -24,6 +24,7 @@ ic_private void bbcode_start_style( bbcode_t* bb, const char* fmt );
 ic_private void bbcode_end_style( bbcode_t* bb, const char* fmt );
 
 ic_private void bbcode_print( bbcode_t* bb, const char* s );
+ic_private void bbcode_println( bbcode_t* bb, const char* s );
 ic_private void bbcode_vprintf( bbcode_t* bb, const char* fmt, va_list args );
 
 #endif // IC_BBCODE_H

@@ -260,7 +260,18 @@ fail:
 // Debug
 //-------------------------------------------------------------
 
-#if !defined(IC_NO_DEBUG_MSG) 
+#if defined(IC_NO_DEBUG_MSG) 
+// nothing
+#elif !defined(IC_DEBUG_TO_FILE)
+ic_private void debug_msg(const char* fmt, ...) {
+  if (getenv("ISOCLINE_DEBUG")) {
+    va_list args;
+    va_start(args, fmt);
+    vfprintf(stderr, fmt, args);
+    va_end(args);
+  }
+}
+#else
 ic_private void debug_msg(const char* fmt, ...) {
   static int debug_init;
   static const char* debug_fname = "isocline.debug.txt";

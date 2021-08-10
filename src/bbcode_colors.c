@@ -16,6 +16,7 @@ typedef struct style_color_s {
 
 #define IC_HTML_COLOR_COUNT (169)
 
+// ordered list of HTML color names (so we can use binary search)
 static style_color_t html_colors[IC_HTML_COLOR_COUNT+1] = {
   { "aliceblue", IC_RGB(0xf0f8ff) },
   { "ansi-aqua",   IC_ANSI_AQUA },

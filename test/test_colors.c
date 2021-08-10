@@ -33,15 +33,15 @@ static int html_color_compare(const void* p1, const void* p2) {
   return (w1 - w2);
 }
 
-#define COL 10
 static void write_html_colors(void) {
   qsort(html_colors, IC_HTML_COLOR_COUNT, sizeof(html_colors[0]), &html_color_compare );
-  ic_term_print("print html colors\n");  
+  ic_print("print html colors\n");  
   for(int i = 0; i < IC_HTML_COLOR_COUNT-1; i++) {
-    char buf[COL+1];
-    snprintf(buf,COL+1,"%s                  ", html_colors[i].name);
-    ic_term_printf("[bgcolor=%s]%s[/] ", html_colors[i].name, buf);
-    if ((i+1)%8 == 0) ic_term_print("\n\n");
+    // pad to 10 wide
+    char buf[11];
+    snprintf(buf,11,"%s               ", html_colors[i].name);
+    ic_printf("[bgcolor=%s]%s[/] ", html_colors[i].name, buf);
+    if ((i+1)%8 == 0) ic_print("\n\n");
   }
   ic_term_writeln("");  
 }
@@ -108,11 +108,22 @@ int main()
     int g = (i==64 ? 255 : i*4);
     ic_term_color(ic_rgbx(g, g, g)); ic_term_write(patch);
   }
-  ic_term_writeln("");
+  ic_term_writeln("\n");
   ic_term_reset();
+
+  // html colors
+  write_html_colors();
+
+  // bbcodes
+  ic_print( "[b]bold [i]bold and italic[/i] [yellow on blue]yellow on blue in bold[/][/b] default\n");  
+
+  ic_style_add("em", "underline ansi-olive");
+  ic_style_start("i");
+  ic_print( "[em]emphasis[/em]\n" );  
+  ic_style_end();
   
   // direct ANSI escapes
-  ic_term_write("\n\ndirect ansi escape sequence colors:\n");
+  ic_term_write("\ndirect ansi escape sequence colors:\n");
   show_ansi_color(IC_ANSI_BLACK,"black","gray");
   show_ansi_color(IC_ANSI_MAROON,"maroon","red");
   show_ansi_color(IC_ANSI_GREEN,"green","lime");
@@ -125,10 +136,6 @@ int main()
   
   ic_term_reset();
   ic_term_writeln("");
-
-
-  ic_term_print( "[b]bold [i]bold and italic[/i] [red]bold and red[/red][/b] default\n");  
-  write_html_colors();
 
   ic_term_done();
   return 0;
