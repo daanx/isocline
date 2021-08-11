@@ -265,9 +265,11 @@ static void edit_refresh(ic_env_t* env, editor_t* eb)
   }
 
   // insert hint  
-  ssize_t hint_len = 0;
   if (sbuf_len(eb->hint) > 0) {
-    hint_len = bbcode_insert_at( env->bbcode, sbuf_string(eb->hint), eb->input, attrs, eb->pos );
+    if (attrs != NULL) {
+      attrbuf_insert_at( attrs, eb->pos, sbuf_len(eb->hint), bbcode_style(env->bbcode, "ic-hint") );
+    }
+    sbuf_insert_at(eb->input, sbuf_string(eb->hint), eb->pos );
     sbuf_insert_at(eb->extra, sbuf_string(eb->hint_help), 0);
   }
 
@@ -331,7 +333,7 @@ static void edit_refresh(ic_env_t* env, editor_t* eb)
   term_set_buffer_mode(env->term, bmode);
 
   // restore input by removing the hint
-  if (hint_len > 0) { sbuf_delete_at(eb->input, eb->pos, hint_len); }
+  sbuf_delete_at(eb->input, eb->pos, sbuf_len(eb->hint));
   sbuf_delete_at(eb->extra, 0, sbuf_len(eb->hint_help));
   attrbuf_free(attrs);
 
@@ -400,10 +402,10 @@ static bool edit_resize(ic_env_t* env, editor_t* eb ) {
   return true;
 } 
 
-static void edit_append_hint_help(ic_env_t* env, editor_t* eb, const char* help) {
+static void editor_append_hint_help(editor_t* eb, const char* help) {
   sbuf_clear(eb->hint_help);
   if (help != NULL) {
-    term_append_color(env->term, eb->hint_help, env->color_info);
+    sbuf_replace(eb->hint_help, "[ic-info]");
     sbuf_append(eb->hint_help, help);
     sbuf_append(eb->hint_help, "\n");
   }
@@ -423,9 +425,8 @@ static void edit_refresh_hint(ic_env_t* env, editor_t* eb) {
     const char* help = NULL;
     const char* hint = completions_get_hint(env->completions, 0, &help);
     if (hint != NULL) {
-      sbuf_replace(eb->hint, "[ic-hint]");
-      sbuf_append(eb->hint, hint); 
-      edit_append_hint_help(env, eb, help);
+      sbuf_replace(eb->hint, hint); 
+      editor_append_hint_help(eb, help);
       // do auto-tabbing?
       if (env->complete_autotab) {
         stringbuf_t* sb = sbuf_new(env->mem);  // temporary buffer for completion
@@ -442,7 +443,7 @@ static void edit_refresh_hint(ic_env_t* env, editor_t* eb) {
               const char* extra_help = NULL;
               extra_hint = completions_get_hint(env->completions, 0, &extra_help);
               if (extra_hint != NULL) {
-                edit_append_hint_help(env, eb, extra_help);
+                editor_append_hint_help(eb, extra_help);
                 sbuf_append(eb->hint, extra_hint);
               }
             }
