@@ -38,6 +38,8 @@ ic_private char*   sbuf_strdup_from_utf8(stringbuf_t* sbuf);  // decode to local
 ic_private ssize_t sbuf_appendf(stringbuf_t* sb, const char* fmt, ...);
 ic_private ssize_t sbuf_append_vprintf(stringbuf_t* sb, const char* fmt, va_list args);
 
+ic_private stringbuf_t* sbuf_split_at( stringbuf_t* sb, ssize_t pos );
+
 // primitive edit operations (inserts return the new position)
 ic_private void    sbuf_clear(stringbuf_t* sbuf);
 ic_private void    sbuf_replace(stringbuf_t* sbuf, const char* s);

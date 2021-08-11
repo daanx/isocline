@@ -18,13 +18,16 @@ typedef struct bbcode_s bbcode_t;
 ic_private bbcode_t* bbcode_new( alloc_t* mem, term_t* term );
 ic_private void bbcode_free( bbcode_t* bb );
 
-ic_private void bbcode_add_style( bbcode_t* bb, const char* style_name, attr_t attr );
-ic_private void bbcode_parse_style( bbcode_t* bb, const char* style_name, const char* s );
-ic_private void bbcode_start_style( bbcode_t* bb, const char* fmt );
-ic_private void bbcode_end_style( bbcode_t* bb, const char* fmt );
+ic_private void bbcode_style_add( bbcode_t* bb, const char* style_name, attr_t attr );
+ic_private void bbcode_style_def( bbcode_t* bb, const char* style_name, const char* s );
+ic_private void bbcode_style_start( bbcode_t* bb, const char* fmt );
+ic_private void bbcode_style_end( bbcode_t* bb, const char* fmt );
+ic_private attr_t bbcode_style( bbcode_t* bb, const char* style_name );
 
 ic_private void bbcode_print( bbcode_t* bb, const char* s );
 ic_private void bbcode_println( bbcode_t* bb, const char* s );
 ic_private void bbcode_vprintf( bbcode_t* bb, const char* fmt, va_list args );
+
+ic_private ssize_t bbcode_insert_at( bbcode_t* bb, const char* s, stringbuf_t* sbuf, attrbuf_t* attrs, ssize_t pos );
 
 #endif // IC_BBCODE_H

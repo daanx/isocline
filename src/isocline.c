@@ -284,7 +284,7 @@ static void set_style_color(ic_env_t* env, ic_style_t iface_element, ic_color_t 
     case IC_STYLE_ERROR:      env->color_error = (color == IC_COLOR_NONE ? IC_RGB(0xD70000) : color); break;
     case IC_STYLE_BRACEMATCH: env->color_bracematch = (color == IC_COLOR_NONE ? IC_RGB(0xF7DC6F) : color); break;
     default: break;
-  }
+  }  
 }
 
 ic_public void ic_set_style_color(ic_style_t iface_element, ic_color_t color) {
@@ -456,17 +456,17 @@ ic_public void ic_println( const char* s ) {
 
 void ic_style_def( const char* name, const char* fmt ) {
   ic_env_t* env = ic_get_env(); if (env==NULL || env->bbcode==NULL) return;
-  bbcode_parse_style(env->bbcode, name, fmt);
+  bbcode_style_def(env->bbcode, name, fmt);
 }
 
 void ic_style_start( const char* fmt ) {
   ic_env_t* env = ic_get_env(); if (env==NULL || env->bbcode==NULL) return;
-  bbcode_start_style( env->bbcode, fmt );
+  bbcode_style_start( env->bbcode, fmt );
 }
 
 void ic_style_end(void) {
   ic_env_t* env = ic_get_env(); if (env==NULL || env->bbcode==NULL) return;
-  bbcode_end_style( env->bbcode, NULL );
+  bbcode_style_end( env->bbcode, NULL );
 }
 
 //-------------------------------------------------------------
@@ -560,9 +560,15 @@ static ic_env_t* ic_env_create( ic_malloc_fun_t* _malloc, ic_realloc_fun_t* _rea
     env->noedit = true;
   }
   env->multiline_eol = '\\';
-  for (int style = 0; style < (int)IC_STYLE_LAST; style++) {
-    set_style_color(env, (ic_style_t)style, IC_COLOR_NONE);  // set default colors
-  }
+  
+  bbcode_style_def(env->bbcode, "ic-prompt",    "ansi-green" );
+  bbcode_style_def(env->bbcode, "ic-info",      "ansi-darkgray" );
+  bbcode_style_def(env->bbcode, "ic-dim",       "ansi-lightgray" );
+  bbcode_style_def(env->bbcode, "ic-em",        "#FFFFD7" );
+  bbcode_style_def(env->bbcode, "ic-hint",      "ansi-darkgray" );
+  bbcode_style_def(env->bbcode, "ic-error",     "#D70000" );
+  bbcode_style_def(env->bbcode, "ic-bracematch","#F7DC6F" );
+  
   set_prompt_marker(env, NULL, NULL);
   return env;
 }

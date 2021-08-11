@@ -156,11 +156,10 @@ static bool edit_pos_is_at_row_end( ic_env_t* env, editor_t* eb ) {
 
 static void edit_write_prompt( ic_env_t* env, editor_t* eb, ssize_t row, bool in_extra ) {
   if (in_extra) return;
+  bbcode_style_start(env->bbcode, "ic-prompt");
   if (row==0) {
-    // regular prompt text
-    term_color( env->term, env->color_prompt );
-    term_write(env->term, eb->prompt_text);
-    term_attr_reset( env->term );    
+    // regular prompt text    
+    bbcode_print( env->bbcode, eb->prompt_text );
   }
   else if (!env->no_multiline_indent) {
     // multiline continuation indentation
@@ -172,9 +171,8 @@ static void edit_write_prompt( ic_env_t* env, editor_t* eb, ssize_t row, bool in
     }
   }
   // the marker
-  term_color( env->term, env->color_prompt );
-  term_write( env->term, (row == 0 ? env->prompt_marker : env->cprompt_marker )); 
-  term_attr_reset( env->term );
+  bbcode_print(env->bbcode, (row == 0 ? env->prompt_marker : env->cprompt_marker ));   
+  bbcode_style_end(env->bbcode,NULL);    
 }
 
 //-------------------------------------------------------------
@@ -216,14 +214,12 @@ static bool edit_refresh_rows_iter(
 
   // write line ending
   if (row < info->last_row) {
-    if (is_wrap && tty_is_utf8(info->env->tty)) { 
-      term_color(term, IC_ANSI_DARKGRAY);
+    if (is_wrap && tty_is_utf8(info->env->tty)) {       
       #ifndef __APPLE__
-      term_write( term, "\xE2\x86\x90");  // left arrow 
+      bbcode_print( info->env->bbcode, "[ic-dim]\xE2\x86\x90");  // left arrow 
       #else
-      term_write( term, "\xE2\x86\xB5" ); // return symbol
+      bbcode_print( info->env->bbcode, "[ic-dim]\xE2\x86\xB5" ); // return symbol
       #endif
-      term_attr_reset( term );
     }
     term_writeln(term, "");
   }
@@ -269,11 +265,9 @@ static void edit_refresh(ic_env_t* env, editor_t* eb)
   }
 
   // insert hint  
+  ssize_t hint_len = 0;
   if (sbuf_len(eb->hint) > 0) {
-    if (attrs != NULL) {
-      attrbuf_insert_at( attrs, eb->pos, sbuf_len(eb->hint), attr_from_color(env->color_hint));      
-    }
-    sbuf_insert_at(eb->input, sbuf_string(eb->hint), eb->pos);
+    hint_len = bbcode_insert_at( env->bbcode, sbuf_string(eb->hint), eb->input, attrs, eb->pos );
     sbuf_insert_at(eb->extra, sbuf_string(eb->hint_help), 0);
   }
 
@@ -337,7 +331,7 @@ static void edit_refresh(ic_env_t* env, editor_t* eb)
   term_set_buffer_mode(env->term, bmode);
 
   // restore input by removing the hint
-  sbuf_delete_at(eb->input, eb->pos, sbuf_len(eb->hint));
+  if (hint_len > 0) { sbuf_delete_at(eb->input, eb->pos, hint_len); }
   sbuf_delete_at(eb->extra, 0, sbuf_len(eb->hint_help));
   attrbuf_free(attrs);
 
@@ -429,7 +423,8 @@ static void edit_refresh_hint(ic_env_t* env, editor_t* eb) {
     const char* help = NULL;
     const char* hint = completions_get_hint(env->completions, 0, &help);
     if (hint != NULL) {
-      sbuf_replace(eb->hint, hint);        
+      sbuf_replace(eb->hint, "[ic-hint]");
+      sbuf_append(eb->hint, hint); 
       edit_append_hint_help(env, eb, help);
       // do auto-tabbing?
       if (env->complete_autotab) {
@@ -455,7 +450,7 @@ static void edit_refresh_hint(ic_env_t* env, editor_t* eb) {
           while(count == 1);       
           sbuf_free(sb);
         }          
-      }
+      }      
     }
   }
 
@@ -876,7 +871,8 @@ static char* edit_line( ic_env_t* env, const char* prompt_text )
 
     // if the user tries to move into a hint with left-cursor or end, we complete it first
     if ((c == KEY_RIGHT || c == KEY_END) && had_hint) {
-      edit_generate_completions(env, &eb, true);      
+      edit_generate_completions(env, &eb, true);
+      c = KEY_NONE;      
     }
 
     // Operations that may return

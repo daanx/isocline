@@ -157,3 +157,26 @@ ic_private ssize_t attrbuf_append_n( stringbuf_t* sb, attrbuf_t* ab, const char*
   attrbuf_set_at(ab, ab->count, len, attr);
   return sbuf_append_n(sb,s,len);
 }
+
+
+ic_private attrbuf_t* attrbuf_split_at( attrbuf_t* ab, ssize_t pos ) {
+  attrbuf_t* res = attrbuf_new(ab->mem);
+  if (res == NULL || pos < 0) return NULL;
+  if (pos < ab->count ) {
+    const ssize_t needed = ab->count - pos;
+    if (attrbuf_ensure_capacity(res, needed)) {
+      ic_memcpy( res->attrs, ab->attrs + pos, needed * ssizeof(attr_t));
+      res->count = needed;
+      assert(res->count <= res->capacity);
+      ab->count = pos;
+    }
+  }
+  return res;
+}
+
+ic_private void attrbuf_append_attrbuf( attrbuf_t* ab, const attrbuf_t* add ) {
+  if (add == NULL || add->count <= 0) return;
+  if (!attrbuf_ensure_extra(ab,add->count)) return;
+  ic_memcpy( ab->attrs + ab->count, add->attrs, add->count * ssizeof(attr_t));
+  ab->count += add->count;
+}

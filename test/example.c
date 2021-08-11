@@ -22,7 +22,10 @@ static void highlighter(ic_highlight_env_t* henv, const char* input, void* arg);
 int main() 
 {
   // use `ic_print` functions to use bbcode's for markup
-  ic_style_def("kbd","gray underline");  // you can define your own styles
+  ic_style_def("kbd","gray underline");     // you can define your own styles
+  ic_style_def("ic-prompt","ansi-maroon");  // or re-define system styles
+  ic_style_def("ic-hint","crimson i");
+  
   ic_printf( "[b]Isocline[/b] sample program:\n"
               "- Type 'exit' to quit. (or use [kbd]ctrl-d[/]).\n"
               "- Press [kbd]F1[/] for help on editing commands.\n"

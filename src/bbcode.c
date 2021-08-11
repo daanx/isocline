@@ -72,7 +72,7 @@ ic_private void bbcode_free( bbcode_t* bb ) {
   mem_free(bb->mem, bb);
 }
 
-ic_private void bbcode_add_style( bbcode_t* bb, const char* style_name, attr_t attr ) {
+ic_private void bbcode_style_add( bbcode_t* bb, const char* style_name, attr_t attr ) {
   if (bb->styles_count >= bb->styles_capacity) {
     ssize_t newlen = bb->styles_capacity + 32;
     style_t* p = mem_realloc_tp( bb->mem, style_t, bb->styles, newlen );
@@ -309,6 +309,12 @@ static const char* attr_update_with_styles( attr_t* attr, const char* attr_name,
 }
 
 
+ic_private attr_t bbcode_style( bbcode_t* bb, const char* style_name ) {
+  attr_t attr = attr_none();
+  attr_update_with_styles( &attr, style_name, NULL, false, bb->styles, bb->styles_count );
+  return attr;
+}
+
 //-------------------------------------------------------------
 // Parse tags
 //-------------------------------------------------------------
@@ -452,19 +458,19 @@ static void bbcode_parse_tag_content( bbcode_t* bb, const char* s, tag_t* tag ) 
   }
 }
 
-ic_private void bbcode_parse_style( bbcode_t* bb, const char* style_name, const char* s ) {
+ic_private void bbcode_style_def( bbcode_t* bb, const char* style_name, const char* s ) {
   tag_t tag;
   bbcode_parse_tag_content( bb, s, &tag);
-  bbcode_add_style(bb, style_name, tag.attr);
+  bbcode_style_add(bb, style_name, tag.attr);
 }
 
-ic_private void bbcode_start_style( bbcode_t* bb, const char* fmt ) {
+ic_private void bbcode_style_start( bbcode_t* bb, const char* fmt ) {
   tag_t tag;
   bbcode_parse_tag_content(bb, fmt, &tag);
   term_set_attr( bb->term, bbcode_open(bb,&tag,term_get_attr(bb->term)) );
 }
 
-ic_private void bbcode_end_style( bbcode_t* bb, const char* fmt ) {
+ic_private void bbcode_style_end( bbcode_t* bb, const char* fmt ) {
   tag_t tag;
   bbcode_parse_tag_content(bb, fmt, &tag);  
   term_set_attr( bb->term, bbcode_close(bb, tag.name) );
@@ -517,7 +523,7 @@ ic_private ssize_t bbcode_process_tag( bbcode_t* bb, const char* s, const ssize_
   return (end - s);
 }
 
-ic_private void bbcode_append_buf( bbcode_t* bb, const char* s, stringbuf_t* out, attrbuf_t* attr_out ) {
+ic_private void bbcode_append( bbcode_t* bb, const char* s, stringbuf_t* out, attrbuf_t* attr_out ) {
   attr_t attr = attr_none();
   const ssize_t base = bb->tags_nesting; // base; will not be popped
   ssize_t i = 0;
@@ -545,7 +551,7 @@ ic_private void bbcode_print( bbcode_t* bb, const char* s ) {
   stringbuf_t* out = sbuf_new(bb->mem);
   attrbuf_t* attr_out = attrbuf_new(bb->mem);
   if (out == NULL || attr_out == NULL) return;
-  bbcode_append_buf( bb, s, out, attr_out );
+  bbcode_append( bb, s, out, attr_out );
   term_write_formatted( bb->term, sbuf_string(out), attrbuf_attrs(attr_out,sbuf_len(out)) );
   attrbuf_free(attr_out);
   sbuf_free(out);
@@ -565,3 +571,16 @@ ic_private void bbcode_vprintf( bbcode_t* bb, const char* fmt, va_list args  ) {
 }
 
 
+ic_private ssize_t bbcode_insert_at( bbcode_t* bb, const char* s, stringbuf_t* sbuf, attrbuf_t* attrs, ssize_t pos ) {
+  stringbuf_t* sbuf_tail  = sbuf_split_at( sbuf, pos );
+  attrbuf_t*   attrs_tail = attrbuf_split_at( attrs, pos );
+  if (sbuf_tail == NULL || attrs_tail == NULL) return 0;
+  bbcode_append( bb, s, sbuf, attrs );
+  const ssize_t appended = sbuf_len(sbuf) - pos;
+  assert( appended >= 0 );
+  sbuf_append( sbuf, sbuf_string(sbuf_tail));
+  attrbuf_append_attrbuf( attrs, attrs_tail);
+  sbuf_free(sbuf_tail);
+  attrbuf_free(attrs_tail);
+  return appended;
+}

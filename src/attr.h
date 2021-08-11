@@ -55,8 +55,11 @@ ic_private void           attrbuf_free( attrbuf_t* ab );
 ic_private ssize_t        attrbuf_len( attrbuf_t* ab);
 ic_private const attr_t*  attrbuf_attrs( attrbuf_t* ab, ssize_t expected_len );
 ic_private ssize_t        attrbuf_append_n( stringbuf_t* sb, attrbuf_t* ab, const char* s, ssize_t len, attr_t attr );
+
 ic_private void           attrbuf_set_at( attrbuf_t* ab, ssize_t pos, ssize_t count, attr_t attr );
 ic_private void           attrbuf_update_at( attrbuf_t* ab, ssize_t pos, ssize_t count, attr_t attr );
 ic_private void           attrbuf_insert_at( attrbuf_t* ab, ssize_t pos, ssize_t count, attr_t attr );
+ic_private attrbuf_t*     attrbuf_split_at( attrbuf_t* ab, ssize_t pos );
+ic_private void           attrbuf_append_attrbuf( attrbuf_t* ab, const attrbuf_t* add );
 
 #endif // IC_ATTR_H
