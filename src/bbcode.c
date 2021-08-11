@@ -179,6 +179,19 @@ static const char* attr_update_color( const char* fname, ic_color_t* field, cons
     *field = IC_COLOR_NONE;
     return fname;
   }
+  
+  // hex value
+  if (value[0] == '#') {
+    uint32_t rgb = 0;
+    if (sscanf(value,"#%x",&rgb) == 1) {
+      *field = ic_rgb(rgb);
+    } 
+    else {
+      bbcode_invalid("bbcode: invalid color code: %s\n", value);
+    }
+    return fname;
+  }
+
   // search color names
   ssize_t lo = 0;
   ssize_t hi = IC_HTML_COLOR_COUNT-1;
@@ -262,6 +275,11 @@ static const style_t builtin_styles[] = {
 static const char* attr_update_with_styles( attr_t* attr, const char* attr_name, const char* value, 
                                             bool usebgcolor, const style_t* styles, ssize_t count ) 
 {
+  // direct hex color?
+  if (attr_name[0] == '#' && value[0]==0) {
+    attr_name = (usebgcolor ? "bgcolor" : "color");
+    value = attr_name;
+  }
   // first try if it is a builtin property
   const char* name;
   if ((name = attr_update_property(attr,attr_name,value)) != NULL) {
@@ -304,7 +322,7 @@ static const char* attr_update_with_styles( attr_t* attr, const char* attr_name,
     }
   }
   // not found
-  bbcode_invalid("bbcode: unknown style %s\n", attr_name);
+  bbcode_invalid("bbcode: unknown style: %s\n", attr_name);
   return NULL;
 }
 
@@ -341,11 +359,20 @@ ic_private const char* parse_skip_to_end(const char* s) {
 }
 
 ic_private const char* parse_attr_name(const char* s) {
-  while( *s != 0 && *s != ']') {
-    if (!((*s >= 'a' && *s <= 'z') || (*s >= 'A' && *s <= 'Z') || 
-          (*s >= '0' && *s <= '9') || *s == '_' || *s == '-')) break;
-    s++;
+  if (*s == '#') {
+    s++; // hex rgb color as id
+    while( *s != 0 && *s != ']') {
+      if (!((*s >= 'a' && *s <= 'f') || (*s >= 'A' && *s <= 'Z') || (*s >= '0' && *s <= '9'))) break;
+      s++;
+    }
   }
+  else {
+    while( *s != 0 && *s != ']') {
+      if (!((*s >= 'a' && *s <= 'z') || (*s >= 'A' && *s <= 'Z') || 
+            (*s >= '0' && *s <= '9') || *s == '_' || *s == '-')) break;
+      s++;
+    }
+  }    
   return s;
 }
 
@@ -361,8 +388,8 @@ ic_private const char* parse_value(const char* s, const char** start, const char
     if (*s == '"') { s++; }
   }
   else if (*s == '#') {
-    s++;
     *start = s;
+    s++;
     while( *s != 0 ) {
       if (!((*s >= 'a' && *s <= 'f') || (*s >= 'A' && *s <= 'Z') || (*s >= '0' && *s <= '9'))) break;
       s++;
@@ -385,10 +412,13 @@ ic_private const char* parse_tag_value( tag_t* tag, const char* s, const style_t
   bool usebgcolor = false;
   const char* id = s;
   const char* idend = parse_attr_name(id);
+  const char* val = NULL;
+  const char* valend = NULL;  
   if (id == idend) {
     bbcode_invalid("bbcode: empty identifier? %.10s...\n", id );
     return parse_skip_to_white(id);
   }
+  // "on" bgcolor?
   s = parse_skip_white(idend);
   if (idend - id == 2 && ic_strnicmp(id,"on",2) == 0 && *s != '=') {
     usebgcolor = true;
@@ -398,17 +428,15 @@ ic_private const char* parse_tag_value( tag_t* tag, const char* s, const style_t
       bbcode_invalid("bbcode: empty identifier follows 'on'? %.10s...\n", id );
       return parse_skip_to_white(id);
     }
-    s = parse_skip_white(idend);
+    s = parse_skip_white(idend);      
   }
-  const char* val = NULL;
-  const char* valend = NULL;
+  // value
   if (*s == '=') {
     s++;
     s = parse_skip_white(s);
     s = parse_value(s, &val, &valend);
     s = parse_skip_white(s);
-  }
-  
+  }  
   // limit name and attr to 128 bytes
   char idbuf[128];
   char valbuf[128];
@@ -547,9 +575,11 @@ ic_private void bbcode_append( bbcode_t* bb, const char* s, stringbuf_t* out, at
     else if (s[i] == '\\') {
       if (s[i+1] == '\\' || s[i+1] == '[') {
         attrbuf_append_n(out, attr_out, s+i+1, 1, attr); // escape '\[' and '\\' 
+        i += 2;
       }
       else {
         attrbuf_append_n(out, attr_out, s+i, 1, attr);  // pass '\\' as is
+        i++;
       }
     }
   }

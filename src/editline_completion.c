@@ -54,7 +54,7 @@ static void editor_append_completion(ic_env_t* env, editor_t* eb, ssize_t idx, s
   }
   if (width <= 0) {
     sbuf_append(eb->extra, display);
-    if (selected) { sbuf_append(eb->extra,"[/]"); }
+    if (selected) { sbuf_append(eb->extra,"[/ic-emphasis]"); }
     if (help != NULL) {
       sbuf_append(eb->extra, "  ");
       sbuf_append_tagged(eb->extra, "ic-help", help );      
@@ -68,7 +68,7 @@ static void editor_append_completion(ic_env_t* env, editor_t* eb, ssize_t idx, s
       sc = str_skip_until_fit( display, width - 3);
     }    
     sbuf_append( eb->extra, sc);
-    if (selected) { sbuf_append(eb->extra,"[/]"); }
+    if (selected) { sbuf_append(eb->extra,"[/ic-emphasis]"); }
     // fill out with help & spaces
     ssize_t n = width - str_column_width(sc);
     if (n >= 8 && help != NULL) {
@@ -173,10 +173,10 @@ again:
   }
   if (count > count_displayed) {
     if (more_available) {
-      sbuf_append(eb->extra, "\n[info](press page-down (or ctrl-j) to see all further completions)[/]");
+      sbuf_append(eb->extra, "\n[ic-info](press page-down (or ctrl-j) to see all further completions)[/]");
     }
     else {
-      sbuf_appendf(eb->extra, "\n[info](press page-down (or ctrl-j) to see all %zd completions)[/]", count );
+      sbuf_appendf(eb->extra, "\n[ic-info](press page-down (or ctrl-j) to see all %zd completions)[/]", count );
     }
   }
   if (!env->complete_nopreview && selected >= 0 && selected <= count_displayed) {

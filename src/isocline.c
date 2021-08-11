@@ -564,10 +564,10 @@ static ic_env_t* ic_env_create( ic_malloc_fun_t* _malloc, ic_realloc_fun_t* _rea
   bbcode_style_def(env->bbcode, "ic-prompt",    "ansi-green" );
   bbcode_style_def(env->bbcode, "ic-info",      "ansi-darkgray" );
   bbcode_style_def(env->bbcode, "ic-diminish",  "ansi-lightgray" );
-  bbcode_style_def(env->bbcode, "ic-emphasis",  "#FFFFD7" );
+  bbcode_style_def(env->bbcode, "ic-emphasis",  "color=#FFFFD7" );
   bbcode_style_def(env->bbcode, "ic-hint",      "ansi-darkgray" );
-  bbcode_style_def(env->bbcode, "ic-error",     "#D70000" );
-  bbcode_style_def(env->bbcode, "ic-bracematch","#F7DC6F" );
+  bbcode_style_def(env->bbcode, "ic-error",     "color=#D70000" );
+  bbcode_style_def(env->bbcode, "ic-bracematch","color=#F7DC6F" );
 
   set_prompt_marker(env, NULL, NULL);
   return env;

@@ -220,23 +220,23 @@ ic_private void term_write_formatted_n( term_t* term, const char* s, const attr_
     const attr_t default_attr = term_get_attr(term);
     attr_t attr = attr_none();
     ssize_t i = 0;
-    while( i < len && s[i] != 0 ) {
-      // handle in bulk while attributes stay the same
-      ssize_t n = 0;
-      while( i+n < len && s[i+n] != 0 && attr_is_eq(attr, attrs[i+n])) { 
-        n++; 
-      }
-      if (n > 0) {
-        term_write_n(term, s+i, n);
-      }
-      i+= n;
-      // set new attribute
-      if (i < len && s[i] != 0) {
+    ssize_t n = 0;
+    while( i+n < len && s[i+n] != 0 ) {
+      if (!attr_is_eq(attr,attrs[i+n])) {
+        if (n > 0) { 
+          term_write_n( term, s+i, n );
+          i += n;
+          n = 0;
+        }
         attr = attrs[i];
         term_set_attr( term, attr_update_with(default_attr,attr) );
-        term_write_char( term, s[i] );
-        i++;
-      }
+      }  
+      n++;    
+    }
+    if (n > 0) {
+      term_write_n( term, s+i, n );
+      i += n;
+      n = 0;    
     }
     assert(s[i] != 0 || i == len);
     term_set_attr(term, default_attr);

@@ -205,7 +205,7 @@ static bool edit_refresh_rows_iter(
   edit_write_prompt(info->env, info->eb, row, info->in_extra);
 
   //' write output
-  if (info->in_extra || info->attrs == NULL || (info->env->no_highlight && info->env->no_bracematch)) {
+  if (info->attrs == NULL || (info->env->no_highlight && info->env->no_bracematch)) {
     term_write_n( term, s + row_start, row_len );
   }
   else {
@@ -263,7 +263,7 @@ static void edit_refresh(ic_env_t* env, editor_t* eb)
   // highlight matching braces
   if (attrs != NULL && !env->no_bracematch) {
     highlight_match_braces(sbuf_string(eb->input), attrs, eb->pos, ic_env_get_match_braces(env),  
-                              env->color_bracematch, env->color_error);
+                              bbcode_style(env->bbcode,"ic-bracematch"), bbcode_style(env->bbcode,"ic-error"));
   }
 
   // insert hint  

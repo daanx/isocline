@@ -35,113 +35,6 @@ ic_private void highlight( const char* s, attrbuf_t* attrs, ic_highlight_fun_t* 
   }
 }
 
-//-------------------------------------------------------------
-// Private interface
-//-------------------------------------------------------------
-/*
-ic_private ic_highlight_env_t* highlight_new( alloc_t* mem ) {
-  ic_highlight_env_t* henv = mem_zalloc_tp( mem, ic_highlight_env_t );
-  if (henv == NULL) return NULL;
-  henv->mem = mem;
-  return henv;
-}
-
-ic_private void highlight_free( ic_highlight_env_t* henv ) {
-  if (henv == NULL) return;
-  mem_free( henv->mem, henv->attrs );
-  mem_free( henv->mem, henv );
-}
-
-static bool highlight_ensure_extra( ic_highlight_env_t* henv, ssize_t extra ) {
-  if (henv==NULL) return false;
-  ssize_t needed = henv->attr_len + extra;
-  if (henv->attr_capacity < needed) {
-    ssize_t capacity = (henv->attr_capacity <= 0 ? 128 : 2*henv->attr_capacity);
-    if (capacity < needed) { capacity = needed; }
-    attr_t* newattrs = mem_realloc_tp( henv->mem, attr_t, henv->attrs, capacity );
-    if (newattrs == NULL) return false;
-    henv->attrs = newattrs;
-    henv->attr_capacity = capacity;
-  }
-  assert(henv->attr_capacity >= needed);
-  return true;
-}
-
-ic_private bool highlight_insert_at( ic_highlight_env_t* henv, ssize_t pos, ssize_t len, ic_color_t color ) {
-  if (henv == NULL) return false;
-  if (pos < 0 || pos > henv->attr_len) return false;
-  if (!highlight_ensure_extra(henv,len)) return false;
-  ic_memmove(henv->attrs + pos + len, henv->attrs + pos, ssizeof(attr_t)*(henv->attr_len - pos));
-  henv->attr_len += len;
-  attr_t attr = attr_none();
-  attr.x.color = color;
-  for (ssize_t i = 0; i < len; i++) {
-    henv->attrs[pos + i] = attr;
-  }
-  return true;
-}
-
-ic_private void highlight_clear( ic_highlight_env_t* henv ) {
-  if (henv == NULL) return;
-  henv->attr_len = 0;
-}
-
-static void highlight_fillout( ic_highlight_env_t* henv ) {
-  if (henv == NULL) return;
-  attr_t attr = attr_default();
-  for( ssize_t i = 0; i < henv->attr_len; i++ ) {
-    attr_t* cur = &henv->attrs[i];
-    // propagate attribute
-    if (cur->x.color     == IC_COLOR_NONE) { cur->x.color = attr.x.color; }
-    if (cur->x.bgcolor   == IC_COLOR_NONE) { cur->x.bgcolor = attr.x.bgcolor; }
-    if (cur->x.underline == IC_NONE) { cur->x.underline = attr.x.underline; }
-    if (cur->x.reverse   == IC_NONE) { cur->x.reverse = attr.x.reverse; }
-    if (cur->x.bold      == IC_NONE) { cur->x.bold = attr.x.bold; }
-    if (cur->x.italic    == IC_NONE) { cur->x.italic = attr.x.italic; }
-    attr = *cur;
-  }
-}
-
-ic_private bool highlight_init( ic_highlight_env_t* henv, const char* s, ic_highlight_fun_t* highlighter, void* arg ) {
-  if (henv == NULL) return false;
-  highlight_clear(henv);
-  const ssize_t len = ic_strlen(s);
-  if (len > 0) {
-    if (!highlight_ensure_extra(henv,len)) return false;
-    henv->attr_len = len;
-    ic_memset(henv->attrs, 0, henv->attr_len * ssizeof(attr_t));
-    if (highlighter != NULL) {
-      henv->input = s;
-      (*highlighter)( henv, s, arg );
-      henv->input = NULL;
-    }
-  }
-  highlight_fillout(henv);
-  return true;
-}
-
-
-//-------------------------------------------------------------
-// Writing to the terminal
-//-------------------------------------------------------------
-
-ic_private void highlight_term_write( ic_highlight_env_t* henv, term_t* term, const char* s, ssize_t start, ssize_t len ) 
-{
-  if (henv == NULL || henv->attr_len <= 0) {
-    term_write_n( term, s + start, len );    
-  }
-  else {
-    for (ssize_t i = start; i < start + len; i++) {
-      char c = s[i];
-      if (i >= 0 && i < henv->attr_len && !utf8_is_cont((uint8_t)c)) {
-        term_set_attr(term, henv->attrs[i]);
-      }
-      term_write_char(term, c);
-    }    
-  }
-  term_attr_reset(term);
-}
-*/
 
 //-------------------------------------------------------------
 // Client interface
@@ -227,7 +120,7 @@ typedef struct brace_s {
   long pos;
 } brace_t;
 
-ic_private void highlight_match_braces(const char* s, attrbuf_t* attrs, ssize_t cursor_pos, const char* braces, ic_color_t match_color, ic_color_t error_color) 
+ic_private void highlight_match_braces(const char* s, attrbuf_t* attrs, ssize_t cursor_pos, const char* braces, attr_t match_attr, attr_t error_attr) 
 {
   brace_t open[MAX_NESTING+1];
   ssize_t nesting = 0;
@@ -256,26 +149,26 @@ ic_private void highlight_match_braces(const char* s, attrbuf_t* attrs, ssize_t 
         // close brace
         if (nesting <= 0) {
           // unmatched close brace
-          attrbuf_update_at( attrs, i, 1, attr_from_color(error_color));
+          attrbuf_update_at( attrs, i, 1, error_attr);
         }
         else {
           // can we fix an unmatched brace where we can match by popping just one?
           if (open[nesting-1].close != c && nesting > 1 && open[nesting-2].close == c) {
             // assume previous open brace was wrong
-            attrbuf_update_at(attrs, open[nesting-1].pos, 1, attr_from_color(error_color));
+            attrbuf_update_at(attrs, open[nesting-1].pos, 1, error_attr);
             nesting--;
           }
           if (open[nesting-1].close != c) {
             // unmatched open brace
-            attrbuf_update_at( attrs, i, 1, attr_from_color(error_color));
+            attrbuf_update_at( attrs, i, 1, error_attr);
           }
           else {
             // matching brace
             nesting--;
             if (i == cursor_pos - 1 || (open[nesting].at_cursor && open[nesting].pos != i - 1)) {
               // highlight matching brace
-              attrbuf_update_at(attrs, open[nesting].pos, 1, attr_from_color(match_color));
-              attrbuf_update_at(attrs, i, 1, attr_from_color(match_color));              
+              attrbuf_update_at(attrs, open[nesting].pos, 1, match_attr);
+              attrbuf_update_at(attrs, i, 1, match_attr);              
             }
           }
         }
