@@ -209,6 +209,10 @@ ic_private void term_vwritef(term_t* term, const char* fmt, va_list args ) {
 }
 
 ic_private void term_write_formatted( term_t* term, const char* s, const attr_t* attrs ) {
+  term_write_formatted_n( term, s, attrs, ic_strlen(s));
+}
+
+ic_private void term_write_formatted_n( term_t* term, const char* s, const attr_t* attrs, ssize_t len ) {
   if (attrs == NULL) {
     term_write(term,s);
   }
@@ -216,10 +220,10 @@ ic_private void term_write_formatted( term_t* term, const char* s, const attr_t*
     const attr_t default_attr = term_get_attr(term);
     attr_t attr = attr_none();
     ssize_t i = 0;
-    while( s[i] != 0 ) {
+    while( i < len && s[i] != 0 ) {
       // handle in bulk while attributes stay the same
       ssize_t n = 0;
-      while( s[i+n] != 0 && attr_is_eq(attr, attrs[i+n])) { 
+      while( i+n < len && s[i+n] != 0 && attr_is_eq(attr, attrs[i+n])) { 
         n++; 
       }
       if (n > 0) {
@@ -227,11 +231,14 @@ ic_private void term_write_formatted( term_t* term, const char* s, const attr_t*
       }
       i+= n;
       // set new attribute
-      attr = attrs[i];
-      term_set_attr( term, attr_update_with(default_attr,attr) );
-      term_write_char( term, s[i] );
-      i++;
+      if (i < len && s[i] != 0) {
+        attr = attrs[i];
+        term_set_attr( term, attr_update_with(default_attr,attr) );
+        term_write_char( term, s[i] );
+        i++;
+      }
     }
+    assert(s[i] != 0 || i == len);
     term_set_attr(term, default_attr);
   }
 }

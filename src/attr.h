@@ -36,6 +36,7 @@ typedef union attr_s {
 
 ic_private attr_t attr_none(void);
 ic_private attr_t attr_default(void);
+ic_private attr_t attr_from_color( ic_color_t color );
 
 ic_private bool attr_is_none(attr_t attr);
 ic_private bool attr_is_eq(attr_t attr1, attr_t attr2);
@@ -54,5 +55,8 @@ ic_private void           attrbuf_free( attrbuf_t* ab );
 ic_private ssize_t        attrbuf_len( attrbuf_t* ab);
 ic_private const attr_t*  attrbuf_attrs( attrbuf_t* ab, ssize_t expected_len );
 ic_private ssize_t        attrbuf_append_n( stringbuf_t* sb, attrbuf_t* ab, const char* s, ssize_t len, attr_t attr );
+ic_private void           attrbuf_set_at( attrbuf_t* ab, ssize_t pos, ssize_t count, attr_t attr );
+ic_private void           attrbuf_update_at( attrbuf_t* ab, ssize_t pos, ssize_t count, attr_t attr );
+ic_private void           attrbuf_insert_at( attrbuf_t* ab, ssize_t pos, ssize_t count, attr_t attr );
 
 #endif // IC_ATTR_H

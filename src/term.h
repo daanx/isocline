@@ -78,5 +78,6 @@ ic_private void term_append_bgcolor(term_t* term, stringbuf_t* sbuf, ic_color_t 
 ic_private attr_t term_get_attr( const term_t* term );
 ic_private void   term_set_attr( term_t* term, attr_t attr );
 ic_private void   term_write_formatted( term_t* term, const char* s, const attr_t* attrs );
+ic_private void   term_write_formatted_n( term_t* term, const char* s, const attr_t* attrs, ssize_t n );
 
 #endif // IC_TERM_H

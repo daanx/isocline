@@ -38,6 +38,12 @@ ic_private bool attr_is_eq(attr_t attr1, attr_t attr2) {
   return (attr1.value == attr2.value);
 }
 
+ic_private attr_t attr_from_color( ic_color_t color ) {
+  attr_t attr = attr_none();
+  attr.x.color = color;
+  return attr;
+}
+
 
 ic_private attr_t attr_update_with( attr_t oldattr, attr_t newattr ) {
   attr_t attr = oldattr;
@@ -109,23 +115,42 @@ ic_private const attr_t* attrbuf_attrs( attrbuf_t* ab, ssize_t expected_len ) {
   return ab->attrs;
 }
 
-static void attrbuf_set_at( attrbuf_t* ab, ssize_t pos, ssize_t count, attr_t attr ) {
+
+
+static void attrbuf_update_set_at( attrbuf_t* ab, ssize_t pos, ssize_t count, attr_t attr, bool update ) {
   const ssize_t end = pos + count;
   if (!attrbuf_ensure_capacity(ab, end)) return;
   ssize_t i;
-  // fill up if pos is beyond the count
-  for(i = ab->count; i < pos; i++) {
-    ab->attrs[i] = attr_none();  
-  }
-  // fill pos to end with attr
-  for(i = pos; i < end; i++) {
-    ab->attrs[i] = attr;    
-  }
-  // and possibly expand the count
-  if (end > ab->count) {
+  // initialize if end is beyond the count (todo: avoid duplicate init and set if update==false?)
+  if (ab->count < end) {
+    for(i = ab->count; i < end; i++) {
+      ab->attrs[i] = attr_none();  
+    }
     ab->count = end;
   }
+  // fill pos to end with attr 
+  for(i = pos; i < end; i++) {
+    ab->attrs[i] = (update ? attr_update_with(ab->attrs[i],attr) : attr);    
+  }  
 }
+
+ic_private void attrbuf_set_at( attrbuf_t* ab, ssize_t pos, ssize_t count, attr_t attr ) {
+  attrbuf_update_set_at(ab, pos, count, attr, false);
+}
+
+ic_private void attrbuf_update_at( attrbuf_t* ab, ssize_t pos, ssize_t count, attr_t attr ) {
+  attrbuf_update_set_at(ab, pos, count, attr, true);  
+}
+
+ic_private void attrbuf_insert_at( attrbuf_t* ab, ssize_t pos, ssize_t count, attr_t attr ) {
+  if (pos < 0 || pos > ab->count || count <= 0) return;
+  if (!attrbuf_ensure_extra(ab,count)) return;  
+  ic_memmove( ab->attrs + pos + count, ab->attrs + pos, (ab->count - pos)*ssizeof(attr_t) );
+  ab->count += count;
+  attrbuf_set_at( ab, pos, count, attr );
+}
+
+
 
 ic_private ssize_t attrbuf_append_n( stringbuf_t* sb, attrbuf_t* ab, const char* s, ssize_t len, attr_t attr ) {
   if (s == NULL || len == 0 || !attrbuf_ensure_extra(ab,len)) return sbuf_len(sb);

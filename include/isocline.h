@@ -239,27 +239,27 @@ void ic_set_default_highlighter(ic_highlight_fun_t* highlighter, void* arg);
 
 // Set the color of characters starting at position `pos` to `color`.
 // (Use a negative position to indicate a logical unicode character position).
-void ic_highlight_color(ic_highlight_env_t* henv, long pos, ic_color_t color );
+void ic_highlight_color(ic_highlight_env_t* henv, long pos, long count, ic_color_t color );
 
 // Set the background color of characters starting at position `pos` to `bgcolor`.
 // (Use a negative position to indicate a logical unicode character position).
-void ic_highlight_bgcolor(ic_highlight_env_t* henv, long pos, ic_color_t bgcolor);
+void ic_highlight_bgcolor(ic_highlight_env_t* henv, long pos, long count, ic_color_t bgcolor);
 
 // Enable/Disable underlining for characters starting at position `pos`.
 // (Use a negative position to indicate a logical unicode character position).
-void ic_highlight_underline(ic_highlight_env_t* henv, long pos, bool enable );
+void ic_highlight_underline(ic_highlight_env_t* henv, long pos, long count, bool enable );
 
 // Enable/Disable reverse video for characters starting at position `pos`.
 // (Use a negative position to indicate a logical unicode character position).
-void ic_highlight_reverse(ic_highlight_env_t* henv, long pos, bool enable);
+void ic_highlight_reverse(ic_highlight_env_t* henv, long pos, long count, bool enable);
 
 // Experimental: Enable/Disable bold for characters starting at position `pos`.
 // (Use a negative position to indicate a logical unicode character position).
-void ic_highlight_bold(ic_highlight_env_t* henv, long pos, bool enable);
+void ic_highlight_bold(ic_highlight_env_t* henv, long pos, long count, bool enable);
 
 // Experimental: Enable/Disable italic for characters starting at position `pos`.
 // (Use a negative position to indicate a logical unicode character position).
-void ic_highlight_italic(ic_highlight_env_t* henv, long pos, bool enable);
+void ic_highlight_italic(ic_highlight_env_t* henv, long pos, long count, bool enable);
 
 // Convenience callback for a function that highlights `s` using ANSI CSI SGR escape sequences (`ESC [ <code> m`)
 // The returned string should be allocated and is free'd by the caller.

@@ -9,24 +9,36 @@
 #include "common.h"
 #include "term.h"
 #include "stringbuf.h"
+#include "attr.h"
 
 //-------------------------------------------------------------
 // Syntax highlighting
 //-------------------------------------------------------------
 
 struct ic_highlight_env_s {
-  attr_t*  attrs;
-  ssize_t       attr_capacity;  
-  ssize_t       attr_len;  
-  const char*   input;        // only valid during initial highlight  
-  alloc_t* mem;
+  attrbuf_t*    attrs;
+  const char*   input;   
+  ssize_t       input_len;     
 };
 
+
+ic_private void highlight( const char* s, attrbuf_t* attrs, ic_highlight_fun_t* highlighter, void* arg ) {
+  const ssize_t len = ic_strlen(s);
+  if (len <= 0) return;
+  attrbuf_set_at(attrs,0,len,attr_none()); // fill to length of s
+  if (highlighter != NULL) {
+    ic_highlight_env_t henv;
+    henv.attrs = attrs;
+    henv.input = s;     
+    henv.input_len = len;
+    (*highlighter)( &henv, s, arg );    
+  }
+}
 
 //-------------------------------------------------------------
 // Private interface
 //-------------------------------------------------------------
-
+/*
 ic_private ic_highlight_env_t* highlight_new( alloc_t* mem ) {
   ic_highlight_env_t* henv = mem_zalloc_tp( mem, ic_highlight_env_t );
   if (henv == NULL) return NULL;
@@ -108,6 +120,7 @@ ic_private bool highlight_init( ic_highlight_env_t* henv, const char* s, ic_high
   return true;
 }
 
+
 //-------------------------------------------------------------
 // Writing to the terminal
 //-------------------------------------------------------------
@@ -128,22 +141,22 @@ ic_private void highlight_term_write( ic_highlight_env_t* henv, term_t* term, co
   }
   term_attr_reset(term);
 }
-
+*/
 
 //-------------------------------------------------------------
 // Client interface
 //-------------------------------------------------------------
 
 static long pos_adjust( ic_highlight_env_t* henv, long pos ) {
-  if (pos >= henv->attr_len) return -1;
+  if (pos >= henv->input_len) return -1;
   if (pos >= 0) return pos;
-  // negative position is used as the unicode character position (for easy interfacing with Haskell)
   if (henv->input == NULL) return -1;
+  // negative `pos` is used as the unicode character position (for easy interfacing with Haskell)
   long ucount = -pos;
   long cpos = 0;
   long upos = 0;
   while ( upos < ucount ) {
-    ssize_t next = str_next_ofs(henv->input, henv->attr_len, cpos, NULL);
+    ssize_t next = str_next_ofs(henv->input, henv->input_len, cpos, NULL);
     if (next <= 0) return -1;
     upos++;
     cpos += (long)next;
@@ -152,52 +165,54 @@ static long pos_adjust( ic_highlight_env_t* henv, long pos ) {
   return cpos;
 }
 
-// Set the color of characters starting at position `pos` to `color`.
-ic_public void ic_highlight_color(ic_highlight_env_t* henv, long pos, ic_color_t color ) {
+static void highlight_attr(ic_highlight_env_t* henv, long pos, long count, attr_t attr ) {
   if (henv==NULL) return;
   pos = pos_adjust(henv,pos);
-  if (pos < 0) return;
-  henv->attrs[pos].x.color = color;
+  if (pos < 0 || count <= 0) return;
+  attrbuf_update_at(henv->attrs, pos, count, attr);
 }
 
+// Set the color of characters starting at position `pos` to `color`.
+ic_public void ic_highlight_color(ic_highlight_env_t* henv, long pos, long count, ic_color_t color ) {
+  attr_t attr = attr_none();
+  attr.x.color = color;
+  highlight_attr(henv,pos,count,attr);
+}
+  
+
 // Set the background color of characters starting at position `pos` to `bgcolor`.
-ic_public void ic_highlight_bgcolor(ic_highlight_env_t* henv, long pos, ic_color_t bgcolor) {
-  if (henv==NULL) return;
-  pos = pos_adjust(henv,pos);
-  if (pos < 0) return;
-  henv->attrs[pos].x.bgcolor = bgcolor;
+ic_public void ic_highlight_bgcolor(ic_highlight_env_t* henv, long pos, long count, ic_color_t bgcolor) {
+  attr_t attr = attr_none();
+  attr.x.bgcolor = bgcolor;
+  highlight_attr(henv,pos,count,attr);
 }
 
 // Enable/Disable underlining for characters starting at position `pos`.
-ic_public void ic_highlight_underline(ic_highlight_env_t* henv, long pos, bool enable ) {
-  if (henv==NULL) return;
-  pos = pos_adjust(henv,pos);
-  if (pos < 0) return;
-  henv->attrs[pos].x.underline = (enable ? 1 : -1);
+ic_public void ic_highlight_underline(ic_highlight_env_t* henv, long pos, long count, bool enable ) {
+  attr_t attr = attr_none();
+  attr.x.underline = (enable ? IC_ON : IC_OFF);
+  highlight_attr(henv,pos,count,attr);  
 }
 
 // Enable/Disable reverse video for characters starting at position `pos`.
-ic_public void ic_highlight_reverse(ic_highlight_env_t* henv, long pos, bool enable) {
-  if (henv==NULL) return;
-  pos = pos_adjust(henv,pos);
-  if (pos < 0) return;
-  henv->attrs[pos].x.underline = (enable ? 1 : -1);
+ic_public void ic_highlight_reverse(ic_highlight_env_t* henv, long pos, long count, bool enable) {
+  attr_t attr = attr_none();
+  attr.x.reverse = (enable ? IC_ON : IC_OFF);
+  highlight_attr(henv,pos,count,attr);
 }
 
 // Enable/Disable bold for characters starting at position `pos`.
-ic_public void ic_highlight_bold(ic_highlight_env_t* henv, long pos, bool enable) {
-  if (henv==NULL) return;
-  pos = pos_adjust(henv,pos);
-  if (pos < 0) return;
-  henv->attrs[pos].x.bold = (enable ? 1 : -1);
+ic_public void ic_highlight_bold(ic_highlight_env_t* henv, long pos, long count, bool enable) {
+  attr_t attr = attr_none();
+  attr.x.bold = (enable ? IC_ON : IC_OFF);
+  highlight_attr(henv,pos,count,attr);
 }
 
 // Enable/Disable italic for characters starting at position `pos`.
-ic_public void ic_highlight_italic(ic_highlight_env_t* henv, long pos, bool enable) {
-  if (henv==NULL) return;
-  pos = pos_adjust(henv,pos);
-  if (pos < 0) return;
-  henv->attrs[pos].x.italic = (enable ? 1 : -1);
+ic_public void ic_highlight_italic(ic_highlight_env_t* henv, long pos, long count, bool enable) {
+  attr_t attr = attr_none();
+  attr.x.italic = (enable ? IC_ON : IC_OFF);
+  highlight_attr(henv,pos,count,attr);
 }
 
 
@@ -212,7 +227,7 @@ typedef struct brace_s {
   long pos;
 } brace_t;
 
-ic_private void highlight_match_braces(ic_highlight_env_t* henv, const char* s, ssize_t cursor_pos, const char* braces, ic_color_t match_color, ic_color_t error_color) 
+ic_private void highlight_match_braces(const char* s, attrbuf_t* attrs, ssize_t cursor_pos, const char* braces, ic_color_t match_color, ic_color_t error_color) 
 {
   brace_t open[MAX_NESTING+1];
   ssize_t nesting = 0;
@@ -241,28 +256,26 @@ ic_private void highlight_match_braces(ic_highlight_env_t* henv, const char* s, 
         // close brace
         if (nesting <= 0) {
           // unmatched close brace
-          ic_highlight_color(henv, i, error_color);
+          attrbuf_update_at( attrs, i, 1, attr_from_color(error_color));
         }
         else {
           // can we fix an unmatched brace where we can match by popping just one?
           if (open[nesting-1].close != c && nesting > 1 && open[nesting-2].close == c) {
             // assume previous open brace was wrong
-            ic_highlight_color(henv, open[nesting-1].pos, error_color);
+            attrbuf_update_at(attrs, open[nesting-1].pos, 1, attr_from_color(error_color));
             nesting--;
           }
           if (open[nesting-1].close != c) {
             // unmatched open brace
-            ic_highlight_color(henv, i, error_color);
+            attrbuf_update_at( attrs, i, 1, attr_from_color(error_color));
           }
           else {
             // matching brace
             nesting--;
             if (i == cursor_pos - 1 || (open[nesting].at_cursor && open[nesting].pos != i - 1)) {
               // highlight matching brace
-              ic_highlight_color(henv, open[nesting].pos, match_color);
-              ic_highlight_color(henv, i, match_color);
-              //ic_highlight_bold(henv, open[nesting].pos, true);
-              //ic_highlight_bold(henv, i, true);
+              attrbuf_update_at(attrs, open[nesting].pos, 1, attr_from_color(match_color));
+              attrbuf_update_at(attrs, i, 1, attr_from_color(match_color));              
             }
           }
         }

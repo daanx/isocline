@@ -134,23 +134,25 @@ static void highlighter(ic_highlight_env_t* henv, const char* input, void* arg) 
     static const char* types[]    = { "int", "double", "char", "void", NULL };
     long tlen;  // token length
     if ((tlen = ic_match_any_token(input, i, &ic_char_is_idletter, keywords)) > 0) {
-      ic_highlight_color(henv, i, IC_RGB(0xFFFFAF));  // rgb colors are auto translated on terminals with less color support
+      ic_highlight_color(henv, i, tlen, IC_RGB(0xFFFFAF));  // rgb colors are auto translated on terminals with less color support
       i += tlen;
     }
     else if ((tlen = ic_match_any_token(input, i, &ic_char_is_idletter, types)) > 0) {
-      ic_highlight_color(henv, i, IC_RGB(0x00AFAF));
+      ic_highlight_color(henv, i, tlen, IC_RGB(0x00AFAF));
       i += tlen;
     }
     else if ((tlen = ic_is_token(input, i, &ic_char_is_digit)) > 0) {  // digits
-      ic_highlight_color(henv, i, IC_ANSI_PURPLE);
+      ic_highlight_color(henv, i, tlen, IC_ANSI_PURPLE);
       i += tlen;
     }
     else if (ic_starts_with(input + i,"//")) {       // line comment
-      ic_highlight_color(henv, i, IC_RGB(0x408700));
-      while (i < len && input[i] != '\n') { i++; }
+      tlen = 2;
+      while (i+tlen < len && input[i+tlen] != '\n') { tlen++; }
+      ic_highlight_color(henv, i, tlen, IC_RGB(0x408700));
+      i += tlen;
     }
     else {
-      ic_highlight_color(henv, i, IC_ANSI_DEFAULT);  // anything else (including utf8 continuation bytes)
+      ic_highlight_color(henv, i, 1, IC_ANSI_DEFAULT);  // anything else (including utf8 continuation bytes)
       i++;
     }
   }
