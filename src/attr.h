@@ -43,6 +43,9 @@ ic_private bool attr_is_eq(attr_t attr1, attr_t attr2);
 
 ic_private attr_t attr_update_with( attr_t attr, attr_t newattr );
 
+ic_private attr_t attr_from_sgr( const char* s, ssize_t len);
+ic_private attr_t attr_from_esc_sgr( const char* s, ssize_t len);
+
 //-------------------------------------------------------------
 // attribute buffer used for rich rendering
 //-------------------------------------------------------------

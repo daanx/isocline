@@ -312,50 +312,42 @@ static bool ls_colors_from_key(stringbuf_t* sb, const char* key) {
   ssize_t keylen = ic_strlen(key);
   if (keylen <= 0) return false;
   const char* p = strstr(ls_colors, key);
-  if (p != NULL) {
-    p += keylen;
-    if (key[keylen-1] != '=') {
-      if (*p != '=') return false;
-      p++;
-    }
-    // parse colors
-    while (*p != 0 && *p != ':') {
-      while (*p == ';') { p++;  }
-      const char* q = p;
-      while (ic_char_is_digit(q, 1)) { q++; }
-      if (q == p) break;
-      ssize_t clr;
-      if (ic_atoz(p, &clr) && ls_valid_esc(clr)) {
-        sbuf_appendf(sb, "\x1B[%zdm", clr);
-      }
-      p = q;
-    }
-  } 
+  if (p == NULL) return false;
+  p += keylen;
+  if (key[keylen-1] != '=') {
+    if (*p != '=') return false;
+    p++;
+  }
+  ssize_t len = 0;
+  while (p[len] != 0 && p[len] != ':') {
+    len++;
+  }
+  if (len <= 0) return false;
+  sbuf_append(sb, "[ansi-sgr=" );
+  sbuf_append_n(sb, p, len );
+  sbuf_append(sb, "]");
   return true;
 }
 
-static void ls_colors_from_char(stringbuf_t* sb, char c, bool background) {
-  int code = 0;
-  if (c >= 'a' && c <= 'h')      { code = (c - 'a' + 30); }
-  else if (c >= 'A' && c <= 'H') { code = (c - 'A' + 90); }
-  else if (c == 'x')             { code = 39; }
-  else return;
-  if (background) { code += 10; }
-  sbuf_appendf(sb, "\x1B[%dm", code);
+static int ls_colors_from_char(char c) {
+  if (c >= 'a' && c <= 'h')      { return (c - 'a'); }
+  else if (c >= 'A' && c <= 'H') { return (c - 'A') + 8; }
+  else if (c == 'x')             { return 256; }
+  else return 256; // default
 }
 
-static void ls_colors_append(stringbuf_t* sb, file_type_t ft, const char* ext) {
-  if (!ls_colors_init()) return;
+static bool ls_colors_append(stringbuf_t* sb, file_type_t ft, const char* ext) {
+  if (!ls_colors_init()) return false;
   if (ls_colors != NULL) {
     // GNU style
     if (ft == FT_DEFAULT && ext != NULL) {
       // first try extension match
-      if (ls_colors_from_key(sb, ext)) return;
+      if (ls_colors_from_key(sb, ext)) return true;
     }
     if (ft >= FT_DEFAULT && ft < FT_LAST) {
       // then a filetype match
       const char* key = ls_colors_names[ft];
-      ls_colors_from_key(sb, key);
+      if (ls_colors_from_key(sb, key)) return true;
     }    
   }
   else if (lscolors != NULL) {
@@ -366,11 +358,20 @@ static void ls_colors_append(stringbuf_t* sb, file_type_t ft, const char* ext) {
       fg = lscolors[2*ft];
       bg = lscolors[2*ft + 1];
     }
-    ls_colors_from_char(sb,fg,false);
-    ls_colors_from_char(sb,bg,true);
+    sbuf_appendf(sb, "[ansi-color=%d ansi-bgcolor=%d]", ls_colors_from_char(fg), ls_colors_from_char(bg) );
+    return true;
   }
+  return false;
 }
 
+static void ls_colorize(stringbuf_t* sb, file_type_t ft, const char* name, const char* ext, char dirsep) {
+  bool close = ls_colors_append( sb, ft, ext);
+  sbuf_append(sb, "[!pre]" );
+  sbuf_append(sb, name);
+  if (dirsep != 0) sbuf_append_char(sb, dirsep);
+  sbuf_append(sb,"[/pre]" );
+  if (close) { sbuf_append(sb, "[/]"); }
+}
 
 #if defined(_WIN32)
 #include <io.h>
@@ -581,11 +582,11 @@ static bool filename_complete_indir( ic_completion_env_t* cenv, stringbuf_t* dir
           // add completion
           sbuf_clear(display);
           if (!cenv->env->no_lscolors) {
-            ls_colors_append(display, ft, NULL);
+            ls_colorize(display, ft, name, NULL, (isdir ? dir_sep : 0));
           }
-          sbuf_append(display, name);
-          if (isdir && dir_sep != 0) {
-            sbuf_append_char(display, dir_sep);
+          else {
+            sbuf_append(display, name);          
+            if (isdir && dir_sep != 0) { sbuf_append_char(display, dir_sep); }          
           }
           cont = ic_add_completion_ex(cenv, sbuf_string(dir_prefix), sbuf_string(display), NULL);
         }

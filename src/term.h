@@ -80,4 +80,6 @@ ic_private void   term_set_attr( term_t* term, attr_t attr );
 ic_private void   term_write_formatted( term_t* term, const char* s, const attr_t* attrs );
 ic_private void   term_write_formatted_n( term_t* term, const char* s, const attr_t* attrs, ssize_t n );
 
+ic_private ic_color_t color_from_ansi256(ssize_t i);
+
 #endif // IC_TERM_H

@@ -426,106 +426,11 @@ ic_private void term_free(term_t* term) {
 // is needed for bracketed styles etc.
 //-------------------------------------------------------------
 
-static bool sgr_next_par(const char** sp, ssize_t* par) {
-  const char* start = *sp;
-  const char* end = start;
-  while( *end >= '0' && *end <= '9' ) { end++; }
-  if (end <= start) { 
-    *par = 0;
-    if (*end != 'm') { end++; } // ensure progress
-    return true;
-  }
-  else {
-    *sp = end;
-    return ic_atoz(start, par);
-  }
-}
-
-static bool sgr_is_sep( char c ) {
-  return (c==';' || c==':');
-}
-
-static bool sgr_next_par3(const char** sp, ssize_t* p1, ssize_t* p2, ssize_t* p3) {
-  if (sgr_next_par(sp,p1) && sgr_is_sep(**sp)) {
-    (*sp)++;
-    if (sgr_next_par(sp,p2) && sgr_is_sep(**sp)) {
-      (*sp)++;
-      return sgr_next_par(sp,p3);
-    }
-  }
-  return false;
-}
-
-static void sgr_process( attr_t* attr, const char* s, ssize_t len) {
-  if (s[1] != '[' || s[len-1] != 'm') return;
-  const char* p = s + 1;  // at [
-  while( *p++ != 'm' ) {  // there may be multiple settings at once
-    ssize_t cmd = 0;
-    if (!sgr_next_par(&p,&cmd)) continue;
-    switch(cmd) {
-      case  0: *attr = attr_default(); break;
-      case  1: attr->x.bold = IC_ON; break;
-      case  3: attr->x.italic = IC_ON; break;
-      case  4: attr->x.underline = IC_ON; break;
-      case  7: attr->x.reverse = IC_ON; break;
-      case 22: attr->x.bold = IC_OFF; break;
-      case 23: attr->x.italic = IC_OFF; break;
-      case 24: attr->x.underline = IC_OFF; break;
-      case 27: attr->x.reverse = IC_OFF; break;
-      case 39: attr->x.color = IC_ANSI_DEFAULT; break;
-      case 49: attr->x.bgcolor = IC_ANSI_DEFAULT; break;
-      default: {
-        if (cmd >= 30 && cmd <= 37) {
-          attr->x.color = IC_ANSI_BLACK + (cmd - 30);
-        }
-        else if (cmd >= 40 && cmd <= 47) {
-          attr->x.bgcolor = IC_ANSI_BLACK + (cmd - 40);
-        }
-        else if (cmd >= 90 && cmd <= 97) {
-          attr->x.color = IC_ANSI_DARKGRAY + (cmd - 90);
-        }
-        else if (cmd >= 100 && cmd <= 107) {
-          attr->x.bgcolor = IC_ANSI_DARKGRAY + (cmd - 100);
-        }
-        else if ((cmd == 38 || cmd == 48) && sgr_is_sep(*p)) {
-          // non-associative SGR :-(          
-          ssize_t par = 0;
-          p++;
-          if (sgr_next_par(&p,&par)) {
-            if (par==5 && sgr_is_sep(*p)) {
-              // ansi 256 index
-              p++;
-              if (sgr_next_par(&p,&par) && par >= 0 && par <= 0xFF) {
-                ic_color_t color = color_from_ansi256(par);
-                if (cmd==38) { attr->x.color = color; }
-                        else { attr->x.bgcolor = color; }
-              }
-            }
-            else if (par == 2 && sgr_is_sep(*p)) {
-              // rgb value
-              p++;
-              ssize_t r,g,b;
-              if (sgr_next_par3(&p,&r,&g,&b)) {
-                ic_color_t color = ic_rgbx(r,g,b);
-                if (cmd==38) { attr->x.color = color; }
-                        else { attr->x.bgcolor = color; }
-              }
-            }
-          }
-        }
-        else {
-          debug_msg("term: unknow SGR code %zd\n", cmd );
-        }
-      }
-    }
-  }
-}
-
 static void term_append_esc(term_t* term, const char* const s, ssize_t len) {
   if (s[1]=='[' && s[len-1] == 'm') {    
     // it is a CSI SGR sequence: ESC[ ... m
     if (term->nocolor) return;       // ignore escape sequences if nocolor is set
-    sgr_process(&term->attr,s,len);  // otherwise update our current text attributes
+    term->attr = attr_update_with(term->attr, attr_from_esc_sgr(s,len));
   }
   // and write out the escape sequence as-is
   sbuf_append_n(term->buf, s, len);
@@ -749,7 +654,7 @@ static WORD attr_color[8] = {
   FOREGROUND_RED | FOREGROUND_GREEN | FOREGROUND_BLUE, // light gray
 };
 
-static void term_sgr_win_attr( term_t* term, attr_t ta ) {
+static void term_set_win_attr( term_t* term, attr_t ta ) {
   WORD def_attr = term->hcon_default_attr;
   CONSOLE_SCREEN_BUFFER_INFO info;
   if (!GetConsoleScreenBufferInfo( term->hcon, &info )) return;  
@@ -786,12 +691,6 @@ static void term_sgr_win_attr( term_t* term, attr_t ta ) {
   if (attr != cur_attr) {
     SetConsoleTextAttribute(term->hcon, attr);
   }
-}
-
-static void term_sgr_attr( term_t* term, const char* s, ssize_t n ) {
-  attr_t attr = attr_none();
-  sgr_process(&attr, s, n);
-  term_sgr_win_attr( term, attr );
 }
 
 static ssize_t esc_param( const char* s, ssize_t def ) {
@@ -835,7 +734,7 @@ static void term_write_esc( term_t* term, const char* s, ssize_t len ) {
       term_erase_line(term, esc_param(s+2, 0));
       break;
     case 'm': 
-      term_sgr_attr(term,s,len);
+      term_set_win_attr( term, attr_from_esc_sgr(s,len) ); 
       break;
 
     // support some less standard escape codes (currently not used by isocline)

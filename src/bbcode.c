@@ -215,6 +215,20 @@ static const char* attr_update_color( const char* fname, ic_color_t* field, cons
   return fname;
 }
 
+static const char* attr_update_sgr( const char* fname, attr_t* attr, const char* value ) {
+  *attr = attr_update_with(*attr, attr_from_sgr(value, ic_strlen(value)));
+  return fname;
+}
+
+static const char* attr_update_ansi_color( const char* fname, ic_color_t* color, const char* value ) {
+  ssize_t num = 0;
+  if (ic_atoz(value, &num) && num >= 0 && num <= 256) {
+    *color = color_from_ansi256(num);
+  }
+  return fname;
+}
+
+
 static const char* attr_update_property( attr_t* attr, const char* attr_name, const char* value ) {
   const char* fname = NULL;
   fname = "bold";
@@ -259,6 +273,25 @@ static const char* attr_update_property( attr_t* attr, const char* attr_name, co
     if (color != IC_COLOR_NONE) { attr->x.bgcolor = color; }
     return fname;
   }
+  fname = "ansi-sgr";
+  if (strcmp(attr_name,fname) == 0) {
+    attr_update_sgr(fname, attr, value);
+    return fname;
+  }
+  fname = "ansi-color";
+  if (strcmp(attr_name,fname) == 0) {
+    ic_color_t color = IC_COLOR_NONE;;
+    attr_update_ansi_color(fname, &color, value);
+    if (color != IC_COLOR_NONE) { attr->x.color = color; }
+    return fname;
+  }
+  fname = "ansi-bgcolor";
+  if (strcmp(attr_name,fname) == 0) {
+    ic_color_t color = IC_COLOR_NONE;;
+    attr_update_ansi_color(fname, &color, value);
+    if (color != IC_COLOR_NONE) { attr->x.bgcolor = color; }
+    return fname;
+  }  
   else {
     return NULL;
   }
@@ -407,7 +440,7 @@ ic_private const char* parse_value(const char* s, const char** start, const char
   return s;  
 }
 
-ic_private const char* parse_tag_value( tag_t* tag, const char* s, const style_t* styles, ssize_t scount ) {
+ic_private const char* parse_tag_value( tag_t* tag, char* idbuf, const char* s, const style_t* styles, ssize_t scount ) {
   // parse: \s*[\w-]+\s*(=\s*<value>)
   bool usebgcolor = false;
   const char* id = s;
@@ -438,7 +471,6 @@ ic_private const char* parse_tag_value( tag_t* tag, const char* s, const style_t
     s = parse_skip_white(s);
   }  
   // limit name and attr to 128 bytes
-  char idbuf[128];
   char valbuf[128];
   ic_strncpy( idbuf, 128, id, idend - id);
   ic_strncpy( valbuf, 128, val, valend - val);
@@ -448,16 +480,20 @@ ic_private const char* parse_tag_value( tag_t* tag, const char* s, const style_t
   return s;
 }
 
-static const char* parse_tag_values( tag_t* tag, const char* s, const style_t* styles, ssize_t scount ) {
+static const char* parse_tag_values( tag_t* tag, char* idbuf, const char* s, const style_t* styles, ssize_t scount ) {
   s = parse_skip_white(s);  
+  idbuf[0] = 0;
+  ssize_t count = 0;
   while( *s != 0 && *s != ']') {
-    s = parse_tag_value(tag, s, styles, scount);
+    char idbuf_next[128];
+    s = parse_tag_value(tag, (count==0 ? idbuf : idbuf_next), s, styles, scount);
+    count++;
   }
   if (*s == ']') { s++; }
   return s;
 }
 
-static const char* parse_tag( tag_t* tag, bool* open, bool* pre, const char* s, const style_t* styles, ssize_t scount ) {
+static const char* parse_tag( tag_t* tag, char* idbuf, bool* open, bool* pre, const char* s, const style_t* styles, ssize_t scount ) {
   *open = true;
   *pre = false;
   if (*s != '[') return s;
@@ -470,7 +506,7 @@ static const char* parse_tag( tag_t* tag, bool* open, bool* pre, const char* s, 
     *open = false; 
     s = parse_skip_white(s+1); 
   };
-  s = parse_tag_values( tag, s, styles, scount);
+  s = parse_tag_values( tag, idbuf, s, styles, scount);
   return s;
 }
 
@@ -482,7 +518,8 @@ static const char* parse_tag( tag_t* tag, bool* open, bool* pre, const char* s, 
 static void bbcode_parse_tag_content( bbcode_t* bb, const char* s, tag_t* tag ) {
   tag_init(tag);
   if (s != NULL) { 
-    parse_tag_values(tag, s, bb->styles, bb->styles_count);
+    char idbuf[128];
+    parse_tag_values(tag, idbuf, s, bb->styles, bb->styles_count);
   }
 }
 
@@ -515,16 +552,21 @@ ic_private ssize_t bbcode_process_tag( bbcode_t* bb, const char* s, const ssize_
   tag_init(&tag);  
   bool open = true;
   bool ispre = false;
-  const char* end = parse_tag( &tag, &open, &ispre, s, bb->styles, bb->styles_count ); // todo: styles
+  char idbuf[128];
+  const char* end = parse_tag( &tag, idbuf, &open, &ispre, s, bb->styles, bb->styles_count ); // todo: styles
   assert(end > s);
   if (open) {
-    attr_t attr = bbcode_open( bb, &tag, *cur_attr );
-    if (ispre) {
-      // set end tag
+    if (!ispre) {
+      // open tag
+      *cur_attr = bbcode_open( bb, &tag, *cur_attr );
+    }
+    else {
+      // scan pre to end tag
+      attr_t attr = attr_update_with(*cur_attr, tag.attr);
       stringbuf_t* pre = sbuf_new(bb->mem);
       if (pre != NULL) {
         sbuf_replace(pre,"[/");
-        if (tag.name != NULL) { sbuf_append(pre,tag.name); }
+        sbuf_append(pre, idbuf);  // tag.name could be NULL for unknown styles
         sbuf_append(pre,"]");
         const char* etag = strstr(end,sbuf_string(pre));
         if (etag == NULL) {
@@ -536,10 +578,8 @@ ic_private ssize_t bbcode_process_tag( bbcode_t* bb, const char* s, const ssize_
           attrbuf_append_n(out, attr_out, end, (etag - end), attr);
           end = etag + sbuf_len(pre);
         }
+        sbuf_free(pre);
       }
-    }
-    else {
-      *cur_attr = attr;
     }
   }
   else {

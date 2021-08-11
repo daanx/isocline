@@ -9,6 +9,7 @@
 #include "common.h"
 #include "stringbuf.h" // str_next_ofs
 #include "attr.h"
+#include "term.h"      // color_from_ansi256
 
 //-------------------------------------------------------------
 // Attributes
@@ -55,6 +56,117 @@ ic_private attr_t attr_update_with( attr_t oldattr, attr_t newattr ) {
   if (newattr.x.underline != IC_NONE)     { attr.x.underline = newattr.x.underline; }
   return attr;
 }
+
+static bool sgr_is_digit(char c) {
+  return (c >= '0' && c <= '9');
+}
+
+static bool sgr_is_sep( char c ) {
+  return (c==';' || c==':');
+}
+
+static bool sgr_next_par(const char* s, ssize_t* pi, ssize_t* par) {
+  const ssize_t i = *pi;
+  ssize_t n = 0;
+  while( sgr_is_digit(s[i+n])) { 
+    n++; 
+  }
+  if (n==0) { 
+    *par = 0;
+    return true;
+  }
+  else {
+    *pi = i+n;
+    return ic_atoz(s+i, par);    
+  }
+}
+
+static bool sgr_next_par3(const char* s, ssize_t* pi, ssize_t* p1, ssize_t* p2, ssize_t* p3) {
+  bool ok = false;
+  ssize_t i = *pi;
+  if (sgr_next_par(s,&i,p1) && sgr_is_sep(s[i])) {
+    i++;
+    if (sgr_next_par(s,&i,p2) && sgr_is_sep(s[i])) {
+      i++;
+      if (sgr_next_par(s,&i,p3)) {
+        ok = true;
+      };
+    }
+  }
+  *pi = i;
+  return ok;
+}
+
+ic_private attr_t attr_from_sgr( const char* s, ssize_t len) {
+  attr_t attr = attr_none();
+  for( ssize_t i = 0; i < len && s[i] != 0; i++) {
+    ssize_t cmd = 0;
+    if (!sgr_next_par(s,&i,&cmd)) continue;
+    switch(cmd) {
+      case  0: attr = attr_default(); break;
+      case  1: attr.x.bold = IC_ON; break;
+      case  3: attr.x.italic = IC_ON; break;
+      case  4: attr.x.underline = IC_ON; break;
+      case  7: attr.x.reverse = IC_ON; break;
+      case 22: attr.x.bold = IC_OFF; break;
+      case 23: attr.x.italic = IC_OFF; break;
+      case 24: attr.x.underline = IC_OFF; break;
+      case 27: attr.x.reverse = IC_OFF; break;
+      case 39: attr.x.color = IC_ANSI_DEFAULT; break;
+      case 49: attr.x.bgcolor = IC_ANSI_DEFAULT; break;
+      default: {
+        if (cmd >= 30 && cmd <= 37) {
+          attr.x.color = IC_ANSI_BLACK + (cmd - 30);
+        }
+        else if (cmd >= 40 && cmd <= 47) {
+          attr.x.bgcolor = IC_ANSI_BLACK + (cmd - 40);
+        }
+        else if (cmd >= 90 && cmd <= 97) {
+          attr.x.color = IC_ANSI_DARKGRAY + (cmd - 90);
+        }
+        else if (cmd >= 100 && cmd <= 107) {
+          attr.x.bgcolor = IC_ANSI_DARKGRAY + (cmd - 100);
+        }
+        else if ((cmd == 38 || cmd == 48) && sgr_is_sep(s[i])) {
+          // non-associative SGR :-(          
+          ssize_t par = 0;
+          i++;
+          if (sgr_next_par(s, &i, &par)) {
+            if (par==5 && sgr_is_sep(s[i])) {
+              // ansi 256 index
+              i++;
+              if (sgr_next_par(s, &i, &par) && par >= 0 && par <= 0xFF) {
+                ic_color_t color = color_from_ansi256(par);
+                if (cmd==38) { attr.x.color = color; }
+                        else { attr.x.bgcolor = color; }
+              }
+            }
+            else if (par == 2 && sgr_is_sep(s[i])) {
+              // rgb value
+              i++;
+              ssize_t r,g,b;
+              if (sgr_next_par3(s, &i, &r,&g,&b)) {
+                ic_color_t color = ic_rgbx(r,g,b);
+                if (cmd==38) { attr.x.color = color; }
+                        else { attr.x.bgcolor = color; }
+              }
+            }
+          }
+        }
+        else {
+          debug_msg("attr: unknow ANSI SGR code: %zd\n", cmd );
+        }
+      }
+    }
+  }
+  return attr;
+}
+
+ic_private attr_t attr_from_esc_sgr( const char* s, ssize_t len) {
+  if (s[1] != '[' || s[len-1] != 'm') return attr_none();
+  return attr_from_sgr(s+2, len-1);
+}
+
 
 //-------------------------------------------------------------
 // Attribute buffer

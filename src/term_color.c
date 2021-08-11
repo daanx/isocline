@@ -105,7 +105,7 @@ static void color_to_rgb(ic_color_t color, int* r, int* g, int* b) {
   *b = (color & 0xFF);
 }
 
-static ic_color_t color_from_ansi256(ssize_t i) {
+ic_private ic_color_t color_from_ansi256(ssize_t i) {
   if (i >= 0 && i < 8) {
     return (IC_ANSI_BLACK + i);
   }
@@ -114,6 +114,9 @@ static ic_color_t color_from_ansi256(ssize_t i) {
   }
   else if (i >= 16 && i <= 255) {
     return ic_rgb( ansi256[i] );
+  }
+  else if (i == 256) {
+    return IC_ANSI_DEFAULT;
   }
   else {
     return IC_ANSI_DEFAULT;
