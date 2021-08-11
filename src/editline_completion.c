@@ -34,27 +34,31 @@ static bool edit_complete_longest_prefix(ic_env_t* env, editor_t* eb ) {
   return true;
 }
 
+ic_private void sbuf_append_tagged( stringbuf_t* sb, const char* tag, const char* content ) {
+  sbuf_appendf(sb, "[%s]", tag);  
+  sbuf_append(sb,content);
+  sbuf_append(sb,"[/]");
+}
+
 static void editor_append_completion(ic_env_t* env, editor_t* eb, ssize_t idx, ssize_t width, bool numbered, bool selected ) {
   const char* help = NULL;
   const char* display = completions_get_display(env->completions, idx, &help);
   if (display == NULL) return;
   if (numbered) {
-    term_append_color( env->term, eb->extra, env->color_info );
-    sbuf_appendf(eb->extra, "%s%zd \x1B[m", (selected ? (tty_is_utf8(env->tty) ? "\xE2\x86\x92" : "*") : " "), 1 + idx);
+    sbuf_appendf(eb->extra, "[ic-info]%s%zd [/]", (selected ? (tty_is_utf8(env->tty) ? "\xE2\x86\x92" : "*") : " "), 1 + idx);
     width -= 3;
   }
 
   if (selected) {
-    term_append_color( env->term, eb->extra, env->color_emphasis );
+    sbuf_append(eb->extra, "[ic-emphasis]");
   }
   if (width <= 0) {
     sbuf_append(eb->extra, display);
+    if (selected) { sbuf_append(eb->extra,"[/]"); }
     if (help != NULL) {
       sbuf_append(eb->extra, "  ");
-      term_append_color(env->term, eb->extra, env->color_info);
-      sbuf_append(eb->extra, help);
+      sbuf_append_tagged(eb->extra, "ic-help", help );      
     }
-    sbuf_append(eb->extra, "\x1B[m");
   }
   else {
     // fit to width
@@ -64,11 +68,12 @@ static void editor_append_completion(ic_env_t* env, editor_t* eb, ssize_t idx, s
       sc = str_skip_until_fit( display, width - 3);
     }    
     sbuf_append( eb->extra, sc);
+    if (selected) { sbuf_append(eb->extra,"[/]"); }
     // fill out with help & spaces
     ssize_t n = width - str_column_width(sc);
     if (n >= 8 && help != NULL) {
       sbuf_append(eb->extra, "  ");
-      term_append_color(env->term, eb->extra, env->color_info);
+      sbuf_append(eb->extra, "[ic-info]");
       n -= 2;
       ssize_t help_len = ic_strlen(help);
       if (n < help_len) {
@@ -82,8 +87,8 @@ static void editor_append_completion(ic_env_t* env, editor_t* eb, ssize_t idx, s
         sbuf_append(eb->extra, help);
         n -= help_len;
       }
+      sbuf_append(eb->extra, "[/ic-info]");
     }
-    sbuf_append(eb->extra, "\x1B[m");
     while (n-- > 0) { sbuf_append(eb->extra, " "); }
   }
 }
@@ -166,12 +171,11 @@ again:
     }
   }
   if (count > count_displayed) {
-    term_append_color( env->term, eb->extra, env->color_info);
     if (more_available) {
-      sbuf_append(eb->extra, "\n(press page-down (or ctrl-j) to see all further completions)\x1B[m");
+      sbuf_append(eb->extra, "\n[info](press page-down (or ctrl-j) to see all further completions)[/]");
     }
     else {
-      sbuf_appendf(eb->extra, "\n(press page-down (or ctrl-j) to see all %zd completions)\x1B[m", count );
+      sbuf_appendf(eb->extra, "\n[info](press page-down (or ctrl-j) to see all %zd completions)[/]", count );
     }
   }
   if (!env->complete_nopreview && selected >= 0 && selected <= count_displayed) {
@@ -249,17 +253,14 @@ again:
     for(ssize_t i = 0; i < count; i++) {
       const char* display = completions_get_display(env->completions, i, NULL);
       if (display != NULL) {
-        // term_writef(env->term, "\x1B[90m%3d \x1B[m%s\n", i+1, (cm->display != NULL ? cm->display : cm->replacement ));          
-        term_writeln(env->term, display);
+        bbcode_println(env->bbcode, display);
       }
     }
-    term_attr_reset( env->term );
-    term_color( env->term, env->color_info);
     if (count >= IC_MAX_COMPLETIONS_TO_SHOW) {
-      term_write(env->term, "... and more.\x1B[m\n");
+      bbcode_println(env->bbcode, "[info]... and more.[/]");
     }
     else {
-      term_writef(env->term, "(%zd possible completions)\x1B[m\n", count );
+      bbcode_printf(env->bbcode, "[info](%zd possible completions)[/]\n", count );
     }
     for(ssize_t i = 0; i < rc.row+1; i++) {
       term_write(env->term, " \n");

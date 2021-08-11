@@ -665,6 +665,7 @@ ic_private char* sbuf_strdup( stringbuf_t* sbuf ) {
 }
 
 ic_private ssize_t sbuf_len(const stringbuf_t* s) {
+  if (s == NULL) return 0;
   return s->count;
 }
 

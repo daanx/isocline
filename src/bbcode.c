@@ -570,6 +570,13 @@ ic_private void bbcode_vprintf( bbcode_t* bb, const char* fmt, va_list args  ) {
   sbuf_free(sb);  
 }
 
+ic_private void bbcode_printf( bbcode_t* bb, const char* fmt, ... ) {
+  va_list args;
+  va_start(args,fmt);
+  bbcode_vprintf(bb,fmt,args);
+  va_end(args);
+}
+
 
 ic_private ssize_t bbcode_insert_at( bbcode_t* bb, const char* s, stringbuf_t* sbuf, attrbuf_t* attrs, ssize_t pos ) {
   stringbuf_t* sbuf_tail  = sbuf_split_at( sbuf, pos );

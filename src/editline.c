@@ -226,7 +226,7 @@ static bool edit_refresh_rows_iter(
   return (row >= info->last_row);  
 }
 
-static void edit_refresh_rows(ic_env_t* env, editor_t* eb, attrbuf_t* attrs,
+static void edit_refresh_rows(ic_env_t* env, editor_t* eb, stringbuf_t* input, attrbuf_t* attrs,
                                ssize_t promptw, ssize_t cpromptw, bool in_extra, 
                                 ssize_t first_row, ssize_t last_row) 
 {
@@ -237,8 +237,7 @@ static void edit_refresh_rows(ic_env_t* env, editor_t* eb, attrbuf_t* attrs,
   info.in_extra   = in_extra;
   info.first_row  = first_row;
   info.last_row   = last_row;
-  sbuf_for_each_row( (in_extra ? eb->extra : eb->input), eb->termw, promptw, cpromptw,
-                            &edit_refresh_rows_iter, &info, NULL);
+  sbuf_for_each_row( input, eb->termw, promptw, cpromptw, &edit_refresh_rows_iter, &info, NULL);
 }
 
 
@@ -250,8 +249,11 @@ static void edit_refresh(ic_env_t* env, editor_t* eb)
 
   // highlight current input
   attrbuf_t* attrs = NULL;
+  attrbuf_t* attrs_extra = NULL;
+  
   if (!(env->no_highlight && env->no_bracematch)) {
     attrs = attrbuf_new(env->mem);
+    attrs_extra = attrbuf_new(env->mem);
   }
   
   if (attrs != NULL) {
@@ -270,15 +272,23 @@ static void edit_refresh(ic_env_t* env, editor_t* eb)
       attrbuf_insert_at( attrs, eb->pos, sbuf_len(eb->hint), bbcode_style(env->bbcode, "ic-hint") );
     }
     sbuf_insert_at(eb->input, sbuf_string(eb->hint), eb->pos );
-    sbuf_insert_at(eb->extra, sbuf_string(eb->hint_help), 0);
+  }
+
+  // render extra
+  stringbuf_t* extra = sbuf_new(eb->mem);
+  if (extra != NULL) {
+    if (sbuf_len(eb->hint_help) > 0) {
+      bbcode_append(env->bbcode, sbuf_string(eb->hint_help), extra, attrs_extra );
+    }
+    bbcode_append(env->bbcode, sbuf_string(eb->extra), extra, attrs_extra ); 
   }
 
   // calculate rows and row/col position
-  rowcol_t rc;
+  rowcol_t rc = { 0 };
   const ssize_t rows_input = sbuf_get_rc_at_pos( eb->input, eb->termw, promptw, cpromptw, eb->pos, &rc );
-  rowcol_t rc_extra;
-  ssize_t rows_extra = sbuf_get_rc_at_pos( eb->extra, eb->termw, 0, 0, 0 /*pos*/, &rc_extra );
-  if (sbuf_len(eb->extra) == 0) rows_extra = 0;
+  rowcol_t rc_extra = { 0 };
+  ssize_t rows_extra = 0;
+  if (sbuf_len(extra) > 0) { rows_extra = sbuf_get_rc_at_pos( extra, eb->termw, 0, 0, 0 /*pos*/, &rc_extra ); }
   const ssize_t rows = rows_input + rows_extra; 
   debug_msg("edit: refresh: rows %zd, cursor: %zd,%zd (previous rows %zd, cursor row %zd)\n", rows, rc.row, rc.col, eb->cur_rows, eb->cur_row);
   
@@ -302,11 +312,11 @@ static void edit_refresh(ic_env_t* env, editor_t* eb)
   // term_clear_lines_to_end(env->term);  // gives flicker in old Windows cmd prompt 
 
   // render rows
-  edit_refresh_rows( env, eb, attrs, promptw, cpromptw, false, first_row, last_row );  
+  edit_refresh_rows( env, eb, eb->input, attrs, promptw, cpromptw, false, first_row, last_row );  
   if (rows_extra > 0) {
     const ssize_t first_rowx = (first_row > rows_input ? first_row - rows_input : 0);
     const ssize_t last_rowx = last_row - rows_input; assert(last_rowx >= 0);
-    edit_refresh_rows(env, eb, attrs, 0, 0, true, first_rowx, last_rowx);
+    edit_refresh_rows(env, eb, extra, attrs_extra, 0, 0, true, first_rowx, last_rowx);
   }
     
   // overwrite trailing rows we do not use anymore  
@@ -336,6 +346,8 @@ static void edit_refresh(ic_env_t* env, editor_t* eb)
   sbuf_delete_at(eb->input, eb->pos, sbuf_len(eb->hint));
   sbuf_delete_at(eb->extra, 0, sbuf_len(eb->hint_help));
   attrbuf_free(attrs);
+  attrbuf_free(attrs_extra);
+  sbuf_free(extra);
 
   // update previous
   eb->cur_rows = rows;
@@ -379,7 +391,13 @@ static bool edit_resize(ic_env_t* env, editor_t* eb ) {
   ssize_t promptw, cpromptw;
   edit_get_prompt_width( env, eb, false, &promptw, &cpromptw );
   sbuf_insert_at(eb->input, sbuf_string(eb->hint), eb->pos); // insert used hint    
-  sbuf_insert_at(eb->extra, sbuf_string(eb->hint_help), 0);
+  stringbuf_t* extra = sbuf_new(eb->mem);
+  if (extra != NULL) {
+    if (sbuf_len(eb->hint_help) > 0) {
+      bbcode_append(env->bbcode, sbuf_string(eb->hint_help), extra, NULL );
+    }
+    bbcode_append(env->bbcode, sbuf_string(eb->extra), extra, NULL ); 
+  }
   rowcol_t rc;
   const ssize_t rows_input = sbuf_get_wrapped_rc_at_pos( eb->input, eb->termw, newtermw, promptw, cpromptw, eb->pos, &rc );
   rowcol_t rc_extra;
@@ -397,8 +415,8 @@ static bool edit_resize(ic_env_t* env, editor_t* eb ) {
   edit_refresh(env,eb); 
 
   // remove hint again
+  sbuf_free(extra);
   sbuf_delete_at(eb->input, eb->pos, sbuf_len(eb->hint)); 
-  sbuf_delete_at(eb->extra, 0, sbuf_len(eb->hint_help));
   return true;
 } 
 
@@ -407,7 +425,7 @@ static void editor_append_hint_help(editor_t* eb, const char* help) {
   if (help != NULL) {
     sbuf_replace(eb->hint_help, "[ic-info]");
     sbuf_append(eb->hint_help, help);
-    sbuf_append(eb->hint_help, "\n");
+    sbuf_append(eb->hint_help, "[/ic-info]\n");
   }
 }
 

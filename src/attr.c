@@ -151,9 +151,9 @@ ic_private void attrbuf_insert_at( attrbuf_t* ab, ssize_t pos, ssize_t count, at
 }
 
 
-
+// note: must allow ab == NULL!
 ic_private ssize_t attrbuf_append_n( stringbuf_t* sb, attrbuf_t* ab, const char* s, ssize_t len, attr_t attr ) {
-  if (s == NULL || len == 0 || !attrbuf_ensure_extra(ab,len)) return sbuf_len(sb);
+  if (s == NULL || len == 0 || ab == NULL || !attrbuf_ensure_extra(ab,len)) return sbuf_len(sb);
   attrbuf_set_at(ab, ab->count, len, attr);
   return sbuf_append_n(sb,s,len);
 }
