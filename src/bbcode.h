@@ -29,9 +29,9 @@ ic_private void bbcode_println( bbcode_t* bb, const char* s );
 ic_private void bbcode_printf( bbcode_t* bb, const char* fmt, ... );
 ic_private void bbcode_vprintf( bbcode_t* bb, const char* fmt, va_list args );
 
+ic_private ssize_t bbcode_column_width( bbcode_t* bb, const char* s );
 
 // allows `attr_out == NULL`.
 ic_private void bbcode_append( bbcode_t* bb, const char* s, stringbuf_t* out, attrbuf_t* attr_out );
-// ic_private ssize_t bbcode_insert_at( bbcode_t* bb, const char* s, stringbuf_t* sbuf, attrbuf_t* attrs, ssize_t pos );
 
 #endif // IC_BBCODE_H

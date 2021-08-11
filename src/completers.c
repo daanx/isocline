@@ -364,8 +364,8 @@ static bool ls_colors_append(stringbuf_t* sb, file_type_t ft, const char* ext) {
   return false;
 }
 
-static void ls_colorize(stringbuf_t* sb, file_type_t ft, const char* name, const char* ext, char dirsep) {
-  bool close = ls_colors_append( sb, ft, ext);
+static void ls_colorize(bool no_lscolor, stringbuf_t* sb, file_type_t ft, const char* name, const char* ext, char dirsep) {
+  bool close = (no_lscolor ? false : ls_colors_append( sb, ft, ext));
   sbuf_append(sb, "[!pre]" );
   sbuf_append(sb, name);
   if (dirsep != 0) sbuf_append_char(sb, dirsep);
@@ -581,13 +581,7 @@ static bool filename_complete_indir( ic_completion_env_t* cenv, stringbuf_t* dir
         if (isdir || match_extension(name, extensions)) {
           // add completion
           sbuf_clear(display);
-          if (!cenv->env->no_lscolors) {
-            ls_colorize(display, ft, name, NULL, (isdir ? dir_sep : 0));
-          }
-          else {
-            sbuf_append(display, name);          
-            if (isdir && dir_sep != 0) { sbuf_append_char(display, dir_sep); }          
-          }
+          ls_colorize(cenv->env->no_lscolors, display, ft, name, NULL, (isdir ? dir_sep : 0));
           cont = ic_add_completion_ex(cenv, sbuf_string(dir_prefix), sbuf_string(display), NULL);
         }
         sbuf_delete_from( dir_prefix, plen ); // restore dir_prefix

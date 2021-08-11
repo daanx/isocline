@@ -660,17 +660,11 @@ ic_private void bbcode_printf( bbcode_t* bb, const char* fmt, ... ) {
   va_end(args);
 }
 
-
-ic_private ssize_t bbcode_insert_at( bbcode_t* bb, const char* s, stringbuf_t* sbuf, attrbuf_t* attrs, ssize_t pos ) {
-  stringbuf_t* sbuf_tail  = sbuf_split_at( sbuf, pos );
-  attrbuf_t*   attrs_tail = attrbuf_split_at( attrs, pos );
-  if (sbuf_tail == NULL || attrs_tail == NULL) return 0;
-  bbcode_append( bb, s, sbuf, attrs );
-  const ssize_t appended = sbuf_len(sbuf) - pos;
-  assert( appended >= 0 );
-  sbuf_append( sbuf, sbuf_string(sbuf_tail));
-  attrbuf_append_attrbuf( attrs, attrs_tail);
-  sbuf_free(sbuf_tail);
-  attrbuf_free(attrs_tail);
-  return appended;
+ic_private ssize_t bbcode_column_width( bbcode_t* bb, const char* s ) {
+  stringbuf_t* out = sbuf_new(bb->mem);
+  if (out == NULL) { return str_column_width(s); }
+  bbcode_append( bb, s, out, NULL);
+  const ssize_t w = str_column_width(sbuf_string(out));
+  sbuf_free(out);
+  return w;
 }

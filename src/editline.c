@@ -125,9 +125,10 @@ static void edit_get_prompt_width( ic_env_t* env, editor_t* eb, bool in_extra, s
     *cpromptw = 0;
   }
   else {
-    ssize_t textw = str_column_width(eb->prompt_text);
-    ssize_t markerw = str_column_width(env->prompt_marker);
-    ssize_t cmarkerw = str_column_width(env->cprompt_marker);
+    // todo: cache prompt widths
+    ssize_t textw = bbcode_column_width(env->bbcode, eb->prompt_text);
+    ssize_t markerw = bbcode_column_width(env->bbcode, env->prompt_marker);
+    ssize_t cmarkerw = bbcode_column_width(env->bbcode, env->cprompt_marker);
     *promptw = markerw + textw;
     *cpromptw = (env->no_multiline_indent || *promptw < cmarkerw ? cmarkerw : *promptw);
   }
@@ -163,9 +164,10 @@ static void edit_write_prompt( ic_env_t* env, editor_t* eb, ssize_t row, bool in
   }
   else if (!env->no_multiline_indent) {
     // multiline continuation indentation
-    ssize_t textw = str_column_width(eb->prompt_text );
-    ssize_t markerw = str_column_width(env->prompt_marker);
-    ssize_t cmarkerw = str_column_width(env->cprompt_marker);      
+    // todo: cache prompt widths
+    ssize_t textw = bbcode_column_width(env->bbcode, eb->prompt_text );
+    ssize_t markerw = bbcode_column_width(env->bbcode, env->prompt_marker);
+    ssize_t cmarkerw = bbcode_column_width(env->bbcode, env->cprompt_marker);      
     if (cmarkerw < markerw + textw) {
       term_write_repeat(env->term, " ", markerw + textw - cmarkerw );
     }
