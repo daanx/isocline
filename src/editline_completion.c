@@ -57,7 +57,7 @@ static void editor_append_completion(ic_env_t* env, editor_t* eb, ssize_t idx, s
     if (selected) { sbuf_append(eb->extra,"[/ic-emphasis]"); }
     if (help != NULL) {
       sbuf_append(eb->extra, "  ");
-      sbuf_append_tagged(eb->extra, "ic-help", help );      
+      sbuf_append_tagged(eb->extra, "ic-info", help );      
     }
   }
   else {
