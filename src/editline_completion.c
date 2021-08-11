@@ -91,6 +91,7 @@ static void editor_append_completion(ic_env_t* env, editor_t* eb, ssize_t idx, s
     }
     while (n-- > 0) { sbuf_append(eb->extra, " "); }
   }
+  sbuf_append(eb->extra, "\x1B[m");
 }
 
 // 2 and 3 column output up to 80 wide

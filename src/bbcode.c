@@ -530,7 +530,12 @@ ic_private void bbcode_append( bbcode_t* bb, const char* s, stringbuf_t* out, at
   while( s[i] != 0 ) {
     // handle no tags in bulk
     ssize_t nobb = 0;
-    while( s[i+nobb] != 0 && s[i+nobb] != '[') {
+    char c;
+    while( (c = s[i+nobb]) != 0) {
+      if (c == '[' || c == '\\') { break; }
+      if (c == '\x1B' && s[i+nobb+1] == '[') {
+        nobb++; // don't count 'ESC[' as a tag opener
+      }
       nobb++;
     }
     if (nobb > 0) { attrbuf_append_n(out, attr_out, s+i, nobb, attr); }
@@ -538,6 +543,14 @@ ic_private void bbcode_append( bbcode_t* bb, const char* s, stringbuf_t* out, at
     // tag
     if (s[i] == '[') {
       i += bbcode_process_tag(bb, s+i, base, out, attr_out, &attr);
+    }
+    else if (s[i] == '\\') {
+      if (s[i+1] == '\\' || s[i+1] == '[') {
+        attrbuf_append_n(out, attr_out, s+i+1, 1, attr); // escape '\[' and '\\' 
+      }
+      else {
+        attrbuf_append_n(out, attr_out, s+i, 1, attr);  // pass '\\' as is
+      }
     }
   }
   // pop unclosed openings
