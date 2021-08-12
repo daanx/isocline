@@ -177,11 +177,11 @@ void ic_set_default_highlighter(ic_highlight_fun_t* highlighter, void* arg);
 // Set the style of characters starting at position `pos`.
 void ic_highlight(ic_highlight_env_t* henv, long pos, long count, const char* style );
 
-// Convenience callback for a function that highlights `s` using bbcode's.
+// Experimental: Convenience callback for a function that highlights `s` using bbcode's.
 // The returned string should be allocated and is free'd by the caller.
 typedef char* (ic_highlight_format_fun_t)(const char* s, void* arg);
 
-// Convenience function for highlighting with bbcodes.
+// Experimental: Convenience function for highlighting with bbcodes.
 // Can be called in a `ic_highlight_fun_t` callback to colorize the `input` using the 
 // the provided `highlight` function that returns the original `input` interspersed with 
 // bbcode tags. User state is passed through the `arg`. 
@@ -282,6 +282,48 @@ bool ic_enable_brace_insertion(bool enable);
 
 // Set matching brace pairs for automatic insertion. Pass NULL for the default `"()[]{}\"\"''"`
 void ic_set_insertion_braces(const char* brace_pairs);
+
+//--------------------------------------------------------------
+// bbcode formatting
+//--------------------------------------------------------------
+
+// Print to the terminal while respection bbcode markup. 
+// Any unclosed tags are closed automatically at the end of the print.
+// For example:
+// ```
+// ic_print("[b]bold, [i]bold and italic[/i], [red]red and bold[/][/b] default.");
+// ic_print("[b]bold[/], [i b]bold and italic[/], [yellow on blue]yellow on blue background");
+// ic_style_add("em","i color=#888800");
+// ic_print("[em]emphasis");
+// ```
+// Properties that can be assigned are:
+// * `color=`_clr_, `bgcolor=`_clr_: where _clr_ is either a hex value `#`RRGGBB or `#`RGB, a
+//    standard HTML color name, or an ANSI palette name, like `ansi-maroon`, `ansi-default`, etc.
+// * `bold`,`italic`,`reverse`,`underline`: can be `on` or `off`. 
+// * everything else is a style; all HTML and ANSI color names are also a style (so we can just use `red`
+//   instead of `color=red`, or `on red` instead of `bgcolor=red`), and there are
+//   the `b`, `i`, `u`, and `r` styles for bold, italic, underline, and reverse.
+void ic_print( const char* s );
+
+// Print with bbcode markup ending with a newline.
+void ic_println( const char* s );
+
+// Print formatted with bbcode markup.
+void ic_printf(const char* fmt, ...);
+
+// Print formatted with bbcode markup.
+void ic_vprintf(const char* fmt, va_list args);
+
+// Define or redefine a style. The `fmt` string is the content of a tag and can contain
+// other styles. This is very useful to theme the output of a program
+// by assigning standard styles like `em` or `warning` etc.
+void ic_style_def( const char* style_name, const char* fmt );
+
+// Start a global style that is only reset when calling a matching `ic_style_end`.
+void ic_style_open( const char* fmt );
+
+// End a global style.
+void ic_style_close(void);
 
 
 //--------------------------------------------------------------
@@ -412,7 +454,7 @@ void ic_term_writef(const char* fmt, ...);
 // Write a formatted string to the console.
 void ic_term_vwritef(const char* fmt, va_list args);
 
-// Set text style.
+// Set text style. Do not mix with the bbcode `ic_print` functions.
 void ic_term_set_style( const char* style );
 
 // Reset the text style.
@@ -427,48 +469,6 @@ void ic_term_reset( void );
 //  8: terminal with ANSI 256 color palette.     (256color/8bit)
 // 24: true-color terminal with full RGB colors. (truecolor/24bit)
 int ic_term_get_color_bits( void );
-
-//--------------------------------------------------------------
-// bbcode formatting
-//--------------------------------------------------------------
-
-// Print to the terminal while respection bbcode markup. 
-// Any unclosed tags are closed automatically at the end of the print.
-// For example:
-// ```
-// ic_print("[b]bold, [i]bold and italic[/i], [red]red and bold[/][/b] default.");
-// ic_print("[b]bold[/], [i b]bold and italic[/], [yellow on blue]yellow on blue background");
-// ic_style_add("em","i color=#888800");
-// ic_print("[em]emphasis");
-// ```
-// Properties that can be assigned are:
-// * `color=`_clr_, `bgcolor=`_clr_: where _clr_ is either a hex value `#`RRGGBB or `#`RGB, a
-//    standard HTML color name, or an ANSI palette name, like `ansi-maroon`, `ansi-default`, etc.
-// * `bold`,`italic`,`reverse`,`underline`: can be `on` or `off`. 
-// * everything else is a style; all HTML and ANSI color names are also a style (so we can just use `red`
-//   instead of `color=red`, or `on red` instead of `bgcolor=red`), and there are
-//   the `b`, `i`, `u`, and `r` styles for bold, italic, underline, and reverse.
-void ic_print( const char* s );
-
-// Print with bbcode markup ending with a newline.
-void ic_println( const char* s );
-
-// Print formatted with bbcode markup.
-void ic_printf(const char* fmt, ...);
-
-// Print formatted with bbcode markup.
-void ic_vprintf(const char* fmt, va_list args);
-
-// Define or redefine a style. The `fmt` string is the content of a tag and can contain
-// other styles. This is very useful to theme the output of a program
-// by assigning standard styles like `em` or `warning` etc.
-void ic_style_def( const char* style_name, const char* fmt );
-
-// Start a global style that is only reset when calling a matching `ic_style_end`.
-void ic_style_open( const char* fmt );
-
-// End a global style.
-void ic_style_close(void);
 
 
 //--------------------------------------------------------------
