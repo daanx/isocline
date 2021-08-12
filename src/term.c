@@ -673,10 +673,10 @@ static void term_set_win_attr( term_t* term, attr_t ta ) {
   }
   if (ta.x.bgcolor != IC_COLOR_NONE) {
     if (ta.x.bgcolor >= IC_ANSI_BLACK && ta.x.bgcolor <= IC_ANSI_SILVER) {
-      attr = (attr & 0xFF0F) | (attr_color[ta.x.bgcolor - IC_ANSI_BLACK] << 4);
+      attr = (attr & 0xFF0F) | (WORD)(attr_color[ta.x.bgcolor - IC_ANSI_BLACK] << 4);
     }
     else if (ta.x.color >= IC_ANSI_GRAY && ta.x.color <= IC_ANSI_WHITE) {
-      attr = (attr & 0xFF0F) | (attr_color[ta.x.color - IC_ANSI_GRAY] << 4) | BACKGROUND_INTENSITY;
+      attr = (attr & 0xFF0F) | (WORD)(attr_color[ta.x.color - IC_ANSI_GRAY] << 4) | BACKGROUND_INTENSITY;
     } 
     else if (ta.x.color == IC_ANSI_DEFAULT) {
       attr = (attr & 0xFF0F) | (def_attr & 0x00F0);
