@@ -200,15 +200,104 @@ Some other excellent libraries that we considered:
 [replxx](https://github.com/AmokHuginnsson/replxx), and 
 [Haskeline](https://github.com/judah/haskeline).
 
-[GNU readline]: https://tiswww.case.edu/php/chet/readline/rltop.html
-[koka]: http://www.koka-lang.org
-[submodule]: https://git-scm.com/book/en/v2/Git-Tools-Submodules
-[Haskell]: https://github.com/daanx/isocline/tree/main/haskell
-[HaskellExample]: https://github.com/daanx/isocline/blob/main/test/Example.hs
-[example]: https://github.com/daanx/isocline/blob/main/test/example.c
-[termtosvg]: https://github.com/nbedos/termtosvg
 
-# Internals
+# Formatted Output
+
+Isocline also exposes functions for rich terminal output
+as `ic_print` (and `ic_println` and `ic_printf`). 
+Inspired by the (Python) [Rich][RichBBcode] library, 
+this supports a form of [bbcode]'s to format the output:
+```c
+ic_println( "[b]bold [red]and red[/red][/b]" );
+```
+Each print automatically closes any open tags that were
+not yet closed. Also, you can use a general close
+tag as `[/]` to close the innermost tag, so the
+following print is equivalent to the earlier one:
+```c
+ic_println( "[b]bold [red]and red[/]" );
+```
+There can be multiple styles in one tag
+(where the first name is used for the closing tag):
+```c
+ic_println( "[u #FFD700]underlined gold[/]" );
+```
+
+Sometimes, you need to display arbitrary messages
+that may contain sequences that you would not like
+to be interpreted as bbcode tags. One way to do
+this is the `[!`_tag_`]` which ignores formatting
+up to a close tag of the form `[/`_tag_`]`.
+```c
+ic_printf( "[red]red? [!pre]%s[/pre].\n", "[blue]not blue!" );
+```
+
+Predefined styles include `b` (bold),
+`u` (underline), `i` (italic), and `r` (reverse video), but
+you can (re)define any style yourself as:
+```c
+ic_style_def("warning", "crimson u");
+```
+
+and use them like any builtin style or property:
+```c
+ic_println( "[warning]this is a warning![/]" );
+```
+which is great for adding themes to your application.
+
+Each `ic_print` function always closes any unclosed tags automatically.
+To open a style persistently, use `ic_style_open` with a matching
+`ic_style_close` which scopes over any `ic_print` statements in between.
+```c
+ic_style_open("warning");
+ic_println("[b]crimson underlined and bold[/]");
+ic_style_close();
+```
+
+# Advanced
+
+
+## BBCode Format
+
+An open tag can have multiple white space separated
+entries that are
+either a _style name_, or a primitive _property_[`=`_value_].
+
+### Styles
+
+Isocline provides the following builtin styles as property shorthands:
+`b` (bold), `u` (underline), `i` (italic), `r` (reverse video),
+and some builtin styles for syntax highlighting:
+`keyword`, `control` (control-flow keywords), `string`,
+`comment`, `number`, `type`, `constant`.
+
+### Properties
+
+Boolean properties are by default `on`:
+
+- `bold` [`=`(`on`|`off`)]
+- `italic` [`=`(`on`|`off`)]
+- `underline` [`=`(`on`|`off`)]
+- `reverse` [`=`(`on`|`off`)]
+
+Color properties can be assigned a _color_:
+
+- `color=`_color_
+- `bgcolor=`_color_
+- _color_: equivalent to `color=`_color_.
+- `on` _color_: equivalent to `bgcolor=`_color_.
+
+A color value can be specified in many ways:
+
+- any standard HTML [color name][htmlcolors].
+- any of the 16 standard ANSI [color names][ansicolors] by prefixing `ansi-` 
+  (like `ansi-black` or `ansi-maroon`).   
+  The actual color value of these depend on the a terminal theme.
+- `#`_rrggbb_ or `#`_rgb_ for a specific 24-bit color.
+- `ansi-color=`_idx_: where 0 <= _idx_ <= 256 specifies an entry in the
+  standard ANSI 256 [color palette][ansicolor256], where 256 is used for the ANSI 
+  default color.
+
 
 ## Environment Variables
 
@@ -268,7 +357,10 @@ On Windows the above functionality is implemented using the Windows console API
 (except if running in the new Windows Terminal which supports these escape
 sequences natively).
 
-## Async
+## Async and Threads
+
+Isocline is _not_ thread-safe and `ic_readline`_xxx_ and `ic_print`_xxx_ should
+be used from one thread only.
 
 The best way to use `ic_readline` asynchronously is
 to run it in a (blocking) dedicated thread and deliver
@@ -280,16 +372,6 @@ function that is thread-safe and can deliver an
 asynchronous event to Isocline that unblocks a current
 `ic_readline` and makes it behave as if the user pressed
 `ctrl-c` (which returns NULL from the read line call).
-
-
-## Possible Future Extensions
-
-- Vi key bindings
-- kill buffer 
-- ...
-
-Contact me if you are interested in doing any of these :-)
-
 
 ## Color Mapping
 
@@ -319,3 +401,31 @@ in column 5. Given these results, Isoclines uses _redmean_ for
 color mapping. We also add a gray correction that makes it less
 likely to substitute a color for a gray value (and the other way
 around).
+
+
+## Possible Future Extensions
+
+- Vi key bindings.
+- kill buffer.
+- make the `ic_print`_xxx_ functions thread-safe.
+- extended low-level terminal functions.
+- status and progress bars.
+- prompt variants: confirm, etc.
+- ...
+
+Contact me if you are interested in doing any of these :-)
+
+
+[GNU readline]: https://tiswww.case.edu/php/chet/readline/rltop.html
+[koka]: http://www.koka-lang.org
+[submodule]: https://git-scm.com/book/en/v2/Git-Tools-Submodules
+[Haskell]: https://github.com/daanx/isocline/tree/main/haskell
+[HaskellExample]: https://github.com/daanx/isocline/blob/main/test/Example.hs
+[example]: https://github.com/daanx/isocline/blob/main/test/example.c
+[termtosvg]: https://github.com/nbedos/termtosvg
+[Rich]: https://github.com/willmcgugan/rich
+[RichBBcode]: https://rich.readthedocs.io/en/latest/markup.html
+[bbcode]: https://en.wikipedia.org/wiki/BBCode
+[htmlcolors]: https://en.wikipedia.org/wiki/Web_colors
+[ansicolors]: https://en.wikipedia.org/wiki/Web_colors#Basic_colors
+[ansicolor256]: https://en.wikipedia.org/wiki/ANSI_escape_code#8-bit
