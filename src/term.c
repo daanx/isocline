@@ -660,33 +660,33 @@ static void term_set_win_attr( term_t* term, attr_t ta ) {
   if (!GetConsoleScreenBufferInfo( term->hcon, &info )) return;  
   WORD cur_attr = info.wAttributes;
   WORD attr = cur_attr; 
-  if (ta.color != IC_COLOR_NONE) {
-    if (ta.color >= IC_ANSI_BLACK && ta.color <= IC_ANSI_SILVER) {
-      attr = (attr & 0xFFF0) | attr_color[ta.color - IC_ANSI_BLACK];
+  if (ta.x.color != IC_COLOR_NONE) {
+    if (ta.x.color >= IC_ANSI_BLACK && ta.x.color <= IC_ANSI_SILVER) {
+      attr = (attr & 0xFFF0) | attr_color[ta.x.color - IC_ANSI_BLACK];
     }
-    else if (ta.color >= IC_ANSI_GRAY && ta.color <= IC_ANSI_WHITE) {
-      attr = (attr & 0xFFF0) | attr_color[ta.color - IC_ANSI_GRAY] | FOREGROUND_INTENSITY;
+    else if (ta.x.color >= IC_ANSI_GRAY && ta.x.color <= IC_ANSI_WHITE) {
+      attr = (attr & 0xFFF0) | attr_color[ta.x.color - IC_ANSI_GRAY] | FOREGROUND_INTENSITY;
     }
-    else if (ta.color == IC_ANSI_DEFAULT) {
+    else if (ta.x.color == IC_ANSI_DEFAULT) {
       attr = (attr & 0xFFF0) | (def_attr & 0x000F);
     }
   }
-  if (ta.bgcolor != IC_COLOR_NONE) {
-    if (ta.bgcolor >= IC_ANSI_BLACK && ta.bgcolor <= IC_ANSI_SILVER) {
-      attr = (attr & 0xFF0F) | (attr_color[ta.bgcolor - IC_ANSI_BLACK] << 4);
+  if (ta.x.bgcolor != IC_COLOR_NONE) {
+    if (ta.x.bgcolor >= IC_ANSI_BLACK && ta.x.bgcolor <= IC_ANSI_SILVER) {
+      attr = (attr & 0xFF0F) | (attr_color[ta.x.bgcolor - IC_ANSI_BLACK] << 4);
     }
-    else if (ta.color >= IC_ANSI_GRAY && ta.color <= IC_ANSI_WHITE) {
-      attr = (attr & 0xFF0F) | (attr_color[ta.color - IC_ANSI_GRAY] << 4) | BACKGROUND_INTENSITY;
+    else if (ta.x.color >= IC_ANSI_GRAY && ta.x.color <= IC_ANSI_WHITE) {
+      attr = (attr & 0xFF0F) | (attr_color[ta.x.color - IC_ANSI_GRAY] << 4) | BACKGROUND_INTENSITY;
     } 
-    else if (ta.color == IC_ANSI_DEFAULT) {
+    else if (ta.x.color == IC_ANSI_DEFAULT) {
       attr = (attr & 0xFF0F) | (def_attr & 0x00F0);
     }
   }
-  if (ta.underline != IC_NONE) {
-    attr = (attr & ~COMMON_LVB_UNDERSCORE) | (ta.underline == IC_ON ? COMMON_LVB_UNDERSCORE : 0);
+  if (ta.x.underline != IC_NONE) {
+    attr = (attr & ~COMMON_LVB_UNDERSCORE) | (ta.x.underline == IC_ON ? COMMON_LVB_UNDERSCORE : 0);
   }
-  if (ta.reverse != IC_NONE) {
-    attr = (attr & ~COMMON_LVB_REVERSE_VIDEO) | (ta.reverse == IC_ON ? COMMON_LVB_REVERSE_VIDEO : 0);
+  if (ta.x.reverse != IC_NONE) {
+    attr = (attr & ~COMMON_LVB_REVERSE_VIDEO) | (ta.x.reverse == IC_ON ? COMMON_LVB_REVERSE_VIDEO : 0);
   }  
   if (attr != cur_attr) {
     SetConsoleTextAttribute(term->hcon, attr);

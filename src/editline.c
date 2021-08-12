@@ -835,6 +835,7 @@ static char* edit_line( ic_env_t* env, const char* prompt_text )
 {
   // set up an edit buffer
   editor_t eb;
+  memset(&eb, 0, sizeof(eb));
   eb.mem      = env->mem;
   eb.input    = sbuf_new(env->mem);
   eb.extra    = sbuf_new(env->mem);

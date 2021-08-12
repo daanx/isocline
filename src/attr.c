@@ -117,16 +117,16 @@ ic_private attr_t attr_from_sgr( const char* s, ssize_t len) {
       case 49: attr.x.bgcolor = IC_ANSI_DEFAULT; break;
       default: {
         if (cmd >= 30 && cmd <= 37) {
-          attr.x.color = IC_ANSI_BLACK + (cmd - 30);
+          attr.x.color = IC_ANSI_BLACK + (unsigned)(cmd - 30);
         }
         else if (cmd >= 40 && cmd <= 47) {
-          attr.x.bgcolor = IC_ANSI_BLACK + (cmd - 40);
+          attr.x.bgcolor = IC_ANSI_BLACK + (unsigned)(cmd - 40);
         }
         else if (cmd >= 90 && cmd <= 97) {
-          attr.x.color = IC_ANSI_DARKGRAY + (cmd - 90);
+          attr.x.color = IC_ANSI_DARKGRAY + (unsigned)(cmd - 90);
         }
         else if (cmd >= 100 && cmd <= 107) {
-          attr.x.bgcolor = IC_ANSI_DARKGRAY + (cmd - 100);
+          attr.x.bgcolor = IC_ANSI_DARKGRAY + (unsigned)(cmd - 100);
         }
         else if ((cmd == 38 || cmd == 48) && sgr_is_sep(s[i])) {
           // non-associative SGR :-(          
@@ -164,8 +164,8 @@ ic_private attr_t attr_from_sgr( const char* s, ssize_t len) {
 }
 
 ic_private attr_t attr_from_esc_sgr( const char* s, ssize_t len) {
-  if (s[1] != '[' || s[len-1] != 'm') return attr_none();
-  return attr_from_sgr(s+2, len-1);
+  if (s[0] != '\x1B' || s[1] != '[' || s[len-1] != 'm') return attr_none();
+  return attr_from_sgr(s+2, len-2);
 }
 
 

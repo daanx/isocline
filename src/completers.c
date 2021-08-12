@@ -323,9 +323,9 @@ static bool ls_colors_from_key(stringbuf_t* sb, const char* key) {
     len++;
   }
   if (len <= 0) return false;
-  sbuf_append(sb, "[ansi-sgr=" );
+  sbuf_append(sb, "[ansi-sgr=\"" );
   sbuf_append_n(sb, p, len );
-  sbuf_append(sb, "]");
+  sbuf_append(sb, "\"]");
   return true;
 }
 

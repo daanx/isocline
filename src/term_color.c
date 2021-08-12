@@ -80,12 +80,12 @@ ic_private ic_color_t ic_rgb(uint32_t hex) {
 }
 
 // Limit an int to values between 0 and 255.
-static uint32_t ic_cap8(long i) {
+static uint32_t ic_cap8(ssize_t i) {
   return (i < 0 ? 0 : (i > 255 ? 255 : (uint32_t)i));
 }
 
 // Create a color from a 24-bit color value.
-ic_private ic_color_t ic_rgbx(int r, int g, int b) {
+ic_private ic_color_t ic_rgbx(ssize_t r, ssize_t g, ssize_t b) {
   return ic_rgb( (ic_cap8(r)<<16) | (ic_cap8(g)<<8) | ic_cap8(b) );
 }
 
@@ -107,10 +107,10 @@ static void color_to_rgb(ic_color_t color, int* r, int* g, int* b) {
 
 ic_private ic_color_t color_from_ansi256(ssize_t i) {
   if (i >= 0 && i < 8) {
-    return (IC_ANSI_BLACK + i);
+    return (IC_ANSI_BLACK + (uint32_t)i);
   }
   else if (i >= 8 && i < 16) {
-    return (IC_ANSI_DARKGRAY + (i - 8));
+    return (IC_ANSI_DARKGRAY + (uint32_t)(i - 8));
   }
   else if (i >= 16 && i <= 255) {
     return ic_rgb( ansi256[i] );

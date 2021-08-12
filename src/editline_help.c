@@ -111,11 +111,11 @@ static const char* help_initial =
   #else
   "         │     alt-left   │   alt-right   │\n"
   #endif
-  "         │        ┌───────┼──────┐        │    ctrl+r   : search history\n"
+  "         │        ┌───────┼──────┐        │    ctrl-r   : search history\n"
   "         ▼        ▼       ▼      ▼        ▼    tab      : complete word\n"
   "  prompt> [ansi-darkgray]it's the quintessential language[/]     shift-tab: insert new line\n"
   "         ▲        ▲              ▲        ▲    esc      : delete input, done\n"
-  "         │        └──────────────┘        │    ctrl+z   : undo\n"
+  "         │        └──────────────┘        │    ctrl-z   : undo\n"
   "         │   alt-backsp        alt-d      │\n"
   //"       │                │               │\n"
   "         └────────────────────────────────┘    (delete)\n"
