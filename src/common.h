@@ -93,6 +93,55 @@ ic_private bool      unicode_is_raw(unicode_t u, uint8_t* c);
 
 ic_private bool      utf8_is_cont(uint8_t c);
 
+
+//-------------------------------------------------------------
+// Colors
+//-------------------------------------------------------------
+
+// A color is either RGB or an ANSI code.
+// (RGB colors have bit 24 set to distinguish them from the ANSI color palette colors.)
+// (Isocline will automatically convert from RGB on terminals that do not support full colors)
+typedef uint32_t ic_color_t;
+
+// Create a color from a 24-bit color value.
+ic_color_t ic_rgb(uint32_t hex);
+
+// Create a color from a 8-bit red/green/blue components.
+// The value of each component is capped between 0 and 255.
+ic_color_t ic_rgbx(int r, int g, int b);
+
+#define IC_COLOR_NONE     (0)
+#define IC_RGB(rgb)       (0x1000000 | (uint32_t)(rgb)) // ic_rgb(rgb)  // define to it can be used as a constant
+
+// ANSI colors.
+// The actual colors used is usually determined by the terminal theme
+// See <https://en.wikipedia.org/wiki/ANSI_escape_code#3-bit_and_4-bit>
+#define IC_ANSI_BLACK     (30)
+#define IC_ANSI_MAROON    (31)
+#define IC_ANSI_GREEN     (32)
+#define IC_ANSI_OLIVE     (33)
+#define IC_ANSI_NAVY      (34)
+#define IC_ANSI_PURPLE    (35)
+#define IC_ANSI_TEAL      (36)
+#define IC_ANSI_SILVER    (37)
+#define IC_ANSI_DEFAULT   (39)
+
+#define IC_ANSI_GRAY      (90)
+#define IC_ANSI_RED       (91)
+#define IC_ANSI_LIME      (92)
+#define IC_ANSI_YELLOW    (93)
+#define IC_ANSI_BLUE      (94)
+#define IC_ANSI_FUCHSIA   (95)
+#define IC_ANSI_AQUA      (96)
+#define IC_ANSI_WHITE     (97)
+
+#define IC_ANSI_DARKGRAY  IC_ANSI_GRAY
+#define IC_ANSI_LIGHTGRAY IC_ANSI_SILVER
+#define IC_ANSI_MAGENTA   IC_ANSI_FUCHSIA
+#define IC_ANSI_CYAN      IC_ANSI_AQUA
+
+
+
 //-------------------------------------------------------------
 // Debug
 //-------------------------------------------------------------

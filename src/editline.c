@@ -34,6 +34,7 @@ typedef struct editor_s {
   ssize_t       cur_row;      // current row that has the cursor (0 based, relative to the prompt)
   ssize_t       termw;
   bool          modified;     // has a modification happened? (used for history navigation for example)  
+  bool          disable_undo; // temporarily disable auto undo (for history search)
   ssize_t       history_idx;  // current index in the history 
   editstate_t*  undo;         // undo buffer  
   editstate_t*  redo;         // redo buffer
@@ -69,7 +70,9 @@ ic_private char* ic_editline(ic_env_t* env, const char* prompt_text) {
 
 // capture the current edit state
 static void editor_capture(editor_t* eb, editstate_t** es ) {
-  editstate_capture( eb->mem, es, sbuf_string(eb->input), eb->pos );
+  if (!eb->disable_undo) {
+    editstate_capture( eb->mem, es, sbuf_string(eb->input), eb->pos );
+  }
 }
 
 static void editor_undo_capture(editor_t* eb ) {
@@ -77,6 +80,7 @@ static void editor_undo_capture(editor_t* eb ) {
 }
 
 static void editor_undo_forget(editor_t* eb) {
+  if (eb->disable_undo) return;
   const char* input = NULL;
   ssize_t pos = 0;
   editstate_restore(eb->mem, &eb->undo, &input, &pos);
@@ -84,6 +88,7 @@ static void editor_undo_forget(editor_t* eb) {
 }
 
 static void editor_restore(editor_t* eb, editstate_t** from, editstate_t** to ) {
+  if (eb->disable_undo) return;
   if (*from == NULL) return;
   const char* input;
   if (to != NULL) { editor_capture( eb, to ); }
@@ -157,7 +162,7 @@ static bool edit_pos_is_at_row_end( ic_env_t* env, editor_t* eb ) {
 
 static void edit_write_prompt( ic_env_t* env, editor_t* eb, ssize_t row, bool in_extra ) {
   if (in_extra) return;
-  bbcode_style_start(env->bbcode, "ic-prompt");
+  bbcode_style_open(env->bbcode, "ic-prompt");
   if (row==0) {
     // regular prompt text    
     bbcode_print( env->bbcode, eb->prompt_text );
@@ -174,7 +179,7 @@ static void edit_write_prompt( ic_env_t* env, editor_t* eb, ssize_t row, bool in
   }
   // the marker
   bbcode_print(env->bbcode, (row == 0 ? env->prompt_marker : env->cprompt_marker ));   
-  bbcode_style_end(env->bbcode,NULL);    
+  bbcode_style_close(env->bbcode,NULL);    
 }
 
 //-------------------------------------------------------------
@@ -259,7 +264,8 @@ static void edit_refresh(ic_env_t* env, editor_t* eb)
   }
   
   if (attrs != NULL) {
-    highlight( env->bbcode, sbuf_string(eb->input), attrs, (env->no_highlight ? NULL : env->highlighter), env->highlighter_arg );
+    highlight( env->mem, env->bbcode, sbuf_string(eb->input), attrs, 
+                 (env->no_highlight ? NULL : env->highlighter), env->highlighter_arg );
   }
 
   // highlight matching braces

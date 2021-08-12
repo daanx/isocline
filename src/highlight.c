@@ -21,10 +21,11 @@ struct ic_highlight_env_s {
   const char*   input;   
   ssize_t       input_len;     
   bbcode_t*     bbcode;
+  alloc_t*      mem;
 };
 
 
-ic_private void highlight( bbcode_t* bb, const char* s, attrbuf_t* attrs, ic_highlight_fun_t* highlighter, void* arg ) {
+ic_private void highlight( alloc_t* mem, bbcode_t* bb, const char* s, attrbuf_t* attrs, ic_highlight_fun_t* highlighter, void* arg ) {
   const ssize_t len = ic_strlen(s);
   if (len <= 0) return;
   attrbuf_set_at(attrs,0,len,attr_none()); // fill to length of s
@@ -34,6 +35,7 @@ ic_private void highlight( bbcode_t* bb, const char* s, attrbuf_t* attrs, ic_hig
     henv.input = s;     
     henv.input_len = len;
     henv.bbcode = bb;
+    henv.mem = mem;
     (*highlighter)( &henv, s, arg );    
   }
 }
@@ -73,6 +75,24 @@ ic_public void ic_highlight(ic_highlight_env_t* henv, long pos, long count, cons
   highlight_attr(henv,pos,count,bbcode_style( henv->bbcode, style ));
 }
 
+
+void ic_highlight_format(ic_highlight_env_t* henv, const char* s, ic_highlight_format_fun_t* highlight, void* arg) {
+  if (s==NULL || s[0] == 0 || highlight==NULL) return;
+  const char* fmt = highlight(s,arg);
+  if (fmt == NULL) return;
+  attrbuf_t* attrs = attrbuf_new(henv->mem);
+  stringbuf_t* out = sbuf_new(henv->mem);  // todo: avoid allocating out?
+  if (attrs!=NULL && out != NULL) {
+    bbcode_append( henv->bbcode, fmt, out, attrs);
+    const ssize_t len = ic_strlen(s);
+    for( ssize_t i = 0; i < len; i++) {
+      attrbuf_update_at(henv->attrs, i, 1, attrbuf_attr_at(attrs,i));
+    }
+  }
+  sbuf_free(out);
+  attrbuf_free(attrs);
+  mem_free(henv->mem,fmt);  
+}
 
 //-------------------------------------------------------------
 // Brace matching

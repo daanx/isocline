@@ -20,8 +20,8 @@ ic_private void bbcode_free( bbcode_t* bb );
 
 ic_private void bbcode_style_add( bbcode_t* bb, const char* style_name, attr_t attr );
 ic_private void bbcode_style_def( bbcode_t* bb, const char* style_name, const char* s );
-ic_private void bbcode_style_start( bbcode_t* bb, const char* fmt );
-ic_private void bbcode_style_end( bbcode_t* bb, const char* fmt );
+ic_private void bbcode_style_open( bbcode_t* bb, const char* fmt );
+ic_private void bbcode_style_close( bbcode_t* bb, const char* fmt );
 ic_private attr_t bbcode_style( bbcode_t* bb, const char* style_name );
 
 ic_private void bbcode_print( bbcode_t* bb, const char* s );

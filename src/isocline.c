@@ -274,38 +274,6 @@ ic_public void ic_set_default_highlighter(ic_highlight_fun_t* highlighter, void*
   env->highlighter_arg = arg;
 }
 
-static void set_style_color(ic_env_t* env, ic_style_t iface_element, ic_color_t color) {
-  switch (iface_element) {
-    case IC_STYLE_PROMPT:     env->color_prompt = (color == IC_COLOR_NONE ? IC_ANSI_GREEN : color); break;
-    case IC_STYLE_INFO:       env->color_info = (color == IC_COLOR_NONE ? IC_ANSI_DARKGRAY : color); break;
-    case IC_STYLE_DIMINISH:   env->color_diminish = (color == IC_COLOR_NONE ? IC_ANSI_LIGHTGRAY : color); break;
-    case IC_STYLE_EMPHASIS:   env->color_emphasis = (color == IC_COLOR_NONE ? IC_RGB(0xFFFFD7) : color); break;
-    case IC_STYLE_HINT:       env->color_hint = (color == IC_COLOR_NONE ? IC_ANSI_DARKGRAY : color); break;
-    case IC_STYLE_ERROR:      env->color_error = (color == IC_COLOR_NONE ? IC_RGB(0xD70000) : color); break;
-    case IC_STYLE_BRACEMATCH: env->color_bracematch = (color == IC_COLOR_NONE ? IC_RGB(0xF7DC6F) : color); break;
-    default: break;
-  }  
-}
-
-ic_public void ic_set_style_color(ic_style_t iface_element, ic_color_t color) {
-  ic_env_t* env = ic_get_env(); if (env==NULL) return;
-  set_style_color(env, iface_element, color);
-}
-
-ic_public ic_color_t ic_get_style_color(ic_style_t iface_element) {
-  ic_env_t* env = ic_get_env(); if (env==NULL) return IC_COLOR_NONE;
-  switch (iface_element) {
-    case IC_STYLE_PROMPT:     return env->color_prompt;    
-    case IC_STYLE_INFO:       return env->color_info;
-    case IC_STYLE_DIMINISH:   return env->color_diminish;
-    case IC_STYLE_EMPHASIS:   return env->color_emphasis;
-    case IC_STYLE_HINT:       return env->color_hint;
-    case IC_STYLE_ERROR:      return env->color_error;
-    case IC_STYLE_BRACEMATCH: return env->color_bracematch;
-    default: break;
-  }
-  return IC_COLOR_NONE;
-}
 
 ic_public void ic_free( void* p ) {
   ic_env_t* env = ic_get_env(); if (env==NULL) return;
@@ -375,46 +343,16 @@ ic_public void ic_term_vwritef(const char* fmt, va_list args) {
   term_vwritef(env->term, fmt, args);
 }
 
-ic_public void ic_term_color( ic_color_t color ) {
-  ic_env_t* env = ic_get_env(); if (env==NULL) return;
-  if (env->term == NULL) return;
-  term_color(env->term, color);
-}
-
-ic_public void ic_term_bgcolor( ic_color_t color ) {
-  ic_env_t* env = ic_get_env(); if (env==NULL) return;
-  if (env->term == NULL) return;
-  term_bgcolor(env->term, color);
-}
-
-ic_public void ic_term_underline( bool enable ) {
-  ic_env_t* env = ic_get_env(); if (env==NULL) return;
-  if (env->term == NULL) return;
-  term_underline(env->term, enable);
-}
-
-ic_public void ic_term_bold( bool enable ) {
-  ic_env_t* env = ic_get_env(); if (env==NULL) return;
-  if (env->term == NULL) return;
-  term_bold(env->term, enable);
-}
-
-ic_public void ic_term_italic( bool enable ) {
-  ic_env_t* env = ic_get_env(); if (env==NULL) return;
-  if (env->term == NULL) return;
-  term_italic(env->term, enable);
-}
-
-ic_public void ic_term_reverse( bool enable ) {
-  ic_env_t* env = ic_get_env(); if (env==NULL) return;
-  if (env->term == NULL) return;
-  term_reverse(env->term, enable);
-}
-
 ic_public void ic_term_reset( void )  {
   ic_env_t* env = ic_get_env(); if (env==NULL) return;
   if (env->term == NULL) return;
   term_attr_reset(env->term);
+}
+
+ic_public void ic_term_set_style( const char* style ) {
+  ic_env_t* env = ic_get_env(); if (env==NULL) return;
+  if (env->term == NULL || env->bbcode == NULL) return;
+  term_set_attr( env->term, bbcode_style(env->bbcode, style));
 }
 
 ic_public int ic_term_get_color_bits(void) {
@@ -459,14 +397,14 @@ void ic_style_def( const char* name, const char* fmt ) {
   bbcode_style_def(env->bbcode, name, fmt);
 }
 
-void ic_style_start( const char* fmt ) {
+void ic_style_open( const char* fmt ) {
   ic_env_t* env = ic_get_env(); if (env==NULL || env->bbcode==NULL) return;
-  bbcode_style_start( env->bbcode, fmt );
+  bbcode_style_open( env->bbcode, fmt );
 }
 
-void ic_style_end(void) {
+void ic_style_close(void) {
   ic_env_t* env = ic_get_env(); if (env==NULL || env->bbcode==NULL) return;
-  bbcode_style_end( env->bbcode, NULL );
+  bbcode_style_close( env->bbcode, NULL );
 }
 
 //-------------------------------------------------------------

@@ -98,6 +98,7 @@ static void edit_history_search(ic_env_t* env, editor_t* eb, char* initial ) {
 
   // set a search prompt and remember the previous state
   editor_undo_capture(eb);
+  eb->disable_undo = true;
   bool old_hint = ic_enable_hint(false);  
   const char* prompt_text = eb->prompt_text;
   eb->prompt_text = "history search";
@@ -159,6 +160,7 @@ again:
   sbuf_clear(eb->extra);
   if (c == KEY_ESC || c == KEY_BELL /* ^G */ || c == KEY_CTRL_C) {
     c = 0;  
+    eb->disable_undo = false;
     editor_undo_restore(eb, false);
   } 
   else if (c == KEY_ENTER) {
@@ -227,6 +229,7 @@ again:
   }
 
   // done
+  eb->disable_undo = false;
   hsearch_done(env->mem,hs);
   eb->prompt_text = prompt_text;
   ic_enable_hint(old_hint);

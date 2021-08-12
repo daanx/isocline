@@ -599,13 +599,13 @@ ic_private void bbcode_style_def( bbcode_t* bb, const char* style_name, const ch
   bbcode_style_add(bb, style_name, tag.attr);
 }
 
-ic_private void bbcode_style_start( bbcode_t* bb, const char* fmt ) {
+ic_private void bbcode_style_open( bbcode_t* bb, const char* fmt ) {
   tag_t tag;
   bbcode_parse_tag_content(bb, fmt, &tag);
   term_set_attr( bb->term, bbcode_open(bb, 0, &tag, term_get_attr(bb->term)) );
 }
 
-ic_private void bbcode_style_end( bbcode_t* bb, const char* fmt ) {
+ic_private void bbcode_style_close( bbcode_t* bb, const char* fmt ) {
   const ssize_t base = bb->tags_nesting - 1; // as we end a style
   tag_t tag;
   bbcode_parse_tag_content(bb, fmt, &tag);  

@@ -43,31 +43,40 @@ static void write_html_colors(void) {
     ic_printf("[bgcolor=%s]%s[/] ", html_colors[i].name, buf);
     if ((i+1)%8 == 0) ic_print("\n\n");
   }
-  ic_term_writeln("");  
+  ic_println("");  
 }
 
 static void write_palette( int order) {
-  ic_term_write("\n  // ");
-  ic_term_write(order == RGB ? "17x9x9" : (order == BGR ? "9x9x17" : "9x17x9"));
-  ic_term_write("colors");
+  ic_print("\n  // ");
+  ic_print(order == RGB ? "17x9x9" : (order == BGR ? "9x9x17" : "9x17x9"));
+  ic_print("colors");
   for (int x = 0; x <= 256; x += 16) {
-    ic_term_reset();
-    ic_term_write("\n  ");
+    ic_print("\n  ");
     for (int y = 0; y <= 256; y += 32) {
       for (int z = 0; z <= 256; z += 32) {
-        ic_color_t c = (order == RGB ? ic_rgbx(x,y,z) : (order == BGR ? ic_rgbx(z,y,x) : ic_rgbx(y,x,z)));
-        ic_term_color( c );
-        ic_term_write(patch);
+        int r, g, b;
+        if (order == RGB) {
+          r = x; g = y; b = z;
+        }
+        if (order == BGR) {
+          r = z; g = y; b = x;
+        }
+        else if (order == GRB) {
+          r = y; g = x; b = z;
+        }
+        if (r == 256) r = 255;
+        if (g == 256) g = 255;
+        if (b == 256) b = 255;
+        ic_printf("[#%02x%02x%02x]%s[/]", r, g, b, patch);
+        
       }
-      ic_term_reset();
-      ic_term_write(" ");
+      ic_print(" ");
     }
   }
-  ic_term_reset();
 }
 
-static void show_ansi_color( ic_color_t color, const char* name, const char* brightname ) {
-  ic_term_writef("\x1B[%dm%16s\x1B[0m | \x1B[1;%dmbold\x1B[0m | \x1B[%dm%s\x1B[0m\n", color, name, color, color+60, brightname);    
+static void show_ansi_color(const char* name, const char* brightname ) {
+  ic_printf("[ansi-%s]%16s[/] | [ansi-%s bold]bold[/] | [ansi-%s]%s[/]\n", name, name, name, brightname, brightname );
 }
 
 // main example
@@ -75,67 +84,60 @@ int main()
 {
   ic_term_init();
   // how many bits has our palette? (24 bits is good :-)
-  ic_term_writef("terminal color bits: %d\n", ic_term_get_color_bits());
+  ic_printf("terminal color bits: %d\n", ic_term_get_color_bits());
 
   // Write out a palette
-  ic_term_writeln("colors rgb:"); 
+  ic_println("colors rgb:"); 
   write_palette(RGB);
   write_palette(BGR);
   write_palette(GRB);
 
-  ic_term_writeln("\n\nansi red:");
-  ic_term_color(IC_ANSI_MAROON); ic_term_write("ansi8-red ");
-  ic_term_color(IC_ANSI_RED); ic_term_write("ansi16-bright-red ");
-  ic_term_color(IC_RGB(0xD70000)); ic_term_write("ansi256-red160 ");
-  ic_term_color(IC_RGB(0xfa1754)); ic_term_write("ansirgb-cherry");
-  ic_term_reset(); ic_term_writeln("");
-
+  ic_println("\n\nansi reds:\n  [ansi-maroon]ansi8-red[/], [ansi-red]ansi16-bright-red[/], [#D70000]ansi256-red160[/], [#fa1754]ansirgb-cherry[/]");
+  
   // Shades
-  ic_term_writeln("\nshades:");
+  ic_println("\nshades:");
   for (int i = 0; i <= 64; i++) {
-    ic_term_color(ic_rgbx((i==64 ? 255 : i*4), 0, 0)); ic_term_write(patch);
+    ic_printf("[#%02x0000]%s[/]", (i==64 ? 255 : i*4), patch);    
   }
-  ic_term_writeln("");  
+  ic_println("");  
   for (int i = 0; i <= 64; i++) {
-    ic_term_color(ic_rgbx(0, (i==64 ? 255 : i*4), 0)); ic_term_write(patch);
+    ic_printf("[#00%02x00]%s[/]", (i==64 ? 255 : i*4), patch);    
   }
-  ic_term_writeln("");  
+  ic_println("");  
   for (int i = 0; i <= 64; i++) {
-    ic_term_color(ic_rgbx(0, 0, (i==64 ? 255 : i*4))); ic_term_write(patch);
+    ic_printf("[#0000%02x]%s[/]", (i==64 ? 255 : i*4), patch);    
   }
-  ic_term_writeln("");  
+  ic_println("");  
   for (int i = 0; i <= 64; i++) {
     int g = (i==64 ? 255 : i*4);
-    ic_term_color(ic_rgbx(g, g, g)); ic_term_write(patch);
+    ic_printf("[#%02x%02x%02x]%s[/]", g, g, g, patch);    
   }
-  ic_term_writeln("\n");
-  ic_term_reset();
-
+  ic_println("\n");
+  
   // html colors
   write_html_colors();
 
   // bbcodes
-  ic_print( "\n[b]bold [i]bold and italic[/i] [yellow on blue]yellow on blue in bold[/][/b] default\n");  
+  ic_println( "\n[b]bold [i]bold and italic[/i] [yellow on blue]yellow on blue in bold[/][/b] default");  
 
   ic_style_def("em", "underline ansi-olive");
-  ic_style_start("i");
+  ic_style_open("i");
   ic_print( "[em]emphasis[/em]\n" );  
-  ic_style_end();
+  ic_style_close();
   
   // direct ANSI escapes
-  ic_term_write("\ndirect ansi escape sequence colors:\n");
-  show_ansi_color(IC_ANSI_BLACK,"black","gray");
-  show_ansi_color(IC_ANSI_MAROON,"maroon","red");
-  show_ansi_color(IC_ANSI_GREEN,"green","lime");
-  show_ansi_color(IC_ANSI_OLIVE,"olive","yellow");
-  show_ansi_color(IC_ANSI_NAVY,"navy","blue");
-  show_ansi_color(IC_ANSI_PURPLE,"purple","fuchsia");
-  show_ansi_color(IC_ANSI_TEAL,"teal","aqua");
-  show_ansi_color(IC_ANSI_LIGHTGRAY,"silver","white");
-  show_ansi_color(IC_ANSI_DEFAULT,"default","default");
+  ic_println("\ndirect ansi escape sequence colors:\n");
+  show_ansi_color("black","gray");
+  show_ansi_color("maroon","red");
+  show_ansi_color("green","lime");
+  show_ansi_color("olive","yellow");
+  show_ansi_color("navy","blue");
+  show_ansi_color("purple","fuchsia");
+  show_ansi_color("teal","aqua");
+  show_ansi_color("silver","white");
+  show_ansi_color("default","default");
   
-  ic_term_reset();
-  ic_term_writeln("");
+  ic_println("");
 
   ic_term_done();
   return 0;

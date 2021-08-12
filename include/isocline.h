@@ -163,69 +163,6 @@ void ic_complete_qword_ex( ic_completion_env_t* cenv, const char* prefix, ic_com
 // Basic syntax highlighting
 //--------------------------------------------------------------
 
-// A color is either RGB or an ANSI code.
-// (RGB colors have bit 24 set to distinguish them from the ANSI color palette colors.)
-// (Isocline will automatically convert from RGB on terminals that do not support full colors)
-typedef uint32_t ic_color_t;
-
-// Create a color from a 24-bit color value.
-ic_color_t ic_rgb(uint32_t hex);
-
-// Create a color from a 8-bit red/green/blue components.
-// The value of each component is capped between 0 and 255.
-ic_color_t ic_rgbx(int r, int g, int b);
-
-
-#define IC_COLOR_NONE     (0)
-#define IC_RGB(rgb)       (0x1000000 | (uint32_t)(rgb)) // ic_rgb(rgb)  // define to it can be used as a constant
-
-// ANSI colors.
-// The actual colors used is usually determined by the terminal theme
-// See <https://en.wikipedia.org/wiki/ANSI_escape_code#3-bit_and_4-bit>
-#define IC_ANSI_BLACK     (30)
-#define IC_ANSI_MAROON    (31)
-#define IC_ANSI_GREEN     (32)
-#define IC_ANSI_OLIVE     (33)
-#define IC_ANSI_NAVY      (34)
-#define IC_ANSI_PURPLE    (35)
-#define IC_ANSI_TEAL      (36)
-#define IC_ANSI_SILVER    (37)
-#define IC_ANSI_DEFAULT   (39)
-
-#define IC_ANSI_GRAY      (90)
-#define IC_ANSI_RED       (91)
-#define IC_ANSI_LIME      (92)
-#define IC_ANSI_YELLOW    (93)
-#define IC_ANSI_BLUE      (94)
-#define IC_ANSI_FUCHSIA   (95)
-#define IC_ANSI_AQUA      (96)
-#define IC_ANSI_WHITE     (97)
-
-#define IC_ANSI_DARKGRAY  IC_ANSI_GRAY
-#define IC_ANSI_LIGHTGRAY IC_ANSI_SILVER
-#define IC_ANSI_MAGENTA   IC_ANSI_FUCHSIA
-#define IC_ANSI_CYAN      IC_ANSI_AQUA
-
-// Predefined RGB colors.
-#define IC_BLACK          IC_RGB(0x000000)
-#define IC_MAROON         IC_RGB(0x800000)
-#define IC_GREEN          IC_RGB(0x008000)
-#define IC_OLIVE          IC_RGB(0x808000)
-#define IC_NAVY           IC_RGB(0x000080)
-#define IC_PURPLE         IC_RGB(0x800080)
-#define IC_TEAL           IC_RGB(0x008080)
-#define IC_SILVER         IC_RGB(0xC0C0C0)
-
-#define IC_GRAY           IC_RGB(0x808080)
-#define IC_RED            IC_RGB(0xFF0000)
-#define IC_LIME           IC_RGB(0x00FF00)
-#define IC_YELLOW         IC_RGB(0xFFFF00)
-#define IC_BLUE           IC_RGB(0x0000FF)
-#define IC_FUCHSIA        IC_RGB(0xFF00FF)
-#define IC_AQUA           IC_RGB(0x00FFFF)
-#define IC_WHITE          IC_RGB(0xFFFFFF)
-
-
 // A syntax highlight environment
 struct ic_highlight_env_s;
 typedef struct ic_highlight_env_s ic_highlight_env_t;
@@ -240,17 +177,15 @@ void ic_set_default_highlighter(ic_highlight_fun_t* highlighter, void* arg);
 // Set the style of characters starting at position `pos`.
 void ic_highlight(ic_highlight_env_t* henv, long pos, long count, const char* style );
 
-// Convenience callback for a function that highlights `s` using ANSI CSI SGR escape sequences (`ESC [ <code> m`)
+// Convenience callback for a function that highlights `s` using bbcode's.
 // The returned string should be allocated and is free'd by the caller.
-// See: <https://en.wikipedia.org/wiki/ANSI_escape_code#SGR_(Select_Graphic_Rendition)_parameters>
-typedef char* (ic_highlight_esc_fun_t)(const char* s, void* arg);
+typedef char* (ic_highlight_format_fun_t)(const char* s, void* arg);
 
-// Convenience function for highlighting with ANSI CSI SGR escape sequences (`ESC [ <code> m`).
+// Convenience function for highlighting with bbcodes.
 // Can be called in a `ic_highlight_fun_t` callback to colorize the `input` using the 
 // the provided `highlight` function that returns the original `input` interspersed with 
-// ANSI CSI SGR color sequences. User state is passed through the `arg`. 
-// See: <https://en.wikipedia.org/wiki/ANSI_escape_code#SGR_(Select_Graphic_Rendition)_parameters>
-void ic_highlight_esc(ic_highlight_env_t* henv, const char* input, ic_highlight_esc_fun_t* highlight, void* arg);
+// bbcode tags. User state is passed through the `arg`. 
+void ic_highlight_format(ic_highlight_env_t* henv, const char* input, ic_highlight_format_fun_t* highlight, void* arg);
 
 
 //--------------------------------------------------------------
@@ -348,24 +283,6 @@ bool ic_enable_brace_insertion(bool enable);
 // Set matching brace pairs for automatic insertion. Pass NULL for the default `"()[]{}\"\"''"`
 void ic_set_insertion_braces(const char* brace_pairs);
 
-// Styles for interface elements.
-typedef enum ic_style_e {
-  IC_STYLE_PROMPT,      // prompt style
-  IC_STYLE_INFO,        // info: for example, numbers in the completion menu(`IC_DARKGRAY` by default)
-  IC_STYLE_DIMINISH,    // diminish: for example, non matching parts in a history search (`IC_LIGHTGRAY` by default)
-  IC_STYLE_EMPHASIS,    // emphasis: for example, the matching part in a history search (`IC_WHITE` by default)
-  IC_STYLE_HINT,        // hint: for hints.
-  IC_STYLE_ERROR,       // errors
-  IC_STYLE_BRACEMATCH,  // matching braces
-  IC_STYLE_LAST
-} ic_style_t;
-
-// Set the color used for interface elements.
-// Use `IC_COLOR_NONE` to use the default color. (but `IC_COLOR_DEFAULT` for the default terminal text color!)
-void ic_set_style_color( ic_style_t style, ic_color_t color );
-
-// Get the current interface color for a given style.
-ic_color_t ic_get_style_color( ic_style_t style );
 
 //--------------------------------------------------------------
 // Advanced Completion
@@ -495,26 +412,10 @@ void ic_term_writef(const char* fmt, ...);
 // Write a formatted string to the console.
 void ic_term_vwritef(const char* fmt, va_list args);
 
-// Set the text color in a portable way where colors auto translate on terminals with less color.
-void ic_term_color( ic_color_t color );
+// Set text style.
+void ic_term_set_style( const char* style );
 
-// Set the text back ground color in a portable way where colors auto translate on terminals with less color.
-void ic_term_bgcolor( ic_color_t color );
-
-// Set the text underline mode.
-void ic_term_underline( bool enable );
-
-// Set the text reverse video mode.
-void ic_term_reverse( bool enable );
-
-// Set the text italic mode.
-// May not be supported on all systems.
-void ic_term_italic( bool enable );
-
-// Set the text bold mode.
-void ic_term_bold( bool enable );
-
-// Reset the text attributes.
+// Reset the text style.
 void ic_term_reset( void );
 
 // Get the palette used by the terminal:
@@ -564,10 +465,10 @@ void ic_vprintf(const char* fmt, va_list args);
 void ic_style_def( const char* style_name, const char* fmt );
 
 // Start a global style that is only reset when calling a matching `ic_style_end`.
-void ic_style_start( const char* fmt );
+void ic_style_open( const char* fmt );
 
 // End a global style.
-void ic_style_end(void);
+void ic_style_close(void);
 
 
 //--------------------------------------------------------------
