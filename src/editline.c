@@ -57,7 +57,7 @@ ic_private char* ic_editline(ic_env_t* env, const char* prompt_text) {
   tty_start_raw(env->tty);
   term_start_raw(env->term);
   char* line = edit_line(env,prompt_text);
-  term_end_raw(env->term);
+  term_end_raw(env->term,false);
   tty_end_raw(env->tty);
   term_writeln(env->term,"");
   return line;

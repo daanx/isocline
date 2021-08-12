@@ -28,7 +28,7 @@ ic_private void term_free(term_t* term);
 
 ic_private bool term_is_interactive(const term_t* term);
 ic_private void term_start_raw(term_t* term);
-ic_private void term_end_raw(term_t* term);
+ic_private void term_end_raw(term_t* term, bool force);
 
 ic_private bool term_enable_beep(term_t* term, bool enable);
 ic_private bool term_enable_color(term_t* term, bool enable);
@@ -72,8 +72,7 @@ ic_private void term_italic(term_t* term, bool on);
 ic_private void term_color(term_t* term, ic_color_t color);
 ic_private void term_bgcolor(term_t* term, ic_color_t color);
 
-ic_private void term_append_color(term_t* term, stringbuf_t* sbuf, ic_color_t color);
-ic_private void term_append_bgcolor(term_t* term, stringbuf_t* sbuf, ic_color_t color);
+// Formatted output
 
 ic_private attr_t term_get_attr( const term_t* term );
 ic_private void   term_set_attr( term_t* term, attr_t attr );

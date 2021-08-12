@@ -67,7 +67,7 @@ ic_public char* ic_readline(const char* prompt_text)
         term_write(env->term, prompt_text);
       }
       term_write(env->term, env->prompt_marker);    
-      term_end_raw(env->term);
+      term_end_raw(env->term, false);
     }
     // read directly from stdin
     return ic_getline(env->mem);
@@ -360,7 +360,7 @@ ic_public void ic_term_init(void) {
 ic_public void ic_term_done(void) {
   ic_env_t* env = ic_get_env(); if (env==NULL) return;
   if (env->term==NULL) return;
-  term_end_raw(env->term);
+  term_end_raw(env->term,false);
 }
 
 ic_public void ic_term_flush(void) {
@@ -435,19 +435,15 @@ ic_public void ic_term_set_reverse(bool enable) {
 ic_public void ic_term_set_color_ansi(bool foreground, int ansi_color) {
   ic_env_t* env = ic_get_env(); if (env==NULL || env->term==NULL) return;
   ic_color_t color = color_from_ansi256(ansi_color);
-  attr_t attr = attr_none();
-  if (foreground) { attr.x.color = color; }
-             else { attr.x.bgcolor = color;  }
-  term_set_attr(env->term, attr );
+  if (foreground) { term_color(env->term, color); }
+             else { term_bgcolor(env->term, color); }
 }
 
 ic_public void ic_term_set_color_rgb(bool foreground, uint32_t hcolor) {
   ic_env_t* env = ic_get_env(); if (env==NULL || env->term==NULL) return;
   ic_color_t color = ic_rgb(hcolor);
-  attr_t attr = attr_none();
-  if (foreground) { attr.x.color = color; }
-             else { attr.x.bgcolor = color; }
-  term_set_attr(env->term, attr);
+  if (foreground) { term_color(env->term, color); }
+             else { term_bgcolor(env->term, color); }
 }
 
 

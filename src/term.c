@@ -214,9 +214,15 @@ ic_private void term_write_formatted( term_t* term, const char* s, const attr_t*
 
 ic_private void term_write_formatted_n( term_t* term, const char* s, const attr_t* attrs, ssize_t len ) {
   if (attrs == NULL) {
+    // write directly
     term_write(term,s);
   }
   else {
+    // ensure raw mode from now on
+    if (term->raw_enabled <= 0) {
+      term_start_raw(term);
+    }
+    // and output with text attributes
     const attr_t default_attr = term_get_attr(term);
     attr_t attr = attr_none();
     ssize_t i = 0;
@@ -414,7 +420,7 @@ ic_private bool term_enable_color(term_t* term, bool enable) {
 ic_private void term_free(term_t* term) {
   if (term == NULL) return;
   term_flush(term);
-  term_end_raw(term);
+  term_end_raw(term, true);
   sbuf_free(term->buf); term->buf = NULL;
   mem_free(term->mem, term);
 }
@@ -675,10 +681,10 @@ static void term_set_win_attr( term_t* term, attr_t ta ) {
     if (ta.x.bgcolor >= IC_ANSI_BLACK && ta.x.bgcolor <= IC_ANSI_SILVER) {
       attr = (attr & 0xFF0F) | (WORD)(attr_color[ta.x.bgcolor - IC_ANSI_BLACK] << 4);
     }
-    else if (ta.x.color >= IC_ANSI_GRAY && ta.x.color <= IC_ANSI_WHITE) {
-      attr = (attr & 0xFF0F) | (WORD)(attr_color[ta.x.color - IC_ANSI_GRAY] << 4) | BACKGROUND_INTENSITY;
+    else if (ta.x.bgcolor >= IC_ANSI_GRAY && ta.x.bgcolor <= IC_ANSI_WHITE) {
+      attr = (attr & 0xFF0F) | (WORD)(attr_color[ta.x.bgcolor - IC_ANSI_GRAY] << 4) | BACKGROUND_INTENSITY;
     } 
-    else if (ta.x.color == IC_ANSI_DEFAULT) {
+    else if (ta.x.bgcolor == IC_ANSI_DEFAULT) {
       attr = (attr & 0xFF0F) | (def_attr & 0x00F0);
     }
   }
@@ -951,9 +957,14 @@ ic_private void term_start_raw(term_t* term) {
   term->raw_enabled++;
 }
 
-ic_private void term_end_raw(term_t* term) {
+ic_private void term_end_raw(term_t* term, bool force) {
   if (term->raw_enabled <= 0) return;
-  term->raw_enabled--;
+  if (!force) {
+    term->raw_enabled--;
+  }
+  else {
+    term->raw_enabled = 0;
+  }
 }
 
 static bool term_esc_query_color_raw(term_t* term, int color_idx, uint32_t* color ) {
@@ -1045,12 +1056,17 @@ ic_private void term_start_raw(term_t* term) {
   }  
 }
 
-ic_private void term_end_raw(term_t* term) {
+ic_private void term_end_raw(term_t* term, bool force) {
   if (term->raw_enabled <= 0) return;
-  SetConsoleMode(term->hcon, term->hcon_orig_mode);
-  SetConsoleOutputCP(term->hcon_orig_cp);
-  SetConsoleTextAttribute(term->hcon, term->hcon_orig_attr);
-  term->raw_enabled--;
+  if (!force && term->raw_enabled > 1) {
+    term->raw_enabled--;
+  }
+  else {
+    term->raw_enabled = 0;
+    SetConsoleMode(term->hcon, term->hcon_orig_mode);
+    SetConsoleOutputCP(term->hcon_orig_cp);
+    SetConsoleTextAttribute(term->hcon, term->hcon_orig_attr);
+  }
 }
 
 static void term_init_raw(term_t* term) {
@@ -1077,7 +1093,7 @@ static void term_init_raw(term_t* term) {
     debug_msg("term: cannot get console screen buffer: %d %x", err, err);
   }
   term_start_raw(term); // initialize the hcon_mode
-  term_end_raw(term);
+  term_end_raw(term,false);
 }
 
 #endif

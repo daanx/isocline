@@ -79,7 +79,6 @@ static void show_ansi_color(const char* name, const char* brightname ) {
 // main example
 int main() 
 {
-  ic_term_init();
   // how many bits has our palette? (24 bits is good :-)
   ic_printf("terminal color bits: %d\n", ic_term_get_color_bits());
 
@@ -135,7 +134,5 @@ int main()
   show_ansi_color("default","default");
   
   ic_println("");
-
-  ic_term_done();
   return 0;
 }

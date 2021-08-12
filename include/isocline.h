@@ -319,7 +319,7 @@ void ic_vprintf(const char* fmt, va_list args);
 // by assigning standard styles like `em` or `warning` etc.
 void ic_style_def( const char* style_name, const char* fmt );
 
-// Start a global style that is only reset when calling a matching `ic_style_end`.
+// Start a global style that is only reset when calling a matching `ic_style_close`.
 void ic_style_open( const char* fmt );
 
 // End a global style.
@@ -425,15 +425,14 @@ long ic_match_any_token(const char* s, long pos, ic_is_char_class_fun_t* is_toke
 
 
 //--------------------------------------------------------------
-// Terminal output, experimental.
-// Ensures basic ANSI CSI escape sequences are processed
-// in a portable way (including Windows)
+// Experimental: Low level terminal output.
+// Ensures basic ANSI SGR escape sequences are processed 
+// in a portable way (e.g. on Windows)
 //--------------------------------------------------------------
 
-// Initialize for terminal output; call this before using the terminal functions (`ic_term_xxx`)
-// Does nothing on most platforms
-// but on Windows it sets the console to UTF8 output and possible enables
-// virtual terminal processing.
+// Initialize for terminal output; call this before using the terminal write functions (`ic_term_write`)
+// Does nothing on most platforms but on Windows it sets the console to UTF8 output and possible 
+// enables virtual terminal processing.
 void ic_term_init(void);
 
 // Call this when done with the terminal functions.
@@ -469,7 +468,7 @@ void ic_term_set_italic(bool enable);
 // Set text attribute to reverse video.
 void ic_term_set_reverse(bool enable);
 
-// Set text attribute to ansi color palette index between 0 and 255. 
+// Set text attribute to ansi color palette index between 0 and 255 (or 256 for the ANSI "default" color).
 // (auto matched to smaller palette if not supported)
 void ic_term_set_color_ansi(bool foreground, int color);
 
