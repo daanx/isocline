@@ -107,8 +107,8 @@ ic_private ssize_t str_column_width( const char* s ) {
   return str_column_width_n( s, ic_strlen(s) );
 }
 
-ic_private const char* str_skip_until_fit( const char* s, ssize_t max_width ) {
-  if (s == NULL) return s;
+ic_private ssize_t str_skip_until_fit( const char* s, ssize_t max_width ) {
+  if (s == NULL) return 0;
   ssize_t cwidth = str_column_width(s);
   ssize_t len    = ic_strlen(s);
   ssize_t pos = 0;
@@ -118,7 +118,22 @@ ic_private const char* str_skip_until_fit( const char* s, ssize_t max_width ) {
     cwidth -= cw;
     pos += next;
   }
-  return (s + pos);
+  return pos;
+}
+
+ic_private ssize_t str_take_while_fit( const char* s, ssize_t max_width) {
+  if (s == NULL) return 0;
+  const ssize_t len = ic_strlen(s);
+  ssize_t pos = 0;
+  ssize_t next;
+  ssize_t cw;
+  ssize_t cwidth = 0;
+  while ((next = str_next_ofs(s, len, pos, &cw)) > 0) {
+    if (cwidth + cw > max_width) break;
+    cwidth += cw;
+    pos += next;
+  }
+  return pos;
 }
 
 

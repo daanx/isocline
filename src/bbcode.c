@@ -29,9 +29,24 @@ typedef struct style_s {
   attr_t  attr;  // attribute to apply
 } style_t;
 
+typedef enum align_e {
+  IC_ALIGN_LEFT,
+  IC_ALIGN_CENTER,
+  IC_ALIGN_RIGHT
+} align_t;
+
+typedef struct width_s {
+  ssize_t w;     // > 0
+  align_t align;
+  bool    dots;  // "..."  (e.g. "sentence...")
+  char    fill;  // " "    (e.g. "hello      ")
+} width_t;
+
 typedef struct tag_s {  
-  const char*  name;  // tag open name
-  attr_t  attr;  // the saved attribute before applying the style
+  const char* name;   // tag open name
+  attr_t  attr;       // the saved attribute before applying the style
+  width_t width;      // start sequence of at most "width" columns
+  ssize_t pos;        // start position in the output (used for width restriction)
 } tag_t;
 
 
@@ -130,31 +145,35 @@ static void bbcode_invalid(const char* fmt, ... ) {
 //-------------------------------------------------------------
 
 
-static attr_t bbcode_open( bbcode_t* bb, const tag_t* tag, attr_t current ) { 
+static attr_t bbcode_open( bbcode_t* bb, ssize_t out_pos, const tag_t* tag, attr_t current ) { 
   // save current and set
   tag_t cur;
   tag_init(&cur);
-  cur.name = tag->name;
-  cur.attr = current;
+  cur.name  = tag->name;
+  cur.attr  = current;  
+  cur.width = tag->width;
+  cur.pos   = out_pos;
   bbcode_tag_push(bb,&cur);
   return attr_update_with( current, tag->attr );
 }
 
-static attr_t bbcode_close( bbcode_t* bb, const char* name ) {
+static bool bbcode_close( bbcode_t* bb, ssize_t base, const char* name, tag_t* pprev ) {
   // pop until match
-  while (bb->tags_nesting > 0) {
+  while (bb->tags_nesting > base) {
     tag_t prev;
     bbcode_tag_pop(bb,&prev);
     if (name==NULL || prev.name==NULL || ic_stricmp(prev.name,name) == 0) {
       // matched
-      return prev.attr;
+      if (pprev != NULL) { *pprev = prev; }
+      return true;
     }
     else {
       // unbalanced, continue
       bbcode_invalid("bbcode: unbalanced tags: open [%s], close [/%s]\n", prev.name, name);            
     }
   }
-  return attr_none();
+  if (pprev != NULL) { memset(pprev,0,sizeof(*pprev)); }
+  return false;
 }
 
 //-------------------------------------------------------------
@@ -220,6 +239,46 @@ static const char* attr_update_sgr( const char* fname, attr_t* attr, const char*
   return fname;
 }
 
+static void attr_update_width( width_t* pwidth, const char* value ) {
+  // parse width value: <width>;<left|center|right>;<fill>;<cut>
+  width_t width = {0};
+  if (ic_atoz(value, &width.w)) { 
+    ssize_t i = 0;
+    while( value[i] != ';' && value[i] != 0 ) { i++; }
+    if (value[i] == ';') {
+      i++;
+      ssize_t len = 0;    
+      while( value[i+len] != ';' && value[i+len] != 0 ) { len++; }
+      if (len == 4 && ic_istarts_with(value+i,"left")) {
+        width.align = IC_ALIGN_LEFT;
+      }
+      else if (len == 5 && ic_istarts_with(value+i,"right")) {
+        width.align = IC_ALIGN_RIGHT;
+      }
+      else if (len == 6 && ic_istarts_with(value+i,"center")) {
+        width.align = IC_ALIGN_CENTER;
+      }
+      i += len;
+      if (value[i] == ';') {
+        i++; len = 0;
+        while( value[i+len] != ';' && value[i+len] != 0 ) { len++; }
+        if (len == 1) { width.fill = value[i]; }
+        i+= len;
+        if (value[i] == ';') {
+          i++; len = 0;
+          while( value[i+len] != ';' && value[i+len] != 0 ) { len++; }
+          if ((len == 2 && ic_istarts_with(value+i,"on")) || (len == 1 && value[i] == '1')) { width.dots = true; }
+          i += len;
+        }
+      }
+    }
+  }
+  else {
+    bbcode_invalid("bbcode: illegal width: %s\n", value);
+  }
+  *pwidth = width;
+}
+
 static const char* attr_update_ansi_color( const char* fname, ic_color_t* color, const char* value ) {
   ssize_t num = 0;
   if (ic_atoz(value, &num) && num >= 0 && num <= 256) {
@@ -229,69 +288,74 @@ static const char* attr_update_ansi_color( const char* fname, ic_color_t* color,
 }
 
 
-static const char* attr_update_property( attr_t* attr, const char* attr_name, const char* value ) {
+static const char* attr_update_property( tag_t* tag, const char* attr_name, const char* value ) {
   const char* fname = NULL;
   fname = "bold";
   if (strcmp(attr_name,fname) == 0) {    
     signed int b = IC_NONE;    
     attr_update_bool(fname,&b, value); 
-    if (b != IC_NONE) { attr->x.bold = b; }
+    if (b != IC_NONE) { tag->attr.x.bold = b; }
     return fname;
   }
   fname = "italic";
   if (strcmp(attr_name,fname) == 0) {    
     signed int b = IC_NONE;      
     attr_update_bool(fname,&b, value); 
-    if (b != IC_NONE) { attr->x.italic = b; }
+    if (b != IC_NONE) { tag->attr.x.italic = b; }
     return fname;
   }
   fname = "underline";
   if (strcmp(attr_name,fname) == 0) {  
     signed int b = IC_NONE;        
     attr_update_bool(fname,&b, value); 
-    if (b != IC_NONE) { attr->x.underline = b; }
+    if (b != IC_NONE) { tag->attr.x.underline = b; }
     return fname;
   }
   fname = "reverse";
   if (strcmp(attr_name,fname) == 0) {
     signed int b = IC_NONE;          
     attr_update_bool(fname,&b, value); 
-    if (b != IC_NONE) { attr->x.reverse = b; }
+    if (b != IC_NONE) { tag->attr.x.reverse = b; }
     return fname;
   }
   fname = "color";
   if (strcmp(attr_name,fname) == 0) {
     unsigned int color = IC_COLOR_NONE;
     attr_update_color(fname, &color, value);
-    if (color != IC_COLOR_NONE) { attr->x.color = color; }
+    if (color != IC_COLOR_NONE) { tag->attr.x.color = color; }
     return fname;
   }
   fname = "bgcolor";
   if (strcmp(attr_name,fname) == 0) {
     unsigned int color = IC_COLOR_NONE;
     attr_update_color(fname, &color, value);
-    if (color != IC_COLOR_NONE) { attr->x.bgcolor = color; }
+    if (color != IC_COLOR_NONE) { tag->attr.x.bgcolor = color; }
     return fname;
   }
   fname = "ansi-sgr";
   if (strcmp(attr_name,fname) == 0) {
-    attr_update_sgr(fname, attr, value);
+    attr_update_sgr(fname, &tag->attr, value);
     return fname;
   }
   fname = "ansi-color";
   if (strcmp(attr_name,fname) == 0) {
     ic_color_t color = IC_COLOR_NONE;;
     attr_update_ansi_color(fname, &color, value);
-    if (color != IC_COLOR_NONE) { attr->x.color = color; }
+    if (color != IC_COLOR_NONE) { tag->attr.x.color = color; }
     return fname;
   }
   fname = "ansi-bgcolor";
   if (strcmp(attr_name,fname) == 0) {
     ic_color_t color = IC_COLOR_NONE;;
     attr_update_ansi_color(fname, &color, value);
-    if (color != IC_COLOR_NONE) { attr->x.bgcolor = color; }
+    if (color != IC_COLOR_NONE) { tag->attr.x.bgcolor = color; }
     return fname;
   }  
+  fname = "width";
+  if (strcmp(attr_name,fname) == 0) {
+    attr_update_width(&tag->width, value);
+    return fname;
+  }    
   else {
     return NULL;
   }
@@ -305,7 +369,7 @@ static const style_t builtin_styles[] = {
   { NULL, { { IC_COLOR_NONE, IC_NONE, IC_NONE, IC_COLOR_NONE, IC_NONE, IC_NONE } } }
 };
 
-static const char* attr_update_with_styles( attr_t* attr, const char* attr_name, const char* value, 
+static void attr_update_with_styles( tag_t* tag, const char* attr_name, const char* value, 
                                             bool usebgcolor, const style_t* styles, ssize_t count ) 
 {
   // direct hex color?
@@ -315,22 +379,25 @@ static const char* attr_update_with_styles( attr_t* attr, const char* attr_name,
   }
   // first try if it is a builtin property
   const char* name;
-  if ((name = attr_update_property(attr,attr_name,value)) != NULL) {
-    return name;
+  if ((name = attr_update_property(tag,attr_name,value)) != NULL) {
+    tag->name = name;
+    return;
   }
   // then check all styles
   while( count-- > 0 ) {
     const style_t* style = styles + count;
     if (strcmp(style->name,attr_name) == 0) {
-      *attr = attr_update_with(*attr,style->attr);
-      return style->name;
+      tag->attr = attr_update_with(tag->attr,style->attr);
+      tag->name = style->name;
+      return;
     }    
   }
   // check builtin styles; todo: binary search?
   for( const style_t* style = builtin_styles; style->name != NULL; style++) {
     if (strcmp(style->name,attr_name) == 0) {
-      *attr = attr_update_with(*attr,style->attr);
-      return style->name;
+      tag->attr = attr_update_with(tag->attr,style->attr);
+      tag->name = style->name;
+      return;
     }
   }
   // check colors as a style
@@ -350,19 +417,21 @@ static const char* attr_update_with_styles( attr_t* attr, const char* attr_name,
       attr_t cattr = { 0 };
       if (usebgcolor) { cattr.x.bgcolor = info->color; }
                 else  { cattr.x.color = info->color; }
-      *attr = attr_update_with(*attr,cattr);
-      return info->name;
+      tag->attr = attr_update_with(tag->attr,cattr);
+      tag->name = info->name;
+      return;
     }
   }
   // not found
-  bbcode_invalid("bbcode: unknown style: %s\n", attr_name);
-  return NULL;
+  bbcode_invalid("bbcode: unknown style: %s\n", attr_name);  
 }
 
 
 ic_private attr_t bbcode_style( bbcode_t* bb, const char* style_name ) {
   attr_t attr = attr_none();
-  attr_update_with_styles( &attr, style_name, NULL, false, bb->styles, bb->styles_count );
+  tag_t tag;
+  tag_init(&tag);
+  attr_update_with_styles( &tag, style_name, NULL, false, bb->styles, bb->styles_count );
   return attr;
 }
 
@@ -476,7 +545,7 @@ ic_private const char* parse_tag_value( tag_t* tag, char* idbuf, const char* s, 
   ic_strncpy( valbuf, 128, val, valend - val);
   ic_str_tolower(idbuf);
   ic_str_tolower(valbuf);
-  tag->name = attr_update_with_styles( &tag->attr, idbuf, valbuf, usebgcolor, styles, scount );  
+  attr_update_with_styles( tag, idbuf, valbuf, usebgcolor, styles, scount );  
   return s;
 }
 
@@ -532,13 +601,80 @@ ic_private void bbcode_style_def( bbcode_t* bb, const char* style_name, const ch
 ic_private void bbcode_style_start( bbcode_t* bb, const char* fmt ) {
   tag_t tag;
   bbcode_parse_tag_content(bb, fmt, &tag);
-  term_set_attr( bb->term, bbcode_open(bb,&tag,term_get_attr(bb->term)) );
+  term_set_attr( bb->term, bbcode_open(bb, 0, &tag, term_get_attr(bb->term)) );
 }
 
 ic_private void bbcode_style_end( bbcode_t* bb, const char* fmt ) {
+  const ssize_t base = bb->tags_nesting;
   tag_t tag;
   bbcode_parse_tag_content(bb, fmt, &tag);  
-  term_set_attr( bb->term, bbcode_close(bb, tag.name) );
+  tag_t prev;
+  if (bbcode_close(bb, base - 1, tag.name, &prev)) {
+    term_set_attr( bb->term, prev.attr );
+  }
+}
+
+//---------------------------------------------------------
+// Restrict to width
+//---------------------------------------------------------
+
+static void bbcode_restrict_width( ssize_t start, width_t width, stringbuf_t* out, attrbuf_t* attr_out ) {
+  if (width.w <= 0) return;
+  assert(start <= sbuf_len(out));
+  assert(sbuf_len(out) == attrbuf_len(attr_out));
+  const char*   s   = sbuf_string(out) + start;
+  const ssize_t len = sbuf_len(out) - start;
+  const ssize_t w   = str_column_width(s);
+  if (w == width.w) return; // fits exactly
+  if (w > width.w) {
+    // too large
+    ssize_t innerw = (width.dots && width.w > 3 ? width.w-3 : width.w);
+    if (width.align == IC_ALIGN_RIGHT) {
+      // right align
+      const ssize_t ndel = str_skip_until_fit( s, innerw );
+      sbuf_delete_at( out, start, ndel );
+      attrbuf_delete_at( attr_out, start, ndel );
+      if (innerw < width.w) {
+        // add dots
+        sbuf_insert_at( out, "...", start );
+        attr_t attr = attrbuf_attr_at(attr_out, start);
+        attrbuf_insert_at( attr_out, start, 3, attr);
+      }
+    }
+    else {
+      // left or center align
+      ssize_t count = str_take_while_fit( s, innerw );
+      sbuf_delete_at( out, start + count, len - count );
+      attrbuf_delete_at( attr_out, start + count, len - count );
+      if (innerw < width.w) {
+        // add dots
+        attr_t attr = attrbuf_attr_at(attr_out,start);
+        attrbuf_append_n( out, attr_out, "...", 3, attr );
+      }
+    }
+  }
+  else {
+    // too short, pad to width
+    const ssize_t diff = (width.w - w);
+    const ssize_t pad_left  = (width.align == IC_ALIGN_RIGHT ? diff : (width.align == IC_ALIGN_LEFT  ? 0 : diff / 2));
+    const ssize_t pad_right = (width.align == IC_ALIGN_LEFT  ? diff : (width.align == IC_ALIGN_RIGHT ? 0 : diff - pad_left));
+    if (width.fill != 0 && pad_left > 0) {
+      const attr_t attr = attrbuf_attr_at(attr_out,start);
+      for( ssize_t i = 0; i < pad_left; i++) {  // todo: optimize
+        sbuf_insert_char_at(out, width.fill, start);
+      }
+      attrbuf_insert_at( attr_out, start, pad_left, attr );
+    }
+    if (width.fill != 0 && pad_right > 0) {
+      const attr_t attr = attrbuf_attr_at(attr_out,sbuf_len(out) - 1);
+      char buf[2];
+      buf[0] = width.fill;
+      buf[1] = 0;        
+      for( ssize_t i = 0; i < pad_right; i++) {  // todo: optimize
+        attrbuf_append_n( out, attr_out, buf, 1, attr );
+      }      
+    }
+  }
 }
 
 //---------------------------------------------------------
@@ -558,7 +694,7 @@ ic_private ssize_t bbcode_process_tag( bbcode_t* bb, const char* s, const ssize_
   if (open) {
     if (!ispre) {
       // open tag
-      *cur_attr = bbcode_open( bb, &tag, *cur_attr );
+      *cur_attr = bbcode_open( bb, sbuf_len(out), &tag, *cur_attr );
     }
     else {
       // scan pre to end tag
@@ -583,9 +719,14 @@ ic_private ssize_t bbcode_process_tag( bbcode_t* bb, const char* s, const ssize_
     }
   }
   else {
-    // don't pop beyond the base
-    if (bb->tags_nesting > nesting_base) {
-      *cur_attr = bbcode_close( bb, tag.name );
+    // pop the tag
+    tag_t prev = {0};
+    if (bbcode_close( bb, nesting_base, tag.name, &prev)) {
+      *cur_attr = prev.attr;
+      if (prev.width.w > 0) {
+        // closed a width tag; restrict the output to width
+        bbcode_restrict_width( prev.pos, prev.width, out, attr_out);
+      }
     }
   }  
   return (end - s);
@@ -635,7 +776,9 @@ ic_private void bbcode_print( bbcode_t* bb, const char* s ) {
   attrbuf_t* attr_out = attrbuf_new(bb->mem);
   if (out == NULL || attr_out == NULL) return;
   bbcode_append( bb, s, out, attr_out );
+  attr_t attr = term_get_attr(bb->term);
   term_write_formatted( bb->term, sbuf_string(out), attrbuf_attrs(attr_out,sbuf_len(out)) );
+  term_set_attr(bb->term, attr); // always reset after a single print
   attrbuf_free(attr_out);
   sbuf_free(out);
 }
@@ -661,6 +804,7 @@ ic_private void bbcode_printf( bbcode_t* bb, const char* fmt, ... ) {
 }
 
 ic_private ssize_t bbcode_column_width( bbcode_t* bb, const char* s ) {
+  if (s==0 || s[0] == 0) return 0;
   stringbuf_t* out = sbuf_new(bb->mem);
   if (out == NULL) { return str_column_width(s); }
   bbcode_append( bb, s, out, NULL);

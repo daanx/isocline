@@ -49,49 +49,19 @@ static void editor_append_completion(ic_env_t* env, editor_t* eb, ssize_t idx, s
     width -= 3;
   }
 
+  if (width > 0) {
+    sbuf_appendf(eb->extra, "[width=\"%zd;left; ;on\"]", width );
+  }
   if (selected) {
     sbuf_append(eb->extra, "[ic-emphasis]");
   }
-  if (width <= 0) {
-    sbuf_append(eb->extra, display);
-    if (selected) { sbuf_append(eb->extra,"[/ic-emphasis]"); }
-    if (help != NULL) {
-      sbuf_append(eb->extra, "  ");
-      sbuf_append_tagged(eb->extra, "ic-info", help );      
-    }
+  sbuf_append(eb->extra, display);
+  if (selected) { sbuf_append(eb->extra,"[/ic-emphasis]"); }
+  if (help != NULL) {
+    sbuf_append(eb->extra, "  ");
+    sbuf_append_tagged(eb->extra, "ic-info", help );      
   }
-  else {
-    // fit to width
-    const char* sc = str_skip_until_fit( display, width);
-    if (sc != display) {
-      sbuf_append( eb->extra, "...");
-      sc = str_skip_until_fit( display, width - 3);
-    }    
-    sbuf_append( eb->extra, sc);
-    if (selected) { sbuf_append(eb->extra,"[/ic-emphasis]"); }
-    // fill out with help & spaces
-    ssize_t n = width - str_column_width(sc);
-    if (n >= 8 && help != NULL) {
-      sbuf_append(eb->extra, "  ");
-      sbuf_append(eb->extra, "[ic-info]");
-      n -= 2;
-      ssize_t help_len = ic_strlen(help);
-      if (n < help_len) {
-        // no fit
-        sbuf_append_n(eb->extra, help, n - 3);
-        sbuf_append(eb->extra, "...");
-        n = 0;
-      }
-      else {
-        // help fits
-        sbuf_append(eb->extra, help);
-        n -= help_len;
-      }
-      sbuf_append(eb->extra, "[/ic-info]");
-    }
-    while (n-- > 0) { sbuf_append(eb->extra, " "); }
-  }
-  sbuf_append(eb->extra, "\x1B[m");
+  if (width > 0) { sbuf_append(eb->extra,"[/width]"); }  
 }
 
 // 2 and 3 column output up to 80 wide
@@ -121,9 +91,9 @@ static ssize_t edit_completions_max_width( ic_env_t* env, ssize_t count ) {
   ssize_t max_width = 0;
   for( ssize_t i = 0; i < count; i++) {
     const char* help = NULL;
-    ssize_t w = str_column_width(completions_get_display(env->completions, i, &help));
+    ssize_t w = bbcode_column_width(env->bbcode, completions_get_display(env->completions, i, &help));
     if (help != NULL) {
-      w += 2 + str_column_width(help);
+      w += 2 + bbcode_column_width(env->bbcode, help);
     }
     if (w > max_width) {
       max_width = w;
@@ -258,10 +228,10 @@ again:
       }
     }
     if (count >= IC_MAX_COMPLETIONS_TO_SHOW) {
-      bbcode_println(env->bbcode, "[info]... and more.[/]");
+      bbcode_println(env->bbcode, "[ic-info]... and more.[/]");
     }
     else {
-      bbcode_printf(env->bbcode, "[info](%zd possible completions)[/]\n", count );
+      bbcode_printf(env->bbcode, "[ic-info](%zd possible completions)[/]\n", count );
     }
     for(ssize_t i = 0; i < rc.row+1; i++) {
       term_write(env->term, " \n");

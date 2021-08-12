@@ -116,7 +116,7 @@ ic_private bool    skip_csi_esc( const char* s, ssize_t len, ssize_t* esclen ); 
 ic_private ssize_t str_column_width( const char* s );
 ic_private ssize_t str_prev_ofs( const char* s, ssize_t pos, ssize_t* cwidth );
 ic_private ssize_t str_next_ofs( const char* s, ssize_t len, ssize_t pos, ssize_t* cwidth );
-ic_private const char* str_skip_until_fit( const char* s, ssize_t max_width);
-
+ic_private ssize_t str_skip_until_fit( const char* s, ssize_t max_width);  // tail that fits
+ic_private ssize_t str_take_while_fit( const char* s, ssize_t max_width);  // prefix that fits
 
 #endif // IC_STRINGBUF_H
