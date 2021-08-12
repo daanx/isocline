@@ -271,6 +271,16 @@ and some builtin styles for syntax highlighting:
 `keyword`, `control` (control-flow keywords), `string`,
 `comment`, `number`, `type`, `constant`.
 
+Predefined styles used by Isocline itself are:
+
+- `ic-prompt`: prompt style, e.g. `ic_style_def("ic-prompt", "yellow on blue")`.
+- `ic-info`: information (like the numbers in a completion menu).    
+- `ic-diminish`: dim text (used for example in history search).
+- `ic-emphasis`: emphasized text (also used in history search).
+- `ic-hint`: color of an inline hint.
+- `ic-error`: error color (like an unmatched brace).   
+- `ic-bracematch`: color of matching parenthesis.
+
 ### Properties
 
 Boolean properties are by default `on`:
