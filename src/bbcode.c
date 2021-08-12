@@ -605,11 +605,11 @@ ic_private void bbcode_style_start( bbcode_t* bb, const char* fmt ) {
 }
 
 ic_private void bbcode_style_end( bbcode_t* bb, const char* fmt ) {
-  const ssize_t base = bb->tags_nesting;
+  const ssize_t base = bb->tags_nesting - 1; // as we end a style
   tag_t tag;
   bbcode_parse_tag_content(bb, fmt, &tag);  
   tag_t prev;
-  if (bbcode_close(bb, base - 1, tag.name, &prev)) {
+  if (bbcode_close(bb, base, tag.name, &prev)) {
     term_set_attr( bb->term, prev.attr );
   }
 }
@@ -776,9 +776,7 @@ ic_private void bbcode_print( bbcode_t* bb, const char* s ) {
   attrbuf_t* attr_out = attrbuf_new(bb->mem);
   if (out == NULL || attr_out == NULL) return;
   bbcode_append( bb, s, out, attr_out );
-  attr_t attr = term_get_attr(bb->term);
   term_write_formatted( bb->term, sbuf_string(out), attrbuf_attrs(attr_out,sbuf_len(out)) );
-  term_set_attr(bb->term, attr); // always reset after a single print
   attrbuf_free(attr_out);
   sbuf_free(out);
 }

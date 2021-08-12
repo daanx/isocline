@@ -93,56 +93,46 @@ static const char* help[] = {
   NULL, NULL
 };
 
-static const char* help_initial[] = {
-  "\x1B[90m"
-  "Isocline v1.0, copyright (c) 2021 Daan Leijen.",
-  "This is free software; you can redistribute it and/or",
-  "modify it under the terms of the MIT License.",
-  "See <\x1B[4mhttps://github.com/daanx/isocline\x1B[24m> for further information.",
-  "We use ^<key> as a shorthand for ctrl-<key>.",
-  "",
-  "\x1B[90m"  
-  "Overview:",
-  "\x1B[90m"
-  "",
-  "       home,ctrl-a      cursor     end,ctrl-e",
-  "         ┌────────────────┼───────────────┐    (navigate)",
-  //"       │                │               │",
+static const char* help_initial = 
+  "[ic-info]"
+  "Isocline v1.0, copyright (c) 2021 Daan Leijen.\n"
+  "This is free software; you can redistribute it and/or\n"
+  "modify it under the terms of the MIT License.\n"
+  "See <[url]https://github.com/daanx/isocline[/url]> for further information.\n"
+  "We use ^<key> as a shorthand for ctrl-<key>.\n"
+  "\n"
+  "Overview:\n"
+  "\n[ansi-lightgray]"
+  "       home,ctrl-a      cursor     end,ctrl-e\n"
+  "         ┌────────────────┼───────────────┐    (navigate)\n"
+  //"       │                │               │\n"
   #ifndef __APPLE__
-  "         │    ctrl-left   │  ctrl-right   │",
+  "         │    ctrl-left   │  ctrl-right   │\n"
   #else
-  "         │     alt-left   │   alt-right   │",
+  "         │     alt-left   │   alt-right   │\n"
   #endif
-  "         │        ┌───────┼──────┐        │    ctrl+r   : search history",
-  "         ▼        ▼       ▼      ▼        ▼    tab      : complete word",
-  "  \x1B[90mprompt> \x1B[37mit's the quintessential language" "\x1B[90m" "     shift-tab: insert new line",
-  "         ▲        ▲              ▲        ▲    esc      : delete input, done",
-  "         │        └──────────────┘        │    ctrl+z   : undo",
-  "         │   alt-backsp        alt-d      │",
-  //"       │                │               │",
-  "         └────────────────────────────────┘    (delete)",
-  "       ctrl-u                          ctrl-k",
-  "\x1B[m",
-  NULL
-};
-
+  "         │        ┌───────┼──────┐        │    ctrl+r   : search history\n"
+  "         ▼        ▼       ▼      ▼        ▼    tab      : complete word\n"
+  "  prompt> [ansi-darkgray]it's the quintessential language[/]     shift-tab: insert new line\n"
+  "         ▲        ▲              ▲        ▲    esc      : delete input, done\n"
+  "         │        └──────────────┘        │    ctrl+z   : undo\n"
+  "         │   alt-backsp        alt-d      │\n"
+  //"       │                │               │\n"
+  "         └────────────────────────────────┘    (delete)\n"
+  "       ctrl-u                          ctrl-k\n"
+  "[/ansi-lightgray][/ic-info]\n";
 
 static void edit_show_help(ic_env_t* env, editor_t* eb) {
   edit_clear(env, eb);
-  for( ssize_t i = 0; help_initial[i] != NULL; i++ ) {
-    term_writeln(env->term, help_initial[i]);
-  }
+  bbcode_println(env->bbcode, help_initial);
   for (ssize_t i = 0; help[i] != NULL && help[i+1] != NULL; i += 2) {
     if (help[i][0] == 0) {  
-      term_color(env->term, IC_ANSI_DARKGRAY);         
-      term_writef(env->term, "%s\x1B[m\n", help[i+1]);
+      bbcode_printf(env->bbcode, "[ic-info]%s[/]\n", help[i+1]);
     }
     else {
-      term_color(env->term, IC_RGB(0xFFFFD7));
-      term_writef(env->term, "  %-13s\x1B[m%s%s\n", help[i], (help[i+1][0] == 0 ? "" : ": "), help[i+1]);
+      bbcode_printf(env->bbcode, "  [ic-emphasis]%-13s[/][ansi-lightgray]%s%s[/]\n", help[i], (help[i+1][0] == 0 ? "" : ": "), help[i+1]);
     }
   }
-  term_attr_reset(env->term);
 
   eb->cur_rows = 0;
   eb->cur_row = 0;

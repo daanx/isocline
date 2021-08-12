@@ -66,7 +66,4 @@ ic_private void           attrbuf_insert_at( attrbuf_t* ab, ssize_t pos, ssize_t
 ic_private attr_t         attrbuf_attr_at( attrbuf_t* ab, ssize_t pos );   
 ic_private void           attrbuf_delete_at( attrbuf_t* ab, ssize_t pos, ssize_t count );
 
-//ic_private attrbuf_t*     attrbuf_split_at( attrbuf_t* ab, ssize_t pos );
-//ic_private void           attrbuf_append_attrbuf( attrbuf_t* ab, const attrbuf_t* add );
-
 #endif // IC_ATTR_H
