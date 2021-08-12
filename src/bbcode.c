@@ -370,7 +370,7 @@ static const style_t builtin_styles[] = {
 };
 
 static void attr_update_with_styles( tag_t* tag, const char* attr_name, const char* value, 
-                                            bool usebgcolor, const style_t* styles, ssize_t count ) 
+                                             bool usebgcolor, const style_t* styles, ssize_t count ) 
 {
   // direct hex color?
   if (attr_name[0] == '#' && value[0]==0) {
@@ -380,7 +380,7 @@ static void attr_update_with_styles( tag_t* tag, const char* attr_name, const ch
   // first try if it is a builtin property
   const char* name;
   if ((name = attr_update_property(tag,attr_name,value)) != NULL) {
-    tag->name = name;
+    if (tag->name != NULL) tag->name = name;
     return;
   }
   // then check all styles
@@ -388,7 +388,7 @@ static void attr_update_with_styles( tag_t* tag, const char* attr_name, const ch
     const style_t* style = styles + count;
     if (strcmp(style->name,attr_name) == 0) {
       tag->attr = attr_update_with(tag->attr,style->attr);
-      tag->name = style->name;
+      if (tag->name != NULL) tag->name = style->name;
       return;
     }    
   }
@@ -396,7 +396,7 @@ static void attr_update_with_styles( tag_t* tag, const char* attr_name, const ch
   for( const style_t* style = builtin_styles; style->name != NULL; style++) {
     if (strcmp(style->name,attr_name) == 0) {
       tag->attr = attr_update_with(tag->attr,style->attr);
-      tag->name = style->name;
+      if (tag->name != NULL) tag->name = style->name;
       return;
     }
   }
@@ -418,7 +418,7 @@ static void attr_update_with_styles( tag_t* tag, const char* attr_name, const ch
       if (usebgcolor) { cattr.x.bgcolor = info->color; }
                 else  { cattr.x.color = info->color; }
       tag->attr = attr_update_with(tag->attr,cattr);
-      tag->name = info->name;
+      if (tag->name != NULL) tag->name = info->name;
       return;
     }
   }

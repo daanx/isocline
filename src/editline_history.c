@@ -140,21 +140,17 @@ static void edit_history_search(ic_env_t* env, editor_t* eb, char* initial ) {
 again:
   hentry = history_get(env->history,hidx);
   if (hentry != NULL) {
-    term_append_color(env->term, eb->extra, env->color_info );
-    sbuf_appendf(eb->extra, "%zd. ", hidx);
-    term_append_color(env->term, eb->extra, env->color_diminish );    
-    sbuf_append_n( eb->extra, hentry, match_pos );  
-    term_append_color(env->term, eb->extra, env->color_emphasis );    
-    sbuf_append(eb->extra, "\x1B[4m" ); // underline
+    sbuf_appendf(eb->extra, "[ic-info]%zd. [/][ic-diminish][!pre]", hidx);
+    sbuf_append_n( eb->extra, hentry, match_pos );      
+    sbuf_append(eb->extra, "[/pre][u ic-emphasis][!pre]" ); 
     sbuf_append_n( eb->extra, hentry + match_pos, match_len );
-    sbuf_append(eb->extra, "\x1B[24m" ); // no underline
-    term_append_color(env->term, eb->extra, env->color_diminish );    
+    sbuf_append(eb->extra, "[/pre][/u][!pre]" ); 
     sbuf_append(eb->extra, hentry + match_pos + match_len );
+    sbuf_append(eb->extra, "[/pre][/ic-diminish]");
     if (!env->no_help) {
-      term_append_color(env->term, eb->extra, env->color_info );        
-      sbuf_append(eb->extra, "\n(use tab for the next match)");
+      sbuf_append(eb->extra, "\n[ic-info](use tab for the next match)[/]");
     }
-    sbuf_append(eb->extra, "\x1B[m\n" );
+    sbuf_append(eb->extra, "\n" );
   }
   edit_refresh(env, eb);
 
