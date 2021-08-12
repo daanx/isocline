@@ -354,7 +354,7 @@ static bool ls_colors_append(stringbuf_t* sb, file_type_t ft, const char* ext) {
     // BSD style
     char fg = 'x';
     char bg = 'x';
-    if (ic_strlen(lscolors) > 2*ft+1) {
+    if (ic_strlen(lscolors) > (2*(ssize_t)ft)+1) {
       fg = lscolors[2*ft];
       bg = lscolors[2*ft + 1];
     }

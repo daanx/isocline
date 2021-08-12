@@ -454,10 +454,30 @@ void ic_term_writef(const char* fmt, ...);
 // Write a formatted string to the console.
 void ic_term_vwritef(const char* fmt, va_list args);
 
-// Set text style. Do not mix with the bbcode `ic_print` functions.
+// Set text attributes from a style.
 void ic_term_set_style( const char* style );
 
-// Reset the text style.
+// Set text attribute to bold.
+void ic_term_set_bold(bool enable);
+
+// Set text attribute to underline.
+void ic_term_set_underline(bool enable);
+
+// Set text attribute to italic.
+void ic_term_set_italic(bool enable);
+
+// Set text attribute to reverse video.
+void ic_term_set_reverse(bool enable);
+
+// Set text attribute to ansi color palette index between 0 and 255. 
+// (auto matched to smaller palette if not supported)
+void ic_term_set_color_ansi(bool foreground, int color);
+
+// Set text attribute to 24-bit RGB color (between `0x000000` and `0xFFFFFF`).
+// (auto matched to smaller palette if not supported)
+void ic_term_set_color_rgb(bool foreground, uint32_t color );
+
+// Reset the text attributes.
 void ic_term_reset( void );
 
 // Get the palette used by the terminal:

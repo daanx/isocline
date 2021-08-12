@@ -36,7 +36,7 @@ where:
 In ECMA48 `special? (number (';' modifiers)?)?` is the more liberal `[\x30-\x3F]*` 
 but that seems never used for key codes. If the number (vtcode or unicode) or the 
 modifiers are not given, we assume these are '1'. 
-We then accept the following standard sequences to encode keys:
+We then accept the following key sequences:
 
   key ::= ESC                                              # lone ESC
        |  ESC char                                         # Alt+char
@@ -45,8 +45,7 @@ We then accept the following standard sequences to encode keys:
        |  ESC 'O' special? '1'     ';' modifiers [A-Za-z]  # SS3 codes
        |  ESC '[' special? unicode ';' modifiers 'u'       # direct unicode code
 
-Moreover, we translate the following deprecated special cases that do 
-not fit into the standard key codes or escape sequence grammar. 
+Moreover, we translate the following special cases that do not fit into the above grammar.
 First we translate away special starter sequences:
 ---------------------------------------------------------------------
   ESC '[' '[' ..      ~>  ESC '[' ..                  # Linux sometimes uses extra '[' for CSI

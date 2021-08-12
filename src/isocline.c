@@ -99,6 +99,49 @@ static char* ic_getline(alloc_t* mem)
 
 
 //-------------------------------------------------------------
+// Formatted output
+//-------------------------------------------------------------
+
+
+ic_public void ic_printf(const char* fmt, ...) {
+  va_list ap;
+  va_start(ap, fmt);
+  ic_vprintf(fmt, ap);
+  va_end(ap);
+}
+
+ic_public void ic_vprintf(const char* fmt, va_list args) {
+  ic_env_t* env = ic_get_env(); if (env==NULL || env->bbcode == NULL) return;
+  bbcode_vprintf(env->bbcode, fmt, args);
+}
+
+ic_public void ic_print(const char* s) {
+  ic_env_t* env = ic_get_env(); if (env==NULL || env->bbcode==NULL) return;
+  bbcode_print(env->bbcode, s);
+}
+
+ic_public void ic_println(const char* s) {
+  ic_env_t* env = ic_get_env(); if (env==NULL || env->bbcode==NULL) return;
+  bbcode_println(env->bbcode, s);
+}
+
+void ic_style_def(const char* name, const char* fmt) {
+  ic_env_t* env = ic_get_env(); if (env==NULL || env->bbcode==NULL) return;
+  bbcode_style_def(env->bbcode, name, fmt);
+}
+
+void ic_style_open(const char* fmt) {
+  ic_env_t* env = ic_get_env(); if (env==NULL || env->bbcode==NULL) return;
+  bbcode_style_open(env->bbcode, fmt);
+}
+
+void ic_style_close(void) {
+  ic_env_t* env = ic_get_env(); if (env==NULL || env->bbcode==NULL) return;
+  bbcode_style_close(env->bbcode, NULL);
+}
+
+
+//-------------------------------------------------------------
 // Interface
 //-------------------------------------------------------------
 
@@ -268,6 +311,14 @@ ic_public void ic_set_insertion_braces(const char* brace_pairs) {
   }
 }
 
+ic_private const char* ic_env_get_match_braces(ic_env_t* env) {
+  return (env->match_braces == NULL ? "()[]{}" : env->match_braces);
+}
+
+ic_private const char* ic_env_get_auto_braces(ic_env_t* env) {
+  return (env->auto_braces == NULL ? "()[]{}\"\"''" : env->auto_braces);
+}
+
 ic_public void ic_set_default_highlighter(ic_highlight_fun_t* highlighter, void* arg) {
   ic_env_t* env = ic_get_env(); if (env==NULL) return;
   env->highlighter = highlighter;
@@ -361,51 +412,44 @@ ic_public int ic_term_get_color_bits(void) {
   return term_get_color_bits(env->term);
 }
 
-ic_private const char* ic_env_get_match_braces(ic_env_t* env) {
-  return (env->match_braces == NULL ? "()[]{}" : env->match_braces);
+ic_public void ic_term_set_bold(bool enable) {
+  ic_env_t* env = ic_get_env(); if (env==NULL || env->term==NULL) return;
+  term_bold(env->term, enable);
 }
 
-ic_private const char* ic_env_get_auto_braces(ic_env_t* env) {
-  return (env->auto_braces == NULL ? "()[]{}\"\"''" : env->auto_braces);
+ic_public void ic_term_set_underline(bool enable) {
+  ic_env_t* env = ic_get_env(); if (env==NULL || env->term==NULL) return;
+  term_underline(env->term, enable);
 }
 
-
-ic_public void ic_printf(const char* fmt, ...) {
-  va_list ap;
-  va_start(ap, fmt);
-  ic_vprintf(fmt, ap);
-  va_end(ap);
+ic_public void ic_term_set_italic(bool enable) {
+  ic_env_t* env = ic_get_env(); if (env==NULL || env->term==NULL) return;
+  term_italic(env->term, enable);
 }
 
-ic_public void ic_vprintf(const char* fmt, va_list args) {
-  ic_env_t* env = ic_get_env(); if (env==NULL || env->bbcode == NULL) return;
-  bbcode_vprintf(env->bbcode, fmt, args);
+ic_public void ic_term_set_reverse(bool enable) {
+  ic_env_t* env = ic_get_env(); if (env==NULL || env->term==NULL) return;
+  term_reverse(env->term, enable);
 }
 
-ic_public void ic_print( const char* s ) {
-  ic_env_t* env = ic_get_env(); if (env==NULL || env->bbcode==NULL) return;
-  bbcode_print( env->bbcode, s );
+ic_public void ic_term_set_color_ansi(bool foreground, int ansi_color) {
+  ic_env_t* env = ic_get_env(); if (env==NULL || env->term==NULL) return;
+  ic_color_t color = color_from_ansi256(ansi_color);
+  attr_t attr = attr_none();
+  if (foreground) { attr.x.color = color; }
+             else { attr.x.bgcolor = color;  }
+  term_set_attr(env->term, attr );
 }
 
-ic_public void ic_println( const char* s ) {
-  ic_env_t* env = ic_get_env(); if (env==NULL || env->bbcode==NULL) return;
-  bbcode_println( env->bbcode, s );
+ic_public void ic_term_set_color_rgb(bool foreground, uint32_t hcolor) {
+  ic_env_t* env = ic_get_env(); if (env==NULL || env->term==NULL) return;
+  ic_color_t color = ic_rgb(hcolor);
+  attr_t attr = attr_none();
+  if (foreground) { attr.x.color = color; }
+             else { attr.x.bgcolor = color; }
+  term_set_attr(env->term, attr);
 }
 
-void ic_style_def( const char* name, const char* fmt ) {
-  ic_env_t* env = ic_get_env(); if (env==NULL || env->bbcode==NULL) return;
-  bbcode_style_def(env->bbcode, name, fmt);
-}
-
-void ic_style_open( const char* fmt ) {
-  ic_env_t* env = ic_get_env(); if (env==NULL || env->bbcode==NULL) return;
-  bbcode_style_open( env->bbcode, fmt );
-}
-
-void ic_style_close(void) {
-  ic_env_t* env = ic_get_env(); if (env==NULL || env->bbcode==NULL) return;
-  bbcode_style_close( env->bbcode, NULL );
-}
 
 //-------------------------------------------------------------
 // Readline with temporary completer and highlighter

@@ -11,7 +11,7 @@
 #include "common.h"
 #include "attr.h"
 #include "term.h"
-
+#include "bbcode.h"
 
 //-------------------------------------------------------------
 // Syntax highlighting
