@@ -10,6 +10,7 @@
 #include "term.h"
 #include "stringbuf.h"
 #include "attr.h"
+#include "bbcode.h"
 
 //-------------------------------------------------------------
 // Syntax highlighting
@@ -19,10 +20,11 @@ struct ic_highlight_env_s {
   attrbuf_t*    attrs;
   const char*   input;   
   ssize_t       input_len;     
+  bbcode_t*     bbcode;
 };
 
 
-ic_private void highlight( const char* s, attrbuf_t* attrs, ic_highlight_fun_t* highlighter, void* arg ) {
+ic_private void highlight( bbcode_t* bb, const char* s, attrbuf_t* attrs, ic_highlight_fun_t* highlighter, void* arg ) {
   const ssize_t len = ic_strlen(s);
   if (len <= 0) return;
   attrbuf_set_at(attrs,0,len,attr_none()); // fill to length of s
@@ -31,6 +33,7 @@ ic_private void highlight( const char* s, attrbuf_t* attrs, ic_highlight_fun_t* 
     henv.attrs = attrs;
     henv.input = s;     
     henv.input_len = len;
+    henv.bbcode = bb;
     (*highlighter)( &henv, s, arg );    
   }
 }
@@ -65,47 +68,9 @@ static void highlight_attr(ic_highlight_env_t* henv, long pos, long count, attr_
   attrbuf_update_at(henv->attrs, pos, count, attr);
 }
 
-// Set the color of characters starting at position `pos` to `color`.
-ic_public void ic_highlight_color(ic_highlight_env_t* henv, long pos, long count, ic_color_t color ) {
-  attr_t attr = attr_none();
-  attr.x.color = color;
-  highlight_attr(henv,pos,count,attr);
-}
-  
-
-// Set the background color of characters starting at position `pos` to `bgcolor`.
-ic_public void ic_highlight_bgcolor(ic_highlight_env_t* henv, long pos, long count, ic_color_t bgcolor) {
-  attr_t attr = attr_none();
-  attr.x.bgcolor = bgcolor;
-  highlight_attr(henv,pos,count,attr);
-}
-
-// Enable/Disable underlining for characters starting at position `pos`.
-ic_public void ic_highlight_underline(ic_highlight_env_t* henv, long pos, long count, bool enable ) {
-  attr_t attr = attr_none();
-  attr.x.underline = (enable ? IC_ON : IC_OFF);
-  highlight_attr(henv,pos,count,attr);  
-}
-
-// Enable/Disable reverse video for characters starting at position `pos`.
-ic_public void ic_highlight_reverse(ic_highlight_env_t* henv, long pos, long count, bool enable) {
-  attr_t attr = attr_none();
-  attr.x.reverse = (enable ? IC_ON : IC_OFF);
-  highlight_attr(henv,pos,count,attr);
-}
-
-// Enable/Disable bold for characters starting at position `pos`.
-ic_public void ic_highlight_bold(ic_highlight_env_t* henv, long pos, long count, bool enable) {
-  attr_t attr = attr_none();
-  attr.x.bold = (enable ? IC_ON : IC_OFF);
-  highlight_attr(henv,pos,count,attr);
-}
-
-// Enable/Disable italic for characters starting at position `pos`.
-ic_public void ic_highlight_italic(ic_highlight_env_t* henv, long pos, long count, bool enable) {
-  attr_t attr = attr_none();
-  attr.x.italic = (enable ? IC_ON : IC_OFF);
-  highlight_attr(henv,pos,count,attr);
+ic_public void ic_highlight(ic_highlight_env_t* henv, long pos, long count, const char* style ) {
+  if (henv == NULL || style==NULL || style[0]==0 || pos < 0) return;
+  highlight_attr(henv,pos,count,bbcode_style( henv->bbcode, style ));
 }
 
 

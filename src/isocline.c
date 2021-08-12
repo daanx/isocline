@@ -569,6 +569,14 @@ static ic_env_t* ic_env_create( ic_malloc_fun_t* _malloc, ic_realloc_fun_t* _rea
   bbcode_style_def(env->bbcode, "ic-error",     "color=#D70000" );
   bbcode_style_def(env->bbcode, "ic-bracematch","color=#F7DC6F" );
 
+  bbcode_style_def(env->bbcode, "keyword",  "#569cd6" );
+  bbcode_style_def(env->bbcode, "control",  "#c586c0" );
+  bbcode_style_def(env->bbcode, "number",   "#b5cea8" );
+  bbcode_style_def(env->bbcode, "string",   "#ce9178" );
+  bbcode_style_def(env->bbcode, "comment",  "#6A9955" );
+  bbcode_style_def(env->bbcode, "type",     "darkcyan" );
+  bbcode_style_def(env->bbcode, "constant", "#569cd6" );
+
   set_prompt_marker(env, NULL, NULL);
   return env;
 }

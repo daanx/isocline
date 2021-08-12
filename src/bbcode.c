@@ -366,6 +366,8 @@ static const style_t builtin_styles[] = {
   { "r",  { { IC_COLOR_NONE, IC_NONE, IC_ON  , IC_COLOR_NONE, IC_NONE, IC_NONE } } },
   { "u",  { { IC_COLOR_NONE, IC_NONE, IC_NONE, IC_COLOR_NONE, IC_ON  , IC_NONE } } },
   { "i",  { { IC_COLOR_NONE, IC_NONE, IC_NONE, IC_COLOR_NONE, IC_NONE, IC_ON   } } },
+  { "em", { { IC_COLOR_NONE, IC_ON  , IC_NONE, IC_COLOR_NONE, IC_NONE, IC_NONE } } }, // bold
+  { "url",{ { IC_COLOR_NONE, IC_NONE, IC_NONE, IC_COLOR_NONE, IC_ON,   IC_NONE } } }, // underline
   { NULL, { { IC_COLOR_NONE, IC_NONE, IC_NONE, IC_COLOR_NONE, IC_NONE, IC_NONE } } }
 };
 
@@ -373,9 +375,9 @@ static void attr_update_with_styles( tag_t* tag, const char* attr_name, const ch
                                              bool usebgcolor, const style_t* styles, ssize_t count ) 
 {
   // direct hex color?
-  if (attr_name[0] == '#' && value[0]==0) {
-    attr_name = (usebgcolor ? "bgcolor" : "color");
+  if (attr_name[0] == '#' && (value == NULL || value[0]==0)) {
     value = attr_name;
+    attr_name = (usebgcolor ? "bgcolor" : "color");
   }
   // first try if it is a builtin property
   const char* name;
@@ -428,11 +430,10 @@ static void attr_update_with_styles( tag_t* tag, const char* attr_name, const ch
 
 
 ic_private attr_t bbcode_style( bbcode_t* bb, const char* style_name ) {
-  attr_t attr = attr_none();
   tag_t tag;
   tag_init(&tag);
   attr_update_with_styles( &tag, style_name, NULL, false, bb->styles, bb->styles_count );
-  return attr;
+  return tag.attr;
 }
 
 //-------------------------------------------------------------

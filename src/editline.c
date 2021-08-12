@@ -259,7 +259,7 @@ static void edit_refresh(ic_env_t* env, editor_t* eb)
   }
   
   if (attrs != NULL) {
-    highlight( sbuf_string(eb->input), attrs, (env->no_highlight ? NULL : env->highlighter), env->highlighter_arg );
+    highlight( env->bbcode, sbuf_string(eb->input), attrs, (env->no_highlight ? NULL : env->highlighter), env->highlighter_arg );
   }
 
   // highlight matching braces

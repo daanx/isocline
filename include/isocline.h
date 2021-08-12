@@ -237,29 +237,8 @@ typedef void (ic_highlight_fun_t)(ic_highlight_env_t* henv, const char* input, v
 // There can only be one highlight function, setting it again disables the previous one.
 void ic_set_default_highlighter(ic_highlight_fun_t* highlighter, void* arg);
 
-// Set the color of characters starting at position `pos` to `color`.
-// (Use a negative position to indicate a logical unicode character position).
-void ic_highlight_color(ic_highlight_env_t* henv, long pos, long count, ic_color_t color );
-
-// Set the background color of characters starting at position `pos` to `bgcolor`.
-// (Use a negative position to indicate a logical unicode character position).
-void ic_highlight_bgcolor(ic_highlight_env_t* henv, long pos, long count, ic_color_t bgcolor);
-
-// Enable/Disable underlining for characters starting at position `pos`.
-// (Use a negative position to indicate a logical unicode character position).
-void ic_highlight_underline(ic_highlight_env_t* henv, long pos, long count, bool enable );
-
-// Enable/Disable reverse video for characters starting at position `pos`.
-// (Use a negative position to indicate a logical unicode character position).
-void ic_highlight_reverse(ic_highlight_env_t* henv, long pos, long count, bool enable);
-
-// Experimental: Enable/Disable bold for characters starting at position `pos`.
-// (Use a negative position to indicate a logical unicode character position).
-void ic_highlight_bold(ic_highlight_env_t* henv, long pos, long count, bool enable);
-
-// Experimental: Enable/Disable italic for characters starting at position `pos`.
-// (Use a negative position to indicate a logical unicode character position).
-void ic_highlight_italic(ic_highlight_env_t* henv, long pos, long count, bool enable);
+// Set the style of characters starting at position `pos`.
+void ic_highlight(ic_highlight_env_t* henv, long pos, long count, const char* style );
 
 // Convenience callback for a function that highlights `s` using ANSI CSI SGR escape sequences (`ESC [ <code> m`)
 // The returned string should be allocated and is free'd by the caller.
@@ -472,7 +451,7 @@ bool ic_char_is_filename_letter(const char* s, long len);
 // Convenience: If this is a token start, return the length. Otherwise return 0.
 long ic_is_token(const char* s, long pos, ic_is_char_class_fun_t* is_token_char);
 
-// Convenience: Does this match the spefied token? 
+// Convenience: Does this match the specified token? 
 // Ensures not to match prefixes or suffixes, and returns the length of the match (in bytes).
 // E.g. `ic_match_token("function",0,&ic_char_is_letter,"fun")` returns 0.
 // while `ic_match_token("fun x",0,&ic_char_is_letter,"fun"})` returns 3.
