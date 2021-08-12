@@ -37,10 +37,7 @@ static void write_html_colors(void) {
   qsort(html_colors, IC_HTML_COLOR_COUNT, sizeof(html_colors[0]), &html_color_compare );
   ic_print("print html colors\n");  
   for(int i = 0; i < IC_HTML_COLOR_COUNT-1; i++) {
-    // pad to 10 wide
-    char buf[11];
-    snprintf(buf,11,"%s               ", html_colors[i].name);
-    ic_printf("[bgcolor=%s]%s[/] ", html_colors[i].name, buf);
+    ic_printf("[width=10][bgcolor=%s]%s[/][/] ", html_colors[i].name, html_colors[i].name);
     if ((i+1)%8 == 0) ic_print("\n\n");
   }
   ic_println("");  

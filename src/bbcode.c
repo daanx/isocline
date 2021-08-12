@@ -239,10 +239,11 @@ static const char* attr_update_sgr( const char* fname, attr_t* attr, const char*
   return fname;
 }
 
-static void attr_update_width( width_t* pwidth, const char* value ) {
+static void attr_update_width( width_t* pwidth, char default_fill, const char* value ) {
   // parse width value: <width>;<left|center|right>;<fill>;<cut>
   width_t width = {0};
-  if (ic_atoz(value, &width.w)) { 
+  width.fill = default_fill;   // use 0 for no-fill (as for max-width)
+  if (ic_atoz(value, &width.w)) {     
     ssize_t i = 0;
     while( value[i] != ';' && value[i] != 0 ) { i++; }
     if (value[i] == ';') {
@@ -353,8 +354,13 @@ static const char* attr_update_property( tag_t* tag, const char* attr_name, cons
   }  
   fname = "width";
   if (strcmp(attr_name,fname) == 0) {
-    attr_update_width(&tag->width, value);
+    attr_update_width(&tag->width, ' ', value);
     return fname;
+  }
+  fname = "max-width";
+  if (strcmp(attr_name,fname) == 0) {
+    attr_update_width(&tag->width, 0, value);
+    return "width";
   }    
   else {
     return NULL;
@@ -487,7 +493,7 @@ ic_private const char* parse_value(const char* s, const char** start, const char
       if (*s == '"') break;
       s++;
     }
-    *end = s-1;      
+    *end = s;      
     if (*s == '"') { s++; }
   }
   else if (*s == '#') {
