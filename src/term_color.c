@@ -75,7 +75,7 @@ static uint32_t ansi256[256] = {
 //-------------------------------------------------------------
 
 // Create a color from a 24-bit color value.
-ic_public ic_color_t ic_rgb(uint32_t hex) {
+ic_private ic_color_t ic_rgb(uint32_t hex) {
   return (ic_color_t)(0x1000000 | (hex & 0xFFFFFF));
 }
 
@@ -85,7 +85,7 @@ static uint32_t ic_cap8(long i) {
 }
 
 // Create a color from a 24-bit color value.
-ic_public ic_color_t ic_rgbx(int r, int g, int b) {
+ic_private ic_color_t ic_rgbx(int r, int g, int b) {
   return ic_rgb( (ic_cap8(r)<<16) | (ic_cap8(g)<<8) | ic_cap8(b) );
 }
 

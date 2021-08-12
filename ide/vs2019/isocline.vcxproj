@@ -147,6 +147,14 @@
     </Link>
   </ItemDefinitionGroup>
   <ItemGroup>
+    <ClCompile Include="..\..\src\attr.c" />
+    <ClCompile Include="..\..\src\bbcode.c" />
+    <ClCompile Include="..\..\src\bbcode_colors.c">
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">true</ExcludedFromBuild>
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">true</ExcludedFromBuild>
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">true</ExcludedFromBuild>
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Release|x64'">true</ExcludedFromBuild>
+    </ClCompile>
     <ClCompile Include="..\..\src\common.c" />
     <ClCompile Include="..\..\src\completers.c" />
     <ClCompile Include="..\..\src\completions.c" />
@@ -187,6 +195,8 @@
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="..\..\include\isocline.h" />
+    <ClInclude Include="..\..\src\attr.h" />
+    <ClInclude Include="..\..\src\bbcode.h" />
     <ClInclude Include="..\..\src\common.h" />
     <ClInclude Include="..\..\src\completions.h" />
     <ClInclude Include="..\..\src\env.h" />

@@ -104,11 +104,11 @@ ic_private bool      utf8_is_cont(uint8_t c);
 typedef uint32_t ic_color_t;
 
 // Create a color from a 24-bit color value.
-ic_color_t ic_rgb(uint32_t hex);
+ic_private ic_color_t ic_rgb(uint32_t hex);
 
 // Create a color from a 8-bit red/green/blue components.
 // The value of each component is capped between 0 and 255.
-ic_color_t ic_rgbx(int r, int g, int b);
+ic_private ic_color_t ic_rgbx(int r, int g, int b);
 
 #define IC_COLOR_NONE     (0)
 #define IC_RGB(rgb)       (0x1000000 | (uint32_t)(rgb)) // ic_rgb(rgb)  // define to it can be used as a constant

@@ -292,9 +292,9 @@ static void edit_refresh(ic_env_t* env, editor_t* eb)
   }
 
   // calculate rows and row/col position
-  rowcol_t rc = { 0 };
+  rowcol_t rc;
   const ssize_t rows_input = sbuf_get_rc_at_pos( eb->input, eb->termw, promptw, cpromptw, eb->pos, &rc );
-  rowcol_t rc_extra = { 0 };
+  rowcol_t rc_extra;
   ssize_t rows_extra = 0;
   if (sbuf_len(extra) > 0) { rows_extra = sbuf_get_rc_at_pos( extra, eb->termw, 0, 0, 0 /*pos*/, &rc_extra ); }
   const ssize_t rows = rows_input + rows_extra; 

@@ -16,7 +16,8 @@
 //-------------------------------------------------------------
 
 ic_private attr_t attr_none(void) {
-  attr_t attr = { 0 };
+  attr_t attr;
+  attr.value = 0;
   return attr;
 }
 

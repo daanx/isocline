@@ -31,7 +31,7 @@ typedef union attr_s {
     signed int    underline:2;
     signed int    italic:2;
   } x;
-  uint64_t        value;  
+  uint64_t        value;
 } attr_t;
 
 ic_private attr_t attr_none(void);

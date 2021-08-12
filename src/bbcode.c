@@ -241,7 +241,8 @@ static const char* attr_update_sgr( const char* fname, attr_t* attr, const char*
 
 static void attr_update_width( width_t* pwidth, char default_fill, const char* value ) {
   // parse width value: <width>;<left|center|right>;<fill>;<cut>
-  width_t width = {0};
+  width_t width;
+  memset(&width, 0, sizeof(width));
   width.fill = default_fill;   // use 0 for no-fill (as for max-width)
   if (ic_atoz(value, &width.w)) {     
     ssize_t i = 0;
@@ -422,7 +423,7 @@ static void attr_update_with_styles( tag_t* tag, const char* attr_name, const ch
       hi = mid-1;
     }
     else {
-      attr_t cattr = { 0 };
+      attr_t cattr = attr_none();
       if (usebgcolor) { cattr.x.bgcolor = info->color; }
                 else  { cattr.x.color = info->color; }
       tag->attr = attr_update_with(tag->attr,cattr);
@@ -727,7 +728,7 @@ ic_private ssize_t bbcode_process_tag( bbcode_t* bb, const char* s, const ssize_
   }
   else {
     // pop the tag
-    tag_t prev = {0};
+    tag_t prev;
     if (bbcode_close( bb, nesting_base, tag.name, &prev)) {
       *cur_attr = prev.attr;
       if (prev.width.w > 0) {
