@@ -63,6 +63,10 @@ struct bbcode_s {
   ssize_t      styles_count;
   term_t*      term;              // terminal
   alloc_t*     mem;               // allocator
+  // caches
+  stringbuf_t*  out;              // print buffer
+  attrbuf_t*    out_attrs;
+  stringbuf_t*  vout;             // vprintf buffer 
 };
 
 
@@ -75,6 +79,9 @@ ic_private bbcode_t* bbcode_new( alloc_t* mem, term_t* term ) {
   if (bb==NULL) return NULL;
   bb->mem = mem;
   bb->term = term;
+  bb->out = sbuf_new(mem);
+  bb->out_attrs = attrbuf_new(mem);
+  bb->vout = sbuf_new(mem);
   return bb;
 }
 
@@ -84,6 +91,9 @@ ic_private void bbcode_free( bbcode_t* bb ) {
   }
   mem_free(bb->mem, bb->tags);
   mem_free(bb->mem, bb->styles);
+  sbuf_free(bb->vout);
+  sbuf_free(bb->out);
+  attrbuf_free(bb->out_attrs);
   mem_free(bb->mem, bb);
 }
 
@@ -707,12 +717,9 @@ ic_private ssize_t bbcode_process_tag( bbcode_t* bb, const char* s, const ssize_
     else {
       // scan pre to end tag
       attr_t attr = attr_update_with(*cur_attr, tag.attr);
-      stringbuf_t* pre = sbuf_new(bb->mem);
-      if (pre != NULL) {
-        sbuf_replace(pre,"[/");
-        sbuf_append(pre, idbuf);  // tag.name could be NULL for unknown styles
-        sbuf_append(pre,"]");
-        const char* etag = strstr(end,sbuf_string(pre));
+      char pre[132];
+      if (snprintf(pre, 132, "[/%s]", idbuf) < sizeof(pre)) {
+        const char* etag = strstr(end,pre);
         if (etag == NULL) {
           const ssize_t len = ic_strlen(end);
           attrbuf_append_n(out, attr_out, end, len, attr);
@@ -720,9 +727,8 @@ ic_private ssize_t bbcode_process_tag( bbcode_t* bb, const char* s, const ssize_
         }
         else {
           attrbuf_append_n(out, attr_out, end, (etag - end), attr);
-          end = etag + sbuf_len(pre);
+          end = etag + ic_strlen(pre);
         }
-        sbuf_free(pre);
       }
     }
   }
@@ -780,13 +786,12 @@ ic_private void bbcode_append( bbcode_t* bb, const char* s, stringbuf_t* out, at
 }
 
 ic_private void bbcode_print( bbcode_t* bb, const char* s ) {
-  stringbuf_t* out = sbuf_new(bb->mem);
-  attrbuf_t* attr_out = attrbuf_new(bb->mem);
-  if (out == NULL || attr_out == NULL) return;
-  bbcode_append( bb, s, out, attr_out );
-  term_write_formatted( bb->term, sbuf_string(out), attrbuf_attrs(attr_out,sbuf_len(out)) );
-  attrbuf_free(attr_out);
-  sbuf_free(out);
+  if (bb->out == NULL || bb->out_attrs == NULL) return;
+  assert(sbuf_len(bb->out) == 0 && attrbuf_len(bb->out_attrs) == 0);
+  bbcode_append( bb, s, bb->out, bb->out_attrs );
+  term_write_formatted( bb->term, sbuf_string(bb->out), attrbuf_attrs(bb->out_attrs,sbuf_len(bb->out)) );
+  attrbuf_clear(bb->out_attrs);
+  sbuf_clear(bb->out);
 }
 
 ic_private void bbcode_println( bbcode_t* bb, const char* s ) {
@@ -795,11 +800,11 @@ ic_private void bbcode_println( bbcode_t* bb, const char* s ) {
 }
 
 ic_private void bbcode_vprintf( bbcode_t* bb, const char* fmt, va_list args  ) {
-  stringbuf_t* sb = sbuf_new(bb->mem);
-  if (sb == NULL) return;
-  sbuf_append_vprintf(sb,fmt,args);
-  bbcode_print(bb, sbuf_string(sb));
-  sbuf_free(sb);  
+  if (bb->vout == NULL) return;
+  assert(sbuf_len(bb->vout) == 0);
+  sbuf_append_vprintf(bb->vout,fmt,args);
+  bbcode_print(bb, sbuf_string(bb->vout));
+  sbuf_clear(bb->vout);
 }
 
 ic_private void bbcode_printf( bbcode_t* bb, const char* fmt, ... ) {
@@ -811,10 +816,10 @@ ic_private void bbcode_printf( bbcode_t* bb, const char* fmt, ... ) {
 
 ic_private ssize_t bbcode_column_width( bbcode_t* bb, const char* s ) {
   if (s==0 || s[0] == 0) return 0;
-  stringbuf_t* out = sbuf_new(bb->mem);
-  if (out == NULL) { return str_column_width(s); }
-  bbcode_append( bb, s, out, NULL);
-  const ssize_t w = str_column_width(sbuf_string(out));
-  sbuf_free(out);
+  if (bb->vout == NULL) { return str_column_width(s); }
+  assert(sbuf_len(bb->vout) == 0); 
+  bbcode_append( bb, s, bb->vout, NULL);
+  const ssize_t w = str_column_width(sbuf_string(bb->vout));
+  sbuf_clear(bb->vout);
   return w;
 }
