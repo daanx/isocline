@@ -54,8 +54,9 @@ struct attrbuf_s;
 typedef struct attrbuf_s attrbuf_t;
 
 ic_private attrbuf_t*     attrbuf_new( alloc_t* mem );
-ic_private void           attrbuf_free( attrbuf_t* ab );
-ic_private ssize_t        attrbuf_len( attrbuf_t* ab);
+ic_private void           attrbuf_free( attrbuf_t* ab );  // ab can be NULL
+ic_private void           attrbuf_clear( attrbuf_t* ab ); // ab can be NULL
+ic_private ssize_t        attrbuf_len( attrbuf_t* ab);    // ab can be NULL
 ic_private const attr_t*  attrbuf_attrs( attrbuf_t* ab, ssize_t expected_len );
 ic_private ssize_t        attrbuf_append_n( stringbuf_t* sb, attrbuf_t* ab, const char* s, ssize_t len, attr_t attr );
 

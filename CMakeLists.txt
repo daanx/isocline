@@ -101,7 +101,7 @@ endif()
 # -----------------------------------------------------------------------------
 
 if (IC_COMPILER_ID MATCHES "AppleClang|Clang|GNU|Intel")
-  list(APPEND ic_cflags -Wall -Wextra -Wpedantic -Wno-unknown-pragmas -Wno-unused-function -Wno-padded)
+  list(APPEND ic_cflags -Wall -Wextra -Wpedantic -Wno-unknown-pragmas -Wno-unused-function -Wno-padded -Wno-missing-field-initializers)
   if (IC_COMPILER_ID MATCHES "AppleClang|Clang")
     list(APPEND ic_cflags -Wimplicit-int-conversion -Wsign-conversion)
   endif()

@@ -211,8 +211,13 @@ ic_private void attrbuf_free( attrbuf_t* ab ) {
   mem_free(ab->mem, ab);
 }
 
+ic_private void attrbuf_clear(attrbuf_t* ab) {
+  if (ab == NULL) return;
+  ab->count = 0;
+}
+
 ic_private ssize_t attrbuf_len( attrbuf_t* ab ) {
-  return ab->count;
+  return (ab==NULL ? 0 : ab->count);
 }
 
 ic_private const attr_t* attrbuf_attrs( attrbuf_t* ab, ssize_t expected_len ) {

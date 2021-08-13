@@ -38,9 +38,11 @@ typedef struct editor_s {
   ssize_t       history_idx;  // current index in the history 
   editstate_t*  undo;         // undo buffer  
   editstate_t*  redo;         // redo buffer
-  const char*   prompt_text;  // text of the prompt before the prompt marker  
-  attrbuf_t*    input_attrs;  // syntax highlighting
+  const char*   prompt_text;  // text of the prompt before the prompt marker    
   alloc_t*      mem;          // allocator
+  // caches
+  attrbuf_t*    attrs;        // reuse attribute buffers 
+  attrbuf_t*    attrs_extra; 
 } editor_t;
 
 
@@ -241,6 +243,7 @@ static void edit_refresh_rows(ic_env_t* env, editor_t* eb, stringbuf_t* input, a
                                ssize_t promptw, ssize_t cpromptw, bool in_extra, 
                                 ssize_t first_row, ssize_t last_row) 
 {
+  if (input == NULL) return;
   refresh_info_t info;
   info.env        = env;
   info.eb         = eb;
@@ -257,50 +260,46 @@ static void edit_refresh(ic_env_t* env, editor_t* eb)
   // calculate the new cursor row and total rows needed
   ssize_t promptw, cpromptw;
   edit_get_prompt_width( env, eb, false, &promptw, &cpromptw );
-
-  // highlight current input
-  attrbuf_t* attrs = NULL;
-  attrbuf_t* attrs_extra = NULL;
   
-  if (!(env->no_highlight && env->no_bracematch)) {
-    attrs = attrbuf_new(env->mem);
-    attrs_extra = attrbuf_new(env->mem);
-  }
-  
-  if (attrs != NULL) {
-    highlight( env->mem, env->bbcode, sbuf_string(eb->input), attrs, 
+  if (eb->attrs != NULL) {
+    highlight( env->mem, env->bbcode, sbuf_string(eb->input), eb->attrs, 
                  (env->no_highlight ? NULL : env->highlighter), env->highlighter_arg );
   }
 
   // highlight matching braces
-  if (attrs != NULL && !env->no_bracematch) {
-    highlight_match_braces(sbuf_string(eb->input), attrs, eb->pos, ic_env_get_match_braces(env),  
+  if (eb->attrs != NULL && !env->no_bracematch) {
+    highlight_match_braces(sbuf_string(eb->input), eb->attrs, eb->pos, ic_env_get_match_braces(env),  
                               bbcode_style(env->bbcode,"ic-bracematch"), bbcode_style(env->bbcode,"ic-error"));
   }
 
   // insert hint  
   if (sbuf_len(eb->hint) > 0) {
-    if (attrs != NULL) {
-      attrbuf_insert_at( attrs, eb->pos, sbuf_len(eb->hint), bbcode_style(env->bbcode, "ic-hint") );
+    if (eb->attrs != NULL) {
+      attrbuf_insert_at( eb->attrs, eb->pos, sbuf_len(eb->hint), bbcode_style(env->bbcode, "ic-hint") );
     }
     sbuf_insert_at(eb->input, sbuf_string(eb->hint), eb->pos );
   }
 
-  // render extra
-  stringbuf_t* extra = sbuf_new(eb->mem);
-  if (extra != NULL) {
-    if (sbuf_len(eb->hint_help) > 0) {
-      bbcode_append(env->bbcode, sbuf_string(eb->hint_help), extra, attrs_extra );
+  // render extra (like a completion menu)
+  stringbuf_t* extra = NULL;
+  if (sbuf_len(eb->extra) > 0) {
+    extra = sbuf_new(eb->mem);
+    if (extra != NULL) {
+      if (sbuf_len(eb->hint_help) > 0) {
+        bbcode_append(env->bbcode, sbuf_string(eb->hint_help), extra, eb->attrs_extra);
+      }
+      bbcode_append(env->bbcode, sbuf_string(eb->extra), extra, eb->attrs_extra);
     }
-    bbcode_append(env->bbcode, sbuf_string(eb->extra), extra, attrs_extra ); 
   }
 
   // calculate rows and row/col position
-  rowcol_t rc;
+  rowcol_t rc = { 0 };
   const ssize_t rows_input = sbuf_get_rc_at_pos( eb->input, eb->termw, promptw, cpromptw, eb->pos, &rc );
-  rowcol_t rc_extra;
+  rowcol_t rc_extra = { 0 };
   ssize_t rows_extra = 0;
-  if (sbuf_len(extra) > 0) { rows_extra = sbuf_get_rc_at_pos( extra, eb->termw, 0, 0, 0 /*pos*/, &rc_extra ); }
+  if (extra != NULL) { 
+    rows_extra = sbuf_get_rc_at_pos( extra, eb->termw, 0, 0, 0 /*pos*/, &rc_extra ); 
+  }
   const ssize_t rows = rows_input + rows_extra; 
   debug_msg("edit: refresh: rows %zd, cursor: %zd,%zd (previous rows %zd, cursor row %zd)\n", rows, rc.row, rc.col, eb->cur_rows, eb->cur_row);
   
@@ -314,8 +313,7 @@ static void edit_refresh(ic_env_t* env, editor_t* eb)
     last_row = first_row + termh - 1;
   }
   assert(last_row - first_row < termh);
-  // assert(last_row - first_row >= rc.row);
-
+  
   // reduce flicker
   buffer_mode_t bmode = term_set_buffer_mode(env->term, BUFFERED);        
 
@@ -325,11 +323,12 @@ static void edit_refresh(ic_env_t* env, editor_t* eb)
   // term_clear_lines_to_end(env->term);  // gives flicker in old Windows cmd prompt 
 
   // render rows
-  edit_refresh_rows( env, eb, eb->input, attrs, promptw, cpromptw, false, first_row, last_row );  
+  edit_refresh_rows( env, eb, eb->input, eb->attrs, promptw, cpromptw, false, first_row, last_row );  
   if (rows_extra > 0) {
+    assert(extra != NULL);
     const ssize_t first_rowx = (first_row > rows_input ? first_row - rows_input : 0);
     const ssize_t last_rowx = last_row - rows_input; assert(last_rowx >= 0);
-    edit_refresh_rows(env, eb, extra, attrs_extra, 0, 0, true, first_rowx, last_rowx);
+    edit_refresh_rows(env, eb, extra, eb->attrs_extra, 0, 0, true, first_rowx, last_rowx);
   }
     
   // overwrite trailing rows we do not use anymore  
@@ -358,8 +357,8 @@ static void edit_refresh(ic_env_t* env, editor_t* eb)
   // restore input by removing the hint
   sbuf_delete_at(eb->input, eb->pos, sbuf_len(eb->hint));
   sbuf_delete_at(eb->extra, 0, sbuf_len(eb->hint_help));
-  attrbuf_free(attrs);
-  attrbuf_free(attrs_extra);
+  attrbuf_clear(eb->attrs);
+  attrbuf_clear(eb->attrs_extra);
   sbuf_free(extra);
 
   // update previous
@@ -852,12 +851,17 @@ static char* edit_line( ic_env_t* env, const char* prompt_text )
   eb.cur_row  = 0; 
   eb.modified = false;  
   eb.prompt_text   = (prompt_text != NULL ? prompt_text : "");
-  eb.history_idx   = 0;
-  
+  eb.history_idx   = 0;  
   editstate_init(&eb.undo);
   editstate_init(&eb.redo);
   if (eb.input==NULL || eb.extra==NULL || eb.hint==NULL || eb.hint_help==NULL) {
     return NULL;
+  }
+
+  // caching
+  if (!(env->no_highlight && env->no_bracematch)) {
+    eb.attrs = attrbuf_new(env->mem);
+    eb.attrs_extra = attrbuf_new(env->mem);
   }
   
   // show prompt
@@ -1108,6 +1112,8 @@ static char* edit_line( ic_env_t* env, const char* prompt_text )
   // free resources 
   editstate_done(env->mem, &eb.undo);
   editstate_done(env->mem, &eb.redo);
+  attrbuf_free(eb.attrs);
+  attrbuf_free(eb.attrs_extra);
   sbuf_free(eb.input);
   sbuf_free(eb.extra);
   sbuf_free(eb.hint);
