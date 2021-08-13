@@ -22,6 +22,8 @@ struct ic_highlight_env_s {
   ssize_t       input_len;     
   bbcode_t*     bbcode;
   alloc_t*      mem;
+  ssize_t       cached_upos;  // cached unicode position
+  ssize_t       cached_cpos;  // corresponding utf-8 byte position
 };
 
 
@@ -36,6 +38,8 @@ ic_private void highlight( alloc_t* mem, bbcode_t* bb, const char* s, attrbuf_t*
     henv.input_len = len;
     henv.bbcode = bb;
     henv.mem = mem;
+    henv.cached_cpos = 0;
+    henv.cached_upos = 0;
     (*highlighter)( &henv, s, arg );    
   }
 }
@@ -45,41 +49,54 @@ ic_private void highlight( alloc_t* mem, bbcode_t* bb, const char* s, attrbuf_t*
 // Client interface
 //-------------------------------------------------------------
 
-static void pos_adjust( ic_highlight_env_t* henv, long* ppos, long* plen ) {
-  long pos = *ppos;
-  long len = *plen;
+static void pos_adjust( ic_highlight_env_t* henv, ssize_t* ppos, ssize_t* plen ) {
+  ssize_t pos = *ppos;
+  ssize_t len = *plen;
   if (pos >= henv->input_len) return;
-  if (pos >= 0 && len >= 0) return;
+  if (pos >= 0 && len >= 0) return;   // already character positions
   if (henv->input == NULL) return;
+
   if (pos < 0) {
     // negative `pos` is used as the unicode character position (for easy interfacing with Haskell)
-    long ucount = -pos;
-    long cpos = 0;
-    long upos = 0;
-    while ( upos < ucount ) {
+    ssize_t upos = -pos;
+    ssize_t cpos = 0;
+    ssize_t ucount = 0;
+    if (henv->cached_upos <= upos) {  // if we have a cached position, start from there
+      ucount = henv->cached_upos;
+      cpos = henv->cached_cpos;
+    }
+    while ( ucount < upos ) {
       ssize_t next = str_next_ofs(henv->input, henv->input_len, cpos, NULL);
       if (next <= 0) return;
-      upos++;
-      cpos += (long)next;
+      ucount++;
+      cpos += next;
     }
     *ppos = pos = cpos;
+    // and cache it to avoid quadratic behavior
+    henv->cached_upos = upos;
+    henv->cached_cpos = cpos;
   }
   if (len < 0) {
     // negative `len` is used as a unicode character length
     len = -len;
-    long ucount = 0;
-    long clen   = 0;    
+    ssize_t ucount = 0;
+    ssize_t clen   = 0;    
     while (ucount < len) {
       ssize_t next = str_next_ofs(henv->input, henv->input_len, pos + clen, NULL);
       if (next <= 0) return;
       ucount++;
-      clen += (long)next;
+      clen += next;
     }
     *plen = len = clen;
+    // and update cache if possible
+    if (henv->cached_cpos == pos) {
+      henv->cached_upos += ucount;
+      henv->cached_cpos += clen;
+    }
   } 
 }
 
-static void highlight_attr(ic_highlight_env_t* henv, long pos, long count, attr_t attr ) {
+static void highlight_attr(ic_highlight_env_t* henv, ssize_t pos, ssize_t count, attr_t attr ) {
   if (henv==NULL) return;
   pos_adjust(henv,&pos,&count);
   if (pos < 0 || count <= 0) return;
