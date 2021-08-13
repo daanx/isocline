@@ -324,7 +324,7 @@ static void term_check_flush(term_t* term, bool contains_nl) {
 //-------------------------------------------------------------
 
 static void term_init_raw(term_t* term);
-
+static bool term_xterm_is_truecolor(term_t* term);
 
 ic_private term_t* term_new(alloc_t* mem, tty_t* tty, bool nocolor, bool silent, int fd_out ) 
 {
@@ -362,14 +362,18 @@ ic_private term_t* term_new(alloc_t* mem, tty_t* tty, bool nocolor, bool silent,
   // otherwise check for some specific terminals
   else if (getenv("WT_SESSION") != NULL) { term->palette = ANSIRGB; } // Windows terminal
   else if (getenv("ITERM_SESSION_ID") != NULL) { term->palette = ANSIRGB; } // iTerm2 terminal
+  else if (getenv("VSCODE_PID") != NULL) { term->palette = ANSIRGB; } // vscode terminal
   else {
+    // const char** env = environ;
+    // for(const char** p = env; *p != NULL; p++) { printf("%s\n", *p); }
+    
     // and fall back to checking TERM
     const char* eterm = getenv("TERM");
     if (ic_contains(eterm,"truecolor") || ic_contains(eterm,"kitty")) {
       term->palette = ANSIRGB;
     }
     else if (ic_contains(eterm,"xterm") || ic_contains(eterm,"256color") || ic_contains(eterm,"gnome")) { 
-      term->palette = ANSI256; 
+      term->palette = (term_xterm_is_truecolor(term) ? ANSIRGB : ANSI256);
     }  
     else if (ic_contains(eterm,"16color")){ term->palette = ANSI16; }
     else if (ic_contains(eterm,"8color")) { term->palette = ANSI8; }
@@ -457,9 +461,10 @@ static void term_append_utf8(term_t* term, const char* s, ssize_t len) {
     sbuf_append_char(term->buf,(char)c);
   }
   else if (!term->is_utf8) {
-    // on non-utf8 terminals send unicode escape sequences and hope for the best
+    // on non-utf8 terminals still send utf-8 and hope for the best
     // todo: we could try to convert to the locale first?
-    sbuf_appendf(term->buf, "\x1B[%" PRIu32 "u", uchr);
+    sbuf_append_n(term->buf, s, len);
+    // sbuf_appendf(term->buf, "\x1B[%" PRIu32 "u", uchr); // unicode escape code
   }
   else {
     // write utf-8 as is
@@ -1027,6 +1032,20 @@ static void term_init_raw(term_t* term) {
   }
 }
 
+static bool term_xterm_is_truecolor(term_t* term) {
+  const char* termprog = getenv("TERM_PROGRAM");
+  if (ic_icontains(termprog,"Apple")) return false;  // apple terminal cannot handle DCS $ P q m
+  const char* eterm = getenv("TERM");
+  if (!(ic_contains(eterm,"xterm") || ic_contains(eterm,"gnome"))) return false; // limit to xterm only
+  term_write(term,"\x1B[38;2;1;2;3m"); // set foreground color to 0x010203
+  term_flush(term);
+  char buf[128]; buf[0] = 0;
+  bool ok = term_esc_query_raw( term, "\x1BP$qm\x1B\\", buf, ssizeof(buf));
+  term_write(term,"\x1B[m"); // reset colors
+  debug_msg( "term: xterm true color: %s: %s\n", ok ? "yes" : "no", buf);
+  return ok;
+}
+
 #else
 
 ic_private void term_start_raw(term_t* term) {
@@ -1098,6 +1117,10 @@ static void term_init_raw(term_t* term) {
   }
   term_start_raw(term); // initialize the hcon_mode
   term_end_raw(term,false);
+}
+
+static bool term_xterm_is_truecolor(term_t* term) {
+  return false;
 }
 
 #endif

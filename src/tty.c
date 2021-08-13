@@ -379,8 +379,8 @@ static bool tty_init_utf8(tty_t* tty) {
   #ifdef _WIN32
   tty->is_utf8 = true;
   #else
-  char* loc = setlocale(LC_ALL,"");
-  tty->is_utf8 = (ic_icontains(loc,"UTF-8") || ic_icontains(loc,"UTF8"));
+  const char* loc = setlocale(LC_ALL,"");
+  tty->is_utf8 = (ic_icontains(loc,"UTF-8") || ic_icontains(loc,"utf8") || ic_stricmp(loc,"C") == 0);
   debug_msg("tty: utf8: %s (loc=%s)\n", tty->is_utf8 ? "true" : "false", loc);
   #endif
   return true;

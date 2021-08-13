@@ -64,8 +64,7 @@ static void write_palette( int order) {
         if (r == 256) r = 255;
         if (g == 256) g = 255;
         if (b == 256) b = 255;
-        ic_printf("[#%02x%02x%02x]%s[/]", r, g, b, patch);
-        
+        ic_printf("[#%02x%02x%02x]%s[/]", r, g, b, patch);        
       }
       ic_print(" ");
     }

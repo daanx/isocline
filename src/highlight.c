@@ -104,27 +104,26 @@ static void highlight_attr(ic_highlight_env_t* henv, ssize_t pos, ssize_t count,
 }
 
 ic_public void ic_highlight(ic_highlight_env_t* henv, long pos, long count, const char* style ) {
-  if (henv == NULL || style==NULL || style[0]==0 || pos < 0) return;
+  if (henv == NULL || style==NULL || style[0]==0 || pos < 0) return;  
   highlight_attr(henv,pos,count,bbcode_style( henv->bbcode, style ));
 }
 
-
-void ic_highlight_format(ic_highlight_env_t* henv, const char* s, ic_highlight_format_fun_t* highlight, void* arg) {
-  if (s==NULL || s[0] == 0 || highlight==NULL) return;
-  const char* fmt = highlight(s,arg);
-  if (fmt == NULL) return;
+ic_public void ic_highlight_formatted(ic_highlight_env_t* henv, const char* s, const char* fmt) {
+  if (s==NULL || s[0] == 0 || fmt==NULL) return;
   attrbuf_t* attrs = attrbuf_new(henv->mem);
   stringbuf_t* out = sbuf_new(henv->mem);  // todo: avoid allocating out?
   if (attrs!=NULL && out != NULL) {
     bbcode_append( henv->bbcode, fmt, out, attrs);
     const ssize_t len = ic_strlen(s);
+    if (sbuf_len(out) != len) {
+      debug_msg("highlight: formatted string content differs from the original input:\n  original: %s\n  formatted: %s\n", s, fmt);
+    }
     for( ssize_t i = 0; i < len; i++) {
       attrbuf_update_at(henv->attrs, i, 1, attrbuf_attr_at(attrs,i));
     }
   }
   sbuf_free(out);
   attrbuf_free(attrs);
-  mem_free(henv->mem,fmt);  
 }
 
 //-------------------------------------------------------------

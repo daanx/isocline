@@ -82,11 +82,13 @@ highlighter input
       = let (t,ds) = span (/='\n') s in style "#408700" (plain t) ++ tokenize ds
     tokenize s@(c:cs)
       | isAlpha c   = let (t,ds) = span isAlpha s
-                      in (if (t `elem` ["fun","return","if","then","else"]) 
-                             then style "keyword" t   -- builtin style
-                           else if (t `elem` ["int","double","char","void"])
-                             then style "#00AFAF" t   -- or use specific colors
-                             else plain t)          -- never lose input, all original characters must be present!
+                      in (if (t `elem` ["fun","struct","var","val"]) 
+                            then style "keyword" t   -- builtin style
+                          else if (t `elem` ["return","if","then","else"]) 
+                            then style "control" t   -- builtin style
+                          else if (t `elem` ["int","double","char","void"])
+                            then style "#00AFAF" t   -- or use specific colors
+                            else plain t)            -- never lose input, all original characters must be present!
                          ++ tokenize ds
       | isDigit c   = let (t,ds) = span isDigit s 
                       in style "number" t ++ tokenize ds

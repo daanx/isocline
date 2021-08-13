@@ -97,7 +97,6 @@ module System.Console.Isocline(
 
       -- * Syntax Highlighting 
       highlightFmt,
-      makeFmtHighlighter,
 
       -- * Rich text
       Style, Fmt,      
@@ -261,7 +260,7 @@ readlineExMaybe :: String -> Maybe (CompletionEnv -> String -> IO ()) -> Maybe (
 readlineExMaybe prompt completer mbhighlighter
   = readlinePrimMaybe prompt completer (case mbhighlighter of
                                           Nothing -> Nothing
-                                          Just hl -> Just (makeFmtHighlighter hl))
+                                          Just hl -> Just (highlightFmt hl))
 
 -- | @readlinePrim prompt mbCompleter mbHighlighter@: as 'readline' but
 -- uses the given @mbCompleter@ function to complete words on @tab@ (instead of the default completer). 
@@ -629,6 +628,7 @@ hasCompletions (CompletionEnv rpc)
 foreign import ccall ic_set_default_highlighter     :: FunPtr CHighlightFun -> Ptr () -> IO ()
 foreign import ccall "wrapper" ic_make_highlight_fun:: CHighlightFun -> IO (FunPtr CHighlightFun)
 foreign import ccall ic_highlight                   :: Ptr IcHighlightEnv -> CLong -> CLong -> CString -> IO ()
+foreign import ccall ic_highlight_formatted         :: Ptr IcHighlightEnv -> CString -> CString -> IO ()
 
 
 -- | Set a syntax highlighter.
@@ -637,17 +637,13 @@ setDefaultHighlighter :: (HighlightEnv -> String -> IO ()) -> IO ()
 setDefaultHighlighter highlighter
   = do chighlighter <- makeCHighlighter (Just highlighter)
        ic_set_default_highlighter chighlighter nullPtr
-  where
-    chighlightFun henv cinput carg
-      = do input <- peekUTF8String0 cinput
-           highlighter (HighlightEnv henv) input
-
 
 makeCHighlighter :: Maybe (HighlightEnv -> String -> IO ()) -> IO (FunPtr CHighlightFun)
-makeCHighlighter Nothing = return nullFunPtr
+makeCHighlighter Nothing = return nullFunPtr 
 makeCHighlighter (Just highlighter)
   = ic_make_highlight_fun wrapper
-  where
+  where 
+    wrapper :: Ptr IcHighlightEnv -> CString -> Ptr () -> IO ()
     wrapper henv cinput carg
       = do input <- peekUTF8String0 cinput
            highlighter (HighlightEnv henv) input
@@ -661,13 +657,6 @@ highlight (HighlightEnv henv) pos len style
     do ic_highlight henv (clong (-pos)) (clong (-len)) cstyle
 
 
-
-type CHighlightFmtFun = CString -> Ptr () -> IO CString
-type HighlightFmtFun  = String -> String
-
-foreign import ccall ic_highlight_format     :: Ptr IcHighlightEnv -> CString -> FunPtr CHighlightFmtFun -> Ptr () -> IO ()
-foreign import ccall "wrapper" ic_make_highlight_fmt_fun:: CHighlightFmtFun -> IO (FunPtr CHighlightFmtFun)
-
 -- | A style for formatted strings ('Fmt').
 -- For example, a style can be @"red"@ or @"b #7B3050"@. 
 -- See the full list of valid [properties](https://github.com/daanx/isocline#bbcode-format)
@@ -678,16 +667,11 @@ type Style = String
 type Fmt   = String
 
 -- | Use an rich text formatted highlighter from inside a highlighter callback.
-highlightFmt :: HighlightEnv -> String -> (String -> Fmt) -> IO ()
-highlightFmt (HighlightEnv henv) input highlight
+highlightFmt :: (String -> Fmt) -> (HighlightEnv -> String -> IO ())
+highlightFmt highlight (HighlightEnv henv) input 
   = withUTF8String0 input $ \cinput ->
-    do cfun <- ic_make_highlight_fmt_fun wrapper
-       ic_highlight_format henv cinput cfun nullPtr
-  where
-    wrapper cinput carg
-      = do input <- peekUTF8String0 cinput
-           withUTF8String0 ((highlight input)) $ \coutput ->
-             ic_strdup coutput
+    withUTF8String0 (highlight input) $ \cfmt ->
+    do ic_highlight_formatted henv cinput cfmt
 
 
 -- | Style a string, e.g. @style "b red" "bold and red"@ (which is equivalent to @"[b red]bold and red[\/]"@).
@@ -706,21 +690,14 @@ pre :: Style -> String -> Fmt
 pre st s
   = style st (plain s)
 
-
-
 -- | Set a syntax highlighter that uses a pure function that returns a bbcode
 -- formatted string (using 'style', 'plain' etc). See 'highlightFmt' for more information.
 -- There can only be one highlight function, setting it again disables the previous one.
 setDefaultFmtHighlighter :: (String -> Fmt) -> IO ()
 setDefaultFmtHighlighter highlight 
-  = setDefaultHighlighter (makeFmtHighlighter highlight)
+  = setDefaultHighlighter (highlightFmt highlight)
 
 
--- | Create a highlighter from a pure function that use bbcode formatting.
--- The returned formatted string should preserve all characters from the original input.
-makeFmtHighlighter :: (String -> Fmt) -> (HighlightEnv -> String -> IO ()) 
-makeFmtHighlighter highlight henv input
-  = highlightFmt henv input highlight
 
 
 

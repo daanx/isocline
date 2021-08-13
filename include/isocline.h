@@ -183,9 +183,9 @@ typedef char* (ic_highlight_format_fun_t)(const char* s, void* arg);
 
 // Experimental: Convenience function for highlighting with bbcodes.
 // Can be called in a `ic_highlight_fun_t` callback to colorize the `input` using the 
-// the provided `highlight` function that returns the original `input` interspersed with 
-// bbcode tags. User state is passed through the `arg`. 
-void ic_highlight_format(ic_highlight_env_t* henv, const char* input, ic_highlight_format_fun_t* highlight, void* arg);
+// the provided `formatted` input that is the styled `input` with bbcodes. The 
+// content of `formatted` without bbcode tags should match `input` exactly.
+void ic_highlight_formatted(ic_highlight_env_t* henv, const char* input, const char* formatted);
 
 
 //--------------------------------------------------------------
