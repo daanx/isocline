@@ -101,6 +101,10 @@ ic_private void term_clear_line(term_t* term) {
   term_write( term, "\r" IC_CSI "K");
 }
 
+ic_private void term_clear_to_end_of_line(term_t* term) {
+  term_write(term, IC_CSI "K");
+}
+
 ic_private void term_start_of_line(term_t* term) {
   term_write( term, "\r" );
 }
@@ -603,9 +607,10 @@ static void term_erase_line( term_t* term, ssize_t mode ) {
   COORD start;
   ssize_t length;
   if (mode == 2) {
-    // to end of line    
-    length = (ssize_t)info.srWindow.Right - info.dwCursorPosition.X + 1;
-    start  = info.dwCursorPosition;
+    // entire line
+    start.X = 0;
+    start.Y = info.dwCursorPosition.Y;
+    length = (ssize_t)info.srWindow.Right + 1;
   }
   else if (mode == 1) {
     // to start of line
@@ -614,10 +619,9 @@ static void term_erase_line( term_t* term, ssize_t mode ) {
     length  = info.dwCursorPosition.X;
   }
   else {
-    // entire line
-    start.X = 0;
-    start.Y = info.dwCursorPosition.Y;
-    length = (ssize_t)info.srWindow.Right + 1;
+    // to end of line    
+    length = (ssize_t)info.srWindow.Right - info.dwCursorPosition.X + 1;
+    start = info.dwCursorPosition;
   }
   FillConsoleOutputAttribute( term->hcon, term->hcon_default_attr, (DWORD)length, start, &written );
   FillConsoleOutputCharacterA( term->hcon, ' ', (DWORD)length, start, &written );

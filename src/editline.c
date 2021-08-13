@@ -208,7 +208,7 @@ static bool edit_refresh_rows_iter(
   if (row < info->first_row) return false;
   if (row > info->last_row)  return true; // should not occur
   
-  term_clear_line(term);
+  // term_clear_line(term);
   edit_write_prompt(info->env, info->eb, row, info->in_extra);
 
   //' write output
@@ -228,7 +228,11 @@ static bool edit_refresh_rows_iter(
       bbcode_print( info->env->bbcode, "[ic-dim]\xE2\x86\xB5" ); // return symbol
       #endif
     }
+    term_clear_to_end_of_line(term);
     term_writeln(term, "");
+  }
+  else {
+    term_clear_to_end_of_line(term);
   }
   return (row >= info->last_row);  
 }
@@ -316,6 +320,7 @@ static void edit_refresh(ic_env_t* env, editor_t* eb)
   buffer_mode_t bmode = term_set_buffer_mode(env->term, BUFFERED);        
 
   // back up to the first line
+  term_start_of_line(env->term);
   term_up(env->term, (eb->cur_row >= termh ? termh-1 : eb->cur_row) );
   // term_clear_lines_to_end(env->term);  // gives flicker in old Windows cmd prompt 
 
