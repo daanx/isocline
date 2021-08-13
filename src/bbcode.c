@@ -639,7 +639,7 @@ ic_private void bbcode_style_close( bbcode_t* bb, const char* fmt ) {
 static void bbcode_restrict_width( ssize_t start, width_t width, stringbuf_t* out, attrbuf_t* attr_out ) {
   if (width.w <= 0) return;
   assert(start <= sbuf_len(out));
-  assert(sbuf_len(out) == attrbuf_len(attr_out));
+  assert(attr_out == NULL || sbuf_len(out) == attrbuf_len(attr_out));
   const char*   s   = sbuf_string(out) + start;
   const ssize_t len = sbuf_len(out) - start;
   const ssize_t w   = str_column_width(s);

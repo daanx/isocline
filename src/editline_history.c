@@ -155,9 +155,14 @@ again:
   }
   edit_refresh(env, eb);
 
-  // Process commands
+  // Wait for input
   code_t c = (hentry == NULL ? KEY_ESC : tty_read(env->tty));
+  if (tty_term_resize_event(env->tty)) {
+    edit_resize(env, eb);
+  }
   sbuf_clear(eb->extra);
+
+  // Process commands
   if (c == KEY_ESC || c == KEY_BELL /* ^G */ || c == KEY_CTRL_C) {
     c = 0;  
     eb->disable_undo = false;

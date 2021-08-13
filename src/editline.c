@@ -403,18 +403,25 @@ static bool edit_resize(ic_env_t* env, editor_t* eb ) {
   ssize_t promptw, cpromptw;
   edit_get_prompt_width( env, eb, false, &promptw, &cpromptw );
   sbuf_insert_at(eb->input, sbuf_string(eb->hint), eb->pos); // insert used hint    
-  stringbuf_t* extra = sbuf_new(eb->mem);
-  if (extra != NULL) {
-    if (sbuf_len(eb->hint_help) > 0) {
-      bbcode_append(env->bbcode, sbuf_string(eb->hint_help), extra, NULL );
+  
+  // render extra (like a completion menu)
+  stringbuf_t* extra = NULL;
+  if (sbuf_len(eb->extra) > 0) {
+    extra = sbuf_new(eb->mem);
+    if (extra != NULL) {
+      if (sbuf_len(eb->hint_help) > 0) {
+        bbcode_append(env->bbcode, sbuf_string(eb->hint_help), extra, NULL);
+      }
+      bbcode_append(env->bbcode, sbuf_string(eb->extra), extra, NULL);
     }
-    bbcode_append(env->bbcode, sbuf_string(eb->extra), extra, NULL ); 
   }
-  rowcol_t rc;
+  rowcol_t rc = { 0 };
   const ssize_t rows_input = sbuf_get_wrapped_rc_at_pos( eb->input, eb->termw, newtermw, promptw, cpromptw, eb->pos, &rc );
-  rowcol_t rc_extra;
-  ssize_t rows_extra = sbuf_get_wrapped_rc_at_pos( eb->extra, eb->termw, newtermw, 0, 0, 0 /*pos*/, &rc_extra );
-  if (sbuf_len(eb->extra) == 0) rows_extra = 0;
+  rowcol_t rc_extra = { 0 };
+  ssize_t rows_extra = 0;
+  if (extra != NULL) {
+    rows_extra = sbuf_get_wrapped_rc_at_pos(extra, eb->termw, newtermw, 0, 0, 0 /*pos*/, &rc_extra);
+  }  
   ssize_t rows = rows_input + rows_extra;
   debug_msg("edit: resize: new rows: %zd, cursor row: %zd (previous: rows: %zd, cursor row %zd)\n", rows, rc.row, eb->cur_rows, eb->cur_row);
   
@@ -427,8 +434,8 @@ static bool edit_resize(ic_env_t* env, editor_t* eb ) {
   edit_refresh(env,eb); 
 
   // remove hint again
+  sbuf_delete_at(eb->input, eb->pos, sbuf_len(eb->hint));
   sbuf_free(extra);
-  sbuf_delete_at(eb->input, eb->pos, sbuf_len(eb->hint)); 
   return true;
 } 
 

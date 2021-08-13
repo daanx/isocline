@@ -10,7 +10,7 @@ set(CMAKE_CXX_STANDARD 11)
 option(IC_USE_CXX           "Build with C++ compiler" OFF)
 option(IC_DEBUG_UBSAN       "Build with undefined behaviour sanitizer" OFF)
 option(IC_DEBUG_ASAN        "Build with address sanitizer" OFF)
-option(IC_DEBUG_MSG         "Enable printing debug messages to isocline.debug.txt (only if also ISOCLINE_DEBUG=1 is set in the environment)" ON)
+option(IC_DEBUG_MSG         "Enable printing debug messages stderr (only if also ISOCLINE_DEBUG=1 is set in the environment)" ON)
 option(IC_SEPARATE_OBJS     "Compile with separate object files instead of one (warning: exports internal symbols)" OFF)
 
 set(ic_version "0.1")

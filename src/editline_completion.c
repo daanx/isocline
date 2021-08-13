@@ -159,6 +159,9 @@ again:
 
   // read here; if not a valid key, push it back and return to main event loop
   code_t c = tty_read(env->tty);
+  if (tty_term_resize_event(env->tty)) {
+    edit_resize(env, eb);
+  }
   sbuf_clear(eb->extra);
   
   // direct selection?
