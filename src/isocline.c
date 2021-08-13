@@ -497,9 +497,6 @@ static void ic_env_free(ic_env_t* env) {
   alloc_t* mem = env->mem;  
   mem_free(mem, env);
 
-  // and clear the sbuf cache
-  sbuf_clear_cache();
-
   // and finally the custom memory allocation structure
   mem_free(mem, mem);
 }

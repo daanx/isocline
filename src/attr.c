@@ -181,7 +181,7 @@ struct attrbuf_s {
 
 static bool attrbuf_ensure_capacity( attrbuf_t* ab, ssize_t needed ) {
   if (needed <= ab->capacity) return true;
-  ssize_t newcap = (ab->capacity <= 0 ? 64 : (ab->capacity > 1024 ? ab->capacity + 1024 : 2*ab->capacity));
+  ssize_t newcap = (ab->capacity <= 0 ? 240 : (ab->capacity > 1000 ? ab->capacity + 1000 : 2*ab->capacity));
   if (needed > newcap) { newcap = needed; }
   attr_t* newattrs = mem_realloc_tp( ab->mem, attr_t, ab->attrs, newcap );
   if (newattrs == NULL) return false;

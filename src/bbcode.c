@@ -718,7 +718,7 @@ ic_private ssize_t bbcode_process_tag( bbcode_t* bb, const char* s, const ssize_
       // scan pre to end tag
       attr_t attr = attr_update_with(*cur_attr, tag.attr);
       char pre[132];
-      if (snprintf(pre, 132, "[/%s]", idbuf) < sizeof(pre)) {
+      if (snprintf(pre, 132, "[/%s]", idbuf) < ssizeof(pre)) {
         const char* etag = strstr(end,pre);
         if (etag == NULL) {
           const ssize_t len = ic_strlen(end);

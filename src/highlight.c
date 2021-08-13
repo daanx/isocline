@@ -133,9 +133,9 @@ void ic_highlight_format(ic_highlight_env_t* henv, const char* s, ic_highlight_f
 #define MAX_NESTING (64)
 
 typedef struct brace_s {
-  char close;
-  bool at_cursor;
-  long pos;
+  char    close;
+  bool    at_cursor;
+  ssize_t pos;
 } brace_t;
 
 ic_private void highlight_match_braces(const char* s, attrbuf_t* attrs, ssize_t cursor_pos, const char* braces, attr_t match_attr, attr_t error_attr) 
