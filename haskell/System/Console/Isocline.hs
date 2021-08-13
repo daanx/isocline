@@ -19,7 +19,8 @@ which can provide an alternative to GNU Readline.
 Isocline works across Unix, Windows, and macOS, and relies on a minimal subset of ANSI escape sequences.
 It has a good multi-line editing mode (use shift/ctrl-enter) which is nice for inputting small functions etc.
 Other features include support for colors, history, completion, unicode, undo/redo, 
-incremental history search, inline hints, brace matching, syntax highlighting, etc.
+incremental history search, inline hints, brace matching, syntax highlighting, rich text using bbcode
+formatting, etc.
 
 Minimal example with history:
 
@@ -30,7 +31,7 @@ main :: IO ()
 main  = do putStrLn \"Welcome\"
            `setHistory` \"history.txt\" 200
            input \<- `readline` \"myprompt\"     -- full prompt becomes \"myprompt> \"
-           putStrLn (\"You wrote:\\n\" ++ input)
+           putFmtLn (\"[gray]You wrote:[\/gray]\\n\" ++ input)
 @
 
 Or using custom completions with an interactive loop:
@@ -41,7 +42,7 @@ import Data.Char( toLower )
 
 main :: IO ()
 main 
-  = do `setStyleColor' 'StylePrompt' 'AnsiMaroon'
+  = do `styleDef' "ic-prompt" "ansi-maroon"
        `setHistory` "history.txt" 200
        `enableAutoTab` `True`
        interaction
@@ -95,29 +96,23 @@ module System.Console.Isocline(
       wordCompleter,
 
       -- * Syntax Highlighting 
-      TextAttr(..),
-      makeAttrHighlighter,
-      attrDefault,
-      withAttr,
-      withAttrColor,
-      withAttrBgColor,
-      withAttrUnderline,
-      withAttrReverse,
-      withAttrDefault,
+      highlightFmt,
+      makeFmtHighlighter,
 
-      -- * Terminal
-      termInit, 
-      termDone,
-      withTerm,
-      termFlush,
-      termWrite,
-      termWriteLn,
-      termColor,
-      termBgColor,
-      termUnderline,
-      termReverse,
-      termReset,
+      -- * Rich text
+      Style, Fmt,      
+      style,
+      plain,
+      pre,
       
+      putFmt,
+      putFmtLn,
+
+      styleDef,
+      styleOpen,
+      styleClose,
+      withStyle,
+
       -- * Configuration
       setPromptMarker,
       enableAutoTab,
@@ -134,12 +129,7 @@ module System.Console.Isocline(
       enableBraceMatching,
       enableBraceInsertion,
       setMatchingBraces,
-      setInsertionBraces,
-      
-      Color(..), 
-      Style(..),
-      setStyleColor,
-      getStyleColor,
+      setInsertionBraces,    
             
       -- * Advanced
       setDefaultCompleter,      
@@ -165,14 +155,22 @@ module System.Console.Isocline(
       -- * Low-level highlighting
       HighlightEnv,      
       setDefaultHighlighter,      
-      setDefaultAttrHighlighter,
-      -- highlightEsc,
-      highlightColor,
-      highlightBgColor,
-      highlightUnderline,
-      highlightReverse,
-      highlightSetAttr,
-      highlightSetAttrDiff
+      setDefaultFmtHighlighter,
+      
+      -- * Low-level Terminal
+      termInit, 
+      termDone,
+      withTerm,
+      termFlush,
+      termWrite,
+      termWriteLn,
+      termColor,
+      termBgColor,
+      termColorAnsi,
+      termBgColorAnsi,
+      termUnderline,
+      termReverse,
+      termReset      
 
     ) where
 
@@ -235,7 +233,7 @@ unmaybe action
 -- | @readline prompt@: Read (multi-line) input from the user with rich editing abilities. 
 -- Takes the prompt text as an argument. The full prompt is the combination
 -- of the given prompt and the promp marker (@\"> \"@ by default) .
--- See also 'readlineEx', 'readlineMaybe', 'enableMultiline', 'setStyleColor', and 'setPromptMarker'.
+-- See also 'readlineEx', 'readlineMaybe', 'enableMultiline', and 'setPromptMarker'.
 readline :: String -> IO String  
 readline prompt
   = unmaybe $ readlineMaybe prompt
@@ -253,17 +251,17 @@ readlineMaybe prompt
 -- uses the given @mbCompleter@ function to complete words on @tab@ (instead of the default completer). 
 -- and the given @mbHighlighter@ function to highlight the input (instead of the default highlighter).
 -- See also 'readline' and 'readlineExMaybe'.
-readlineEx :: String -> Maybe (CompletionEnv -> String -> IO ()) -> Maybe (String -> [TextAttr]) -> IO String
+readlineEx :: String -> Maybe (CompletionEnv -> String -> IO ()) -> Maybe (String -> Fmt) -> IO String
 readlineEx prompt completer highlighter
   = unmaybe $ readlineExMaybe prompt completer highlighter
 
 -- | As 'readlineEx' but returns 'Nothing' on end-of-file or other errors (ctrl-C/ctrl-D).
 -- See also 'readlineMaybe'.
-readlineExMaybe :: String -> Maybe (CompletionEnv -> String -> IO ()) -> Maybe (String -> [TextAttr]) -> IO (Maybe String) 
+readlineExMaybe :: String -> Maybe (CompletionEnv -> String -> IO ()) -> Maybe (String -> Fmt) -> IO (Maybe String) 
 readlineExMaybe prompt completer mbhighlighter
   = readlinePrimMaybe prompt completer (case mbhighlighter of
                                           Nothing -> Nothing
-                                          Just hl -> Just (makeAttrHighlighter hl))
+                                          Just hl -> Just (makeFmtHighlighter hl))
 
 -- | @readlinePrim prompt mbCompleter mbHighlighter@: as 'readline' but
 -- uses the given @mbCompleter@ function to complete words on @tab@ (instead of the default completer). 
@@ -630,19 +628,8 @@ hasCompletions (CompletionEnv rpc)
 
 foreign import ccall ic_set_default_highlighter     :: FunPtr CHighlightFun -> Ptr () -> IO ()
 foreign import ccall "wrapper" ic_make_highlight_fun:: CHighlightFun -> IO (FunPtr CHighlightFun)
+foreign import ccall ic_highlight                   :: Ptr IcHighlightEnv -> CLong -> CLong -> CString -> IO ()
 
-foreign import ccall ic_highlight_color     :: Ptr IcHighlightEnv -> CLong -> CInt -> IO ()
-foreign import ccall ic_highlight_bgcolor   :: Ptr IcHighlightEnv -> CLong -> CInt -> IO ()
-foreign import ccall ic_highlight_underline :: Ptr IcHighlightEnv -> CLong -> CInt -> IO ()
-foreign import ccall ic_highlight_reverse   :: Ptr IcHighlightEnv -> CLong -> CInt -> IO ()
-
-{-
-type CHighlightEscFun = CString -> Ptr () -> IO CString
-type HighlightEscFun  = String -> String
-
-foreign import ccall ic_highlight_esc       :: Ptr IcHighlightEnv -> CString -> FunPtr CHighlightEscFun -> Ptr () -> IO ()
-foreign import ccall "wrapper" ic_make_highlight_esc_fun:: CHighlightEscFun -> IO (FunPtr CHighlightEscFun)
--}
 
 -- | Set a syntax highlighter.
 -- There can only be one highlight function, setting it again disables the previous one.
@@ -665,136 +652,129 @@ makeCHighlighter (Just highlighter)
       = do input <- peekUTF8String0 cinput
            highlighter (HighlightEnv henv) input
 
-{-
--- | Use an escape sequence highlighter from inside a highlighter callback.
-highlightEsc :: HighlightEnv -> String -> (String -> String) -> IO ()
-highlightEsc (HighlightEnv henv) input highlight
+
+-- | @highlight henv pos len style@: Set the style of @len@ characters
+-- starting at position @pos@ in the input 
+highlight :: HighlightEnv -> Int -> Int -> String -> IO ()
+highlight (HighlightEnv henv) pos len style
+  = withUTF8String0 style $ \cstyle ->
+    do ic_highlight henv (clong (-pos)) (clong (-len)) cstyle
+
+
+
+type CHighlightFmtFun = CString -> Ptr () -> IO CString
+type HighlightFmtFun  = String -> String
+
+foreign import ccall ic_highlight_format     :: Ptr IcHighlightEnv -> CString -> FunPtr CHighlightFmtFun -> Ptr () -> IO ()
+foreign import ccall "wrapper" ic_make_highlight_fmt_fun:: CHighlightFmtFun -> IO (FunPtr CHighlightFmtFun)
+
+-- | A style for formatted strings ('Fmt').
+-- For example, a style can be @"red"@ or @"b #7B3050"@. 
+-- See the full list of valid [properties](https://github.com/daanx/isocline#bbcode-format)
+type Style = String
+
+-- | A string with [bbcode](https://github.com/daanx/isocline#bbcode-format) formatting.
+-- For example @"[red]this is red[\/]"@.n
+type Fmt   = String
+
+-- | Use an rich text formatted highlighter from inside a highlighter callback.
+highlightFmt :: HighlightEnv -> String -> (String -> Fmt) -> IO ()
+highlightFmt (HighlightEnv henv) input highlight
   = withUTF8String0 input $ \cinput ->
-    do cfun <- ic_make_highlight_esc_fun wrapper
-       ic_highlight_esc henv cinput cfun nullPtr
+    do cfun <- ic_make_highlight_fmt_fun wrapper
+       ic_highlight_format henv cinput cfun nullPtr
   where
     wrapper cinput carg
       = do input <- peekUTF8String0 cinput
-           withUTF8String0 (highlight input) $ \coutput ->
+           withUTF8String0 ((highlight input)) $ \coutput ->
              ic_strdup coutput
--}
-
--- | @highlightColor henv pos color@: Set the color of a character
--- at position @pos@ in the input (from inside a highlighter).
--- All following characters will have this color until another
--- color is set again.
-highlightColor :: HighlightEnv -> Int -> Color -> IO ()
-highlightColor (HighlightEnv henv) pos color 
-  = do ic_highlight_color henv (clong (-pos)) (ccolor color)
-
--- | @highlightBgColor henv pos bgcolor@: Set the background color of a character
--- at position @pos@ in the input (from inside a highlighter).
--- All following characters will have this background color until another
--- background color is set again.
-highlightBgColor :: HighlightEnv -> Int -> Color -> IO ()
-highlightBgColor (HighlightEnv henv) pos color 
-  = do ic_highlight_bgcolor henv (clong (-pos)) (ccolor color)
-
--- | @highlightUnderline henv pos bgcolor@: Set underline of a character
--- at position @pos@ in the input (from inside a highlighter).
--- All following characters will have this underlining until another
--- underlining is set again.
-highlightUnderline :: HighlightEnv -> Int -> Bool -> IO ()
-highlightUnderline (HighlightEnv henv) pos enable
-  = do ic_highlight_underline henv (clong (-pos)) (cbool enable) 
-
--- | @highlightReverse henv pos bgcolor@: Set reverse video mode of a character
--- at position @pos@ in the input (from inside a highlighter).
--- All following characters will have this reverse mode until another
--- reverse mode is set again.
-highlightReverse :: HighlightEnv -> Int -> Bool -> IO ()
-highlightReverse (HighlightEnv henv) pos enable
-  = do ic_highlight_reverse henv (clong (-pos)) (cbool enable) 
 
 
--- | Text attributes for a single character.
-data TextAttr = TextAttr{ 
-    attrColor     :: Color, -- ^ color
-    attrBgColor   :: Color, -- ^ background color
-    attrUnderline :: Bool,  -- ^ underline
-    attrReverse   :: Bool   -- ^ reverse video
-  } 
-  deriving (Show)
+-- | Style a string, e.g. @style "b red" "bold and red"@ (which is equivalent to @"[b red]bold and red[\/]"@).
+-- See the repo for a full description of all [styles](https://github.com/daanx/isocline#bbcode-format).
+style :: Style -> Fmt -> Fmt
+style st s
+  = if null st then s else ("[" ++ st ++ "]" ++ s ++ "[/]") 
 
--- | Default text attribute.
-attrDefault :: TextAttr
-attrDefault = TextAttr AnsiDefault AnsiDefault False False 
+-- | Escape a string so no tags are interpreted as formatting.
+plain :: String -> Fmt
+plain s
+  = if (any (\c -> (c == '[' || c == ']')) s) then "[!pre]" ++ s ++ "[/pre]" else s
 
--- | Use the given text attribute for each character in the string. 
-withAttr :: TextAttr -> String -> [TextAttr]
-withAttr attr s = map (const attr) s
-
--- | Use the given color for each character in the string
-withAttrColor :: Color -> String -> [TextAttr]
-withAttrColor color s = withAttr (attrDefault{ attrColor = color }) s
-
--- | Use the given background color for each character in the string
-withAttrBgColor :: Color -> String -> [TextAttr]
-withAttrBgColor color s = withAttr (attrDefault{ attrBgColor = color }) s
-
--- | Use underline for each character in the string
-withAttrUnderline :: String -> [TextAttr]
-withAttrUnderline  s = withAttr (attrDefault{ attrUnderline = True}) s
-
--- | Use reverse video for each character in the string
-withAttrReverse :: String -> [TextAttr]
-withAttrReverse  s = withAttr (attrDefault{ attrReverse = True}) s
-
--- | Use the default text attributes for each character in the string.
-withAttrDefault :: String -> [TextAttr]
-withAttrDefault s = withAttr attrDefault s
+-- | Style a string that is printed as is without interpreting markup inside it (using `plain`).
+pre :: Style -> String -> Fmt
+pre st s
+  = style st (plain s)
 
 
--- | @highlightSetAttrDiff henv pos current attr@: Set new text attribute @attr@ 
--- at position @pos@; but only set any properties
--- that differ from the @current@ text attributes.
-highlightSetAttrDiff :: HighlightEnv -> Int -> TextAttr -> TextAttr -> IO ()
-highlightSetAttrDiff henv pos current attr
-  = do when (attrColor current /= attrColor attr)         $ highlightColor henv pos (attrColor attr)
-       when (attrBgColor current /= attrBgColor attr)     $ highlightBgColor henv pos (attrBgColor attr)
-       when (attrUnderline current /= attrUnderline attr) $ highlightUnderline henv pos (attrUnderline attr)
-       when (attrReverse current /= attrReverse attr)     $ highlightReverse henv pos (attrReverse attr)
-       return ()
 
--- | @highlightSetAttr henv pos attr@: Set new text attribute @attr@ 
--- at position @pos@. 
-highlightSetAttr :: HighlightEnv -> Int -> TextAttr -> IO ()
-highlightSetAttr henv pos (TextAttr color bgcolor underline reverse) 
-  = do -- todo: add one function to set all at once at the C side
-       highlightColor henv pos color
-       highlightBgColor henv pos bgcolor
-       highlightUnderline henv pos underline
-       highlightReverse henv pos reverse
-
--- | Set a syntax highlighter that uses a pure function that returns a list
--- of text attributes for each character in the input.
+-- | Set a syntax highlighter that uses a pure function that returns a bbcode
+-- formatted string (using 'style', 'plain' etc). See 'highlightFmt' for more information.
 -- There can only be one highlight function, setting it again disables the previous one.
-setDefaultAttrHighlighter :: (String -> [TextAttr]) -> IO ()
-setDefaultAttrHighlighter highlight 
-  = setDefaultHighlighter (makeAttrHighlighter highlight)
+setDefaultFmtHighlighter :: (String -> Fmt) -> IO ()
+setDefaultFmtHighlighter highlight 
+  = setDefaultHighlighter (makeFmtHighlighter highlight)
 
 
--- | Create a highlighter from a pure function that returns a list
--- of text attributes for each character in the input.
-makeAttrHighlighter :: (String -> [TextAttr]) -> (HighlightEnv -> String -> IO ()) 
-makeAttrHighlighter highlight
-  = highlightWrapper
-  where 
-    highlightWrapper :: HighlightEnv -> String -> IO ()
-    highlightWrapper henv input
-      = do let attrs = highlight input               
-           foldM (setAttr henv) attrDefault (zip [0..] attrs)
-           return ()
-    
-    setAttr :: HighlightEnv -> TextAttr -> (Int,TextAttr) -> IO TextAttr
-    setAttr henv current (pos,attr) 
-      = do highlightSetAttrDiff henv pos current attr
-           return attr
+-- | Create a highlighter from a pure function that use bbcode formatting.
+-- The returned formatted string should preserve all characters from the original input.
+makeFmtHighlighter :: (String -> Fmt) -> (HighlightEnv -> String -> IO ()) 
+makeFmtHighlighter highlight henv input
+  = highlightFmt henv input highlight
+
+
+
+----------------------------------------------------------------------------
+-- Print rich text
+----------------------------------------------------------------------------
+
+foreign import ccall ic_print           :: CString -> IO ()
+foreign import ccall ic_println         :: CString -> IO ()
+foreign import ccall ic_style_def       :: CString -> CString -> IO ()
+foreign import ccall ic_style_open      :: CString -> IO ()
+foreign import ccall ic_style_close     :: IO ()
+
+-- | Output rich formatted text containing [bbcode](https://github.com/daanx/isocline#bbcode-format).
+-- For example: @putFmt \"[b]bold [red]and red[\/][\/]\"@
+-- All unclosed tags are automatically closed (but see also 'styleOpen').
+-- See the repo for more information about [formatted output](https://github.com/daanx/isocline#formatted-output).
+putFmt :: Fmt -> IO ()
+putFmt s 
+  = withUTF8String0 s $ \cs -> 
+    do ic_print cs
+
+-- | Output rich formatted text containing bbcode's ending with a newline.
+putFmtLn :: Fmt -> IO ()
+putFmtLn s 
+  = withUTF8String0 s $ \cs -> 
+    do ic_println cs
+
+-- | Define (or redefine) a style.
+-- For example @styleDef "warning" "crimon underline"@,
+-- and then use it as @'putFmtLn' "[warning]this is a warning[/]"@. 
+-- This can be very useful for theming your application with semantic styles.
+-- See also [formatted output](https://github.com/daanx/isocline#formatted-output)
+styleDef :: String -> Style -> IO ()
+styleDef name style
+  = withUTF8String0 name $ \cname ->
+    withUTF8String0 style $ \cstyle ->
+    do ic_style_def cname cstyle
+
+-- | Open a style that is active for all 'putFmt' and 'putFmtLn' until it is closed again (`styleClose`).
+styleOpen :: Style -> IO ()
+styleOpen style
+  = withUTF8String0 style $ \cstyle ->
+    do ic_style_open cstyle        
+
+-- | Close a previously opened style.
+styleClose :: IO ()
+styleClose 
+  = ic_style_close
+
+-- | Use a style over an action.
+withStyle :: Style -> IO a -> IO a
+withStyle style action
+  = bracket (styleOpen style) (\() -> styleClose) (\() -> action) 
 
 
 ----------------------------------------------------------------------------
@@ -806,10 +786,11 @@ foreign import ccall ic_term_done       :: IO ()
 foreign import ccall ic_term_flush      :: IO ()
 foreign import ccall ic_term_write      :: CString -> IO ()
 foreign import ccall ic_term_writeln    :: CString -> IO ()
-foreign import ccall ic_term_color      :: CInt -> IO ()
-foreign import ccall ic_term_bgcolor    :: CInt -> IO ()
 foreign import ccall ic_term_underline  :: CCBool -> IO ()
 foreign import ccall ic_term_reverse    :: CCBool -> IO ()
+foreign import ccall ic_term_color_ansi :: CCBool -> CInt -> IO ()
+foreign import ccall ic_term_color_rgb  :: CCBool -> CInt -> IO ()
+foreign import ccall ic_term_style      :: CString -> IO ()
 foreign import ccall ic_term_reset      :: IO ()
 
 -- | Initialize the terminal for the @term@ functions.
@@ -848,15 +829,34 @@ termWriteLn :: String -> IO ()
 termWriteLn s
   = withUTF8String0 s $ \cs -> ic_term_writeln cs  
 
--- | Set the terminal text color. The color is auto adjusted for terminals with less colors.
-termColor :: Color -> IO ()
+-- | Set the terminal text color as a hexadecimal number @0x@rrggbb. 
+-- The color is auto adjusted for terminals with less colors.
+termColor :: Int -> IO ()
 termColor color
-  = ic_term_color (ccolor color)
+  = ic_term_color_rgb (cbool True) (toEnum color)
 
 -- | Set the terminal text background color. The color is auto adjusted for terminals with less colors.
-termBgColor :: Color -> IO ()
+termBgColor :: Int -> IO ()
 termBgColor color
-  = ic_term_bgcolor (ccolor color)  
+  = ic_term_color_rgb (cbool False) (toEnum color)
+
+-- | Set the terminal text color as an ANSI palette color (between @0@ and @255@). Use 256 for the default.
+-- The color is auto adjusted for terminals with less colors.
+termColorAnsi :: Int -> IO ()
+termColorAnsi color
+  = ic_term_color_ansi (cbool True) (toEnum color)
+
+-- | Set the terminal text background color as an ANSI palette color (between @0@ and @255@). Use 256 for the default.
+-- The color is auto adjusted for terminals with less colors.
+termBgColorAnsi :: Int -> IO ()
+termBgColorAnsi color
+  = ic_term_color_ansi (cbool False) (toEnum color)
+
+-- | Set the terminal attributes from a style
+termStyle :: Style -> IO ()
+termStyle style
+  = withUTF8String0 style $ \cstyle ->
+    do ic_term_style cstyle
 
 -- | Set the terminal text underline mode.
 termUnderline :: Bool -> IO ()
@@ -877,8 +877,6 @@ termReset
 ----------------------------------------------------------------------------
 -- Configuration
 ----------------------------------------------------------------------------
-foreign import ccall ic_set_style_color   :: CInt -> CInt -> IO ()
-foreign import ccall ic_get_style_color   :: CInt -> IO CInt
 foreign import ccall ic_set_prompt_marker :: CString -> CString -> IO ()
 foreign import ccall ic_get_prompt_marker :: IO CString
 foreign import ccall ic_get_continuation_prompt_marker :: IO CString
@@ -906,16 +904,6 @@ uncbool :: IO CCBool -> IO Bool
 uncbool action
   = do i <- action
        return (i /= toEnum 0)
-
-
-ccolor :: Color -> CInt
-ccolor clr = toEnum (fromEnum clr)
-
-unccolor :: IO CInt -> IO Color
-unccolor action
-  = do i <- action
-       return (toEnum (fromEnum i))
-
 
 clong :: Int -> CLong
 clong l = toEnum l
@@ -1022,32 +1010,6 @@ setInsertionBraces bracePairs
   = withUTF8String0 bracePairs $ \cbracePairs ->
     do ic_set_insertion_braces cbracePairs
 
--- | Styles for user interface elements
-data Style
-  = StylePrompt   -- ^ style for the prompt (text and marker) (`AnsiGreen` by default)
-  | StyleInfo     -- ^ info: for example, numbers in the completion menu (`AnsiDarkGray` by default).
-  | StyleDiminish -- ^ diminish: for example, non matching parts in a history search (`AnsiLightGray` by default)
-  | StyleEmphasis -- ^ emphasis: for example, the matching part in a history search (@'RGB' 0xFFFFD7@ by default).
-  | StyleHint     -- ^ hint: for inline hints (`AnsiDarkGray` by default).
-  | StyleError    -- ^ errors: for example for unmatched braces (`AnsiRed` by default)
-  | StyleBraceMatch -- ^ highlight matching braces (@'RGB' 0xFFD75F@ by default)
-  deriving (Show,Eq,Enum)
-
-cstyle :: Style -> CInt
-cstyle style = toEnum (fromEnum style)
-
--- | Set the color used for interface elements (like the prompt).
--- Use `ColorNone` to use the default color. (but `AnsiDefault` for the default terminal text color!
--- See also 'Style'.
-setStyleColor :: Style -> Color -> IO ()
-setStyleColor style color
-  = ic_set_style_color (cstyle style) (ccolor color)
-
--- | Get the color used for interface elements.
--- See also 'Style'.
-getStyleColor :: Style -> IO Color
-getStyleColor style 
-  = unccolor $ ic_get_style_color (cstyle style) 
 
 -- | Disable or enable automatic indentation to line up the
 -- multiline prompt marker with the initial prompt marker (enabled by default).
@@ -1075,87 +1037,6 @@ setHintDelay :: Int -> IO Int
 setHintDelay ms
   = do cl <- ic_set_hint_delay (toEnum ms)
        return (fromEnum cl)
-
-----------------------------------------------------------------------------
--- Colors
-----------------------------------------------------------------------------
-
--- | Terminal colors. Used for example in 'setStyleColor'.
--- On terminals with less colors, RGB values are auto translated to the closest ANSI colors (256 or 16 color).
-data Color  = AnsiBlack
-            | AnsiMaroon
-            | AnsiGreen
-            | AnsiOrange
-            | AnsiNavy
-            | AnsiPurple
-            | AnsiTeal
-            | AnsiLightGray
-            | AnsiDarkGray
-            | AnsiRed
-            | AnsiLime
-            | AnsiYellow
-            | AnsiBlue
-            | AnsiMagenta
-            | AnsiCyan
-            | AnsiWhite
-            | AnsiDefault            -- ^ Default terminal text color
-            | ColorNone              -- ^ No color (often used for a default color)
-            | RGB Int                -- ^ RGB hex value
-            deriving (Show,Eq,Ord)
-
--- | Create a color from an RGB hex value @0x@RRGGBB
-rgb :: Int -> Color 
-rgb hex = RGB (hex `mod` 0x1000000)
-
--- | Create a color from separate red, green, and blue values in the range @0@ - @0xFF@.
-rgbx :: Int -> Int -> Int -> Color
-rgbx r g b = rgb ((65535*(r`mod`0xFF)) + (256*(g`mod`0xFF)) + (b`mod`0xFF))
-
-instance Enum Color where
-  fromEnum color 
-    = case color of
-        ColorNone       -> 0
-        RGB rgb         -> (0x1000000 + rgb)
-        AnsiBlack       -> 30
-        AnsiMaroon      -> 31
-        AnsiGreen       -> 32
-        AnsiOrange      -> 33
-        AnsiNavy        -> 34
-        AnsiPurple      -> 35
-        AnsiTeal        -> 36
-        AnsiLightGray   -> 37
-        AnsiDarkGray    -> 90
-        AnsiRed         -> 91
-        AnsiLime        -> 92
-        AnsiYellow      -> 93
-        AnsiBlue        -> 94
-        AnsiMagenta     -> 95
-        AnsiCyan        -> 96
-        AnsiWhite       -> 97
-        AnsiDefault     -> 39
-
-  toEnum color 
-    = case color of
-        30 -> AnsiBlack
-        31 -> AnsiMaroon
-        32 -> AnsiGreen
-        33 -> AnsiOrange
-        34 -> AnsiNavy
-        35 -> AnsiPurple
-        36 -> AnsiTeal
-        37 -> AnsiLightGray
-        90 -> AnsiDarkGray
-        91 -> AnsiRed
-        92 -> AnsiLime
-        93 -> AnsiYellow
-        94 -> AnsiBlue
-        95 -> AnsiMagenta
-        96 -> AnsiCyan
-        97 -> AnsiWhite
-        39 -> AnsiDefault
-        _  -> if (color >= 0x1000000 && color <= 0x1FFFFFF) 
-                then RGB (color - 0x1000000)
-                else ColorNone
 
 
 ----------------------------------------------------------------------------

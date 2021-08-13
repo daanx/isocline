@@ -19,6 +19,9 @@ build-type:     Simple
 extra-source-files:
     readme.md
     haskell/readme.md
+    src/attr.c
+    src/bbcode.c
+    src/bbcode_colors.c
     src/common.c
     src/completers.c
     src/completions.c
@@ -32,11 +35,12 @@ extra-source-files:
     src/stringbuf.c
     src/term.c
     src/term_color.c
-    src/term_color_cie.c
     src/tty.c
     src/tty_esc.c
     src/undo.c
     src/wcwidth.c
+    src/attr.h
+    src/bbcode.h
     src/common.h
     src/completions.h
     src/env.h

@@ -400,7 +400,7 @@ ic_public void ic_term_reset( void )  {
   term_attr_reset(env->term);
 }
 
-ic_public void ic_term_set_style( const char* style ) {
+ic_public void ic_term_style( const char* style ) {
   ic_env_t* env = ic_get_env(); if (env==NULL) return;
   if (env->term == NULL || env->bbcode == NULL) return;
   term_set_attr( env->term, bbcode_style(env->bbcode, style));
@@ -412,34 +412,34 @@ ic_public int ic_term_get_color_bits(void) {
   return term_get_color_bits(env->term);
 }
 
-ic_public void ic_term_set_bold(bool enable) {
+ic_public void ic_term_bold(bool enable) {
   ic_env_t* env = ic_get_env(); if (env==NULL || env->term==NULL) return;
   term_bold(env->term, enable);
 }
 
-ic_public void ic_term_set_underline(bool enable) {
+ic_public void ic_term_underline(bool enable) {
   ic_env_t* env = ic_get_env(); if (env==NULL || env->term==NULL) return;
   term_underline(env->term, enable);
 }
 
-ic_public void ic_term_set_italic(bool enable) {
+ic_public void ic_term_italic(bool enable) {
   ic_env_t* env = ic_get_env(); if (env==NULL || env->term==NULL) return;
   term_italic(env->term, enable);
 }
 
-ic_public void ic_term_set_reverse(bool enable) {
+ic_public void ic_term_reverse(bool enable) {
   ic_env_t* env = ic_get_env(); if (env==NULL || env->term==NULL) return;
   term_reverse(env->term, enable);
 }
 
-ic_public void ic_term_set_color_ansi(bool foreground, int ansi_color) {
+ic_public void ic_term_color_ansi(bool foreground, int ansi_color) {
   ic_env_t* env = ic_get_env(); if (env==NULL || env->term==NULL) return;
   ic_color_t color = color_from_ansi256(ansi_color);
   if (foreground) { term_color(env->term, color); }
              else { term_bgcolor(env->term, color); }
 }
 
-ic_public void ic_term_set_color_rgb(bool foreground, uint32_t hcolor) {
+ic_public void ic_term_color_rgb(bool foreground, uint32_t hcolor) {
   ic_env_t* env = ic_get_env(); if (env==NULL || env->term==NULL) return;
   ic_color_t color = ic_rgb(hcolor);
   if (foreground) { term_color(env->term, color); }

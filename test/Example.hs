@@ -12,20 +12,20 @@ import Control.Monad( when )
 
 main :: IO ()
 main
-  = do putStrLn welcome                 
+  = do styleDef "kbd" "gray underline"     -- define a style
+       styleDef "ic-prompt" "#00A060"      -- or redefine a system style
+       putFmtLn welcome                 
        setHistory "history.txt" 200        -- history
        enableAutoTab True                  -- complete as far as possible
-       setStyleColor StylePrompt (RGB 0x00A060)       
        interaction
   where
-    welcome = "\nHaskell Isocline sample program:\n" ++
-              "- Type 'exit' to quit. (or use ctrl+d).\n" ++
-              "- Press F1 for help on editing commands.\n" ++
-              "- Use shift+tab for multiline input (or ctrl-enter).\n" ++
+    welcome = "\n[b]Isocline[/b] sample program:\n" ++
+              "- Type 'exit' to quit. (or use [kbd]ctrl-d[/]).\n" ++
+              "- Press [kbd]F1[/] for help on editing commands.\n" ++
+              "- Use [kbd]shift-tab[/] for multiline input. (or [kbd]ctrl-enter[/], or [kbd]ctrl-j[/])\n" ++
               "- Type 'p' (or 'id', 'f', or 'h') followed by tab for completion.\n" ++
               "- Type 'fun' or 'int' to see syntax highlighting\n" ++
-              "- Use ctrl+r to search the history.\n" ++
-              "\n"
+              "- Use [kbd]ctrl-r[/] to search the history.\n"
 
 interaction :: IO ()
 interaction 
@@ -73,22 +73,22 @@ wordCompletions input0
 -- Parsec or regex's for syntax highlighting
 ----------------------------------------------------------------------------       
 
-highlighter :: String -> [TextAttr]
+highlighter :: String -> Fmt
 highlighter input
   = tokenize input
   where
     tokenize [] = []
-    tokenize s@('/':'/':_) 
-      = let (t,ds) = span (/='\n') s in withAttrColor (RGB 0x408700) t ++ tokenize ds
+    tokenize s@('/':'/':_)  -- comment    
+      = let (t,ds) = span (/='\n') s in style "#408700" (plain t) ++ tokenize ds
     tokenize s@(c:cs)
       | isAlpha c   = let (t,ds) = span isAlpha s
                       in (if (t `elem` ["fun","return","if","then","else"]) 
-                             then withAttrColor (RGB 0xFFFFAF) t 
+                             then style "keyword" t   -- builtin style
                            else if (t `elem` ["int","double","char","void"])
-                             then withAttrColor (RGB 0x00AFAF) t 
-                             else withAttrDefault t)
+                             then style "#00AFAF" t   -- or use specific colors
+                             else plain t)          -- never lose input, all original characters must be present!
                          ++ tokenize ds
       | isDigit c   = let (t,ds) = span isDigit s 
-                      in withAttrColor AnsiPurple t ++ tokenize ds
-      | otherwise   = withAttrDefault [c] ++ tokenize cs
+                      in style "number" t ++ tokenize ds
+      | otherwise   = plain [c] ++ tokenize cs      -- never lose input
 

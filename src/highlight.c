@@ -45,27 +45,43 @@ ic_private void highlight( alloc_t* mem, bbcode_t* bb, const char* s, attrbuf_t*
 // Client interface
 //-------------------------------------------------------------
 
-static long pos_adjust( ic_highlight_env_t* henv, long pos ) {
-  if (pos >= henv->input_len) return -1;
-  if (pos >= 0) return pos;
-  if (henv->input == NULL) return -1;
-  // negative `pos` is used as the unicode character position (for easy interfacing with Haskell)
-  long ucount = -pos;
-  long cpos = 0;
-  long upos = 0;
-  while ( upos < ucount ) {
-    ssize_t next = str_next_ofs(henv->input, henv->input_len, cpos, NULL);
-    if (next <= 0) return -1;
-    upos++;
-    cpos += (long)next;
+static void pos_adjust( ic_highlight_env_t* henv, long* ppos, long* plen ) {
+  long pos = *ppos;
+  long len = *plen;
+  if (pos >= henv->input_len) return;
+  if (pos >= 0 && len >= 0) return;
+  if (henv->input == NULL) return;
+  if (pos < 0) {
+    // negative `pos` is used as the unicode character position (for easy interfacing with Haskell)
+    long ucount = -pos;
+    long cpos = 0;
+    long upos = 0;
+    while ( upos < ucount ) {
+      ssize_t next = str_next_ofs(henv->input, henv->input_len, cpos, NULL);
+      if (next <= 0) return;
+      upos++;
+      cpos += (long)next;
+    }
+    *ppos = pos = cpos;
   }
-  // assert(cpos < henv->attr_len);
-  return cpos;
+  if (len < 0) {
+    // negative `len` is used as a unicode character length
+    len = -len;
+    long ucount = 0;
+    long clen   = 0;    
+    while (ucount < len) {
+      ssize_t next = str_next_ofs(henv->input, henv->input_len, pos + clen, NULL);
+      if (next <= 0) return;
+      ucount++;
+      clen += (long)next;
+    }
+    *plen = len = clen;
+  } 
 }
 
 static void highlight_attr(ic_highlight_env_t* henv, long pos, long count, attr_t attr ) {
   if (henv==NULL) return;
-  pos = pos_adjust(henv,pos);
+  pos_adjust(henv,&pos,&count);
   if (pos < 0 || count <= 0) return;
   attrbuf_update_at(henv->attrs, pos, count, attr);
 }

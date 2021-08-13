@@ -45,9 +45,6 @@ int main()
   // try to auto complete after a completion as long as the completion is unique
   ic_enable_auto_tab(true );
 
-  // change interface colors (prompt, info, diminish, emphasis, hint, error, and bracematch)
-  // ic_set_style_color( IC_STYLE_PROMPT, IC_ANSI_MAROON);
-  
   // run until empty input
   char* input;
   while((input = ic_readline("isoclinε")) != NULL)    // ctrl-d returns NULL (as well as errors)
@@ -137,15 +134,15 @@ static void highlighter(ic_highlight_env_t* henv, const char* input, void* arg) 
     static const char* types[]    = { "int", "double", "char", "void", NULL };
     long tlen;  // token length
     if ((tlen = ic_match_any_token(input, i, &ic_char_is_idletter, keywords)) > 0) {
-      ic_highlight(henv, i, tlen, "keyword"); //#FFFFAF");  // rgb colors are auto translated on terminals with less color support
+      ic_highlight(henv, i, tlen, "keyword"); 
       i += tlen;
     }
     else if ((tlen = ic_match_any_token(input, i, &ic_char_is_idletter, controls)) > 0) {
-      ic_highlight(henv, i, tlen, "control"); //#FFFFAF");  // rgb colors are auto translated on terminals with less color support
+      ic_highlight(henv, i, tlen, "#FFFFAF"); // or use the `control` style
       i += tlen;
     }
     else if ((tlen = ic_match_any_token(input, i, &ic_char_is_idletter, types)) > 0) {
-      ic_highlight(henv, i, tlen, "type"); //"#00AFAF");
+      ic_highlight(henv, i, tlen, "type"); 
       i += tlen;
     }
     else if ((tlen = ic_is_token(input, i, &ic_char_is_digit)) > 0) {  // digits
@@ -155,7 +152,7 @@ static void highlighter(ic_highlight_env_t* henv, const char* input, void* arg) 
     else if (ic_starts_with(input + i,"//")) {       // line comment
       tlen = 2;
       while (i+tlen < len && input[i+tlen] != '\n') { tlen++; }
-      ic_highlight(henv, i, tlen, "comment"); //"#408700");
+      ic_highlight(henv, i, tlen, "comment"); // or use a spefic color like "#408700"
       i += tlen;
     }
     else {
