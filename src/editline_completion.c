@@ -173,6 +173,7 @@ again:
     }
   }
 
+  // process commands
   if (c == KEY_DOWN || c == KEY_TAB) {
     selected++;
     if (selected >= count_displayed) {

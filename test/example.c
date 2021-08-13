@@ -141,7 +141,7 @@ static void highlighter(ic_highlight_env_t* henv, const char* input, void* arg) 
       i += tlen;
     }
     else if ((tlen = ic_match_any_token(input, i, &ic_char_is_idletter, controls)) > 0) {
-      ic_highlight(henv, i, tlen, "#FFFFAF"); // or use the `control` style
+      ic_highlight(henv, i, tlen, "plum");      // html color (or use the `control` style)
       i += tlen;
     }
     else if ((tlen = ic_match_any_token(input, i, &ic_char_is_idletter, types)) > 0) {
@@ -152,10 +152,10 @@ static void highlighter(ic_highlight_env_t* henv, const char* input, void* arg) 
       ic_highlight(henv, i, tlen, "number");
       i += tlen;
     }
-    else if (ic_starts_with(input + i,"//")) {       // line comment
+    else if (ic_starts_with(input + i,"//")) {  // line comment
       tlen = 2;
       while (i+tlen < len && input[i+tlen] != '\n') { tlen++; }
-      ic_highlight(henv, i, tlen, "comment"); // or use a spefic color like "#408700"
+      ic_highlight(henv, i, tlen, "comment");   // or use a spefic color like "#408700"
       i += tlen;
     }
     else {
