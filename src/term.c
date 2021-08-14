@@ -726,7 +726,9 @@ static void term_write_esc( term_t* term, const char* s, ssize_t len ) {
   ssize_t col;
 
   if (s[1] == '[') {
-    switch (s[len-1]) {
+    char last = s[len-1];
+    if (last == '\x02'){ last = s[len-2]; }
+    switch (last) {
     case 'A':
       term_move_cursor(term, -1, 0, esc_param(s+2, 1));
       break;
