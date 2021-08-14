@@ -171,7 +171,6 @@ ic_private bool skip_esc( const char* s, ssize_t len, ssize_t* esclen ) {
           (!finalCSI && c == '\x07') ||   // bell
           (c == '\x02'))                  // STX terminates as well
       {
-        if (finalCSI && len > n && s[n] == '\x02') { n++; } // include extra STX terminator that some programs insert after CSI
         if (esclen != NULL) *esclen = n;
         return true;
       }

@@ -478,7 +478,7 @@ static void term_append_buf( term_t* term, const char* s, ssize_t len ) {
     ssize_t ascii = 0;
     ssize_t next;
     while ((next = str_next_ofs(s, len, pos+ascii, NULL)) > 0 && 
-            s[pos + ascii] != '\x1B' && (uint8_t)s[pos + ascii] <= 0x7F ) 
+            (uint8_t)s[pos + ascii] > '\x1B' && (uint8_t)s[pos + ascii] <= 0x7F ) 
     {
       if (s[pos+ascii] == '\n') { newline = true; }
       ascii += next;      
@@ -496,6 +496,9 @@ static void term_append_buf( term_t* term, const char* s, ssize_t len ) {
     // handle escape sequence (note: str_next_ofs considers whole CSI escape sequences at a time)
     else if (next > 1 && s[pos] == '\x1B') {
       term_append_esc(term, s+pos, next);
+    }
+    else if (s[pos] == '\x02') {
+      // ignore STX
     }
     else {
       sbuf_append_n(term->buf, s+pos, next);
@@ -726,9 +729,7 @@ static void term_write_esc( term_t* term, const char* s, ssize_t len ) {
   ssize_t col;
 
   if (s[1] == '[') {
-    char last = s[len-1];
-    if (last == '\x02'){ last = s[len-2]; }
-    switch (last) {
+    switch (s[len-1]) {
     case 'A':
       term_move_cursor(term, -1, 0, esc_param(s+2, 1));
       break;
