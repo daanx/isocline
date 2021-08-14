@@ -164,7 +164,8 @@ ic_private attr_t attr_from_sgr( const char* s, ssize_t len) {
 }
 
 ic_private attr_t attr_from_esc_sgr( const char* s, ssize_t len) {
-  if (s[0] != '\x1B' || s[1] != '[' || s[len-1] != 'm') return attr_none();
+  if (len <= 2 || s[0] != '\x1B' || s[1] != '[' || s[len-1] != 'm') return attr_none();
+  if (s[len-1] != 'm' || (s[len-2] != 'm' && s[len-1] != '\x02'))  return attr_none();  // allow STX ending as well  
   return attr_from_sgr(s+2, len-2);
 }
 
