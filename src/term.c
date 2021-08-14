@@ -324,7 +324,6 @@ static void term_check_flush(term_t* term, bool contains_nl) {
 //-------------------------------------------------------------
 
 static void term_init_raw(term_t* term);
-static bool term_xterm_is_truecolor(term_t* term);
 
 ic_private term_t* term_new(alloc_t* mem, tty_t* tty, bool nocolor, bool silent, int fd_out ) 
 {
@@ -352,10 +351,12 @@ ic_private term_t* term_new(alloc_t* mem, tty_t* tty, bool nocolor, bool silent,
   // detect color palette
   // COLORTERM takes precedence
   const char* colorterm = getenv("COLORTERM");  
-  if (ic_contains(colorterm,"24bit") || ic_contains(colorterm,"truecolor"))      { term->palette = ANSIRGB; }
-  else if (ic_contains(colorterm,"8bit") || ic_contains(colorterm,"256color"))   { term->palette = ANSI256; } 
-  else if (ic_contains(colorterm,"4bit") || ic_contains(colorterm,"16color"))    { term->palette = ANSI16; }
-  else if (ic_contains(colorterm,"3bit") || ic_contains(colorterm,"8color"))     { term->palette = ANSI8; }
+  if (ic_contains(colorterm,"24bit") || ic_contains(colorterm,"truecolor") || ic_contains(colorterm,"direct")) { 
+    term->palette = ANSIRGB; 
+  }
+  else if (ic_contains(colorterm,"8bit") || ic_contains(colorterm,"256color")) { term->palette = ANSI256; } 
+  else if (ic_contains(colorterm,"4bit") || ic_contains(colorterm,"16color"))  { term->palette = ANSI16; }
+  else if (ic_contains(colorterm,"3bit") || ic_contains(colorterm,"8color"))   { term->palette = ANSI8; }
   else if (ic_contains(colorterm,"1bit") || ic_contains(colorterm,"nocolor") || ic_contains(colorterm,"monochrome")) { 
     term->palette = MONOCHROME; 
   }
@@ -364,16 +365,13 @@ ic_private term_t* term_new(alloc_t* mem, tty_t* tty, bool nocolor, bool silent,
   else if (getenv("ITERM_SESSION_ID") != NULL) { term->palette = ANSIRGB; } // iTerm2 terminal
   else if (getenv("VSCODE_PID") != NULL) { term->palette = ANSIRGB; } // vscode terminal
   else {
-    // const char** env = environ;
-    // for(const char** p = env; *p != NULL; p++) { printf("%s\n", *p); }
-    
-    // and fall back to checking TERM
+    // and otherwise fall back to checking TERM
     const char* eterm = getenv("TERM");
-    if (ic_contains(eterm,"truecolor") || ic_contains(eterm,"kitty")) {
+    if (ic_contains(eterm,"truecolor") || ic_contains(eterm,"direct") || ic_contains(eterm,"kitty")) {
       term->palette = ANSIRGB;
     }
     else if (ic_contains(eterm,"xterm") || ic_contains(eterm,"256color") || ic_contains(eterm,"gnome")) { 
-      term->palette = (term_xterm_is_truecolor(term) ? ANSIRGB : ANSI256);
+      term->palette = ANSI256;
     }  
     else if (ic_contains(eterm,"16color")){ term->palette = ANSI16; }
     else if (ic_contains(eterm,"8color")) { term->palette = ANSI8; }
@@ -1032,20 +1030,6 @@ static void term_init_raw(term_t* term) {
   }
 }
 
-static bool term_xterm_is_truecolor(term_t* term) {
-  const char* termprog = getenv("TERM_PROGRAM");
-  if (ic_icontains(termprog,"Apple")) return false;  // apple terminal cannot handle DCS $ P q m
-  const char* eterm = getenv("TERM");
-  if (!(ic_contains(eterm,"xterm") || ic_contains(eterm,"gnome"))) return false; // limit to xterm only
-  term_write(term,"\x1B[38;2;1;2;3m"); // set foreground color to 0x010203
-  term_flush(term);
-  char buf[128]; buf[0] = 0;
-  bool ok = term_esc_query_raw( term, "\x1BP$qm\x1B\\", buf, ssizeof(buf));
-  term_write(term,"\x1B[m"); // reset colors
-  debug_msg( "term: xterm true color: %s: %s\n", ok ? "yes" : "no", buf);
-  return ok;
-}
-
 #else
 
 ic_private void term_start_raw(term_t* term) {
@@ -1117,10 +1101,6 @@ static void term_init_raw(term_t* term) {
   }
   term_start_raw(term); // initialize the hcon_mode
   term_end_raw(term,false);
-}
-
-static bool term_xterm_is_truecolor(term_t* term) {
-  return false;
 }
 
 #endif
