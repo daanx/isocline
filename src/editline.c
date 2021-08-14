@@ -62,6 +62,7 @@ ic_private char* ic_editline(ic_env_t* env, const char* prompt_text) {
   term_end_raw(env->term,false);
   tty_end_raw(env->tty);
   term_writeln(env->term,"");
+  term_flush(env->term);
   return line;
 }
 
@@ -1098,7 +1099,7 @@ static char* edit_line( ic_env_t* env, const char* prompt_text )
   env->no_bracematch = true;
   edit_refresh(env,&eb);
   env->no_bracematch = bm;
-
+  
   // save result
   char* res; 
   if ((c == KEY_CTRL_D && sbuf_len(eb.input) == 0) || c == KEY_CTRL_C || c == KEY_EVENT_STOP) {
