@@ -367,10 +367,13 @@ ic_private term_t* term_new(alloc_t* mem, tty_t* tty, bool nocolor, bool silent,
   else {
     // and otherwise fall back to checking TERM
     const char* eterm = getenv("TERM");
-    if (ic_contains(eterm,"truecolor") || ic_contains(eterm,"direct") || ic_contains(eterm,"kitty")) {
+    if (ic_contains(eterm,"truecolor") || ic_contains(eterm,"direct") || ic_contains(colorterm,"24bit")) {
       term->palette = ANSIRGB;
     }
-    else if (ic_contains(eterm,"xterm") || ic_contains(eterm,"256color") || ic_contains(eterm,"gnome")) { 
+    else if (ic_contains(eterm,"alacritty") || ic_contains(eterm,"kitty")) {
+      term->palette = ANSIRGB;
+    }
+    else if (ic_contains(eterm,"256color") || ic_contains(eterm,"gnome")) { 
       term->palette = ANSI256;
     }  
     else if (ic_contains(eterm,"16color")){ term->palette = ANSI16; }

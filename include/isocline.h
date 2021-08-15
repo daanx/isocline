@@ -4,7 +4,6 @@
   under the terms of the MIT License. A copy of the license can be
   found in the "LICENSE" file at the root of this distribution.
 -----------------------------------------------------------------------------*/
-#pragma once
 #ifndef IC_ISOCLINE_H
 #define IC_ISOCLINE_H
 
