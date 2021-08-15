@@ -219,7 +219,8 @@ void ic_complete_filename( ic_completion_env_t* cenv, const char* prefix, char d
 typedef bool (ic_is_char_class_fun_t)(const char* s, long len);
 
 
-/// Complete a _word_/_token_; calls the user provided function `fun` to complete on the
+/// Complete a _word_ (i.e. _token_). 
+/// Calls the user provided function `fun` to complete on the
 /// current _word_. Almost all user provided completers should use this function. 
 /// If `is_word_char` is NULL, the default `&ic_char_is_nonseparator` is used. 
 /// The `prefix` passed to `fun` is modified to only contain the current word, and 
@@ -230,7 +231,8 @@ typedef bool (ic_is_char_class_fun_t)(const char* s, long len);
 void ic_complete_word(ic_completion_env_t* cenv, const char* prefix, ic_completer_fun_t* fun, ic_is_char_class_fun_t* is_word_char);
 
 
-/// Complete a quoted _word_; calls the user provided function `fun` to complete while taking
+/// Complete a quoted _word_. 
+/// Calls the user provided function `fun` to complete while taking
 /// care of quotes and escape characters. Almost all user provided completers should use
 /// this function. The `prefix` passed to `fun` is modified to be unquoted and unescaped, and 
 /// any results from `ic_add_completion` are automatically quoted and escaped again.
@@ -250,7 +252,8 @@ void ic_complete_qword( ic_completion_env_t* cenv, const char* prefix, ic_comple
 
 
 
-/// Complete a _word_; calls the user provided function `fun` to complete while taking
+/// Complete a _word_. 
+/// Calls the user provided function `fun` to complete while taking
 /// care of quotes and escape characters. Almost all user provided completers should use this function. 
 /// The `is_word_char` is a set of characters that are part of a "word". Use NULL for the default (`&ic_char_is_nonseparator`).
 /// The `escape_char` is the escaping character, usually `\` but use 0 to not have escape characters.
