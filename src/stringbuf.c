@@ -6,14 +6,14 @@
 -----------------------------------------------------------------------------*/
 
 // get `wcwidth` for the column width of unicode characters
-#if defined(__linux__) || defined(__APPLE__) || defined(__freebsd__)
+#if defined(__linux__) || defined(__freebsd__)
 // use the system supplied one
 #if !defined(_XOPEN_SOURCE)
 #define  _XOPEN_SOURCE  700    // so wcwidth is visible
 #endif
 #include <wchar.h>
 #else
-// use our own
+// use our own (also on APPLE as that fails within vscode)
 #define  wcwidth(c)  mk_wcwidth(c)
 #include "wcwidth.c"
 #endif
@@ -59,7 +59,8 @@ static ssize_t utf8_char_width( const char* s, ssize_t n ) {
   else if (b <= 0xDF && n >= 2) { // b >= 0xC2  // 2 bytes
     c = (((b & 0x1F) << 6) | (s[1] & 0x3F));
     assert(c < 0xD800 || c > 0xDFFF);
-    return wcwidth(c);
+    int w = wcwidth(c);
+    return w;
   }
   else if (b <= 0xEF && n >= 3) { // b >= 0xE0  // 3 bytes 
     c = (((b & 0x0F) << 12) | ((s[1] & 0x3F) << 6) | (s[2] & 0x3F));
