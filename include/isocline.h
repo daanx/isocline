@@ -4,6 +4,7 @@
   under the terms of the MIT License. A copy of the license can be
   found in the "LICENSE" file at the root of this distribution.
 -----------------------------------------------------------------------------*/
+#pragma once
 #ifndef IC_ISOCLINE_H
 #define IC_ISOCLINE_H
 
@@ -324,7 +325,7 @@ void ic_set_prompt_marker( const char* prompt_marker, const char* continuation_p
 const char* ic_get_prompt_marker(void);
 
 /// Get the current continuation prompt marker.
-const char* ic_get_contiuation_prompt_marker(void);
+const char* ic_get_continuation_prompt_marker(void);
 
 /// Disable or enable multi-line input (enabled by default).
 /// Returns the previous setting.
@@ -392,7 +393,7 @@ void ic_set_matching_braces(const char* brace_pairs);
 bool ic_enable_brace_insertion(bool enable);
 
 /// Set matching brace pairs for automatic insertion.
-/// Pass \a NULL for the default `"()[]{}\"\"''"`
+/// Pass \a NULL for the default `()[]{}\"\"''`
 void ic_set_insertion_braces(const char* brace_pairs);
 
 /// \}
