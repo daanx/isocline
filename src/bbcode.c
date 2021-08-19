@@ -178,8 +178,24 @@ static bool bbcode_close( bbcode_t* bb, ssize_t base, const char* name, tag_t* p
       return true;
     }
     else {
-      // unbalanced, continue
+      // unbalanced: we either continue popping or restore the tags depending if there is a matching open tag in our tags.
+      bool has_open_tag = false;
+      if (name != NULL) {
+        for( ssize_t i = bb->tags_nesting - 1; i > base; i--) {
+          if (bb->tags[i].name != NULL && ic_stricmp(bb->tags[i].name, name) == 0) {
+            has_open_tag = true;
+            break;
+          }
+        }
+      }
       bbcode_invalid("bbcode: unbalanced tags: open [%s], close [/%s]\n", prev.name, name);            
+      if (!has_open_tag) {
+        bbcode_tag_push( bb, &prev ); // restore the tags and ignore this close tag
+        break;
+      }
+      else {
+        // continue until we hit our open tag
+      }
     }
   }
   if (pprev != NULL) { memset(pprev,0,sizeof(*pprev)); }
