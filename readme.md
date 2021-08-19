@@ -352,16 +352,14 @@ supported:
 - `ESC[`_n_`A`, `ESC[`_n_`B`, `ESC[`_n_`C`, and `ESC[`_n_`D`,
   for moving the cursor _n_ places up, down, right, and left.
 - `ESC[K` to clear the line from the cursor.
-- `ESC[`_n_`m` for colors, with _n_ one of: 0 (reset), 1,22 (bold), 
+- `ESC[`_n_`m` for colors, with _n_ one of: 0 (reset), 1,22 (bold), 3,23 (italic),
    4,24 (underline), 7,27 (reverse), 30-37,40-47,90-97,100-107 (color),
    and 39,49 (select default color).
-- `ESC[38;5;`_n_`m`, `ESC[48;5;`_n_`m`: on terminals that support it, select 
+- `ESC[38;5;`_n_`m`, `ESC[48;5;`_n_`m`, `ESC[38;2;`_r_`;`_g_`;`_b_`m`, `ESC[48;2;`_r_`;`_g_`;`_b_`m`: 
+  on terminals that support it, select 
   entry _n_ from the
-  256 color ANSI palette (used with `XTERM=xterm-256color` for example)
-  for the foreground or background color.
-- `ESC[38;2;`_r_`;`_g_`;`_b_`m`, `ESC[48;2;`_r_`;`_g_`;`_b_`m`: 
-  on terminals that support it, select
-  any 24-bit RGB color for foreground or background.  
+  256 color ANSI palette (used with `XTERM=xterm-256color` for example), or directly specify
+  any 24-bit _rgb_ color (used with `COLORTERM=truecolor`) for the foreground or background.
     
 On Windows the above functionality is implemented using the Windows console API
 (except if running in the new Windows Terminal which supports these escape
@@ -386,14 +384,14 @@ asynchronous event to Isocline that unblocks a current
 ## Color Mapping
 
 To map full RGB colors to an ANSI 256 or 16-color palette
-Isoclines finds a palette color with the minimal "color distance" to
+Isocline finds a palette color with the minimal "color distance" to
 the original color. There are various
 ways of calculating this: one way is to take the euclidean distance
 in the sRGB space (_simple-rgb_), a slightly better way is to 
 take a weighted distance where the weight distribution is adjusted
 according to how big the red component is ([redmean](https://en.wikipedia.org/wiki/Color_difference),
 denoted as _delta-rgb_ in the figure), 
-this is used by Isoclines),
+this is used by Isocline),
 and finally, we can first translate into a perceptually uniform color space
 (CIElab) and calculate the distance there using the [CIEDE2000](https://en.wikipedia.org/wiki/Color_difference)
 algorithm (_ciede2000_). Here are these three methods compared on
@@ -407,7 +405,7 @@ simpler methods (as in the upper left block for example)
 (perhaps  because this algorithm was created to find close
 perceptual colors in images where lightness differences may be given
 less weight?). CIEDE2000 also leads to more "outliers", for example as seen
-in column 5. Given these results, Isoclines uses _redmean_ for
+in column 5. Given these results, Isocline uses _redmean_ for
 color mapping. We also add a gray correction that makes it less
 likely to substitute a color for a gray value (and the other way
 around).
