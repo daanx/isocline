@@ -4,7 +4,7 @@
 
 # Isocline: a portable readline alternative.
  
-Isocline is a pure C library that can be used as an alternative to the GNU readline library.
+Isocline is a pure C library that can be used as an alternative to the GNU readline library (latest release v1.0, 2021-08-20).
 
 - Small: less than 8k lines and can be compiled as a single C file without 
   any dependencies or configuration (e.g. `gcc -c src/isocline.c`).
@@ -422,6 +422,12 @@ around).
 - ...
 
 Contact me if you are interested in doing any of these :-)
+
+
+# Releases
+
+* `2021-08-20`: v1.0: initial release  
+  
 
 
 [GNU readline]: https://tiswww.case.edu/php/chet/readline/rltop.html
