@@ -182,7 +182,7 @@ See the Haskell [readme][Haskell] for instructions to build the Haskell library.
 
 # C Interface
 
-See [isocline.h](https://github.com/daanx/isocline/blob/main/include/isocline.h) for the full API,
+See the [API reference](api)
 and the [example] for example usage of history, completion, etc.
 
 
@@ -443,3 +443,4 @@ Contact me if you are interested in doing any of these :-)
 [htmlcolors]: https://en.wikipedia.org/wiki/Web_colors
 [ansicolors]: https://en.wikipedia.org/wiki/Web_colors#Basic_colors
 [ansicolor256]: https://en.wikipedia.org/wiki/ANSI_escape_code#8-bit
+[api]: https://daanx.github.io/isocline
