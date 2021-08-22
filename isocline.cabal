@@ -6,8 +6,9 @@ cabal-version: 1.12
 
 name:           isocline
 version:        1.0.0
-synopsis:       A wrapper around the Isocline C library (a portable alternative to GNU Readline)
-description:    Please see the readme on GitHub at <https://github.com/daanx/isocline/haskell#readme>
+synopsis:       A portable alternative to GNU Readline
+description:    ![logo](https://raw.githubusercontent.com/daanx/isocline/main/doc/isocline-inline.svg) A Haskell wrapper around the [Isocline C library](https://github.com/daanx/isocline#readme) which can provide an alternative to GNU Readline. (The Isocline library is included whole and there are no runtime dependencies).
+                Please see the [readme](https://github.com/daanx/isocline/haskell#readme) on GitHub for more information.
 category:       console
 homepage:       https://github.com/daanx/isocline#readme
 bug-reports:    https://github.com/daanx/isocline/issues
@@ -17,7 +18,6 @@ license:        MIT
 license-file:   LICENSE
 build-type:     Simple
 extra-source-files:
-    readme.md
     haskell/readme.md
     src/attr.c
     src/bbcode.c
@@ -35,7 +35,6 @@ extra-source-files:
     src/stringbuf.c
     src/term.c
     src/term_color.c
-    src/term_color_cie.c
     src/tty.c
     src/tty_esc.c
     src/undo.c
@@ -67,7 +66,7 @@ library
   c-sources:
       src/isocline.c
   build-depends:
-      base >=3.0
+      base >=3.0 && <5
     , bytestring
     , text
   default-language: Haskell2010
@@ -79,7 +78,7 @@ executable example
   hs-source-dirs:
       test
   build-depends:
-      base >=3.0
+      base >=3.0 && <5
     , bytestring
     , isocline
     , text
@@ -93,7 +92,7 @@ test-suite test-example
   hs-source-dirs:
       test
   build-depends:
-      base >=3.0
+      base >=3.0 && <5
     , bytestring
     , isocline
     , text

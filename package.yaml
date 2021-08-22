@@ -4,20 +4,25 @@ github:     "daanx/isocline"
 license:    MIT
 author:     Daan Leijen
 maintainer: daan@effp.org
-synopsis:   A wrapper around the Isocline C library (a portable alternative to GNU Readline)
+synopsis:   A portable alternative to GNU Readline
 category:   console
 
 extra-source-files:
-  - readme.md  
   - haskell/readme.md
   - src/*.c
   - src/*.h
   - include/*.h
 
-description: Please see the readme on GitHub at <https://github.com/daanx/isocline/haskell#readme>
+description: 
+  "![logo](https://raw.githubusercontent.com/daanx/isocline/main/doc/isocline-inline.svg) 
+  A Haskell wrapper around the [Isocline C library](https://github.com/daanx/isocline#readme) 
+  which can provide an alternative to GNU Readline.
+  (The Isocline library is included whole and there are no runtime dependencies).  
+  
+  Please see the [readme](https://github.com/daanx/isocline/haskell#readme) on GitHub for more information."
 
 dependencies:
-  - base >= 3.0       
+  - base >= 3.0 && < 5      
   - bytestring
   - text
 
