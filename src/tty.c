@@ -18,6 +18,9 @@
 #define isatty(fd)     _isatty(fd)
 #define read(fd,s,n)   _read(fd,s,n)
 #define STDIN_FILENO   0
+#if (_WIN32_WINNT < 0x0600)
+WINBASEAPI ULONGLONG WINAPI GetTickCount64(VOID);
+#endif
 #else
 #include <signal.h>
 #include <errno.h>

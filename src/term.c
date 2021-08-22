@@ -483,7 +483,6 @@ static void term_append_buf( term_t* term, const char* s, ssize_t len ) {
     while ((next = str_next_ofs(s, len, pos+ascii, NULL)) > 0 && 
             (uint8_t)s[pos + ascii] > '\x1B' && (uint8_t)s[pos + ascii] <= 0x7F ) 
     {
-      if (s[pos+ascii] == '\n') { newline = true; }
       ascii += next;      
     }
     if (ascii > 0) {
@@ -505,6 +504,7 @@ static void term_append_buf( term_t* term, const char* s, ssize_t len ) {
       // ignore control characters except \a, \b, \t, \n, \r, and form-feed and vertical tab.
     }
     else {
+      if (c == '\n') { newline = true; }
       sbuf_append_n(term->buf, s+pos, next);
     }
     pos += next;
