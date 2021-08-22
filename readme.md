@@ -84,6 +84,8 @@ Isocline tries to be as compatible as possible with standard [GNU Readline] key 
        ctrl-u                          ctrl-k
 ```
 
+NOTE: macOS Terminal/iTerm2 users should activate meta key: Terminal &rarr; Preferences &rarr; Settings &rarr; Use option as meta key. Then, replace ctrl-left/right with alt-left/right or shift-left/right.
+
 ### Key Bindings
 
 These are also shown when pressing `F1` on a Isocline prompt. We use `^` as a shorthand for `ctrl-`:
