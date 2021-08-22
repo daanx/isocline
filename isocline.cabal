@@ -35,7 +35,6 @@ extra-source-files:
     src/stringbuf.c
     src/term.c
     src/term_color.c
-    src/term_color_cie.c
     src/tty.c
     src/tty_esc.c
     src/undo.c
