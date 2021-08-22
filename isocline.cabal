@@ -5,7 +5,7 @@ cabal-version: 1.12
 -- see: https://github.com/sol/hpack
 
 name:           isocline
-version:        1.0.0
+version:        1.0.1
 synopsis:       A wrapper around the Isocline C library (a portable alternative to GNU Readline)
 description:    Please see the readme on GitHub at <https://github.com/daanx/isocline/haskell#readme>
 category:       console
