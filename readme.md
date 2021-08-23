@@ -186,7 +186,7 @@ See the Haskell [readme][Haskell] for instructions to build and use the Haskell 
 
 # C Interface
 
-See the [API reference](api)
+See the [API reference][docapi]
 and the [example] for example usage of history, completion, etc.
 
 
@@ -449,4 +449,4 @@ Contact me if you are interested in doing any of these :-)
 [htmlcolors]: https://en.wikipedia.org/wiki/Web_colors
 [ansicolors]: https://en.wikipedia.org/wiki/Web_colors#Basic_colors
 [ansicolor256]: https://en.wikipedia.org/wiki/ANSI_escape_code#8-bit
-[api]: https://daanx.github.io/isocline
+[docapi]: https://daanx.github.io/isocline
