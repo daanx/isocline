@@ -555,7 +555,8 @@ static bool term_write_direct(term_t* term, const char* s, ssize_t n) {
 // direct write to the console without further processing
 static bool term_write_console(term_t* term, const char* s, ssize_t n ) {
   DWORD written;
-  WriteConsoleA(term->hcon, s, (DWORD)(to_size_t(n)), &written, NULL);
+  // WriteConsoleA(term->hcon, s, (DWORD)(to_size_t(n)), &written, NULL);
+  WriteFile(term->hcon, s, (DWORD)(to_size_t(n)), &written, NULL); // so it can be redirected
   return (written == (DWORD)(to_size_t(n)));
 }
 
@@ -1049,7 +1050,7 @@ ic_private void term_start_raw(term_t* term) {
   SetConsoleOutputCP(CP_UTF8);
   if (term->hcon_mode == 0) {
     // first time initialization
-    DWORD mode = ENABLE_PROCESSED_OUTPUT | ENABLE_LVB_GRID_WORLDWIDE;   // for \r \n and \b    
+    DWORD mode = ENABLE_PROCESSED_OUTPUT | ENABLE_WRAP_AT_EOL_OUTPUT | ENABLE_LVB_GRID_WORLDWIDE;   // for \r \n and \b    
     // use escape sequence handling if available and the terminal supports it (so we can use rgb colors in Windows terminal)
     // Unfortunately, in plain powershell, we can successfully enable terminal processing
     // but it still fails to render correctly; so we require the palette be large enough (like in Windows Terminal)
