@@ -45,7 +45,7 @@ Contents:
 /// \{
 
 /// Isocline version: 102 = 1.0.2.
-#define IC_VERSION   (101)    /// 1.0.0
+#define IC_VERSION   (102)  
 
 
 /// Read input from the user using rich editing abilities.
