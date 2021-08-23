@@ -6,14 +6,14 @@ $ ghc -ihaskell test/Example.hs src/isocline.c
 $ ./test/Example
 ```
 
-See the [API documentation](https://hackage.haskell.org/package/isocline-1.0.0/docs/System-Console-Isocline.html) on hackage.
+See the [API documentation](https://hackage.haskell.org/package/isocline/docs/System-Console-Isocline.html) on hackage.
 
 ## Using with Stack
 
 You can build with isocline by adding 
 ```
 extra-deps:
-  - isocline-1.0.0  
+  - isocline-<version>    
 ```
 to your `stack.yaml` file, and 
 ```

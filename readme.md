@@ -18,7 +18,7 @@ Isocline is a pure C library that can be used as an alternative to the GNU readl
   
 - License: MIT. 
 
-- Comes with a Haskell binding ([`System.Console.Isocline`](https://hackage.haskell.org/package/isocline-1.0.0/docs/System-Console-Isocline.html).
+- Comes with a Haskell binding ([`System.Console.Isocline`](https://hackage.haskell.org/package/isocline/docs/System-Console-Isocline.html).
 
 Enjoy,
   Daan
