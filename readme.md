@@ -18,7 +18,7 @@ Isocline is a pure C library that can be used as an alternative to the GNU readl
   
 - License: MIT. 
 
-- Comes with a Haskell binding ([`System.Console.Isocline`](https://hackage.haskell.org/package/isocline/docs/System-Console-Isocline.html).
+- Comes with a Haskell binding ([`System.Console.Isocline`][hdoc].
 
 Enjoy,
   Daan
@@ -188,6 +188,10 @@ See the Haskell [readme][Haskell] for instructions to build and use the Haskell 
 
 See the [API reference][docapi]
 and the [example] for example usage of history, completion, etc.
+
+# Haskell Interface
+
+See the Haskell [API reference][hdoc] on Hackage and the Haskell [example][HaskellExample] for example usage of history, completion, etc.
 
 
 # Motivation
@@ -450,3 +454,4 @@ Contact me if you are interested in doing any of these :-)
 [ansicolors]: https://en.wikipedia.org/wiki/Web_colors#Basic_colors
 [ansicolor256]: https://en.wikipedia.org/wiki/ANSI_escape_code#8-bit
 [docapi]: https://daanx.github.io/isocline
+[hdoc]: https://hackage.haskell.org/package/isocline/docs/System-Console-Isocline.html
