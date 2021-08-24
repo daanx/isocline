@@ -450,7 +450,7 @@ Contact me if you are interested in doing any of these :-)
 [Rich]: https://github.com/willmcgugan/rich
 [RichBBcode]: https://rich.readthedocs.io/en/latest/markup.html
 [bbcode]: https://en.wikipedia.org/wiki/BBCode
-[htmlcolors]: https://en.wikipedia.org/wiki/Web_colors
+[htmlcolors]: https://en.wikipedia.org/wiki/Web_colors#HTML_color_names
 [ansicolors]: https://en.wikipedia.org/wiki/Web_colors#Basic_colors
 [ansicolor256]: https://en.wikipedia.org/wiki/ANSI_escape_code#8-bit
 [docapi]: https://daanx.github.io/isocline
