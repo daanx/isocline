@@ -184,14 +184,11 @@ $ ./example
 See the Haskell [readme][Haskell] for instructions to build and use the Haskell library.
 
 
-# C Interface
+# API Reference
 
-See the [API reference][docapi]
-and the [example] for example usage of history, completion, etc.
+* See the [C API reference][docapi] and the [example] for example usage of history, completion, etc.
 
-# Haskell Interface
-
-See the Haskell [API reference][hdoc] on Hackage and the Haskell [example][HaskellExample] for example usage of history, completion, etc.
+* See the [Haskell API reference][hdoc] on Hackage and the Haskell [example][HaskellExample].
 
 
 # Motivation
