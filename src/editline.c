@@ -997,7 +997,12 @@ static char* edit_line( ic_env_t* env, const char* prompt_text )
         break;
       case KEY_RIGHT:
       case KEY_CTRL_F:
-        edit_cursor_right(env,&eb);
+        if (eb.pos == sbuf_len(eb.input)) { 
+          edit_generate_completions( env, &eb, false );
+        }
+        else {
+          edit_cursor_right(env,&eb);
+        }
         break;
       case KEY_UP:
         edit_cursor_row_up(env,&eb);
@@ -1021,7 +1026,12 @@ static char* edit_line( ic_env_t* env, const char* prompt_text )
       case KEY_CTRL_RIGHT:
       case WITH_SHIFT(KEY_RIGHT):      
       case WITH_ALT('f'):
-        edit_cursor_next_word(env,&eb);
+        if (eb.pos == sbuf_len(eb.input)) { 
+          edit_generate_completions( env, &eb, false );
+        }
+        else {
+          edit_cursor_next_word(env,&eb);
+        }
         break;      
       case KEY_CTRL_HOME:
       case WITH_SHIFT(KEY_HOME):      
