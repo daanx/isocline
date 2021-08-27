@@ -94,12 +94,21 @@ ic_private ssize_t completions_count(completions_t* cms) {
   return cms->count;
 }
 
+static bool completions_contains(completions_t* cms, const char* replacement) {
+  for( ssize_t i = 0; i < cms->count; i++ ) {
+    const completion_t* c = cms->elems + i;
+    if (strcmp(replacement,c->replacement) == 0) { return true; }
+  }
+  return false;
+} 
 
 ic_private bool completions_add(completions_t* cms, const char* replacement, const char* display, const char* help, ssize_t delete_before, ssize_t delete_after) {
   if (cms->completer_max <= 0) return false;
   cms->completer_max--;
   //debug_msg("completion: add: %d,%d, %s\n", delete_before, delete_after, replacement);
-  completions_push(cms, replacement, display, help, delete_before, delete_after);
+  if (!completions_contains(cms,replacement)) {
+    completions_push(cms, replacement, display, help, delete_before, delete_after);
+  }
   return true;
 }
 

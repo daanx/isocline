@@ -108,7 +108,7 @@ static void word_completer(ic_completion_env_t* cenv, const char* word )
 static void completer(ic_completion_env_t* cenv, const char* input ) 
 {
   // try to complete file names from the roots "." and "/usr/local"
-  ic_complete_filename(cenv, input, 0, "/usr/local;c:\\Program Files" , NULL /* any extension */);
+  ic_complete_filename(cenv, input, 0, ".;/usr/local;c:\\Program Files" , NULL /* any extension */);
 
   // and also use our custom completer  
   ic_complete_word( cenv, input, &word_completer, NULL /* from default word boundary; whitespace or separator */ );        
