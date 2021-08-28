@@ -351,6 +351,7 @@ ic_private term_t* term_new(alloc_t* mem, tty_t* tty, bool nocolor, bool silent,
   // detect color palette
   // COLORTERM takes precedence
   const char* colorterm = getenv("COLORTERM");  
+  const char* eterm = getenv("TERM");    
   if (ic_contains(colorterm,"24bit") || ic_contains(colorterm,"truecolor") || ic_contains(colorterm,"direct")) { 
     term->palette = ANSIRGB; 
   }
@@ -366,7 +367,6 @@ ic_private term_t* term_new(alloc_t* mem, tty_t* tty, bool nocolor, bool silent,
   else if (getenv("VSCODE_PID") != NULL) { term->palette = ANSIRGB; } // vscode terminal
   else {
     // and otherwise fall back to checking TERM
-    const char* eterm = getenv("TERM");
     if (ic_contains(eterm,"truecolor") || ic_contains(eterm,"direct") || ic_contains(colorterm,"24bit")) {
       term->palette = ANSIRGB;
     }
@@ -382,7 +382,7 @@ ic_private term_t* term_new(alloc_t* mem, tty_t* tty, bool nocolor, bool silent,
       term->palette = MONOCHROME; 
     }
   }
-  debug_msg("term: color-bits: %d (COLORTERM=%s, TERM=%s)\n", term_get_color_bits(term), colorterm, term);
+  debug_msg("term: color-bits: %d (COLORTERM=%s, TERM=%s)\n", term_get_color_bits(term), colorterm, eterm);
   
   // read COLUMS/LINES from the environment for a better initial guess.
   const char* env_columns = getenv("COLUMNS");
@@ -985,7 +985,10 @@ ic_private void term_end_raw(term_t* term, bool force) {
 static bool term_esc_query_color_raw(term_t* term, int color_idx, uint32_t* color ) {
   char buf[128+1];
   snprintf(buf,128,"\x1B]4;%d;?\x1B\\", color_idx);
-  if (!term_esc_query_raw( term, buf, buf, 128 )) return false;
+  if (!term_esc_query_raw( term, buf, buf, 128 )) {
+    debug_msg("esc query response not received\n");
+    return false;
+  }
   if (buf[0] != '4') return false;
   const char* rgb = strchr(buf,':');
   if (rgb==NULL) return false;
@@ -1004,6 +1007,7 @@ static bool term_esc_query_color_raw(term_t* term, int color_idx, uint32_t* colo
 
 // update ansi 16 color palette for better color approximation
 static void term_update_ansi16(term_t* term) {
+  debug_msg("update ansi colors\n");
   #if defined(GIO_CMAP)
   // try ioctl first (on Linux)
   uint8_t cmap[48];

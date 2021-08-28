@@ -338,6 +338,26 @@ static code_t tty_read_csi(tty_t* tty, uint8_t c1, uint8_t peek, code_t mods0, l
   return (code != KEY_NONE ? (code | modifiers) : KEY_NONE);
 }
 
+static code_t tty_read_osc( tty_t* tty, uint8_t* ppeek, long esc_timeout ) {
+  debug_msg("discard OSC response..\n");
+  // keep reading until termination: OSC is terminated by BELL, or ESC \ (ST)  (and STX)
+  while (true) {
+    uint8_t c = *ppeek;
+    if (c <= '\x07') {  // BELL and anything below (STX, ^C, ^D)
+      if (c != '\x07') { tty_cpush_char( tty, c ); }
+      break;
+    }
+    else if (c=='\x1B') {
+      uint8_t c1;
+      if (!tty_readc_noblock(tty, &c1, esc_timeout)) break;
+      if (c1=='\\') break;
+      tty_cpush_char(tty,c1);
+    }
+    if (!tty_readc_noblock(tty, ppeek, esc_timeout)) break;
+  }
+  return KEY_NONE;
+}
+
 ic_private code_t tty_read_esc(tty_t* tty, long esc_initial_timeout, long esc_timeout) {
   code_t  mods = 0;
   uint8_t peek = 0;
@@ -367,6 +387,12 @@ ic_private code_t tty_read_esc(tty_t* tty, long esc_initial_timeout, long esc_ti
     }
     // treat all as standard SS3 'O'
     return tty_read_csi(tty,'O',peek,mods, esc_timeout);  // ESC [Oo?] ...
+  }
+
+  // OSC: we may get a delayed query response; ensure it is ignored
+  if (peek == ']') {
+    if (!tty_readc_noblock(tty, &peek, esc_timeout)) goto alt;
+    return tty_read_osc(tty, &peek, esc_timeout);  // ESC ] ...
   }
 
 alt:  

@@ -236,7 +236,10 @@ ic_private bool tty_read_esc_response(tty_t* tty, char esc_start, bool final_st,
   buf[0] = 0;
   ssize_t len = 0;
   uint8_t c = 0;
-  if (!tty_readc_noblock(tty, &c, tty->esc_initial_timeout) || c != '\x1B') return false;
+  if (!tty_readc_noblock(tty, &c, 2*tty->esc_initial_timeout) || c != '\x1B') {
+    debug_msg("initial esc response failed: 0x%02x\n", c);
+    return false;
+  }
   if (!tty_readc_noblock(tty, &c, tty->esc_timeout) || (c != esc_start)) return false;
   while( len < buflen ) {
     if (!tty_readc_noblock(tty, &c, tty->esc_timeout)) return false;
