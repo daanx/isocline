@@ -31,7 +31,7 @@ main :: IO ()
 main  = do putStrLn \"Welcome\"
            `setHistory` \"history.txt\" 200
            input \<- `readline` \"myprompt\"     -- full prompt becomes \"myprompt> \"
-           putFmtLn (\"[gray]You wrote:[\/gray]\\n\" ++ input)
+           `putFmtLn` (\"[gray]You wrote:[\/gray]\\n\" ++ input)
 @
 
 Or using custom completions with an interactive loop:

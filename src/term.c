@@ -1025,6 +1025,8 @@ static void term_update_ansi16(term_t* term) {
     debug_msg("ioctl GIO_CMAP failed: entry 1: 0x%02x%02x%02x\n", cmap[3], cmap[4], cmap[5]);
   }
   #endif
+  // this seems to be unreliable on some systems (Ubuntu+Gnome terminal) so only enable when known ok.
+  #if __APPLE__
   // otherwise use OSC 4 escape sequence query
   tty_start_raw(term->tty);
   for(ssize_t i = 0; i < 16; i++) {
@@ -1034,6 +1036,7 @@ static void term_update_ansi16(term_t* term) {
     ansi256[i] = color;
   }  
   tty_end_raw(term->tty);  
+  #endif
 }
 
 static void term_init_raw(term_t* term) {
