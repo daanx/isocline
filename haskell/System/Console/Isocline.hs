@@ -356,7 +356,7 @@ data Completion = Completion {
   replacement :: String,  -- ^ actual replacement
   display :: String,      -- ^ display of the completion in the completion menu
   help :: String          -- ^ help message 
-}
+} deriving (Eq, Show)
 
 -- | Create a completion with just a replacement
 completion :: String -> Completion
