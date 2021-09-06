@@ -6,6 +6,9 @@
 -----------------------------------------------------------------------------*/
 
 // get `wcwidth` for the column width of unicode characters
+// note: for now the OS provided one is unused as we see quite a bit of variation 
+// among platforms and including our own seems more reliable.
+/* 
 #if defined(__linux__) || defined(__freebsd__)
 // use the system supplied one
 #if !defined(_XOPEN_SOURCE)
@@ -13,10 +16,11 @@
 #endif
 #include <wchar.h>
 #else
+*/
 // use our own (also on APPLE as that fails within vscode)
 #define  wcwidth(c)  mk_wcwidth(c)
 #include "wcwidth.c"
-#endif
+// #endif
 
 #include <stdio.h>
 #include <string.h>

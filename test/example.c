@@ -10,6 +10,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <locale.h>
 #include "isocline.h"
 
 // completion function defined below
@@ -21,6 +22,8 @@ static void highlighter(ic_highlight_env_t* henv, const char* input, void* arg);
 // main example
 int main() 
 {
+  setlocale(LC_ALL,"C.UTF-8");  // we use utf-8 in this example
+
   // use `ic_print` functions to use bbcode's for markup
   ic_style_def("kbd","gray underline");     // you can define your own styles
   ic_style_def("ic-prompt","ansi-maroon");  // or re-define system styles
