@@ -56,7 +56,7 @@ interaction
 completer :: `CompletionEnv` -> String -> IO () 
 completer cenv input
   = do `completeFileName` cenv input Nothing [\".\",\"\/usr\/local\"] [\".hs\"]  -- use [] for any extension
-       `completeWord` cenv input wcompleter
+       `completeWord` cenv input Nothing wcompleter
 
 wcompleter :: String -> [`Completion`]
 wcompleter input
