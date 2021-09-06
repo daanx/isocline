@@ -231,7 +231,7 @@ unmaybe action
 
 -- | @readline prompt@: Read (multi-line) input from the user with rich editing abilities. 
 -- Takes the prompt text as an argument. The full prompt is the combination
--- of the given prompt and the promp marker (@\"> \"@ by default) .
+-- of the given prompt and the prompt marker (@\"> \"@ by default) .
 -- See also 'readlineEx', 'readlineMaybe', 'enableMultiline', and 'setPromptMarker'.
 readline :: String -> IO String  
 readline prompt
