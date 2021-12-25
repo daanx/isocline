@@ -647,6 +647,7 @@ static void signals_restore(void) {
 #endif
 
 ic_private bool tty_start_raw(tty_t* tty) {
+  if (tty == NULL) return false;
   if (tty->raw_enabled) return true;
   if (tcsetattr(tty->fd_in,TCSAFLUSH,&tty->raw_ios) < 0) return false;  
   tty->raw_enabled = true;
@@ -654,6 +655,7 @@ ic_private bool tty_start_raw(tty_t* tty) {
 }
 
 ic_private void tty_end_raw(tty_t* tty) {
+  if (tty == NULL) return;
   if (!tty->raw_enabled) return;
   tty->cpush_count = 0;
   if (tcsetattr(tty->fd_in,TCSAFLUSH,&tty->orig_ios) < 0) return;

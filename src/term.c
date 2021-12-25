@@ -334,7 +334,7 @@ ic_private term_t* term_new(alloc_t* mem, tty_t* tty, bool nocolor, bool silent,
   term->nocolor = nocolor;
   term->silent  = silent;  
   term->mem     = mem;
-  term->tty     = tty;
+  term->tty     = tty;     // can be NULL
   term->width   = 80;
   term->height  = 25;
   term->is_utf8 = tty_is_utf8(tty);
@@ -1028,14 +1028,15 @@ static void term_update_ansi16(term_t* term) {
   // this seems to be unreliable on some systems (Ubuntu+Gnome terminal) so only enable when known ok.
   #if __APPLE__
   // otherwise use OSC 4 escape sequence query
-  tty_start_raw(term->tty);
-  for(ssize_t i = 0; i < 16; i++) {
-    uint32_t color;
-    if (!term_esc_query_color_raw(term, i, &color)) break;
-    debug_msg("term ansi color %d: 0x%06x\n", i, color);
-    ansi256[i] = color;
-  }  
-  tty_end_raw(term->tty);  
+  if (tty_start_raw(term->tty)) {
+    for(ssize_t i = 0; i < 16; i++) {
+      uint32_t color;
+      if (!term_esc_query_color_raw(term, i, &color)) break;
+      debug_msg("term ansi color %d: 0x%06x\n", i, color);
+      ansi256[i] = color;
+    }  
+    tty_end_raw(term->tty);  
+  }
   #endif
 }
 
