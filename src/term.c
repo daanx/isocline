@@ -154,6 +154,7 @@ ic_private attr_t term_get_attr( const term_t* term ) {
 }
 
 ic_private void term_set_attr( term_t* term, attr_t attr ) {
+  if (term->nocolor) return;
   if (attr.x.color != term->attr.x.color && attr.x.color != IC_COLOR_NONE) {
     term_color(term,attr.x.color);
     if (term->palette < ANSIRGB && color_is_rgb(attr.x.color)) {
@@ -177,7 +178,7 @@ ic_private void term_set_attr( term_t* term, attr_t attr ) {
   }
   if (attr.x.italic != term->attr.x.italic && attr.x.italic != IC_NONE) {
     term_italic(term,attr.x.italic == IC_ON);
-  }
+  }  
   assert(attr.x.color == term->attr.x.color || attr.x.color == IC_COLOR_NONE);
   assert(attr.x.bgcolor == term->attr.x.bgcolor || attr.x.bgcolor == IC_COLOR_NONE);
   assert(attr.x.bold == term->attr.x.bold || attr.x.bold == IC_NONE);
@@ -331,7 +332,7 @@ ic_private term_t* term_new(alloc_t* mem, tty_t* tty, bool nocolor, bool silent,
   if (term == NULL) return NULL;
 
   term->fd_out  = (fd_out < 0 ? STDOUT_FILENO : fd_out);
-  term->nocolor = nocolor;
+  term->nocolor = nocolor || (isatty(term->fd_out) == 0);
   term->silent  = silent;  
   term->mem     = mem;
   term->tty     = tty;     // can be NULL
