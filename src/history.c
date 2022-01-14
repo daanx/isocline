@@ -189,10 +189,10 @@ static bool history_read_entry( history_t* h, FILE* f, stringbuf_t* sbuf ) {
     if (c == EOF || c == '\n') break;
     if (c == '\\') {
       c = fgetc(f);
-      if (c == 'n')       sbuf_append(sbuf,"\n");
-      else if (c == 'r')  sbuf_append(sbuf,"\r");
-      else if (c == 't')  sbuf_append(sbuf,"\t");
-      else if (c == '\\') sbuf_append(sbuf,"\\");
+      if (c == 'n')       { sbuf_append(sbuf,"\n"); }
+      else if (c == 'r')  { /* ignore */ }  // sbuf_append(sbuf,"\r");
+      else if (c == 't')  { sbuf_append(sbuf,"\t"); }
+      else if (c == '\\') { sbuf_append(sbuf,"\\"); }
       else if (c == 'x') {
         int c1 = fgetc(f);         
         int c2 = fgetc(f);
@@ -217,7 +217,7 @@ static bool history_write_entry( const char* entry, FILE* f, stringbuf_t* sbuf )
     char c = *entry++;
     if (c == '\\')      { sbuf_append(sbuf,"\\\\"); }
     else if (c == '\n') { sbuf_append(sbuf,"\\n"); }
-    else if (c == '\r') { sbuf_append(sbuf,"\\r"); }
+    else if (c == '\r') { /* ignore */ } // sbuf_append(sbuf,"\\r"); }
     else if (c == '\t') { sbuf_append(sbuf,"\\t"); }
     else if (c < ' ' || c > '~' || c == '#') {
       char c1 = to_xdigit( (uint8_t)c / 16 );

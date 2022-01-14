@@ -10,7 +10,7 @@
 // symbols are public in the libray.
 // 
 // You can compile the entire library just as: 
-// $ gcc -c src/isocline.c
+// $ gcc -c src/isocline.c 
 //-------------------------------------------------------------
 #if !defined(IC_SEPARATE_OBJS)
 # define _CRT_SECURE_NO_WARNINGS  // for msvc
