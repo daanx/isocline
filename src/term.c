@@ -348,42 +348,43 @@ ic_private term_t* term_new(alloc_t* mem, tty_t* tty, bool nocolor, bool silent,
   if (getenv("NO_COLOR") != NULL) {
     term->nocolor = true;
   }
-
-  // detect color palette
-  // COLORTERM takes precedence
-  const char* colorterm = getenv("COLORTERM");  
-  const char* eterm = getenv("TERM");    
-  if (ic_contains(colorterm,"24bit") || ic_contains(colorterm,"truecolor") || ic_contains(colorterm,"direct")) { 
-    term->palette = ANSIRGB; 
-  }
-  else if (ic_contains(colorterm,"8bit") || ic_contains(colorterm,"256color")) { term->palette = ANSI256; } 
-  else if (ic_contains(colorterm,"4bit") || ic_contains(colorterm,"16color"))  { term->palette = ANSI16; }
-  else if (ic_contains(colorterm,"3bit") || ic_contains(colorterm,"8color"))   { term->palette = ANSI8; }
-  else if (ic_contains(colorterm,"1bit") || ic_contains(colorterm,"nocolor") || ic_contains(colorterm,"monochrome")) { 
-    term->palette = MONOCHROME; 
-  }
-  // otherwise check for some specific terminals
-  else if (getenv("WT_SESSION") != NULL) { term->palette = ANSIRGB; } // Windows terminal
-  else if (getenv("ITERM_SESSION_ID") != NULL) { term->palette = ANSIRGB; } // iTerm2 terminal
-  else if (getenv("VSCODE_PID") != NULL) { term->palette = ANSIRGB; } // vscode terminal
-  else {
-    // and otherwise fall back to checking TERM
-    if (ic_contains(eterm,"truecolor") || ic_contains(eterm,"direct") || ic_contains(colorterm,"24bit")) {
-      term->palette = ANSIRGB;
+  if (!term->nocolor) {
+    // detect color palette
+    // COLORTERM takes precedence
+    const char* colorterm = getenv("COLORTERM");  
+    const char* eterm = getenv("TERM");    
+    if (ic_contains(colorterm,"24bit") || ic_contains(colorterm,"truecolor") || ic_contains(colorterm,"direct")) { 
+      term->palette = ANSIRGB; 
     }
-    else if (ic_contains(eterm,"alacritty") || ic_contains(eterm,"kitty")) {
-      term->palette = ANSIRGB;
-    }
-    else if (ic_contains(eterm,"256color") || ic_contains(eterm,"gnome")) { 
-      term->palette = ANSI256;
-    }  
-    else if (ic_contains(eterm,"16color")){ term->palette = ANSI16; }
-    else if (ic_contains(eterm,"8color")) { term->palette = ANSI8; }
-    else if (ic_contains(eterm,"monochrome") || ic_contains(eterm,"nocolor") || ic_contains(eterm,"dumb")) { 
+    else if (ic_contains(colorterm,"8bit") || ic_contains(colorterm,"256color")) { term->palette = ANSI256; } 
+    else if (ic_contains(colorterm,"4bit") || ic_contains(colorterm,"16color"))  { term->palette = ANSI16; }
+    else if (ic_contains(colorterm,"3bit") || ic_contains(colorterm,"8color"))   { term->palette = ANSI8; }
+    else if (ic_contains(colorterm,"1bit") || ic_contains(colorterm,"nocolor") || ic_contains(colorterm,"monochrome")) { 
       term->palette = MONOCHROME; 
     }
+    // otherwise check for some specific terminals
+    else if (getenv("WT_SESSION") != NULL) { term->palette = ANSIRGB; } // Windows terminal
+    else if (getenv("ITERM_SESSION_ID") != NULL) { term->palette = ANSIRGB; } // iTerm2 terminal
+    else if (getenv("VSCODE_PID") != NULL) { term->palette = ANSIRGB; } // vscode terminal
+    else {
+      // and otherwise fall back to checking TERM
+      if (ic_contains(eterm,"truecolor") || ic_contains(eterm,"direct") || ic_contains(colorterm,"24bit")) {
+        term->palette = ANSIRGB;
+      }
+      else if (ic_contains(eterm,"alacritty") || ic_contains(eterm,"kitty")) {
+        term->palette = ANSIRGB;
+      }
+      else if (ic_contains(eterm,"256color") || ic_contains(eterm,"gnome")) { 
+        term->palette = ANSI256;
+      }  
+      else if (ic_contains(eterm,"16color")){ term->palette = ANSI16; }
+      else if (ic_contains(eterm,"8color")) { term->palette = ANSI8; }
+      else if (ic_contains(eterm,"monochrome") || ic_contains(eterm,"nocolor") || ic_contains(eterm,"dumb")) { 
+        term->palette = MONOCHROME; 
+      }
+    }
+    debug_msg("term: color-bits: %d (COLORTERM=%s, TERM=%s)\n", term_get_color_bits(term), colorterm, eterm);
   }
-  debug_msg("term: color-bits: %d (COLORTERM=%s, TERM=%s)\n", term_get_color_bits(term), colorterm, eterm);
   
   // read COLUMS/LINES from the environment for a better initial guess.
   const char* env_columns = getenv("COLUMNS");

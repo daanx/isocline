@@ -763,6 +763,7 @@ ic_private ssize_t bbcode_process_tag( bbcode_t* bb, const char* s, const ssize_
 }
 
 ic_private void bbcode_append( bbcode_t* bb, const char* s, stringbuf_t* out, attrbuf_t* attr_out ) {
+  if (bb == NULL || s == NULL) return;
   attr_t attr = attr_none();
   const ssize_t base = bb->tags_nesting; // base; will not be popped
   ssize_t i = 0;
@@ -802,7 +803,7 @@ ic_private void bbcode_append( bbcode_t* bb, const char* s, stringbuf_t* out, at
 }
 
 ic_private void bbcode_print( bbcode_t* bb, const char* s ) {
-  if (bb->out == NULL || bb->out_attrs == NULL) return;
+  if (bb->out == NULL || bb->out_attrs == NULL || s == NULL) return;
   assert(sbuf_len(bb->out) == 0 && attrbuf_len(bb->out_attrs) == 0);
   bbcode_append( bb, s, bb->out, bb->out_attrs );
   term_write_formatted( bb->term, sbuf_string(bb->out), attrbuf_attrs(bb->out_attrs,sbuf_len(bb->out)) );
@@ -816,7 +817,7 @@ ic_private void bbcode_println( bbcode_t* bb, const char* s ) {
 }
 
 ic_private void bbcode_vprintf( bbcode_t* bb, const char* fmt, va_list args  ) {
-  if (bb->vout == NULL) return;
+  if (bb->vout == NULL || fmt == NULL) return;
   assert(sbuf_len(bb->vout) == 0);
   sbuf_append_vprintf(bb->vout,fmt,args);
   bbcode_print(bb, sbuf_string(bb->vout));
@@ -831,7 +832,7 @@ ic_private void bbcode_printf( bbcode_t* bb, const char* fmt, ... ) {
 }
 
 ic_private ssize_t bbcode_column_width( bbcode_t* bb, const char* s ) {
-  if (s==0 || s[0] == 0) return 0;
+  if (s==NULL || s[0] == 0) return 0;
   if (bb->vout == NULL) { return str_column_width(s); }
   assert(sbuf_len(bb->vout) == 0); 
   bbcode_append( bb, s, bb->vout, NULL);
