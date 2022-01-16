@@ -309,9 +309,22 @@ A color value can be specified in many ways:
   (like `ansi-black` or `ansi-maroon`).   
   The actual color value of these depend on the a terminal theme.
 - `#`_rrggbb_ or `#`_rgb_ for a specific 24-bit color.
-- `ansi-color=`_idx_: where 0 <= _idx_ <= 256 specifies an entry in the
-  standard ANSI 256 [color palette][ansicolor256], where 256 is used for the ANSI 
-  default color.
+- `ansi-color=`_idx_ or `ansi-bgcolor=`_idx_, where _idx_ specifies an entry in the
+  standard ANSI 256 [color palette][ansicolor256] (between 0 and 255). 
+  Use _idx_ 256 for the ANSI default color.
+
+The `width` property makes the text at least _width_ long:
+
+- `width=`_width_[`;`_align_[`;`_fill_]]
+
+where _width_ is the column with, _align_ is `left`, `center`, or `right`,
+and _fill_ the fill character (`' '`).
+
+The _maxwidth_ property makes text at most _width_ long; when the content
+it is wider, the left- or right side (depending on the alignment) 
+will have three dots (`...`) to visualize that content is cut off. 
+
+- `maxwidth=`_width_[`;`_align]
 
 
 ## Environment Variables
