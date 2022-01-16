@@ -324,7 +324,7 @@ The _maxwidth_ property makes text at most _width_ long; when the content
 it is wider, the left- or right side (depending on the alignment) 
 will have three dots (`...`) to visualize that content is cut off. 
 
-- `maxwidth=`_width_ [`;`_align]
+- `maxwidth=`_width_ [`;`_align_]
 
 
 ## Environment Variables
