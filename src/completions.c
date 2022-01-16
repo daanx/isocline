@@ -153,12 +153,17 @@ ic_private void completions_get_completer(completions_t* cms, ic_completer_fun_t
   *arg = cms->completer_arg;
 }
 
-ic_public bool ic_has_completions( ic_completion_env_t* cenv ) {
-  return (cenv->env->completions->count > 0);
+
+ic_public void* ic_completion_arg( const ic_completion_env_t* cenv ) {
+  return (cenv == NULL ? NULL : cenv->env->completions->completer_arg);
 }
 
-ic_public bool ic_stop_completing(ic_completion_env_t* cenv) {
-  return (cenv->env->completions->completer_max <= 0);
+ic_public bool ic_has_completions( const ic_completion_env_t* cenv ) {
+  return (cenv == NULL ? false : cenv->env->completions->count > 0);
+}
+
+ic_public bool ic_stop_completing( const ic_completion_env_t* cenv) {
+  return (cenv == NULL ? true : cenv->env->completions->completer_max <= 0);
 }
 
 

@@ -415,13 +415,13 @@ void ic_set_insertion_braces(const char* brace_pairs);
 const char* ic_completion_input( ic_completion_env_t* cenv, long* cursor );
 
 /// Get the completion argument passed to `ic_set_completer`.
-void* ic_completion_arg( ic_completion_env_t* cenv );
+void* ic_completion_arg( const ic_completion_env_t* cenv );
 
 /// Do we have already some completions?
-bool ic_has_completions( ic_completion_env_t* cenv );
+bool ic_has_completions( const ic_completion_env_t* cenv );
 
 /// Do we already have enough completions and should we return if possible? (for improved latency)
-bool ic_stop_completing(ic_completion_env_t* cenv);
+bool ic_stop_completing( const ic_completion_env_t* cenv);
 
 
 /// Primitive completion, cannot be used with most transformers (like `ic_complete_word` and `ic_complete_qword`).
