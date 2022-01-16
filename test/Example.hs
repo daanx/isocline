@@ -57,8 +57,9 @@ wordCompletions input0
               [ ("D — (x) => x",       "(x) => x")
               , ("Haskell — \\x -> x", "\\x -> x")
               , ("Idris — \\x => x",   "\\x => x")
-              , ("Koka — fn(x){ x }",  "fn(x){ x }")
-              , ("Ocaml — fun x -> x", "fun x -> x")]
+              , ("Ocaml — fun x -> x", "fun x -> x")
+              , ("Koka — fn(x) x",  "fn(x) x")
+              , ("Rust — |x| x", "|x| x") ]
          else []) 
        ++
        -- add many hello isocline completions; we should generate these lazily!
