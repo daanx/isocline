@@ -315,7 +315,7 @@ A color value can be specified in many ways:
 
 The `width` property makes the text at least _width_ long:
 
-- `width=`_width_[`;`_align_[`;`_fill_]]
+- `width=`_width_ [`;`_align_ [`;`_fill_] ]
 
 where _width_ is the column with, _align_ is `left`, `center`, or `right`,
 and _fill_ the fill character (`' '`).
@@ -324,7 +324,7 @@ The _maxwidth_ property makes text at most _width_ long; when the content
 it is wider, the left- or right side (depending on the alignment) 
 will have three dots (`...`) to visualize that content is cut off. 
 
-- `maxwidth=`_width_[`;`_align]
+- `maxwidth=`_width_ [`;`_align]
 
 
 ## Environment Variables
