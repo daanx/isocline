@@ -431,7 +431,8 @@ Contact me if you are interested in doing any of these :-)
 
 # Releases
 
-* `2022-01-15`: v1.0.8: fix null ptr check in ic_print; fix crash when using /dev/null as both input and output.
+* `2022-01-15`: v1.0.9: fix missing `ic_completion_arg` (issue #6), 
+   fix null ptr check in ic_print (issue #7), fix crash when using /dev/null as both input and output.
 * `2021-09-05`: v1.0.5: use our own wcwidth for consistency; 
   thanks to Hans-Georg Breunig for helping with testing on NetBSD.
 * `2021-08-28`: v1.0.4: fix color query on Ubuntu/Gnome
