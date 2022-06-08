@@ -19,7 +19,7 @@ description:
   which can provide an alternative to GNU Readline.
   (The Isocline library is included whole and there are no runtime dependencies).  
   
-  Please see the [readme](https://github.com/daanx/isocline/haskell#readme) on GitHub for more information."
+  Please see the [readme](https://github.com/daanx/isocline#readme) on GitHub for more information."
 
 dependencies:
   - base >= 3.0 && < 5      
