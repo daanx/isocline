@@ -137,14 +137,38 @@ static int db_prepare_stmts(struct db_t *db, const struct db_query_t db_queries[
 
 static int db_free_stmts(struct db_t *db)
 {
-	int rc = DB_OK;
-	for (size_t i = 0; i < db->stmtcnt; i++) {
-		rc = db_rc(sqlite3_finalize(db->stmts[i]));
-		free(db->stmts[i]);
-		if (rc != DB_OK) break;
-	}
-	free(db->stmts);
-	return rc;
+  int rc = DB_OK;
+  for (size_t i = 0; i < db->stmtcnt; i++) {
+    rc = db_rc(sqlite3_finalize(db->stmts[i]));
+    free(db->stmts[i]);
+    if (rc != DB_OK) break;
+  }
+  free(db->stmts);
+  return rc;
+}
+
+static int db_exec(struct db_t *db, int stmt) {
+  return db_rc(sqlite3_step(db->stmts[stmt]));
+}
+
+static int db_in_int(struct db_t *db, int stmt, int pos, int val) {
+  return db_rc(sqlite3_bind_int(db->stmts[stmt], pos, val));
+}
+
+static int db_in_txt(struct db_t *db, int stmt, int pos, const char *val) {
+  return db_rc(sqlite3_bind_text(db->stmts[stmt], pos, val, -1, NULL));
+}
+
+static int db_out_int(struct db_t *db, int stmt, int pos) {
+  return sqlite3_column_int(db->stmts[stmt], pos);
+}
+
+static const unsigned char * db_out_txt(struct db_t *db, int stmt, int pos) {
+  return sqlite3_column_text(db->stmts[stmt], pos);
+}
+
+static int db_reset(struct db_t *db, int stmt) {
+  return db_rc(sqlite3_reset(db->stmts[stmt]));
 }
 
 ic_private history_t* history_new(alloc_t* mem) {
