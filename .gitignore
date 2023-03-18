@@ -13,4 +13,7 @@ doc/html/
 *_stub.h
 *.lock
 history.txt
+history.db
 isocline.debug.txt
+cscope.out
+.gdb_history
