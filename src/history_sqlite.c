@@ -38,17 +38,6 @@ struct history_s {
   bool     allow_duplicates;   // allow duplicate entries?
 };
 
-enum db_rc {
-  DB_ERROR = 0,
-  DB_OK,
-  DB_ROW,
-};
-
-enum db_stmt {
-  DB_INS_CMD,
-  DB_STMT_CNT,
-};
-
 static const char *db_tables[] = {
   "create table if not exists cmd     (cid integer, ts integer, cmd text)",
   "create table if not exists session (sid text, cid integer, ts integer, path text)",
@@ -59,8 +48,23 @@ static const char *db_tables[] = {
   NULL
 };
 
+enum db_rc {
+  DB_ERROR = 0,
+  DB_OK,
+  DB_ROW,
+};
+
+enum db_stmt {
+  DB_INS_CMD,
+  DB_MAX_ID_CMD,
+  DB_UPD_ID_CMD,
+  DB_STMT_CNT,
+};
+
 static const struct db_query_t db_queries[] = {
-  { DB_INS_CMD,   "insert into cmd values (?,?,?)" },
+  { DB_INS_CMD,       "insert into cmd values (?,?,?)" },
+  { DB_MAX_ID_CMD,    "select max(cid) from cmd" },
+  { DB_UPD_ID_CMD,    "update cmd set cid = cid + ? where cid > ?" },
   { DB_STMT_CNT,  "" },
 };
 
@@ -156,15 +160,15 @@ static int db_in_int(struct db_t *db, int stmt, int pos, int val) {
 }
 
 static int db_in_txt(struct db_t *db, int stmt, int pos, const char *val) {
-  return db_rc(sqlite3_bind_text(db->stmts[stmt], pos, val, -1, NULL));
+  return db_rc(sqlite3_bind_text(db->stmts[stmt], pos , val, -1, NULL));
 }
 
 static int db_out_int(struct db_t *db, int stmt, int pos) {
-  return sqlite3_column_int(db->stmts[stmt], pos);
+  return sqlite3_column_int(db->stmts[stmt], pos - 1);
 }
 
 static const unsigned char * db_out_txt(struct db_t *db, int stmt, int pos) {
-  return sqlite3_column_text(db->stmts[stmt], pos);
+  return sqlite3_column_text(db->stmts[stmt], pos - 1);
 }
 
 static int db_reset(struct db_t *db, int stmt) {
@@ -223,7 +227,18 @@ static void history_delete_at( history_t* h, ssize_t idx ) {
 }
 
 ic_private bool history_push( history_t* h, const char* entry ) {
+  /// There's always an empty statement inserted, I guess that's
+  /// in the main editline() function ... not sure why
+  if (strlen(entry) == 0) return true;
   if (h->len <= 0 || entry==NULL)  return false;
+  db_exec(&h->db, DB_MAX_ID_CMD);
+  int new_cid = db_out_int(&h->db, DB_MAX_ID_CMD, 1) + 1;
+  db_reset(&h->db, DB_MAX_ID_CMD);
+  db_in_int(&h->db, DB_INS_CMD, 1, new_cid);
+  db_in_int(&h->db, DB_INS_CMD, 2, 0);
+  db_in_txt(&h->db, DB_INS_CMD, 3, entry);
+  db_exec(&h->db, DB_INS_CMD);
+  db_reset(&h->db, DB_INS_CMD);
   // exec_stmt(h->db, "insert into cmd values (?,?,?)");
   // // remove any older duplicate
   // if (!h->allow_duplicates) {
