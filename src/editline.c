@@ -876,7 +876,7 @@ static char* edit_line( ic_env_t* env, const char* prompt_text )
   edit_write_prompt(env, &eb, 0, false);   
 
   // always a history entry for the current input
-  history_push(env->history, "");
+  // history_push(env->history, "");
 
   // process keys
   code_t c;          // current key code
