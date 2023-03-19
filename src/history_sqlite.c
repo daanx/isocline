@@ -285,13 +285,14 @@ ic_private void history_clear(history_t* h) {
   history_remove_last_n( h, h->count );
 }
 
+/// n is the history command index from latest to oldest, starting with 1
 /// TODO need to free the returned string
 ic_private const char* history_get( const history_t* h, ssize_t n ) {
   db_exec(&h->db, DB_MAX_ID_CMD);
   int max_cid = db_out_int(&h->db, DB_MAX_ID_CMD, 1);
   db_reset(&h->db, DB_MAX_ID_CMD);
-  if (n < 0 || n >= max_cid) return NULL;
-  db_in_int(&h->db, DB_GET_CMD, 1, max_cid - n);
+  if (n <= 0 || n > max_cid) return NULL;
+  db_in_int(&h->db, DB_GET_CMD, 1, max_cid - n + 1);
   db_exec(&h->db, DB_GET_CMD);
   const char* ret = mem_strdup(h->mem, (const char*)db_out_txt(&h->db, DB_GET_CMD, 1));
   db_reset(&h->db, DB_GET_CMD);
