@@ -42,8 +42,8 @@ static const char *db_tables[] = {
   "create table if not exists cmd     (cid integer, ts integer, cmd text)",
   "create table if not exists session (sid text, cid integer, ts integer, path text)",
   // "create table if not exists path  (cid integer, ts integer, path text)",
-  "create index cmdididx  on cmd(cid, ts)",
-  "create index sessionididx on session(sid, cid, ts)",
+  "create index if not exists cmdididx  on cmd(cid, ts)",
+  "create index if not exists sessionididx on session(sid, cid, ts)",
   // "create index pathididx on path(cid, ts)",
   NULL
 };
@@ -57,17 +57,25 @@ enum db_rc {
 enum db_stmt {
   DB_INS_CMD,
   DB_MAX_ID_CMD,
+  DB_COUNT_CMD,
   DB_GET_CMD,
+  DB_SEARCH_CMD_BCK,
+  DB_SEARCH_CMD_FWD,
   DB_UPD_ID_CMD,
   DB_STMT_CNT,
 };
 
 static const struct db_query_t db_queries[] = {
-  { DB_INS_CMD,       "insert into cmd values (?,?,?)" },
-  { DB_MAX_ID_CMD,    "select max(cid) from cmd" },
-  { DB_GET_CMD,       "select cmd from cmd where cid = ?" },
-  { DB_UPD_ID_CMD,    "update cmd set cid = cid + ? where cid > ?" },
-  { DB_STMT_CNT,  "" },
+  { DB_INS_CMD,           "insert into cmd values (?,?,?)" },
+  { DB_MAX_ID_CMD,        "select max(cid) from cmd" },
+  { DB_COUNT_CMD,         "select count(cid) from cmd" },
+  { DB_GET_CMD,           "select cmd from cmd where cid = ?" },
+  { DB_SEARCH_CMD_BCK,
+    "select cid from cmd where cmd = ? and cid <= ? order by cid desc limit 1" },
+  { DB_SEARCH_CMD_FWD,
+    "select cid from cmd where cmd = ? and cid >= ? order by cid asc limit 1" },
+  { DB_UPD_ID_CMD,        "update cmd set cid = cid + ? where cid > ?" },
+  { DB_STMT_CNT,          "" },
 };
 
 int db_rc(int rc)
@@ -204,7 +212,11 @@ ic_private bool history_enable_duplicates( history_t* h, bool enable ) {
 }
 
 ic_private ssize_t  history_count(const history_t* h) {
-  return h->count;
+  db_exec(&h->db, DB_COUNT_CMD);
+  int count = db_out_int(&h->db, DB_COUNT_CMD, 1);
+  db_reset(&h->db, DB_COUNT_CMD);
+  return count;
+  // return h->count;
 }
 
 //-------------------------------------------------------------
@@ -285,7 +297,7 @@ ic_private void history_clear(history_t* h) {
   history_remove_last_n( h, h->count );
 }
 
-/// n is the history command index from latest to oldest, starting with 1
+/// Parameter n is the history command index from latest to oldest, starting with 1
 /// TODO need to free the returned string
 ic_private const char* history_get( const history_t* h, ssize_t n ) {
   db_exec(&h->db, DB_MAX_ID_CMD);
@@ -293,6 +305,7 @@ ic_private const char* history_get( const history_t* h, ssize_t n ) {
   db_reset(&h->db, DB_MAX_ID_CMD);
   if (n <= 0 || n > max_cid) return NULL;
   db_in_int(&h->db, DB_GET_CMD, 1, max_cid - n + 1);
+  /// TODO check if row is returned
   db_exec(&h->db, DB_GET_CMD);
   const char* ret = mem_strdup(h->mem, (const char*)db_out_txt(&h->db, DB_GET_CMD, 1));
   db_reset(&h->db, DB_GET_CMD);
@@ -302,24 +315,38 @@ ic_private const char* history_get( const history_t* h, ssize_t n ) {
 }
 
 ic_private bool history_search( const history_t* h, ssize_t from /*including*/, const char* search, bool backward, ssize_t* hidx, ssize_t* hpos ) {
-  const char* p = NULL;
-  ssize_t i;
-  if (backward) {
-    for( i = from; i < h->count; i++ ) {
-      p = strstr( history_get(h,i), search);
-      if (p != NULL) break;
-    }
-  }
-  else {
-    for( i = from; i >= 0; i-- ) {
-      p = strstr( history_get(h,i), search);
-      if (p != NULL) break;
-    }
-  }
-  if (p == NULL) return false;
+  debug_msg("searching history for '%s'\n", search);
+  int search_query = backward ? DB_SEARCH_CMD_BCK : DB_SEARCH_CMD_FWD;
+  int i = -1;
+  db_in_txt(&h->db, search_query, 1, search);
+  db_in_int(&h->db, search_query, 2, from);
+  int ret = db_exec(&h->db, search_query);
+  if (ret == DB_ROW) i = db_out_int(&h->db, search_query, 1);
+  db_reset(&h->db, search_query);
+  if (i == -1) debug_msg("searching '%s': not found\n", search);
+  if (i == -1) return false;
+debug_msg("found '%s' at index: %d\n", search, i);
   if (hidx != NULL) *hidx = i;
-  if (hpos != NULL) *hpos = (p - history_get(h,i));
+  if (hpos != NULL) *hpos = 0;
   return true;
+  // const char* p = NULL;
+  // ssize_t i;
+  // if (backward) {
+    // for( i = from; i < h->count; i++ ) {
+      // p = strstr( history_get(h,i), search);
+      // if (p != NULL) break;
+    // }
+  // }
+  // else {
+    // for( i = from; i >= 0; i-- ) {
+      // p = strstr( history_get(h,i), search);
+      // if (p != NULL) break;
+    // }
+  // }
+  // if (p == NULL) return false;
+  // if (hidx != NULL) *hidx = i;
+  // if (hpos != NULL) *hpos = (p - history_get(h,i));
+  // return true;
 }
 
 //-------------------------------------------------------------
