@@ -57,6 +57,7 @@ enum db_rc {
 enum db_stmt {
   DB_INS_CMD,
   DB_MAX_ID_CMD,
+  DB_GET_CMD,
   DB_UPD_ID_CMD,
   DB_STMT_CNT,
 };
@@ -64,6 +65,7 @@ enum db_stmt {
 static const struct db_query_t db_queries[] = {
   { DB_INS_CMD,       "insert into cmd values (?,?,?)" },
   { DB_MAX_ID_CMD,    "select max(cid) from cmd" },
+  { DB_GET_CMD,       "select cmd from cmd where cid = ?" },
   { DB_UPD_ID_CMD,    "update cmd set cid = cid + ? where cid > ?" },
   { DB_STMT_CNT,  "" },
 };
@@ -151,27 +153,27 @@ static int db_free_stmts(struct db_t *db)
   return rc;
 }
 
-static int db_exec(struct db_t *db, int stmt) {
+static int db_exec(const struct db_t *db, int stmt) {
   return db_rc(sqlite3_step(db->stmts[stmt]));
 }
 
-static int db_in_int(struct db_t *db, int stmt, int pos, int val) {
+static int db_in_int(const struct db_t *db, int stmt, int pos, int val) {
   return db_rc(sqlite3_bind_int(db->stmts[stmt], pos, val));
 }
 
-static int db_in_txt(struct db_t *db, int stmt, int pos, const char *val) {
+static int db_in_txt(const struct db_t *db, int stmt, int pos, const char *val) {
   return db_rc(sqlite3_bind_text(db->stmts[stmt], pos , val, -1, NULL));
 }
 
-static int db_out_int(struct db_t *db, int stmt, int pos) {
+static int db_out_int(const struct db_t *db, int stmt, int pos) {
   return sqlite3_column_int(db->stmts[stmt], pos - 1);
 }
 
-static const unsigned char * db_out_txt(struct db_t *db, int stmt, int pos) {
+static const unsigned char * db_out_txt(const struct db_t *db, int stmt, int pos) {
   return sqlite3_column_text(db->stmts[stmt], pos - 1);
 }
 
-static int db_reset(struct db_t *db, int stmt) {
+static int db_reset(const struct db_t *db, int stmt) {
   return db_rc(sqlite3_reset(db->stmts[stmt]));
 }
 
@@ -226,9 +228,14 @@ static void history_delete_at( history_t* h, ssize_t idx ) {
   h->count--;
 }
 
+/// TODO check if entry is already in cmd table, then update timestamp
+/// TODO add timestamp
+/// TODO trim entry (add an optional setting)
 ic_private bool history_push( history_t* h, const char* entry ) {
   /// There's always an empty statement inserted, I guess that's
   /// in the main editline() function ... not sure why
+  /// ... that's most likely also the reason why history_remove_last()
+  /// is called in history_update()
   if (strlen(entry) == 0) return true;
   if (h->len <= 0 || entry==NULL)  return false;
   db_exec(&h->db, DB_MAX_ID_CMD);
@@ -278,9 +285,19 @@ ic_private void history_clear(history_t* h) {
   history_remove_last_n( h, h->count );
 }
 
+/// TODO need to free the returned string
 ic_private const char* history_get( const history_t* h, ssize_t n ) {
-  if (n < 0 || n >= h->count) return NULL;
-  return h->elems[h->count - n - 1];
+  db_exec(&h->db, DB_MAX_ID_CMD);
+  int max_cid = db_out_int(&h->db, DB_MAX_ID_CMD, 1);
+  db_reset(&h->db, DB_MAX_ID_CMD);
+  if (n < 0 || n >= max_cid) return NULL;
+  db_in_int(&h->db, DB_GET_CMD, 1, max_cid - n);
+  db_exec(&h->db, DB_GET_CMD);
+  const char* ret = mem_strdup(h->mem, (const char*)db_out_txt(&h->db, DB_GET_CMD, 1));
+  db_reset(&h->db, DB_GET_CMD);
+  return ret;
+  // if (n < 0 || n >= h->count) return NULL;
+  // return h->elems[h->count - n - 1];
 }
 
 ic_private bool history_search( const history_t* h, ssize_t from /*including*/, const char* search, bool backward, ssize_t* hidx, ssize_t* hpos ) {
