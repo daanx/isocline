@@ -47,7 +47,7 @@ static void edit_history_next(ic_env_t* env, editor_t* eb) {
   edit_history_at(env,eb, -1 );
 }
 
-
+#if 0
 typedef struct hsearch_s {
   struct hsearch_s* next;
   ssize_t hidx;
@@ -263,3 +263,4 @@ static void edit_history_search_with_current_word(ic_env_t* env, editor_t* eb) {
   edit_history_search( env, eb, initial);
   mem_free(env->mem, initial);
 }
+#endif

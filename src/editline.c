@@ -990,10 +990,12 @@ static char* edit_line( ic_env_t* env, const char* prompt_text )
       case WITH_ALT('?'):
         edit_generate_completions(env,&eb,false);
         break;
+#if 0
       case KEY_CTRL_R:
       case KEY_CTRL_S:
         edit_history_search_with_current_word(env,&eb);
         break;
+#endif
       case KEY_CTRL_P:
         edit_history_prev(env, &eb);
         break;
