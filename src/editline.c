@@ -838,6 +838,27 @@ static void edit_insert_char(ic_env_t* env, editor_t* eb, char c) {
 
 #include "editline_completion.c"
 
+static void edit_move_hint_to_input(ic_env_t* env, editor_t* eb)
+{
+  (void)env;
+  // ssize_t start = sbuf_find_word_start(eb->hint, 0);
+  // ssize_t start = 1;
+  // ssize_t end = sbuf_find_word_end(eb->hint, start);
+  // debug_msg("edit_move_hint_to_input(), next word slice in '%s': [%d, %d]\n", sbuf_string(eb->hint), start, end);
+  char next_word[64] = {0};
+  // char *next_word_p = strtok_r((char *)sbuf_string(eb->hint), " ", &next_word);
+  char *next_word_p = strtok((char *)sbuf_string(eb->hint), " ");
+  sprintf(next_word, " %s", next_word_p);
+  debug_msg("edit_move_hint_to_input(), next word '%s'\n", next_word_p);
+  if (!next_word_p) return;
+  // eb->pos = end;
+  eb->pos += (ssize_t)strlen(next_word_p) + 1;
+  sbuf_replace(eb->hint, sbuf_string(eb->hint) + strlen(next_word_p) + 1);
+  // sbuf_append(eb->input, sbuf_string(sbuf_split_at(eb->hint, end - start)));
+  sbuf_append(eb->input, next_word);
+  edit_refresh(env,eb);
+  edit_cursor_next_word(env, eb);
+}
 
 //-------------------------------------------------------------
 // Edit line: main edit loop
@@ -909,14 +930,17 @@ static char* edit_line( ic_env_t* env, const char* prompt_text )
       edit_resize(env,&eb);            
     }
 
+    /// FIXME commenting out clearing the hint buffer, for now
+    /// ... but shouldn't this be moved into if() above anyway, only if tty resize ...?
     // clear hint only after a potential resize (so resize row calculations are correct)
     const bool had_hint = (sbuf_len(eb.hint) > 0);
-    sbuf_clear(eb.hint);
-    sbuf_clear(eb.hint_help);
+    // sbuf_clear(eb.hint);
+    // sbuf_clear(eb.hint_help);
 
-    // if the user tries to move into a hint with left-cursor or end, we complete it first
+    // if the user tries to move into a hint with right-cursor or end, we complete it first
     if ((c == KEY_RIGHT || c == KEY_END) && had_hint) {
-      edit_generate_completions(env, &eb, true);
+      edit_move_hint_to_input(env, &eb);
+      // edit_generate_completions(env, &eb, true);
       c = KEY_NONE;      
     }
 
@@ -998,7 +1022,8 @@ static char* edit_line( ic_env_t* env, const char* prompt_text )
       case KEY_RIGHT:
       case KEY_CTRL_F:
         if (eb.pos == sbuf_len(eb.input)) { 
-          edit_generate_completions( env, &eb, false );
+          edit_move_hint_to_input(env, &eb);
+          // edit_generate_completions( env, &eb, false );
         }
         else {
           edit_cursor_right(env,&eb);
@@ -1027,7 +1052,8 @@ static char* edit_line( ic_env_t* env, const char* prompt_text )
       case WITH_SHIFT(KEY_RIGHT):      
       case WITH_ALT('f'):
         if (eb.pos == sbuf_len(eb.input)) { 
-          edit_generate_completions( env, &eb, false );
+          edit_move_hint_to_input(env, &eb);
+          // edit_generate_completions( env, &eb, false );
         }
         else {
           edit_cursor_next_word(env,&eb);
@@ -1104,7 +1130,6 @@ static char* edit_line( ic_env_t* env, const char* prompt_text )
         break;
       }
     }
-
   }
 
   // goto end
