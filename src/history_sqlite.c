@@ -344,7 +344,7 @@ ic_private const char* history_get_with_prefix( const history_t* h, ssize_t n, c
   db_exec(&h->db, DB_GET_PREF_CNT);
   int cnt = db_out_int(&h->db, DB_GET_PREF_CNT, 1);
   db_reset(&h->db, DB_GET_PREF_CNT);
-  if (n <= 0 || n > cnt) return NULL;
+  if (n < 0 || n > cnt) return NULL;
   // db_in_int(&h->db, DB_GET_PREF_CMD, 1, cnt - n + 1);
   db_in_txt(&h->db, DB_GET_PREF_CMD, 1, prefix_param);
   db_in_int(&h->db, DB_GET_PREF_CMD, 2, n);

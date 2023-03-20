@@ -1095,6 +1095,12 @@ static char* edit_line( ic_env_t* env, const char* prompt_text )
         else {
           debug_msg( "edit: ignore code: 0x%04x\n", c);
         }
+        const char* entry = history_get_with_prefix(env->history, 0, sbuf_string(eb.input));
+        if (entry) {
+          debug_msg( "history found: %s, edit_buf: %s\n", entry, sbuf_string(eb.input));
+          sbuf_replace(eb.hint, entry + sbuf_len(eb.input));
+          edit_refresh(env, &eb);
+        }
         break;
       }
     }
