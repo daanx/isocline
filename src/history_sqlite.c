@@ -61,6 +61,7 @@ enum db_stmt {
   DB_GET_CMD,
   DB_GET_PREF_CNT,
   DB_GET_PREF_CMD,
+  DB_GET_CMD_ID,
   DB_SEARCH_CMD_FWD,
   DB_SEARCH_CMD_BCK,
   DB_UPD_ID_CMD,
@@ -74,6 +75,7 @@ static const struct db_query_t db_queries[] = {
   { DB_GET_CMD,           "select cmd from cmd where cid = ?" },
   { DB_GET_PREF_CNT,      "select count(cid) from cmd where cmd like ?" },
   { DB_GET_PREF_CMD,      "select cmd from cmd where cmd like ? order by cid desc limit 1 offset ?" },
+  { DB_GET_CMD_ID,        "select cid from cmd where cmd = ? limit 1" },
   { DB_SEARCH_CMD_FWD,
     "select cid from cmd where cmd = ? and cid >= ? order by cid asc limit 1" },
   { DB_SEARCH_CMD_BCK,
@@ -252,11 +254,26 @@ ic_private bool history_push( history_t* h, const char* entry ) {
   /// in the main editline() function ... not sure why
   /// ... that's most likely also the reason why history_remove_last()
   /// is called in history_update()
-  if (strlen(entry) == 0) return true;
-  if (h->len <= 0 || entry==NULL)  return false;
+
+  if (entry==NULL || strlen(entry) == 0) return false;
+
+  if (!h->allow_duplicates) {
+    db_in_txt(&h->db, DB_GET_CMD_ID, 1, entry);
+    int cid = -1;
+    if (db_exec(&h->db, DB_GET_CMD_ID) == DB_ROW) {;
+        cid = db_out_int(&h->db, DB_GET_CMD_ID, 1);
+    }
+    db_reset(&h->db, DB_GET_CMD_ID);
+    if (cid != -1) {
+      debug_msg("duplicate entry: %s\n", entry);
+      return false;
+    }
+  }
+
   db_exec(&h->db, DB_MAX_ID_CMD);
   int new_cid = db_out_int(&h->db, DB_MAX_ID_CMD, 1) + 1;
   db_reset(&h->db, DB_MAX_ID_CMD);
+
   db_in_int(&h->db, DB_INS_CMD, 1, new_cid);
   db_in_int(&h->db, DB_INS_CMD, 2, 0);
   db_in_txt(&h->db, DB_INS_CMD, 3, entry);
@@ -380,6 +397,7 @@ ic_private bool history_search( const history_t* h, ssize_t from /*including*/, 
 //-------------------------------------------------------------
 
 ic_private void history_load_from(history_t* h, const char* fname, long max_entries ) {
+  (void)max_entries;
   // history_clear(h);
   h->fname = mem_strdup(h->mem,fname);
   // if (max_entries == 0) {
