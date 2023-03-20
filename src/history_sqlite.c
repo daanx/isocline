@@ -217,7 +217,7 @@ ic_private bool history_enable_duplicates( history_t* h, bool enable ) {
   return prev;
 }
 
-ic_private ssize_t  history_count(const history_t* h) {
+ic_private ssize_t history_count( const history_t* h ) {
   db_exec(&h->db, DB_COUNT_CMD);
   int count = db_out_int(&h->db, DB_COUNT_CMD, 1);
   db_reset(&h->db, DB_COUNT_CMD);
@@ -237,14 +237,16 @@ ic_private bool history_update( history_t* h, const char* entry ) {
   return true;
 }
 
-// static void history_delete_at( history_t* h, ssize_t idx ) {
-  // if (idx < 0 || idx >= h->count) return;
-  // mem_free(h->mem, h->elems[idx]);
-  // for(ssize_t i = idx+1; i < h->count; i++) {
-    // h->elems[i-1] = h->elems[i];
-  // }
-  // h->count--;
-// }
+#if 0
+static void history_delete_at( history_t* h, ssize_t idx ) {
+  if (idx < 0 || idx >= h->count) return;
+  mem_free(h->mem, h->elems[idx]);
+  for(ssize_t i = idx+1; i < h->count; i++) {
+    h->elems[i-1] = h->elems[i];
+  }
+  h->count--;
+}
+#endif
 
 /// TODO check if entry is already in cmd table, then update timestamp
 /// TODO add timestamp
@@ -279,6 +281,7 @@ ic_private bool history_push( history_t* h, const char* entry ) {
   db_in_txt(&h->db, DB_INS_CMD, 3, entry);
   db_exec(&h->db, DB_INS_CMD);
   db_reset(&h->db, DB_INS_CMD);
+#if 0
   // exec_stmt(h->db, "insert into cmd values (?,?,?)");
   // // remove any older duplicate
   // if (!h->allow_duplicates) {
@@ -296,19 +299,21 @@ ic_private bool history_push( history_t* h, const char* entry ) {
   // assert(h->count < h->len);
   // h->elems[h->count] = mem_strdup(h->mem,entry);
   // h->count++;
+#endif
   return true;
 }
 
-
-// static void history_remove_last_n( history_t* h, ssize_t n ) {
-  // if (n <= 0) return;
-  // if (n > h->count) n = h->count;
-  // for( ssize_t i = h->count - n; i < h->count; i++) {
-    // mem_free( h->mem, h->elems[i] );
-  // }
-  // h->count -= n;
-  // assert(h->count >= 0);
-// }
+#if 0
+static void history_remove_last_n( history_t* h, ssize_t n ) {
+  if (n <= 0) return;
+  if (n > h->count) n = h->count;
+  for( ssize_t i = h->count - n; i < h->count; i++) {
+    mem_free( h->mem, h->elems[i] );
+  }
+  h->count -= n;
+  assert(h->count >= 0);
+}
+#endif
 
 ic_private void history_remove_last(history_t* h) {
   (void)h;
@@ -323,6 +328,9 @@ ic_private void history_clear(history_t* h) {
 /// Parameter n is the history command index from latest to oldest, starting with 1
 /// TODO need to free the returned string
 ic_private const char* history_get( const history_t* h, ssize_t n ) {
+  (void)h; (void)n;
+  return NULL;
+#if 0
   db_exec(&h->db, DB_MAX_ID_CMD);
   int max_cid = db_out_int(&h->db, DB_MAX_ID_CMD, 1);
   db_reset(&h->db, DB_MAX_ID_CMD);
@@ -335,6 +343,7 @@ ic_private const char* history_get( const history_t* h, ssize_t n ) {
   return ret;
   // if (n < 0 || n >= h->count) return NULL;
   // return h->elems[h->count - n - 1];
+#endif
 }
 
 ic_private const char* history_get_with_prefix( const history_t* h, ssize_t n, const char* prefix ) {
@@ -358,6 +367,8 @@ ic_private const char* history_get_with_prefix( const history_t* h, ssize_t n, c
 }
 
 ic_private bool history_search( const history_t* h, ssize_t from /*including*/, const char* search, bool backward, ssize_t* hidx, ssize_t* hpos ) {
+  (void)h; (void)from; (void)search; (void)backward; (void)hidx; (void) hpos;
+#if 0
   debug_msg("searching history %s for '%s' from %d\n", backward ? "back" : "forward", search, from);
   int search_query = backward ? DB_SEARCH_CMD_BCK : DB_SEARCH_CMD_FWD;
   int i = -1;
@@ -389,7 +400,8 @@ ic_private bool history_search( const history_t* h, ssize_t from /*including*/, 
   // if (p == NULL) return false;
   // if (hidx != NULL) *hidx = i;
   // if (hpos != NULL) *hpos = (p - history_get(h,i));
-  // return true;
+#endif
+  return true;
 }
 
 //-------------------------------------------------------------
@@ -415,94 +427,97 @@ ic_private void history_load_from(history_t* h, const char* fname, long max_entr
 // save/load history to file
 //-------------------------------------------------------------
 
-// static char from_xdigit( int c ) {
-  // if (c >= '0' && c <= '9') return (char)(c - '0');
-  // if (c >= 'A' && c <= 'F') return (char)(10 + (c - 'A'));
-  // if (c >= 'a' && c <= 'f') return (char)(10 + (c - 'a'));
-  // return 0;
-// }
+#if 0
+static char from_xdigit( int c ) {
+  if (c >= '0' && c <= '9') return (char)(c - '0');
+  if (c >= 'A' && c <= 'F') return (char)(10 + (c - 'A'));
+  if (c >= 'a' && c <= 'f') return (char)(10 + (c - 'a'));
+  return 0;
+}
 
-// static char to_xdigit( uint8_t c ) {
-  // if (c <= 9) return ((char)c + '0');
-  // if (c >= 10 && c <= 15) return ((char)c - 10 + 'A');
-  // return '0';
-// }
+static char to_xdigit( uint8_t c ) {
+  if (c <= 9) return ((char)c + '0');
+  if (c >= 10 && c <= 15) return ((char)c - 10 + 'A');
+  return '0';
+}
 
-// static bool ic_isxdigit( int c ) {
-  // return ((c >= 'a' && c <= 'f') || (c >= 'A' && c <= 'F') || (c >= '0' && c <= '9'));
-// }
+static bool ic_isxdigit( int c ) {
+  return ((c >= 'a' && c <= 'f') || (c >= 'A' && c <= 'F') || (c >= '0' && c <= '9'));
+}
 
-// static bool history_read_entry( history_t* h, FILE* f, stringbuf_t* sbuf ) {
-  // sbuf_clear(sbuf);
-  // while( !feof(f)) {
-    // int c = fgetc(f);
-    // if (c == EOF || c == '\n') break;
-    // if (c == '\\') {
-      // c = fgetc(f);
-      // if (c == 'n')       { sbuf_append(sbuf,"\n"); }
-      // else if (c == 'r')  { /* ignore */ }  // sbuf_append(sbuf,"\r");
-      // else if (c == 't')  { sbuf_append(sbuf,"\t"); }
-      // else if (c == '\\') { sbuf_append(sbuf,"\\"); }
-      // else if (c == 'x') {
-        // int c1 = fgetc(f);
-        // int c2 = fgetc(f);
-        // if (ic_isxdigit(c1) && ic_isxdigit(c2)) {
-          // char chr = from_xdigit(c1)*16 + from_xdigit(c2);
-          // sbuf_append_char(sbuf,chr);
-        // }
-        // else return false;
-      // }
-      // else return false;
-    // }
-    // else sbuf_append_char(sbuf,(char)c);
-  // }
-  // if (sbuf_len(sbuf)==0 || sbuf_string(sbuf)[0] == '#') return true;
-  // return history_push(h, sbuf_string(sbuf));
-// }
+static bool history_read_entry( history_t* h, FILE* f, stringbuf_t* sbuf ) {
+  sbuf_clear(sbuf);
+  while( !feof(f)) {
+    int c = fgetc(f);
+    if (c == EOF || c == '\n') break;
+    if (c == '\\') {
+      c = fgetc(f);
+      if (c == 'n')       { sbuf_append(sbuf,"\n"); }
+      else if (c == 'r')  { /* ignore */ }  // sbuf_append(sbuf,"\r");
+      else if (c == 't')  { sbuf_append(sbuf,"\t"); }
+      else if (c == '\\') { sbuf_append(sbuf,"\\"); }
+      else if (c == 'x') {
+        int c1 = fgetc(f);
+        int c2 = fgetc(f);
+        if (ic_isxdigit(c1) && ic_isxdigit(c2)) {
+          char chr = from_xdigit(c1)*16 + from_xdigit(c2);
+          sbuf_append_char(sbuf,chr);
+        }
+        else return false;
+      }
+      else return false;
+    }
+    else sbuf_append_char(sbuf,(char)c);
+  }
+  if (sbuf_len(sbuf)==0 || sbuf_string(sbuf)[0] == '#') return true;
+  return history_push(h, sbuf_string(sbuf));
+}
 
-// static bool history_write_entry( const char* entry, FILE* f, stringbuf_t* sbuf ) {
-  // sbuf_clear(sbuf);
-  // //debug_msg("history: write: %s\n", entry);
-  // while( entry != NULL && *entry != 0 ) {
-    // char c = *entry++;
-    // if (c == '\\')      { sbuf_append(sbuf,"\\\\"); }
-    // else if (c == '\n') { sbuf_append(sbuf,"\\n"); }
-    // else if (c == '\r') { /* ignore */ } // sbuf_append(sbuf,"\\r"); }
-    // else if (c == '\t') { sbuf_append(sbuf,"\\t"); }
-    // else if (c < ' ' || c > '~' || c == '#') {
-      // char c1 = to_xdigit( (uint8_t)c / 16 );
-      // char c2 = to_xdigit( (uint8_t)c % 16 );
-      // sbuf_append(sbuf,"\\x");
-      // sbuf_append_char(sbuf,c1);
-      // sbuf_append_char(sbuf,c2);
-    // }
-    // else sbuf_append_char(sbuf,c);
-  // }
-  // //debug_msg("history: write buf: %s\n", sbuf_string(sbuf));
-  //
-  // if (sbuf_len(sbuf) > 0) {
-    // sbuf_append(sbuf,"\n");
-    // fputs(sbuf_string(sbuf),f);
-  // }
-  // return true;
-// }
+static bool history_write_entry( const char* entry, FILE* f, stringbuf_t* sbuf ) {
+  sbuf_clear(sbuf);
+  //debug_msg("history: write: %s\n", entry);
+  while( entry != NULL && *entry != 0 ) {
+    char c = *entry++;
+    if (c == '\\')      { sbuf_append(sbuf,"\\\\"); }
+    else if (c == '\n') { sbuf_append(sbuf,"\\n"); }
+    else if (c == '\r') { /* ignore */ } // sbuf_append(sbuf,"\\r"); }
+    else if (c == '\t') { sbuf_append(sbuf,"\\t"); }
+    else if (c < ' ' || c > '~' || c == '#') {
+      char c1 = to_xdigit( (uint8_t)c / 16 );
+      char c2 = to_xdigit( (uint8_t)c % 16 );
+      sbuf_append(sbuf,"\\x");
+      sbuf_append_char(sbuf,c1);
+      sbuf_append_char(sbuf,c2);
+    }
+    else sbuf_append_char(sbuf,c);
+  }
+  //debug_msg("history: write buf: %s\n", sbuf_string(sbuf));
+  
+  if (sbuf_len(sbuf) > 0) {
+    sbuf_append(sbuf,"\n");
+    fputs(sbuf_string(sbuf),f);
+  }
+  return true;
+}
+#endif
 
 ic_private void history_load( history_t* h ) {
   if (db_open(&h->db, h->fname) != DB_OK) return;
   if (!create_tables(&h->db)) return;
   db_prepare_stmts(&h->db, db_queries, DB_STMT_CNT);
-
-  // if (h->fname == NULL) return;
-  // FILE* f = fopen(h->fname, "r");
-  // if (f == NULL) return;
-  // stringbuf_t* sbuf = sbuf_new(h->mem);
-  // if (sbuf != NULL) {
-    // while (!feof(f)) {
-      // if (!history_read_entry(h,f,sbuf)) break; // error
-    // }
-    // sbuf_free(sbuf);
-  // }
-  // fclose(f);
+#if 0
+  if (h->fname == NULL) return;
+  FILE* f = fopen(h->fname, "r");
+  if (f == NULL) return;
+  stringbuf_t* sbuf = sbuf_new(h->mem);
+  if (sbuf != NULL) {
+    while (!feof(f)) {
+      if (!history_read_entry(h,f,sbuf)) break; // error
+    }
+    sbuf_free(sbuf);
+  }
+  fclose(f);
+#endif
 }
 
 ic_private void history_save( const history_t* h ) {

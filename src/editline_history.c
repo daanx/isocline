@@ -12,7 +12,8 @@
 static void edit_history_at(ic_env_t* env, editor_t* eb, int ofs ) 
 {
   if (eb->modified) { 
-    history_update(env->history, sbuf_string(eb->input)); // update first entry if modified
+    // history_update(env->history, sbuf_string(eb->input)); // update first entry if modified
+    history_push(env->history, sbuf_string(eb->input)); // update first entry if modified
     eb->history_idx = 0;          // and start again 
     eb->modified = false;    
   }
@@ -45,6 +46,7 @@ static void edit_history_prev(ic_env_t* env, editor_t* eb) {
 static void edit_history_next(ic_env_t* env, editor_t* eb) {
   edit_history_at(env,eb, -1 );
 }
+
 
 typedef struct hsearch_s {
   struct hsearch_s* next;
@@ -93,7 +95,8 @@ static void edit_history_search(ic_env_t* env, editor_t* eb, char* initial ) {
 
   // update history
   if (eb->modified) { 
-    history_update(env->history, sbuf_string(eb->input)); // update first entry if modified
+    // history_update(env->history, sbuf_string(eb->input)); // update first entry if modified
+    history_push(env->history, sbuf_string(eb->input)); // update first entry if modified
     eb->history_idx = 0;               // and start again 
     eb->modified = false;
   }
