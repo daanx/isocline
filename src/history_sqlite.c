@@ -347,7 +347,7 @@ ic_private const char* history_get_with_prefix( const history_t* h, ssize_t n, c
   if (n < 0 || n > cnt) return NULL;
   // db_in_int(&h->db, DB_GET_PREF_CMD, 1, cnt - n + 1);
   db_in_txt(&h->db, DB_GET_PREF_CMD, 1, prefix_param);
-  db_in_int(&h->db, DB_GET_PREF_CMD, 2, n);
+  db_in_int(&h->db, DB_GET_PREF_CMD, 2, n - 1);
   /// TODO check if row is returned
   db_exec(&h->db, DB_GET_PREF_CMD);
   const char* ret = mem_strdup(h->mem, (const char*)db_out_txt(&h->db, DB_GET_PREF_CMD, 1));
