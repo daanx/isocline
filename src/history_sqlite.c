@@ -380,16 +380,16 @@ ic_private bool history_search( const history_t* h, ssize_t from /*including*/, 
 //-------------------------------------------------------------
 
 ic_private void history_load_from(history_t* h, const char* fname, long max_entries ) {
-  history_clear(h);
+  // history_clear(h);
   h->fname = mem_strdup(h->mem,fname);
-  if (max_entries == 0) {
-    assert(h->elems == NULL);
-    return;
-  }
-  if (max_entries < 0 || max_entries > IC_MAX_HISTORY) max_entries = IC_MAX_HISTORY;
-  h->elems = (const char**)mem_zalloc_tp_n(h->mem, char*, max_entries );
-  if (h->elems == NULL) return;
-  h->len = max_entries;
+  // if (max_entries == 0) {
+    // assert(h->elems == NULL);
+    // return;
+  // }
+  // if (max_entries < 0 || max_entries > IC_MAX_HISTORY) max_entries = IC_MAX_HISTORY;
+  // h->elems = (const char**)mem_zalloc_tp_n(h->mem, char*, max_entries );
+  // if (h->elems == NULL) return;
+  // h->len = max_entries;
   history_load(h);
 }
 
