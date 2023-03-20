@@ -120,6 +120,7 @@ ic_private const char* history_get( const history_t* h, ssize_t n ) {
 }
 
 ic_private bool history_search( const history_t* h, ssize_t from /*including*/, const char* search, bool backward, ssize_t* hidx, ssize_t* hpos ) {
+  debug_msg("searching history %s for '%s' from %d\n", backward ? "back" : "forward", search, from);
   const char* p = NULL;
   ssize_t i;
   if (backward) {
@@ -135,6 +136,7 @@ ic_private bool history_search( const history_t* h, ssize_t from /*including*/, 
     }
   }
   if (p == NULL) return false;
+  debug_msg("found '%s' at index: %d\n", search, i);
   if (hidx != NULL) *hidx = i;
   if (hpos != NULL) *hpos = (p - history_get(h,i));
   return true;

@@ -59,6 +59,8 @@ enum db_stmt {
   DB_MAX_ID_CMD,
   DB_COUNT_CMD,
   DB_GET_CMD,
+  DB_GET_PREF_CNT,
+  DB_GET_PREF_CMD,
   DB_SEARCH_CMD_FWD,
   DB_SEARCH_CMD_BCK,
   DB_UPD_ID_CMD,
@@ -70,6 +72,8 @@ static const struct db_query_t db_queries[] = {
   { DB_MAX_ID_CMD,        "select max(cid) from cmd" },
   { DB_COUNT_CMD,         "select count(cid) from cmd" },
   { DB_GET_CMD,           "select cmd from cmd where cid = ?" },
+  { DB_GET_PREF_CNT,      "select count(cid) from cmd where cmd like ?" },
+  { DB_GET_PREF_CMD,      "select cmd from cmd where cmd like ? order by cid desc limit 1 offset ?" },
   { DB_SEARCH_CMD_FWD,
     "select cid from cmd where cmd = ? and cid >= ? order by cid asc limit 1" },
   { DB_SEARCH_CMD_BCK,
@@ -311,6 +315,26 @@ ic_private const char* history_get( const history_t* h, ssize_t n ) {
   db_exec(&h->db, DB_GET_CMD);
   const char* ret = mem_strdup(h->mem, (const char*)db_out_txt(&h->db, DB_GET_CMD, 1));
   db_reset(&h->db, DB_GET_CMD);
+  return ret;
+  // if (n < 0 || n >= h->count) return NULL;
+  // return h->elems[h->count - n - 1];
+}
+
+ic_private const char* history_get_with_prefix( const history_t* h, ssize_t n, const char* prefix ) {
+  char prefix_param[64] = {0};
+  sprintf(prefix_param, "%s%%", prefix);
+  db_in_txt(&h->db, DB_GET_PREF_CNT, 1, prefix_param);
+  db_exec(&h->db, DB_GET_PREF_CNT);
+  int cnt = db_out_int(&h->db, DB_GET_PREF_CNT, 1);
+  db_reset(&h->db, DB_GET_PREF_CNT);
+  if (n <= 0 || n > cnt) return NULL;
+  // db_in_int(&h->db, DB_GET_PREF_CMD, 1, cnt - n + 1);
+  db_in_txt(&h->db, DB_GET_PREF_CMD, 1, prefix_param);
+  db_in_int(&h->db, DB_GET_PREF_CMD, 2, n);
+  /// TODO check if row is returned
+  db_exec(&h->db, DB_GET_PREF_CMD);
+  const char* ret = mem_strdup(h->mem, (const char*)db_out_txt(&h->db, DB_GET_PREF_CMD, 1));
+  db_reset(&h->db, DB_GET_PREF_CMD);
   return ret;
   // if (n < 0 || n >= h->count) return NULL;
   // return h->elems[h->count - n - 1];
