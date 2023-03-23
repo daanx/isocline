@@ -40,6 +40,8 @@ static void edit_history_at(ic_env_t* env, editor_t* eb, int ofs )
 }
 
 static void edit_history_prev(ic_env_t* env, editor_t* eb) {
+  // if (sbuf_len(eb->hint) > 0) edit_history_at(env,eb, 2 );
+  // else edit_history_at(env,eb, 1 );
   edit_history_at(env,eb, 1 );
 }
 

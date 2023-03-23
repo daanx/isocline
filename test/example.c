@@ -37,7 +37,11 @@ int main()
               "- Use [kbd]ctrl-r[/] to search the history.\n\n" );
   
   // enable history; use a NULL filename to not persist history to disk
-  ic_set_history("history.db", -1 /* default entries (= 200) */);
+#ifdef IC_HIST_IMPL_SQLITE
+  ic_set_history("history.db", -1 /* no limit to number of entries */);
+#else
+  ic_set_history("history.txt", -1 /* default entries (= 200) */);
+#endif
 
   // enable completion with a default completion function
   ic_set_default_completer(&completer, NULL);

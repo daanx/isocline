@@ -593,6 +593,7 @@ static void edit_cursor_row_up(ic_env_t* env, editor_t* eb) {
   rowcol_t rc;
   edit_get_rowcol( env, eb, &rc);
   if (rc.row == 0) {
+    /// FIXME skip the latest history entry if already shown by hint
     edit_history_prev(env,eb);
   }
   else {
