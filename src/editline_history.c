@@ -24,6 +24,7 @@ static void edit_history_at(ic_env_t* env, editor_t* eb, int ofs )
   else {
     eb->history_idx += ofs;
     sbuf_replace(eb->hint, entry + sbuf_len(eb->input));
+    env->mem->free((char *)entry);
     if (ofs > 0) {
       // at end of first line when scrolling up
       ssize_t end = sbuf_find_line_end(eb->input,0);

@@ -1125,6 +1125,7 @@ static char* edit_line( ic_env_t* env, const char* prompt_text )
         if (entry) {
           debug_msg( "history found: %s, edit_buf: %s\n", entry, sbuf_string(eb.input));
           sbuf_replace(eb.hint, entry + sbuf_len(eb.input));
+          env->mem->free((char *)entry);
           edit_refresh(env, &eb);
         }
         break;
