@@ -46,9 +46,6 @@ typedef struct editor_s {
 } editor_t;
 
 
-
-
-
 //-------------------------------------------------------------
 // Main edit line 
 //-------------------------------------------------------------
@@ -115,8 +112,6 @@ static void editor_start_modify(editor_t* eb ) {
   editstate_done(eb->mem, &eb->redo);  // clear redo
   eb->modified = true;
 }
-
-
 
 static bool editor_pos_is_at_end(editor_t* eb ) {
   return (eb->pos == sbuf_len(eb->input));  
@@ -382,7 +377,6 @@ static void edit_clear(ic_env_t* env, editor_t* eb ) {
   term_up(env->term, eb->cur_rows - eb->cur_row );  
 }
 
-
 // clear screen and refresh
 static void edit_clear_screen(ic_env_t* env, editor_t* eb ) {
   ssize_t cur_rows = eb->cur_rows;
@@ -391,7 +385,6 @@ static void edit_clear_screen(ic_env_t* env, editor_t* eb ) {
   eb->cur_rows = cur_rows;
   edit_refresh(env,eb);
 }
-
 
 // refresh after a terminal window resized (but before doing further edit operations!)
 static bool edit_resize(ic_env_t* env, editor_t* eb ) {
@@ -611,7 +604,6 @@ static void edit_cursor_row_down(ic_env_t* env, editor_t* eb) {
     edit_set_pos_at_rowcol( env, eb, rc.row + 1, rc.col );
   }
 }
-
 
 static void edit_cursor_match_brace(ic_env_t* env, editor_t* eb) {
   ssize_t match = find_matching_brace( sbuf_string(eb->input), eb->pos, ic_env_get_match_braces(env), NULL );
@@ -839,6 +831,7 @@ static void edit_insert_char(ic_env_t* env, editor_t* eb, char c) {
 
 #include "editline_completion.c"
 
+/// FIXME this should be improved ...
 static void edit_move_hint_to_input(ic_env_t* env, editor_t* eb)
 {
   (void)env;
@@ -897,6 +890,8 @@ static char* edit_line( ic_env_t* env, const char* prompt_text )
   // show prompt
   edit_write_prompt(env, &eb, 0, false);   
 
+  /// NOTE avoid pushing empty lines with the sqlite backend
+  /// (... there seems to be no need for that ...)
   // always a history entry for the current input
   // history_push(env->history, "");
 
@@ -931,7 +926,7 @@ static char* edit_line( ic_env_t* env, const char* prompt_text )
       edit_resize(env,&eb);            
     }
 
-    /// FIXME commenting out clearing the hint buffer, for now
+    /// NOTE commenting out clearing the hint buffer, for now
     /// ... but shouldn't this be moved into if() above anyway, only if tty resize ...?
     // clear hint only after a potential resize (so resize row calculations are correct)
     const bool had_hint = (sbuf_len(eb.hint) > 0);
@@ -992,6 +987,8 @@ static char* edit_line( ic_env_t* env, const char* prompt_text )
         edit_generate_completions(env,&eb,false);
         break;
 #if 0
+      /// NOTE removed explicit history search commands and integrated them into
+      /// history browsing with KEY_UP and KEY_DOWN
       case KEY_CTRL_R:
       case KEY_CTRL_S:
         edit_history_search_with_current_word(env,&eb);
@@ -1157,9 +1154,11 @@ static char* edit_line( ic_env_t* env, const char* prompt_text )
   }
 
   // update history
+  /// NOTE history_update() and history_push() are the same with sqlite backend
   // history_update(env->history, sbuf_string(eb.input));
   history_push(env->history, sbuf_string(eb.input));
   if (res == NULL || sbuf_len(eb.input) <= 1) { ic_history_remove_last(); } // no empty or single-char entries
+  /// NOTE not needed with sqlite backend
   // history_save(env->history);
 
   // free resources 

@@ -15,8 +15,6 @@
 #include "history.h"
 #include "stringbuf.h"
 
-#define IC_MAX_HISTORY (200)
-
 struct db_t {
   sqlite3             *dbh;
   sqlite3_stmt       **stmts;
@@ -29,22 +27,15 @@ struct db_query_t {
 };
 
 struct history_s {
-  ssize_t  count;              // current number of entries in use
-  ssize_t  len;                // size of elems 
-  const char** elems;         // history items (up to count)
-  const char*  fname;         // history file
+  const char*  fname;              // history file
   struct db_t  db;
-  alloc_t* mem;
-  bool     allow_duplicates;   // allow duplicate entries?
+  alloc_t*     mem;
+  bool         allow_duplicates;   // allow duplicate entries?
 };
 
 static const char *db_tables[] = {
-  "create table if not exists cmd     (cid integer, ts integer, cmd text)",
-  "create table if not exists session (sid text, cid integer, ts integer, path text)",
-  // "create table if not exists path  (cid integer, ts integer, path text)",
-  "create index if not exists cmdididx  on cmd(cid, ts)",
-  "create index if not exists sessionididx on session(sid, cid, ts)",
-  // "create index pathididx on path(cid, ts)",
+  "create table if not exists cmd      (cid integer, ts integer, cmd text)",
+  "create index if not exists cmdididx on cmd(cid, ts)",
   NULL
 };
 
@@ -62,9 +53,6 @@ enum db_stmt {
   DB_GET_PREF_CNT,
   DB_GET_PREF_CMD,
   DB_GET_CMD_ID,
-  DB_SEARCH_CMD_FWD,
-  DB_SEARCH_CMD_BCK,
-  DB_UPD_ID_CMD,
   DB_STMT_CNT,
 };
 
@@ -76,11 +64,6 @@ static const struct db_query_t db_queries[] = {
   { DB_GET_PREF_CNT,      "select count(cid) from cmd where cmd like ?" },
   { DB_GET_PREF_CMD,      "select cmd from cmd where cmd like ? order by cid desc limit 1 offset ?" },
   { DB_GET_CMD_ID,        "select cid from cmd where cmd = ? limit 1" },
-  { DB_SEARCH_CMD_FWD,
-    "select cid from cmd where cmd = ? and cid >= ? order by cid asc limit 1" },
-  { DB_SEARCH_CMD_BCK,
-    "select cid from cmd where cmd = ? and cid <= ? order by cid desc limit 1" },
-  { DB_UPD_ID_CMD,        "update cmd set cid = cid + ? where cid > ?" },
   { DB_STMT_CNT,          "" },
 };
 
@@ -199,12 +182,6 @@ ic_private history_t* history_new(alloc_t* mem) {
 
 ic_private void history_free(history_t* h) {
   if (h == NULL) return;
-  // history_clear(h);
-  // if (h->len > 0) {
-    // mem_free( h->mem, h->elems );
-    // h->elems = NULL;
-    // h->len = 0;
-  // }
   sqlite3_close(h->db.dbh);
   mem_free(h->mem, h->fname);
   h->fname = NULL;
@@ -222,41 +199,24 @@ ic_private ssize_t history_count( const history_t* h ) {
   int count = db_out_int(&h->db, DB_COUNT_CMD, 1);
   db_reset(&h->db, DB_COUNT_CMD);
   return count;
-  // return h->count;
 }
 
 //-------------------------------------------------------------
 // push/clear
 //-------------------------------------------------------------
 
+/// NOTE history_update() is not needed and could be removed
 ic_private bool history_update( history_t* h, const char* entry ) {
   if (entry==NULL) return false;
-  // history_remove_last(h);
   history_push(h,entry);
   //debug_msg("history: update: with %s; now at %s\n", entry, history_get(h,0));
   return true;
 }
 
-#if 0
-static void history_delete_at( history_t* h, ssize_t idx ) {
-  if (idx < 0 || idx >= h->count) return;
-  mem_free(h->mem, h->elems[idx]);
-  for(ssize_t i = idx+1; i < h->count; i++) {
-    h->elems[i-1] = h->elems[i];
-  }
-  h->count--;
-}
-#endif
 
 /// TODO check if entry is already in cmd table, then update timestamp
 /// TODO add timestamp
-/// TODO trim entry (add an optional setting)
 ic_private bool history_push( history_t* h, const char* entry ) {
-  /// There's always an empty statement inserted, I guess that's
-  /// in the main editline() function ... not sure why
-  /// ... that's most likely also the reason why history_remove_last()
-  /// is called in history_update()
-
   if (entry==NULL || strlen(entry) == 0) return false;
 
   if (!h->allow_duplicates) {
@@ -281,71 +241,28 @@ ic_private bool history_push( history_t* h, const char* entry ) {
   db_in_txt(&h->db, DB_INS_CMD, 3, entry);
   db_exec(&h->db, DB_INS_CMD);
   db_reset(&h->db, DB_INS_CMD);
-#if 0
-  // exec_stmt(h->db, "insert into cmd values (?,?,?)");
-  // // remove any older duplicate
-  // if (!h->allow_duplicates) {
-    // for( int i = 0; i < h->count; i++) {
-      // if (strcmp(h->elems[i],entry) == 0) {
-        // history_delete_at(h,i);
-      // }
-    // }
-  // }
-  // // insert at front
-  // if (h->count == h->len) {
-    // // delete oldest entry
-    // history_delete_at(h,0);    
-  // }
-  // assert(h->count < h->len);
-  // h->elems[h->count] = mem_strdup(h->mem,entry);
-  // h->count++;
-#endif
   return true;
 }
 
-#if 0
+/// NOTE history_remove_last_n() is not needed but could be implemented
 static void history_remove_last_n( history_t* h, ssize_t n ) {
+  (void)h;
   if (n <= 0) return;
-  if (n > h->count) n = h->count;
-  for( ssize_t i = h->count - n; i < h->count; i++) {
-    mem_free( h->mem, h->elems[i] );
-  }
-  h->count -= n;
-  assert(h->count >= 0);
 }
-#endif
 
+/// NOTE see history_remove_last_n()
 ic_private void history_remove_last(history_t* h) {
   (void)h;
-  // history_remove_last_n(h,1);
+  history_remove_last_n(h,1);
 }
 
+/// NOTE see history_remove_last_n()
 ic_private void history_clear(history_t* h) {
   (void)h;
-  // history_remove_last_n( h, h->count );
 }
 
 /// Parameter n is the history command index from latest to oldest, starting with 1
-/// TODO need to free the returned string
-ic_private const char* history_get( const history_t* h, ssize_t n ) {
-  (void)h; (void)n;
-  return NULL;
-#if 0
-  db_exec(&h->db, DB_MAX_ID_CMD);
-  int max_cid = db_out_int(&h->db, DB_MAX_ID_CMD, 1);
-  db_reset(&h->db, DB_MAX_ID_CMD);
-  if (n <= 0 || n > max_cid) return NULL;
-  db_in_int(&h->db, DB_GET_CMD, 1, max_cid - n + 1);
-  /// TODO check if row is returned
-  db_exec(&h->db, DB_GET_CMD);
-  const char* ret = mem_strdup(h->mem, (const char*)db_out_txt(&h->db, DB_GET_CMD, 1));
-  db_reset(&h->db, DB_GET_CMD);
-  return ret;
-  // if (n < 0 || n >= h->count) return NULL;
-  // return h->elems[h->count - n - 1];
-#endif
-}
-
+/// NOTE need to free the returned string at the callsite
 ic_private const char* history_get_with_prefix( const history_t* h, ssize_t n, const char* prefix ) {
   char prefix_param[64] = {0};
   sprintf(prefix_param, "%s%%", prefix);
@@ -354,53 +271,18 @@ ic_private const char* history_get_with_prefix( const history_t* h, ssize_t n, c
   int cnt = db_out_int(&h->db, DB_GET_PREF_CNT, 1);
   db_reset(&h->db, DB_GET_PREF_CNT);
   if (n < 0 || n > cnt) return NULL;
-  // db_in_int(&h->db, DB_GET_PREF_CMD, 1, cnt - n + 1);
   db_in_txt(&h->db, DB_GET_PREF_CMD, 1, prefix_param);
   db_in_int(&h->db, DB_GET_PREF_CMD, 2, n - 1);
-  /// TODO check if row is returned
-  db_exec(&h->db, DB_GET_PREF_CMD);
-  const char* ret = mem_strdup(h->mem, (const char*)db_out_txt(&h->db, DB_GET_PREF_CMD, 1));
+  int ret = db_exec(&h->db, DB_GET_PREF_CMD);
+  if (ret != DB_ROW) return NULL;
+  const char* entry = mem_strdup(h->mem, (const char*)db_out_txt(&h->db, DB_GET_PREF_CMD, 1));
   db_reset(&h->db, DB_GET_PREF_CMD);
-  return ret;
-  // if (n < 0 || n >= h->count) return NULL;
-  // return h->elems[h->count - n - 1];
+  return entry;
 }
 
+/// NOTE history_search() is not needed and could be removed
 ic_private bool history_search( const history_t* h, ssize_t from /*including*/, const char* search, bool backward, ssize_t* hidx, ssize_t* hpos ) {
   (void)h; (void)from; (void)search; (void)backward; (void)hidx; (void) hpos;
-#if 0
-  debug_msg("searching history %s for '%s' from %d\n", backward ? "back" : "forward", search, from);
-  int search_query = backward ? DB_SEARCH_CMD_BCK : DB_SEARCH_CMD_FWD;
-  int i = -1;
-  db_in_txt(&h->db, search_query, 1, search);
-  db_in_int(&h->db, search_query, 2, from);
-  int ret = db_exec(&h->db, search_query);
-  if (ret == DB_ROW) i = db_out_int(&h->db, search_query, 1);
-  db_reset(&h->db, search_query);
-  if (i == -1) debug_msg("searching '%s': not found\n", search);
-  if (i == -1) return false;
-  debug_msg("found '%s' at index: %d\n", search, i);
-  if (hidx != NULL) *hidx = i;
-  if (hpos != NULL) *hpos = 0;
-  return true;
-  // const char* p = NULL;
-  // ssize_t i;
-  // if (backward) {
-    // for( i = from; i < h->count; i++ ) {
-      // p = strstr( history_get(h,i), search);
-      // if (p != NULL) break;
-    // }
-  // }
-  // else {
-    // for( i = from; i >= 0; i-- ) {
-      // p = strstr( history_get(h,i), search);
-      // if (p != NULL) break;
-    // }
-  // }
-  // if (p == NULL) return false;
-  // if (hidx != NULL) *hidx = i;
-  // if (hpos != NULL) *hpos = (p - history_get(h,i));
-#endif
   return true;
 }
 
@@ -410,16 +292,7 @@ ic_private bool history_search( const history_t* h, ssize_t from /*including*/, 
 
 ic_private void history_load_from(history_t* h, const char* fname, long max_entries ) {
   (void)max_entries;
-  // history_clear(h);
   h->fname = mem_strdup(h->mem,fname);
-  // if (max_entries == 0) {
-    // assert(h->elems == NULL);
-    // return;
-  // }
-  // if (max_entries < 0 || max_entries > IC_MAX_HISTORY) max_entries = IC_MAX_HISTORY;
-  // h->elems = (const char**)mem_zalloc_tp_n(h->mem, char*, max_entries );
-  // if (h->elems == NULL) return;
-  // h->len = max_entries;
   history_load(h);
 }
 
@@ -427,113 +300,13 @@ ic_private void history_load_from(history_t* h, const char* fname, long max_entr
 // save/load history to file
 //-------------------------------------------------------------
 
-#if 0
-static char from_xdigit( int c ) {
-  if (c >= '0' && c <= '9') return (char)(c - '0');
-  if (c >= 'A' && c <= 'F') return (char)(10 + (c - 'A'));
-  if (c >= 'a' && c <= 'f') return (char)(10 + (c - 'a'));
-  return 0;
-}
-
-static char to_xdigit( uint8_t c ) {
-  if (c <= 9) return ((char)c + '0');
-  if (c >= 10 && c <= 15) return ((char)c - 10 + 'A');
-  return '0';
-}
-
-static bool ic_isxdigit( int c ) {
-  return ((c >= 'a' && c <= 'f') || (c >= 'A' && c <= 'F') || (c >= '0' && c <= '9'));
-}
-
-static bool history_read_entry( history_t* h, FILE* f, stringbuf_t* sbuf ) {
-  sbuf_clear(sbuf);
-  while( !feof(f)) {
-    int c = fgetc(f);
-    if (c == EOF || c == '\n') break;
-    if (c == '\\') {
-      c = fgetc(f);
-      if (c == 'n')       { sbuf_append(sbuf,"\n"); }
-      else if (c == 'r')  { /* ignore */ }  // sbuf_append(sbuf,"\r");
-      else if (c == 't')  { sbuf_append(sbuf,"\t"); }
-      else if (c == '\\') { sbuf_append(sbuf,"\\"); }
-      else if (c == 'x') {
-        int c1 = fgetc(f);
-        int c2 = fgetc(f);
-        if (ic_isxdigit(c1) && ic_isxdigit(c2)) {
-          char chr = from_xdigit(c1)*16 + from_xdigit(c2);
-          sbuf_append_char(sbuf,chr);
-        }
-        else return false;
-      }
-      else return false;
-    }
-    else sbuf_append_char(sbuf,(char)c);
-  }
-  if (sbuf_len(sbuf)==0 || sbuf_string(sbuf)[0] == '#') return true;
-  return history_push(h, sbuf_string(sbuf));
-}
-
-static bool history_write_entry( const char* entry, FILE* f, stringbuf_t* sbuf ) {
-  sbuf_clear(sbuf);
-  //debug_msg("history: write: %s\n", entry);
-  while( entry != NULL && *entry != 0 ) {
-    char c = *entry++;
-    if (c == '\\')      { sbuf_append(sbuf,"\\\\"); }
-    else if (c == '\n') { sbuf_append(sbuf,"\\n"); }
-    else if (c == '\r') { /* ignore */ } // sbuf_append(sbuf,"\\r"); }
-    else if (c == '\t') { sbuf_append(sbuf,"\\t"); }
-    else if (c < ' ' || c > '~' || c == '#') {
-      char c1 = to_xdigit( (uint8_t)c / 16 );
-      char c2 = to_xdigit( (uint8_t)c % 16 );
-      sbuf_append(sbuf,"\\x");
-      sbuf_append_char(sbuf,c1);
-      sbuf_append_char(sbuf,c2);
-    }
-    else sbuf_append_char(sbuf,c);
-  }
-  //debug_msg("history: write buf: %s\n", sbuf_string(sbuf));
-  
-  if (sbuf_len(sbuf) > 0) {
-    sbuf_append(sbuf,"\n");
-    fputs(sbuf_string(sbuf),f);
-  }
-  return true;
-}
-#endif
-
 ic_private void history_load( history_t* h ) {
   if (db_open(&h->db, h->fname) != DB_OK) return;
   if (!create_tables(&h->db)) return;
   db_prepare_stmts(&h->db, db_queries, DB_STMT_CNT);
-#if 0
-  if (h->fname == NULL) return;
-  FILE* f = fopen(h->fname, "r");
-  if (f == NULL) return;
-  stringbuf_t* sbuf = sbuf_new(h->mem);
-  if (sbuf != NULL) {
-    while (!feof(f)) {
-      if (!history_read_entry(h,f,sbuf)) break; // error
-    }
-    sbuf_free(sbuf);
-  }
-  fclose(f);
-#endif
 }
 
+/// NOTE history_save() is not needed and could be removed
 ic_private void history_save( const history_t* h ) {
   (void)h;
-  // if (h->fname == NULL) return;
-  // FILE* f = fopen(h->fname, "w");
-  // if (f == NULL) return;
-  // #ifndef _WIN32
-  // chmod(h->fname,S_IRUSR|S_IWUSR);
-  // #endif
-  // stringbuf_t* sbuf = sbuf_new(h->mem);
-  // if (sbuf != NULL) {
-    // for( int i = 0; i < h->count; i++ )  {
-      // if (!history_write_entry(h->elems[i],f,sbuf)) break;  // error
-    // }
-    // sbuf_free(sbuf);
-  // }
-  // fclose(f);  
 }
