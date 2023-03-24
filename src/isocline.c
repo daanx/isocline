@@ -531,7 +531,9 @@ static ic_env_t* ic_env_create( ic_malloc_fun_t* _malloc, ic_realloc_fun_t* _rea
   env->history     = history_new(env->mem);
   env->completions = completions_new(env->mem);
   env->bbcode      = bbcode_new(env->mem, env->term);
-  env->hint_delay  = 400;   
+#ifndef IC_HIST_IMPL_SQLITE
+  env->hint_delay  = 400;
+#endif
   
   if (env->tty == NULL || env->term==NULL ||
       env->completions == NULL || env->history == NULL || env->bbcode == NULL ||

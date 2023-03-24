@@ -53,7 +53,7 @@ int main()
   ic_enable_auto_tab(true );
 
   // inline hinting is enabled by default
-  // ic_enable_hint(false);
+  ic_enable_hint(false);
 
   // run until empty input
   char* input;

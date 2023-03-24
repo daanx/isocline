@@ -444,6 +444,7 @@ static void editor_append_hint_help(editor_t* eb, const char* help) {
 
 // refresh with possible hint
 static void edit_refresh_hint(ic_env_t* env, editor_t* eb) {
+  debug_msg("edit_refresh_hint(), hint before: %s\n", sbuf_string(eb->hint));
   if (env->no_hint || env->hint_delay > 0) {
     // refresh without hint first
     edit_refresh(env, eb);
@@ -490,6 +491,7 @@ static void edit_refresh_hint(ic_env_t* env, editor_t* eb) {
     // refresh with hint directly
     edit_refresh(env, eb);
   }
+  debug_msg("edit_refresh_hint(), hint after: %s\n", sbuf_string(eb->hint));
 }
 
 //-------------------------------------------------------------
@@ -838,7 +840,10 @@ static void edit_move_hint_to_input(ic_env_t* env, editor_t* eb)
   // ssize_t start = sbuf_find_word_start(eb->hint, 0);
   // ssize_t start = 1;
   // ssize_t end = sbuf_find_word_end(eb->hint, start);
-  // debug_msg("edit_move_hint_to_input(), next word slice in '%s': [%d, %d]\n", sbuf_string(eb->hint), start, end);
+
+#if 0
+  debug_msg("edit_move_hint_to_input(), next word slice in '%s': [%d, %d]\n", sbuf_string(eb->hint), start, end);
+
   char next_word[64] = {0};
   // char *next_word_p = strtok_r((char *)sbuf_string(eb->hint), " ", &next_word);
   char *next_word_p = strtok((char *)sbuf_string(eb->hint), " ");
@@ -852,6 +857,53 @@ static void edit_move_hint_to_input(ic_env_t* env, editor_t* eb)
   sbuf_append(eb->input, next_word);
   edit_refresh(env,eb);
   edit_cursor_next_word(env, eb);
+#endif
+
+#if 0
+  if (sbuf_len(eb->hint) == 0) return;
+  char *hint = (char *)sbuf_string(eb->hint);
+  char *next_word_p = hint;
+  /// TODO generalize for all types of whitespace characters
+  /// TODO what about multiline?
+  int wscnt = 0;
+  for (; *next_word_p == ' '; next_word_p++, wscnt++);
+  if ((size_t)(next_word_p - hint) == strlen(hint)) return;
+  char *next_word_e = strchr(next_word_p, ' ');
+  if (next_word_e == NULL) return;
+  ssize_t next_word_len = (ssize_t)(next_word_e - next_word_p);
+  eb->pos += wscnt + next_word_len + 1;
+  sbuf_replace(eb->hint, next_word_e);
+  char next_word[64] = {0};
+  snprintf(next_word, (size_t)next_word_len, "%s", next_word_p);
+  sbuf_append(eb->input, next_word);
+  edit_refresh(env,eb);
+  edit_cursor_next_word(env, eb);
+#endif
+
+  ssize_t end = 0;
+  if (end < sbuf_len(eb->hint)) {
+    debug_msg("HINT BEFORE: %s\n", sbuf_string(eb->hint));
+    ssize_t start = sbuf_find_word_start(eb->hint, 0);
+    end = sbuf_find_word_end(eb->hint, start);
+    debug_msg("HINT SEARCH: %s, START: %d, END: %d\n", sbuf_string(eb->hint) + start, start, end);
+#if 0
+    sbuf_append(eb->input, "foo");
+    sbuf_replace(eb->hint, sbuf_string(eb->hint) + end);
+    eb->pos += 3;
+#endif
+#if 1
+    char next_word[64] = {0};
+    snprintf(next_word, (size_t)end, "%s", sbuf_string(eb->hint));
+    sbuf_append(eb->input, next_word);
+    debug_msg("NEXT WORD: %s\n", next_word);
+    sbuf_replace(eb->hint, sbuf_string(eb->hint) + end);
+    debug_msg("HINT AFTER: %s\n", sbuf_string(eb->hint));
+    eb->pos += end;
+#endif
+    /// NOTE edit_refresh mutates the hint
+    // edit_refresh(env,eb);
+    edit_cursor_next_word(env, eb);
+  }
 }
 
 //-------------------------------------------------------------
@@ -1125,7 +1177,9 @@ static char* edit_line( ic_env_t* env, const char* prompt_text )
         if (entry) {
           debug_msg( "history found: %s, edit_buf: %s\n", entry, sbuf_string(eb.input));
           sbuf_replace(eb.hint, entry + sbuf_len(eb.input));
+#ifdef IC_HIST_IMPL_SQLITE
           env->mem->free((char *)entry);
+#endif
           edit_refresh(env, &eb);
         }
         break;
