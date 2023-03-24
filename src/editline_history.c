@@ -17,7 +17,7 @@ static void edit_history_at(ic_env_t* env, editor_t* eb, int ofs )
     eb->modified = false;    
   }
   const char* entry = history_get_with_prefix(env->history,eb->history_idx + ofs, sbuf_string(eb->input));
-  debug_msg( "edit: history: at: %d + %d, found: %s, edit_buf: %s\n", eb->history_idx, ofs, entry, sbuf_string(eb->input));
+  debug_msg( "edit history at: %d + %d, found: %s, edit_buf: %s\n", eb->history_idx, ofs, entry, sbuf_string(eb->input));
   if (entry == NULL) {
     term_beep(env->term);
   }

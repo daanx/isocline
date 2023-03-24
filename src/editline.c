@@ -849,8 +849,10 @@ static void edit_move_hint_to_input(ic_env_t* env, editor_t* eb)
     eb->pos += 3;
 #endif
 #if 1
+    // char next_word[64] = {' '};
+    // snprintf(next_word, (size_t)end + start, "%s ", sbuf_string(eb->hint));
     char next_word[64] = {0};
-    snprintf(next_word, (size_t)end, "%s", sbuf_string(eb->hint));
+    snprintf(next_word, (size_t)end + 1, "%s ", sbuf_string(eb->hint));
     sbuf_append(eb->input, next_word);
     debug_msg("NEXT WORD: %s\n", next_word);
     sbuf_replace(eb->hint, sbuf_string(eb->hint) + end);
@@ -906,7 +908,7 @@ static char* edit_line( ic_env_t* env, const char* prompt_text )
 
   // process keys
   code_t c;          // current key code
-  while(true) {    
+  while(true) {
     // read a character
     term_flush(env->term);
     if (env->hint_delay <= 0 || sbuf_len(eb.hint) == 0) {
@@ -919,6 +921,7 @@ static char* edit_line( ic_env_t* env, const char* prompt_text )
         // timed-out
         if (sbuf_len(eb.hint) > 0) {
           // display hint
+          /// FIXME disabled edit_refresh for now ...
           edit_refresh(env, &eb);
         }
         c = tty_read(env->tty);
@@ -938,16 +941,19 @@ static char* edit_line( ic_env_t* env, const char* prompt_text )
     /// NOTE commenting out clearing the hint buffer, for now
     /// ... but shouldn't this be moved into if() above anyway, only if tty resize ...?
     // clear hint only after a potential resize (so resize row calculations are correct)
-    const bool had_hint = (sbuf_len(eb.hint) > 0);
+    // const bool had_hint = (sbuf_len(eb.hint) > 0);
     // sbuf_clear(eb.hint);
     // sbuf_clear(eb.hint_help);
 
+#if 0
     // if the user tries to move into a hint with right-cursor or end, we complete it first
     if ((c == KEY_RIGHT || c == KEY_END) && had_hint) {
+      debug_msg("OTHER KEY_RIGHT\n");
       edit_move_hint_to_input(env, &eb);
       // edit_generate_completions(env, &eb, true);
       c = KEY_NONE;      
     }
+#endif
 
     // Operations that may return
     if (c == KEY_ENTER) {
@@ -1030,6 +1036,7 @@ static char* edit_line( ic_env_t* env, const char* prompt_text )
         break;
       case KEY_RIGHT:
       case KEY_CTRL_F:
+        debug_msg("KEY_RIGHT\n");
         if (eb.pos == sbuf_len(eb.input)) { 
           edit_move_hint_to_input(env, &eb);
           // edit_generate_completions( env, &eb, false );
@@ -1132,8 +1139,10 @@ static char* edit_line( ic_env_t* env, const char* prompt_text )
         }
         const char* entry = history_get_with_prefix(env->history, 1, sbuf_string(eb.input));
         if (entry) {
-          debug_msg( "history found: %s, edit_buf: %s\n", entry, sbuf_string(eb.input));
-          // sbuf_replace(eb.hint, entry + sbuf_len(eb.input));
+          debug_msg( "input found in history: %s, edit_buf: %s\n", entry, sbuf_string(eb.input));
+          sbuf_replace(eb.hint, entry + sbuf_len(eb.input));
+          /// with offset of one character, it works with history browsing
+          // sbuf_replace(eb.hint, entry + sbuf_len(eb.input) + 1);
 #ifdef IC_HIST_IMPL_SQLITE
           env->mem->free((char *)entry);
 #endif

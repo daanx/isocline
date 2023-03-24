@@ -250,6 +250,7 @@ ic_public bool ic_enable_hint(bool enable) {
   env->no_hint = !enable;
   return !prev;
 #else
+  (void)enable;
   return false;
 #endif
 }
