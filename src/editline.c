@@ -42,8 +42,10 @@ typedef struct editor_s {
   attrbuf_t*    attrs_extra; 
 } editor_t;
 
+static int refresh_cnt = 0;
 
 static void dump_editor(editor_t *eb) {
+  refresh_cnt++;
   debug_msg("--------------------------------------------------------------------------------\n");
   debug_msg("input    : %s\n"
             "hint     : %s\n"
@@ -52,6 +54,7 @@ static void dump_editor(editor_t *eb) {
             "pos      : %d\n"
             "modified : %s\n"
             "hist_idx : %d\n"
+            "refr_cnt : %d\n"
             ,
             sbuf_string(eb->input),
             sbuf_string(eb->hint),
@@ -59,7 +62,8 @@ static void dump_editor(editor_t *eb) {
             (size_t)eb->cur_row,
             (size_t)eb->pos,
             eb->modified ? "true" : "false",
-            eb->history_idx
+            eb->history_idx,
+            refresh_cnt
             );
   debug_msg("................................................................................\n");
 }
@@ -274,11 +278,11 @@ static void edit_refresh(ic_env_t* env, editor_t* eb)
   dump_editor(eb);
   // calculate the new cursor row and total rows needed
   ssize_t promptw, cpromptw;
-  edit_get_prompt_width( env, eb, false, &promptw, &cpromptw );
+  edit_get_prompt_width(env, eb, false, &promptw, &cpromptw);
   
   if (eb->attrs != NULL) {
-    highlight( env->mem, env->bbcode, sbuf_string(eb->input), eb->attrs, 
-                 (env->no_highlight ? NULL : env->highlighter), env->highlighter_arg );
+    highlight(env->mem, env->bbcode, sbuf_string(eb->input), eb->attrs,
+                 (env->no_highlight ? NULL : env->highlighter), env->highlighter_arg);
   }
 
   // highlight matching braces
