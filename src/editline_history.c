@@ -20,6 +20,8 @@ static void edit_history_at(ic_env_t* env, editor_t* eb, int ofs )
   debug_msg( "edit history at: %d + %d, found: %s\n", eb->history_idx, ofs, entry);
   if (entry == NULL) {
     term_beep(env->term);
+    sbuf_replace(eb->hint, "");
+    edit_refresh(env, eb);
   }
   else {
     eb->history_idx += ofs;
