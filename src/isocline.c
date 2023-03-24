@@ -244,10 +244,14 @@ ic_public bool ic_enable_multiline_indent(bool enable) {
 }
 
 ic_public bool ic_enable_hint(bool enable) {
+#ifndef IC_HIST_IMPL_SQLITE
   ic_env_t* env = ic_get_env(); if (env==NULL) return false;
   bool prev = env->no_hint;
   env->no_hint = !enable;
   return !prev;
+#else
+  return false;
+#endif
 }
 
 ic_public long ic_set_hint_delay(long delay_ms) {
