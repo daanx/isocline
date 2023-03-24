@@ -46,6 +46,27 @@ typedef struct editor_s {
 } editor_t;
 
 
+static void dump_editor(editor_t *eb) {
+  debug_msg("--------------------------------------------------------------------------------\n");
+  debug_msg("input    : %s\n"
+            "hint     : %s\n"
+            "rowcnt   : %d\n"
+            "rowidx   : %d\n"
+            "pos      : %d\n"
+            "modified : %s\n"
+            "hist_idx : %d\n"
+            ,
+            sbuf_string(eb->input),
+            sbuf_string(eb->hint),
+            (size_t)eb->cur_rows,
+            (size_t)eb->cur_row,
+            (size_t)eb->pos,
+            eb->modified ? "true" : "false",
+            eb->history_idx
+            );
+  debug_msg("................................................................................\n");
+}
+
 //-------------------------------------------------------------
 // Main edit line 
 //-------------------------------------------------------------
@@ -253,6 +274,7 @@ static void edit_refresh_rows(ic_env_t* env, editor_t* eb, stringbuf_t* input, a
 
 static void edit_refresh(ic_env_t* env, editor_t* eb) 
 {
+  dump_editor(eb);
   // calculate the new cursor row and total rows needed
   ssize_t promptw, cpromptw;
   edit_get_prompt_width( env, eb, false, &promptw, &cpromptw );
@@ -274,8 +296,10 @@ static void edit_refresh(ic_env_t* env, editor_t* eb)
       attrbuf_insert_at( eb->attrs, eb->pos, sbuf_len(eb->hint), bbcode_style(env->bbcode, "ic-hint") );
     }
     /// FIXME edit_refresh() changed to inserting the hint at end of input, not at cursor position
-    // sbuf_insert_at(eb->input, sbuf_string(eb->hint), eb->pos);
-    sbuf_insert_at(eb->input, sbuf_string(eb->hint), sbuf_len(eb->input));
+    /// this is not a clean solution, the text color still moves and there are some artefacts
+    /// with single wrong characters
+    sbuf_insert_at(eb->input, sbuf_string(eb->hint), eb->pos);
+    // sbuf_insert_at(eb->input, sbuf_string(eb->hint), sbuf_len(eb->input));
   }
 
   // render extra (like a completion menu)
@@ -300,7 +324,7 @@ static void edit_refresh(ic_env_t* env, editor_t* eb)
   }
   const ssize_t rows = rows_input + rows_extra; 
   debug_msg("edit: refresh: rows %zd, cursor: %zd,%zd (previous rows %zd, cursor row %zd)\n", rows, rc.row, rc.col, eb->cur_rows, eb->cur_row);
-  
+
   // only render at most terminal height rows
   const ssize_t termh = term_get_height(env->term);
   ssize_t first_row = 0;                 // first visible row 
@@ -362,6 +386,7 @@ static void edit_refresh(ic_env_t* env, editor_t* eb)
   // update previous
   eb->cur_rows = rows;
   eb->cur_row = rc.row;
+  // dump_editor(eb);
 }
 
 // clear current output
@@ -923,7 +948,6 @@ static char* edit_line( ic_env_t* env, const char* prompt_text )
         // timed-out
         if (sbuf_len(eb.hint) > 0) {
           // display hint
-          /// FIXME disabled edit_refresh for now ...
           edit_refresh(env, &eb);
         }
         c = tty_read(env->tty);
