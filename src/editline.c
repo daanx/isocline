@@ -54,7 +54,7 @@ static void dump_editor(editor_t *eb) {
             "pos      : %d\n"
             "modified : %s\n"
             "hist_idx : %d\n"
-            "refr_cnt : %d\n"
+            "rfsh_cnt : %d\n"
             ,
             sbuf_string(eb->input),
             sbuf_string(eb->hint),
@@ -317,11 +317,11 @@ static void edit_refresh(ic_env_t* env, editor_t* eb)
 
   // calculate rows and row/col position
   rowcol_t rc = { 0 };
-  const ssize_t rows_input = sbuf_get_rc_at_pos( eb->input, eb->termw, promptw, cpromptw, eb->pos, &rc );
+  const ssize_t rows_input = sbuf_get_rc_at_pos(eb->input, eb->termw, promptw, cpromptw, eb->pos, &rc);
   rowcol_t rc_extra = { 0 };
   ssize_t rows_extra = 0;
   if (extra != NULL) { 
-    rows_extra = sbuf_get_rc_at_pos( extra, eb->termw, 0, 0, 0 /*pos*/, &rc_extra ); 
+    rows_extra = sbuf_get_rc_at_pos(extra, eb->termw, 0, 0, 0 /*pos*/, &rc_extra);
   }
   const ssize_t rows = rows_input + rows_extra; 
   debug_msg("edit: refresh: rows %zd, cursor: %zd,%zd (previous rows %zd, cursor row %zd)\n", rows, rc.row, rc.col, eb->cur_rows, eb->cur_row);
@@ -346,7 +346,7 @@ static void edit_refresh(ic_env_t* env, editor_t* eb)
   // term_clear_lines_to_end(env->term);  // gives flicker in old Windows cmd prompt 
 
   // render rows
-  edit_refresh_rows( env, eb, eb->input, eb->attrs, promptw, cpromptw, false, first_row, last_row );  
+  edit_refresh_rows(env, eb, eb->input, eb->attrs, promptw, cpromptw, false, first_row, last_row);
   if (rows_extra > 0) {
     assert(extra != NULL);
     const ssize_t first_rowx = (first_row > rows_input ? first_row - rows_input : 0);
