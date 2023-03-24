@@ -837,49 +837,6 @@ static void edit_insert_char(ic_env_t* env, editor_t* eb, char c) {
 static void edit_move_hint_to_input(ic_env_t* env, editor_t* eb)
 {
   (void)env;
-  // ssize_t start = sbuf_find_word_start(eb->hint, 0);
-  // ssize_t start = 1;
-  // ssize_t end = sbuf_find_word_end(eb->hint, start);
-
-#if 0
-  debug_msg("edit_move_hint_to_input(), next word slice in '%s': [%d, %d]\n", sbuf_string(eb->hint), start, end);
-
-  char next_word[64] = {0};
-  // char *next_word_p = strtok_r((char *)sbuf_string(eb->hint), " ", &next_word);
-  char *next_word_p = strtok((char *)sbuf_string(eb->hint), " ");
-  sprintf(next_word, " %s", next_word_p);
-  debug_msg("edit_move_hint_to_input(), next word '%s'\n", next_word_p);
-  if (!next_word_p) return;
-  // eb->pos = end;
-  eb->pos += (ssize_t)strlen(next_word_p) + 1;
-  sbuf_replace(eb->hint, sbuf_string(eb->hint) + strlen(next_word_p) + 1);
-  // sbuf_append(eb->input, sbuf_string(sbuf_split_at(eb->hint, end - start)));
-  sbuf_append(eb->input, next_word);
-  edit_refresh(env,eb);
-  edit_cursor_next_word(env, eb);
-#endif
-
-#if 0
-  if (sbuf_len(eb->hint) == 0) return;
-  char *hint = (char *)sbuf_string(eb->hint);
-  char *next_word_p = hint;
-  /// TODO generalize for all types of whitespace characters
-  /// TODO what about multiline?
-  int wscnt = 0;
-  for (; *next_word_p == ' '; next_word_p++, wscnt++);
-  if ((size_t)(next_word_p - hint) == strlen(hint)) return;
-  char *next_word_e = strchr(next_word_p, ' ');
-  if (next_word_e == NULL) return;
-  ssize_t next_word_len = (ssize_t)(next_word_e - next_word_p);
-  eb->pos += wscnt + next_word_len + 1;
-  sbuf_replace(eb->hint, next_word_e);
-  char next_word[64] = {0};
-  snprintf(next_word, (size_t)next_word_len, "%s", next_word_p);
-  sbuf_append(eb->input, next_word);
-  edit_refresh(env,eb);
-  edit_cursor_next_word(env, eb);
-#endif
-
   ssize_t end = 0;
   if (end < sbuf_len(eb->hint)) {
     debug_msg("HINT BEFORE: %s\n", sbuf_string(eb->hint));
@@ -900,7 +857,7 @@ static void edit_move_hint_to_input(ic_env_t* env, editor_t* eb)
     debug_msg("HINT AFTER: %s\n", sbuf_string(eb->hint));
     eb->pos += end;
 #endif
-    /// NOTE edit_refresh mutates the hint
+    /// NOTE edit_refresh mutates the hint, but there's hint mutation also somewhere else ...
     // edit_refresh(env,eb);
     edit_cursor_next_word(env, eb);
   }
