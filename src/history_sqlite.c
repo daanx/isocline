@@ -264,6 +264,7 @@ ic_private void history_clear(history_t* h) {
 /// Parameter n is the history command index from latest to oldest, starting with 1
 /// NOTE need to free the returned string at the callsite
 ic_private const char* history_get_with_prefix( const history_t* h, ssize_t n, const char* prefix ) {
+  if (n <= 0) return NULL;
   char prefix_param[64] = {0};
   sprintf(prefix_param, "%s%%", prefix);
   db_in_txt(&h->db, DB_GET_PREF_CNT, 1, prefix_param);
