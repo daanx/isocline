@@ -21,9 +21,6 @@
 // The editor state
 //-------------------------------------------------------------
 
-
-
-// editor state
 typedef struct editor_s {
   stringbuf_t*  input;        // current user input
   stringbuf_t*  extra;        // extra displayed info (for completion menu etc)
@@ -878,6 +875,7 @@ static void edit_move_hint_to_input(ic_env_t* env, editor_t* eb)
 #if 1
     // char next_word[64] = {' '};
     // snprintf(next_word, (size_t)end + start, "%s ", sbuf_string(eb->hint));
+    /// FIXME get rid of fixed length string buffer
     char next_word[64] = {0};
     snprintf(next_word, (size_t)end + 1, "%s ", sbuf_string(eb->hint));
     sbuf_append(eb->input, next_word);

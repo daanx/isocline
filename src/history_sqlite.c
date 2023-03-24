@@ -188,16 +188,27 @@ ic_private void history_free(history_t* h) {
   mem_free(h->mem, h); // free ourselves
 }
 
-ic_private bool history_enable_duplicates( history_t* h, bool enable ) {
+ic_private bool history_enable_duplicates(history_t* h, bool enable) {
   bool prev = h->allow_duplicates;
   h->allow_duplicates = enable;
   return prev;
 }
 
-ic_private ssize_t history_count( const history_t* h ) {
+ic_private ssize_t history_count(const history_t* h) {
   db_exec(&h->db, DB_COUNT_CMD);
   int count = db_out_int(&h->db, DB_COUNT_CMD, 1);
   db_reset(&h->db, DB_COUNT_CMD);
+  return count;
+}
+
+ic_private ssize_t history_count_with_prefix(const history_t* h, const char *prefix) {
+  /// FIXME get rid of fixed length string buffer
+  char prefix_param[64] = {0};
+  sprintf(prefix_param, "%s%%", prefix);
+  db_in_txt(&h->db, DB_GET_PREF_CNT, 1, prefix_param);
+  db_exec(&h->db, DB_GET_PREF_CNT);
+  int count = db_out_int(&h->db, DB_GET_PREF_CNT, 1);
+  db_reset(&h->db, DB_GET_PREF_CNT);
   return count;
 }
 
@@ -265,6 +276,7 @@ ic_private void history_clear(history_t* h) {
 /// NOTE need to free the returned string at the callsite
 ic_private const char* history_get_with_prefix( const history_t* h, ssize_t n, const char* prefix ) {
   if (n <= 0) return NULL;
+  /// FIXME get rid of fixed length string buffer
   char prefix_param[64] = {0};
   sprintf(prefix_param, "%s%%", prefix);
   db_in_txt(&h->db, DB_GET_PREF_CNT, 1, prefix_param);
