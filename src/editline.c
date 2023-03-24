@@ -209,7 +209,7 @@ static bool edit_refresh_rows_iter(
   // term_clear_line(term);
   edit_write_prompt(info->env, info->eb, row, info->in_extra);
 
-  //' write output
+  // write output
   if (info->attrs == NULL || (info->env->no_highlight && info->env->no_bracematch)) {
     term_write_n( term, s + row_start, row_len );
   }
@@ -273,7 +273,9 @@ static void edit_refresh(ic_env_t* env, editor_t* eb)
     if (eb->attrs != NULL) {
       attrbuf_insert_at( eb->attrs, eb->pos, sbuf_len(eb->hint), bbcode_style(env->bbcode, "ic-hint") );
     }
-    sbuf_insert_at(eb->input, sbuf_string(eb->hint), eb->pos );
+    /// FIXME edit_refresh() changed to inserting the hint at end of input, not at cursor position
+    // sbuf_insert_at(eb->input, sbuf_string(eb->hint), eb->pos);
+    sbuf_insert_at(eb->input, sbuf_string(eb->hint), sbuf_len(eb->input));
   }
 
   // render extra (like a completion menu)
