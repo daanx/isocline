@@ -11,7 +11,7 @@
 
 static void edit_history_at(ic_env_t* env, editor_t* eb, int ofs)
 {
-/// TODO disabled pushing history entry if input buffer is modified
+/// TODO disabled pushing history entry if input buffer is modified ... check if this is ok
 #if 0
   if (eb->modified) { 
     history_push(env->history, sbuf_string(eb->input)); // update first entry if modified
@@ -19,8 +19,8 @@ static void edit_history_at(ic_env_t* env, editor_t* eb, int ofs)
     eb->modified = false;    
   }
 #endif
-  if (ofs < 0 && eb->history_idx < 1) return;
-  if (ofs > 0 && eb->history_idx > history_count(env->history)) return;
+  if (ofs < 0 && eb->history_idx + ofs < 0) return;
+  if (ofs > 0 && eb->history_idx + ofs > history_count(env->history) + 1) return;
   const char* entry = history_get_with_prefix(env->history, eb->history_idx + ofs, sbuf_string(eb->input));
   debug_msg( "edit history at: %d + %d, found: %s\n", eb->history_idx, ofs, entry);
   if (entry == NULL) {
