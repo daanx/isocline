@@ -882,6 +882,8 @@ static void edit_insert_char(ic_env_t* env, editor_t* eb, char c) {
 
 #include "editline_completion.c"
 
+/// FIXME can't move the last word to input
+/// character wise cursor moves to first position when reaching last
 // #define MOVE_HINT_BY_WORD
 static void edit_move_hint_to_input(ic_env_t* env, editor_t* eb)
 {
@@ -891,8 +893,6 @@ static void edit_move_hint_to_input(ic_env_t* env, editor_t* eb)
 #ifdef MOVE_HINT_BY_WORD
   ssize_t start = sbuf_find_word_start(eb->hint, 0);
   ssize_t end = sbuf_find_word_end(eb->hint, start);
-  /// FIXME can't move the last word to input
-  // if (end < sbuf_len(eb->hint)) {
   if (end <= sbuf_len(eb->hint)) {
     debug_msg("HINT SEARCH: %s, START: %d, END: %d\n", sbuf_string(eb->hint) + start, start, end);
     sbuf_append_n(eb->input, sbuf_string(eb->hint), end);
@@ -900,7 +900,6 @@ static void edit_move_hint_to_input(ic_env_t* env, editor_t* eb)
     debug_msg("HINT AFTER: %s\n", sbuf_string(eb->hint));
     eb->pos += end;
     edit_refresh(env,eb);
-    // edit_cursor_next_word(env, eb);
   }
 #else
   if (eb->pos < sbuf_len(eb->input) + sbuf_len(eb->hint)) {
@@ -909,7 +908,6 @@ static void edit_move_hint_to_input(ic_env_t* env, editor_t* eb)
     debug_msg("HINT AFTER: %s\n", sbuf_string(eb->hint));
     eb->pos++;
     edit_refresh(env,eb);
-    // edit_cursor_next_word(env, eb);
   }
 #endif
 }
