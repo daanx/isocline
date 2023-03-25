@@ -273,6 +273,7 @@ static void edit_refresh_rows(ic_env_t* env, editor_t* eb, stringbuf_t* input, a
 }
 
 
+// #define INPUT_CPY
 static void edit_refresh(ic_env_t* env, editor_t* eb) 
 {
   dump_editor(eb);
@@ -301,7 +302,9 @@ static void edit_refresh(ic_env_t* env, editor_t* eb)
       attrbuf_insert_at(eb->attrs, sbuf_len(eb->input), sbuf_len(eb->hint), bbcode_style(env->bbcode, "ic-hint"));
     }
     //* sbuf_insert_at(eb->input, sbuf_string(eb->hint), eb->pos);
-    // sbuf_insert_at(eb->input, sbuf_string(eb->hint), sbuf_len(eb->input));
+#ifndef INPUT_CPY
+    sbuf_insert_at(eb->input, sbuf_string(eb->hint), sbuf_len(eb->input));
+#endif
     sbuf_append(input_cpy, sbuf_string(eb->input));
     sbuf_append(input_cpy, sbuf_string(eb->hint));
   }
@@ -320,8 +323,13 @@ static void edit_refresh(ic_env_t* env, editor_t* eb)
 
   // calculate rows and row/col position
   rowcol_t rc = { 0 };
-  //* const ssize_t rows_input = sbuf_get_rc_at_pos(eb->input, eb->termw, promptw, cpromptw, eb->pos, &rc);
+  /// FIXME row/col positon calculation is wrong on input_cpy, it's always the first line
+  /// or a middle line, even when in first line
+#ifndef INPUT_CPY
+  const ssize_t rows_input = sbuf_get_rc_at_pos(eb->input, eb->termw, promptw, cpromptw, eb->pos, &rc);
+#else
   const ssize_t rows_input = sbuf_get_rc_at_pos(input_cpy, eb->termw, promptw, cpromptw, eb->pos, &rc);
+#endif
   rowcol_t rc_extra = { 0 };
   ssize_t rows_extra = 0;
   if (extra != NULL) { 
@@ -350,8 +358,11 @@ static void edit_refresh(ic_env_t* env, editor_t* eb)
   // term_clear_lines_to_end(env->term);  // gives flicker in old Windows cmd prompt 
 
   // render rows
-  //* edit_refresh_rows(env, eb, eb->input, eb->attrs, promptw, cpromptw, false, first_row, last_row);
+#ifndef INPUT_CPY
+  edit_refresh_rows(env, eb, eb->input, eb->attrs, promptw, cpromptw, false, first_row, last_row);
+#else
   edit_refresh_rows(env, eb, input_cpy, eb->attrs, promptw, cpromptw, false, first_row, last_row);
+#endif
   if (rows_extra > 0) {
     assert(extra != NULL);
     const ssize_t first_rowx = (first_row > rows_input ? first_row - rows_input : 0);
@@ -382,6 +393,11 @@ static void edit_refresh(ic_env_t* env, editor_t* eb)
   // stop buffering
   term_set_buffer_mode(env->term, bmode);
 
+  // restore input by removing the hint
+  // debug_msg("refresh input before restore: %s\n", sbuf_string(eb->input));
+#ifndef INPUT_CPY
+  sbuf_delete_at(eb->input, eb->pos, sbuf_len(eb->hint));
+#endif
   sbuf_delete_at(eb->extra, 0, sbuf_len(eb->hint_help));
   attrbuf_clear(eb->attrs);
   attrbuf_clear(eb->attrs_extra);
@@ -869,18 +885,20 @@ static void edit_insert_char(ic_env_t* env, editor_t* eb, char c) {
 static void edit_move_hint_to_input(ic_env_t* env, editor_t* eb)
 {
   (void)env;
-  ssize_t end = 0;
-  if (end < sbuf_len(eb->hint)) {
-    debug_msg("HINT BEFORE: %s\n", sbuf_string(eb->hint));
-    ssize_t start = sbuf_find_word_start(eb->hint, 0);
-    end = sbuf_find_word_end(eb->hint, start);
+  if (sbuf_len(eb->hint) == 0) return;
+  debug_msg("HINT BEFORE: %s\n", sbuf_string(eb->hint));
+  ssize_t start = sbuf_find_word_start(eb->hint, 0);
+  ssize_t end = sbuf_find_word_end(eb->hint, start);
+  /// FIXME can't move the last word to input
+  // if (end < sbuf_len(eb->hint)) {
+  if (end <= sbuf_len(eb->hint)) {
     debug_msg("HINT SEARCH: %s, START: %d, END: %d\n", sbuf_string(eb->hint) + start, start, end);
     sbuf_append_n(eb->input, sbuf_string(eb->hint), end);
     sbuf_replace(eb->hint, sbuf_string(eb->hint) + end);
     debug_msg("HINT AFTER: %s\n", sbuf_string(eb->hint));
     eb->pos += end;
-    // edit_refresh(env,eb);
-    edit_cursor_next_word(env, eb);
+    edit_refresh(env,eb);
+    // edit_cursor_next_word(env, eb);
   }
 }
 

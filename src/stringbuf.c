@@ -231,7 +231,6 @@ static ssize_t str_limit_to_length( const char* s, ssize_t n ) {
 // String searching prev/next word, line, ws_word
 //-------------------------------------------------------------
 
-
 static ssize_t str_find_backward( const char* s, ssize_t len, ssize_t pos, ic_is_char_class_fun_t* match, bool skip_immediate_matches ) {
   if (pos > len) pos = len;
   if (pos < 0) pos = 0;
@@ -375,10 +374,10 @@ static ssize_t str_for_each_row( const char* s, ssize_t len, ssize_t termw, ssiz
   return rcount+1;
 }
 
+
 //-------------------------------------------------------------
 // String: get row/column position
 //-------------------------------------------------------------
-
 
 static bool str_get_current_pos_iter(
     const char* s,
@@ -405,7 +404,7 @@ static bool str_get_current_pos_iter(
       // normal last position is right after the last character
       rc->last_on_row = (pos >= row_start + row_len); 
     }
-    // debug_msg("edit; pos iter: pos: %zd (%c), row_start: %zd, rowlen: %zd\n", pos, s[pos], row_start, row_len);    
+    debug_msg("edit: pos iter: pos: %zd (%c), row_start: %zd, rowlen: %zd\n", pos, s[pos], row_start, row_len);
   }  
   return false; // always continue to count all rows
 }
@@ -413,10 +412,9 @@ static bool str_get_current_pos_iter(
 static ssize_t str_get_rc_at_pos(const char* s, ssize_t len, ssize_t termw, ssize_t promptw, ssize_t cpromptw, ssize_t pos, rowcol_t* rc) {
   memset(rc, 0, sizeof(*rc));
   ssize_t rows = str_for_each_row(s, len, termw, promptw, cpromptw, &str_get_current_pos_iter, &pos, rc);
-  // debug_msg("edit: current pos: (%d, %d) %s %s\n", rc->row, rc->col, rc->first_on_row ? "first" : "", rc->last_on_row ? "last" : "");
+  debug_msg("edit: current pos: (%d, %d) %s %s\n", rc->row, rc->col, rc->first_on_row ? "first" : "", rc->last_on_row ? "last" : "");
   return rows;
 }
-
 
 
 //-------------------------------------------------------------
