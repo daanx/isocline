@@ -21,7 +21,7 @@ static void edit_history_at(ic_env_t* env, editor_t* eb, int ofs)
 #endif
   if (ofs < 0 && eb->history_idx + ofs < 0) return;
   if (ofs > 0 && eb->history_idx + ofs >
-    history_count_with_prefix(env->history, sbuf_string(eb->input)) + 1) return;
+    history_count_with_prefix(env->history, sbuf_string(eb->input))) return;
   const char* entry = history_get_with_prefix(env->history,
     eb->history_idx + ofs, sbuf_string(eb->input));
   debug_msg( "edit history at: %d + %d, found: %s\n", eb->history_idx, ofs, entry);
