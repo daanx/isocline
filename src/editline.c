@@ -44,7 +44,7 @@ typedef struct editor_s {
 
 
 /// TODO reset history index when pressing escape
-#define MOVE_HINT_BY_WORD   /// by word with Alt-F and by char with KEY_RIGHT?
+/// TODO properly delete hint when pressing escape
 #define INPUT_CPY
 
 static int refresh_cnt = 0;
@@ -893,27 +893,31 @@ static void edit_move_hint_to_input(ic_env_t* env, editor_t* eb)
 {
   (void)env;
   if (sbuf_len(eb->hint) == 0) return;
-  debug_msg("HINT BEFORE: %s\n", sbuf_string(eb->hint));
-#ifdef MOVE_HINT_BY_WORD
-  ssize_t start = sbuf_find_word_start(eb->hint, 0);
-  ssize_t end = sbuf_find_word_end(eb->hint, start);
-  if (end <= sbuf_len(eb->hint)) {
-    debug_msg("HINT SEARCH: %s, START: %d, END: %d\n", sbuf_string(eb->hint) + start, start, end);
-    sbuf_append_n(eb->input, sbuf_string(eb->hint), end);
-    sbuf_replace(eb->hint, sbuf_string(eb->hint) + end);
-    debug_msg("HINT AFTER: %s\n", sbuf_string(eb->hint));
-    eb->pos += end;
-    edit_refresh(env,eb);
-  }
-#else
+  // debug_msg("HINT BEFORE: %s\n", sbuf_string(eb->hint));
   if (eb->pos < sbuf_len(eb->input) + sbuf_len(eb->hint)) {
     sbuf_append_char(eb->input, sbuf_string(eb->hint)[0]);
     sbuf_delete_char_at(eb->hint, 0);
-    debug_msg("HINT AFTER: %s\n", sbuf_string(eb->hint));
+    // debug_msg("HINT AFTER: %s\n", sbuf_string(eb->hint));
     eb->pos++;
     edit_refresh(env,eb);
   }
-#endif
+}
+
+static void edit_move_word_hint_to_input(ic_env_t* env, editor_t* eb)
+{
+  (void)env;
+  if (sbuf_len(eb->hint) == 0) return;
+  // debug_msg("HINT BEFORE: %s\n", sbuf_string(eb->hint));
+  ssize_t start = sbuf_find_word_start(eb->hint, 0);
+  ssize_t end = sbuf_find_word_end(eb->hint, start);
+  if (end <= sbuf_len(eb->hint)) {
+    // debug_msg("HINT SEARCH: %s, START: %d, END: %d\n", sbuf_string(eb->hint) + start, start, end);
+    sbuf_append_n(eb->input, sbuf_string(eb->hint), end);
+    sbuf_replace(eb->hint, sbuf_string(eb->hint) + end);
+    // debug_msg("HINT AFTER: %s\n", sbuf_string(eb->hint));
+    eb->pos += end;
+    edit_refresh(env,eb);
+  }
 }
 
 //-------------------------------------------------------------
@@ -1118,7 +1122,8 @@ static char* edit_line( ic_env_t* env, const char* prompt_text )
       case WITH_SHIFT(KEY_RIGHT):      
       case WITH_ALT('f'):
         if (eb.pos == sbuf_len(eb.input)) { 
-          edit_move_hint_to_input(env, &eb);
+          edit_move_word_hint_to_input(env, &eb);
+          // edit_move_hint_to_input(env, &eb);
           // edit_generate_completions( env, &eb, false );
         }
         else {
