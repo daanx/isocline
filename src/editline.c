@@ -298,13 +298,19 @@ static void edit_refresh(ic_env_t* env, editor_t* eb)
   ///
   /// Inserting the hint is done by copying the hint to the input buffer (along with its attributes)
   /// and later, after rendering, removing it.
+
+  /// make a copy of eb->input instead of modifying and restoring it later
+  stringbuf_t *input_cpy = sbuf_new(env->mem);
+
   if (sbuf_len(eb->hint) > 0) {
     if (eb->attrs != NULL) {
-      // attrbuf_insert_at( eb->attrs, eb->pos, sbuf_len(eb->hint), bbcode_style(env->bbcode, "ic-hint") );
+      //* attrbuf_insert_at( eb->attrs, eb->pos, sbuf_len(eb->hint), bbcode_style(env->bbcode, "ic-hint") );
       attrbuf_insert_at(eb->attrs, sbuf_len(eb->input), sbuf_len(eb->hint), bbcode_style(env->bbcode, "ic-hint"));
     }
-    // sbuf_insert_at(eb->input, sbuf_string(eb->hint), eb->pos);
-    sbuf_insert_at(eb->input, sbuf_string(eb->hint), sbuf_len(eb->input));
+    //* sbuf_insert_at(eb->input, sbuf_string(eb->hint), eb->pos);
+    // sbuf_insert_at(eb->input, sbuf_string(eb->hint), sbuf_len(eb->input));
+    sbuf_append(input_cpy, sbuf_string(eb->input));
+    sbuf_append(input_cpy, sbuf_string(eb->hint));
   }
 
   // render extra (like a completion menu)
@@ -321,7 +327,8 @@ static void edit_refresh(ic_env_t* env, editor_t* eb)
 
   // calculate rows and row/col position
   rowcol_t rc = { 0 };
-  const ssize_t rows_input = sbuf_get_rc_at_pos(eb->input, eb->termw, promptw, cpromptw, eb->pos, &rc);
+  //* const ssize_t rows_input = sbuf_get_rc_at_pos(eb->input, eb->termw, promptw, cpromptw, eb->pos, &rc);
+  const ssize_t rows_input = sbuf_get_rc_at_pos(input_cpy, eb->termw, promptw, cpromptw, eb->pos, &rc);
   rowcol_t rc_extra = { 0 };
   ssize_t rows_extra = 0;
   if (extra != NULL) { 
@@ -350,7 +357,8 @@ static void edit_refresh(ic_env_t* env, editor_t* eb)
   // term_clear_lines_to_end(env->term);  // gives flicker in old Windows cmd prompt 
 
   // render rows
-  edit_refresh_rows(env, eb, eb->input, eb->attrs, promptw, cpromptw, false, first_row, last_row);
+  //* edit_refresh_rows(env, eb, eb->input, eb->attrs, promptw, cpromptw, false, first_row, last_row);
+  edit_refresh_rows(env, eb, input_cpy, eb->attrs, promptw, cpromptw, false, first_row, last_row);
   if (rows_extra > 0) {
     assert(extra != NULL);
     const ssize_t first_rowx = (first_row > rows_input ? first_row - rows_input : 0);
@@ -385,7 +393,7 @@ static void edit_refresh(ic_env_t* env, editor_t* eb)
   /// this might be connected to adding one space when moving words from hint to input
   // restore input by removing the hint
   debug_msg("refresh input before restore: %s\n", sbuf_string(eb->input));
-  sbuf_delete_at(eb->input, eb->pos, sbuf_len(eb->hint));
+  //* sbuf_delete_at(eb->input, eb->pos, sbuf_len(eb->hint));
   // sbuf_delete_at(eb->input, eb->pos, sbuf_len(eb->hint) + 1);
   // sbuf_append(eb->input, " ");
   sbuf_delete_at(eb->extra, 0, sbuf_len(eb->hint_help));
@@ -393,6 +401,7 @@ static void edit_refresh(ic_env_t* env, editor_t* eb)
   attrbuf_clear(eb->attrs_extra);
   sbuf_free(extra);
   debug_msg("refresh input after restore: %s\n", sbuf_string(eb->input));
+  sbuf_free(input_cpy);
 
   // update previous
   eb->cur_rows = rows;
@@ -480,9 +489,6 @@ static void editor_append_hint_help(editor_t* eb, const char* help) {
   }
 }
 
-/// TODO refreshing hint disabled for now
-/// (already is by disabling original hint functionality)
-#if 0
 // refresh with possible hint
 static void edit_refresh_hint(ic_env_t* env, editor_t* eb) {
   debug_msg("edit_refresh_hint(), hint before: %s\n", sbuf_string(eb->hint));
@@ -534,7 +540,6 @@ static void edit_refresh_hint(ic_env_t* env, editor_t* eb) {
   }
   debug_msg("edit_refresh_hint(), hint after: %s\n", sbuf_string(eb->hint));
 }
-#endif
 
 //-------------------------------------------------------------
 // Edit operations
@@ -804,11 +809,7 @@ static void edit_insert_unicode(ic_env_t* env, editor_t* eb, unicode_t u) {
   editor_start_modify(eb);
   ssize_t nextpos = sbuf_insert_unicode_at(eb->input, u, eb->pos);
   if (nextpos >= 0) eb->pos = nextpos;
-  /// TODO refreshing hint disabled for now
-  /// (already is by disabling original hint functionality)
-#if 0
   edit_refresh_hint(env, eb);
-#endif
 }
 
 static void edit_auto_brace(ic_env_t* env, editor_t* eb, char c) {
@@ -858,11 +859,7 @@ static void edit_insert_char(ic_env_t* env, editor_t* eb, char c) {
   if (c=='\n') {
     editor_auto_indent(eb, "{", "}");  // todo: custom auto indent tokens?
   }
-  /// TODO refreshing hint disabled for now
-  /// (already is by disabling original hint functionality)
-#if 0
   edit_refresh_hint(env,eb);
-#endif
 }
 
 //-------------------------------------------------------------
