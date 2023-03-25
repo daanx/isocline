@@ -1031,7 +1031,8 @@ static char* edit_line( ic_env_t* env, const char* prompt_text )
       break; // ctrl+C or STOP event quits with NULL
     }
     else if (c == KEY_ESC) {
-      if (eb.pos == 0 && editor_pos_is_at_end(&eb)) break;  // ESC on empty input returns with empty input
+      /// NOTE deactivated leaving the repl on pressing ESC on a blank line
+      // if (eb.pos == 0 && editor_pos_is_at_end(&eb)) break;  // ESC on empty input returns with empty input
       edit_delete_all(env,&eb);      // otherwise delete the current input
       // edit_delete_line(env,&eb);  // otherwise delete the current line
     }
