@@ -43,7 +43,8 @@ typedef struct editor_s {
 } editor_t;
 
 
-// #define MOVE_HINT_BY_WORD
+/// TODO reset history index when pressing escape
+#define MOVE_HINT_BY_WORD   /// by word with Alt-F and by char with KEY_RIGHT?
 #define INPUT_CPY
 
 static int refresh_cnt = 0;
