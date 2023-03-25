@@ -323,8 +323,8 @@ static void edit_refresh(ic_env_t* env, editor_t* eb)
 
   // calculate rows and row/col position
   rowcol_t rc = { 0 };
-  /// FIXME row/col positon calculation is wrong on input_cpy, it's always the first line
-  /// or a middle line, even when in first line
+  /// FIXME row/col positon calculation is wrong on input_cpy,
+  /// it never reaches "last" character
 #ifndef INPUT_CPY
   const ssize_t rows_input = sbuf_get_rc_at_pos(eb->input, eb->termw, promptw, cpromptw, eb->pos, &rc);
 #else
