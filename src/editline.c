@@ -224,7 +224,7 @@ static bool edit_refresh_rows_iter(
   const refresh_info_t* info = (const refresh_info_t*)(arg);
   term_t* term = info->env->term;
 
-  // debug_msg("edit: line refresh: row %zd, len: %zd\n", row, row_len);
+  debug_msg("edit: line refresh: row %zd, len: %zd\n", row, row_len);
   if (row < info->first_row) return false;
   if (row > info->last_row)  return true; // should not occur
   
@@ -292,15 +292,19 @@ static void edit_refresh(ic_env_t* env, editor_t* eb)
   }
 
   // insert hint  
+  /// FIXME edit_refresh() changed to inserting the hint at end of input, not at cursor position
+  /// this is not a clean solution, there are some artefacts introducing wrong characters:
+  /// the last words are inserted instead of the words starting at cursor position
+  ///
+  /// Inserting the hint is done by copying the hint to the input buffer (along with its attributes)
+  /// and later, after rendering, removing it.
   if (sbuf_len(eb->hint) > 0) {
     if (eb->attrs != NULL) {
-      attrbuf_insert_at( eb->attrs, eb->pos, sbuf_len(eb->hint), bbcode_style(env->bbcode, "ic-hint") );
+      // attrbuf_insert_at( eb->attrs, eb->pos, sbuf_len(eb->hint), bbcode_style(env->bbcode, "ic-hint") );
+      attrbuf_insert_at(eb->attrs, sbuf_len(eb->input), sbuf_len(eb->hint), bbcode_style(env->bbcode, "ic-hint"));
     }
-    /// FIXME edit_refresh() changed to inserting the hint at end of input, not at cursor position
-    /// this is not a clean solution, the text color still moves and there are some artefacts
-    /// with single wrong characters
-    sbuf_insert_at(eb->input, sbuf_string(eb->hint), eb->pos);
-    // sbuf_insert_at(eb->input, sbuf_string(eb->hint), sbuf_len(eb->input));
+    // sbuf_insert_at(eb->input, sbuf_string(eb->hint), eb->pos);
+    sbuf_insert_at(eb->input, sbuf_string(eb->hint), sbuf_len(eb->input));
   }
 
   // render extra (like a completion menu)
@@ -377,12 +381,18 @@ static void edit_refresh(ic_env_t* env, editor_t* eb)
   // stop buffering
   term_set_buffer_mode(env->term, bmode);
 
+  /// FIXME input is not restored correctly
+  /// this might be connected to adding one space when moving words from hint to input
   // restore input by removing the hint
+  debug_msg("refresh input before restore: %s\n", sbuf_string(eb->input));
   sbuf_delete_at(eb->input, eb->pos, sbuf_len(eb->hint));
+  // sbuf_delete_at(eb->input, eb->pos, sbuf_len(eb->hint) + 1);
+  // sbuf_append(eb->input, " ");
   sbuf_delete_at(eb->extra, 0, sbuf_len(eb->hint_help));
   attrbuf_clear(eb->attrs);
   attrbuf_clear(eb->attrs_extra);
   sbuf_free(extra);
+  debug_msg("refresh input after restore: %s\n", sbuf_string(eb->input));
 
   // update previous
   eb->cur_rows = rows;
@@ -470,6 +480,9 @@ static void editor_append_hint_help(editor_t* eb, const char* help) {
   }
 }
 
+/// TODO refreshing hint disabled for now
+/// (already is by disabling original hint functionality)
+#if 0
 // refresh with possible hint
 static void edit_refresh_hint(ic_env_t* env, editor_t* eb) {
   debug_msg("edit_refresh_hint(), hint before: %s\n", sbuf_string(eb->hint));
@@ -521,6 +534,7 @@ static void edit_refresh_hint(ic_env_t* env, editor_t* eb) {
   }
   debug_msg("edit_refresh_hint(), hint after: %s\n", sbuf_string(eb->hint));
 }
+#endif
 
 //-------------------------------------------------------------
 // Edit operations
@@ -789,8 +803,12 @@ static void edit_multiline_eol(ic_env_t* env, editor_t* eb) {
 static void edit_insert_unicode(ic_env_t* env, editor_t* eb, unicode_t u) {
   editor_start_modify(eb);
   ssize_t nextpos = sbuf_insert_unicode_at(eb->input, u, eb->pos);
-  if (nextpos >= 0) eb->pos = nextpos;  
+  if (nextpos >= 0) eb->pos = nextpos;
+  /// TODO refreshing hint disabled for now
+  /// (already is by disabling original hint functionality)
+#if 0
   edit_refresh_hint(env, eb);
+#endif
 }
 
 static void edit_auto_brace(ic_env_t* env, editor_t* eb, char c) {
@@ -840,7 +858,11 @@ static void edit_insert_char(ic_env_t* env, editor_t* eb, char c) {
   if (c=='\n') {
     editor_auto_indent(eb, "{", "}");  // todo: custom auto indent tokens?
   }
-  edit_refresh_hint(env,eb);  
+  /// TODO refreshing hint disabled for now
+  /// (already is by disabling original hint functionality)
+#if 0
+  edit_refresh_hint(env,eb);
+#endif
 }
 
 //-------------------------------------------------------------
