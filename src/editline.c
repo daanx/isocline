@@ -43,6 +43,7 @@ typedef struct editor_s {
 } editor_t;
 
 
+/// TODO move complete hint to input on CTRL_E
 #define INPUT_CPY
 
 static int refresh_cnt = 0;
@@ -640,7 +641,6 @@ static void edit_cursor_row_up(ic_env_t* env, editor_t* eb) {
   rowcol_t rc;
   edit_get_rowcol( env, eb, &rc);
   if (rc.row == 0) {
-    /// TODO skip the latest history entry if already shown by hint
     /// TODO stop at oldest history entry and don't show a blank entry
     edit_history_prev(env,eb);
   }
@@ -1197,8 +1197,7 @@ static char* edit_line( ic_env_t* env, const char* prompt_text )
         if (entry) {
           debug_msg( "input found in history: %s, edit_buf: %s\n", entry, sbuf_string(eb.input));
           sbuf_replace(eb.hint, entry + sbuf_len(eb.input));
-          /// with offset of one character, it works with history browsing
-          // sbuf_replace(eb.hint, entry + sbuf_len(eb.input) + 1);
+          eb.history_idx++;
 #ifdef IC_HIST_IMPL_SQLITE
           env->mem->free((char *)entry);
 #endif
