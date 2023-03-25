@@ -43,7 +43,6 @@ typedef struct editor_s {
 } editor_t;
 
 
-/// TODO reset history index when pressing escape
 #define INPUT_CPY
 
 static int refresh_cnt = 0;
@@ -688,6 +687,7 @@ static void edit_delete_all(ic_env_t* env, editor_t* eb) {
   sbuf_clear(eb->input);
   sbuf_clear(eb->hint);
   eb->pos = 0;
+  eb->history_idx = 0;
   edit_refresh(env,eb);
 }
 
