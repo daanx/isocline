@@ -43,7 +43,6 @@ typedef struct editor_s {
 } editor_t;
 
 
-/// TODO move complete hint to input on CTRL_E
 #define INPUT_CPY
 
 static int refresh_cnt = 0;
@@ -919,6 +918,16 @@ static void edit_move_word_hint_to_input(ic_env_t* env, editor_t* eb)
   }
 }
 
+static void edit_move_line_hint_to_input(ic_env_t* env, editor_t* eb)
+{
+  (void)env;
+  if (sbuf_len(eb->hint) == 0) return;
+  sbuf_append(eb->input, sbuf_string(eb->hint));
+  sbuf_clear(eb->hint);
+  eb->pos = sbuf_len(eb->input);
+  edit_refresh(env,eb);
+}
+
 //-------------------------------------------------------------
 // Edit line: main edit loop
 //-------------------------------------------------------------
@@ -1111,6 +1120,9 @@ static char* edit_line( ic_env_t* env, const char* prompt_text )
         break;
       case KEY_END:
       case KEY_CTRL_E:
+        if (eb.pos == sbuf_len(eb.input)) { 
+          edit_move_line_hint_to_input(env, &eb);
+        }
         edit_cursor_line_end(env,&eb);
         break;
       case KEY_CTRL_LEFT:
