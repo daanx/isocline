@@ -1,0 +1,9 @@
+src/common.c:  return mem->malloc(to_size_t(sz));
+src/common.c:  return mem->realloc(p, to_size_t(newsz));
+src/common.c:  mem->free((void*)p);
+src/isocline.c:  mem->malloc = _malloc;
+src/isocline.c:  mem->realloc = _realloc;
+src/isocline.c:  mem->free = _free;
+src/isocline.c:    mem->free(mem);
+src/editline_history.c:    env->mem->free((char *)entry);
+src/editline.c:          env->mem->free((char *)entry);

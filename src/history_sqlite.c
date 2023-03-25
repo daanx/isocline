@@ -200,13 +200,13 @@ ic_private ssize_t history_count(const history_t* h) {
 }
 
 ic_private ssize_t history_count_with_prefix(const history_t* h, const char *prefix) {
-  /// FIXME get rid of fixed length string buffer
-  char prefix_param[64] = {0};
+  char *prefix_param = mem_malloc(h->mem, ic_strlen(prefix) + 3);
   sprintf(prefix_param, "%s%%", prefix);
   db_in_txt(&h->db, DB_GET_PREF_CNT, 1, prefix_param);
   db_exec(&h->db, DB_GET_PREF_CNT);
   int count = db_out_int(&h->db, DB_GET_PREF_CNT, 1);
   db_reset(&h->db, DB_GET_PREF_CNT);
+  mem_free(h->mem, prefix_param);
   return count;
 }
 
@@ -274,8 +274,7 @@ ic_private void history_clear(history_t* h) {
 /// NOTE need to free the returned string at the callsite
 ic_private const char* history_get_with_prefix( const history_t* h, ssize_t n, const char* prefix ) {
   if (n <= 0) return NULL;
-  /// FIXME get rid of fixed length string buffer
-  char prefix_param[64] = {0};
+  char *prefix_param = mem_malloc(h->mem, ic_strlen(prefix) + 3);
   sprintf(prefix_param, "%s%%", prefix);
   db_in_txt(&h->db, DB_GET_PREF_CNT, 1, prefix_param);
   db_exec(&h->db, DB_GET_PREF_CNT);
@@ -288,6 +287,7 @@ ic_private const char* history_get_with_prefix( const history_t* h, ssize_t n, c
   if (ret != DB_ROW) return NULL;
   const char* entry = mem_strdup(h->mem, (const char*)db_out_txt(&h->db, DB_GET_PREF_CMD, 1));
   db_reset(&h->db, DB_GET_PREF_CMD);
+  mem_free(h->mem, prefix_param);
   return entry;
 }
 
