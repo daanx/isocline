@@ -226,7 +226,7 @@ ic_private bool history_update( history_t* h, const char* entry ) {
 /// TODO check if entry is already in cmd table, then update timestamp
 /// TODO add timestamp
 ic_private bool history_push( history_t* h, const char* entry ) {
-  if (entry==NULL || strlen(entry) == 0) return false;
+  if (entry==NULL || ic_strlen(entry) == 0) return false;
 
   if (!h->allow_duplicates) {
     db_in_txt(&h->db, DB_GET_CMD_ID, 1, entry);
