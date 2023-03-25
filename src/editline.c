@@ -42,6 +42,10 @@ typedef struct editor_s {
   attrbuf_t*    attrs_extra; 
 } editor_t;
 
+
+// #define MOVE_HINT_BY_WORD
+#define INPUT_CPY
+
 static int refresh_cnt = 0;
 
 static void dump_editor(editor_t *eb) {
@@ -272,8 +276,6 @@ static void edit_refresh_rows(ic_env_t* env, editor_t* eb, stringbuf_t* input, a
   sbuf_for_each_row( input, eb->termw, promptw, cpromptw, &edit_refresh_rows_iter, &info, NULL);
 }
 
-
-#define INPUT_CPY
 static void edit_refresh(ic_env_t* env, editor_t* eb) 
 {
   dump_editor(eb);
@@ -295,6 +297,8 @@ static void edit_refresh(ic_env_t* env, editor_t* eb)
   // insert hint  
   /// make a copy of eb->input instead of modifying and restoring it later
   stringbuf_t *input_cpy = sbuf_new(env->mem);
+  sbuf_append(input_cpy, sbuf_string(eb->input));
+  sbuf_append(input_cpy, sbuf_string(eb->hint));
 
   if (sbuf_len(eb->hint) > 0) {
     if (eb->attrs != NULL) {
@@ -305,8 +309,6 @@ static void edit_refresh(ic_env_t* env, editor_t* eb)
 #ifndef INPUT_CPY
     sbuf_insert_at(eb->input, sbuf_string(eb->hint), sbuf_len(eb->input));
 #endif
-    sbuf_append(input_cpy, sbuf_string(eb->input));
-    sbuf_append(input_cpy, sbuf_string(eb->hint));
   }
 
   // render extra (like a completion menu)
@@ -323,16 +325,19 @@ static void edit_refresh(ic_env_t* env, editor_t* eb)
 
   // calculate rows and row/col position
   rowcol_t rc = { 0 };
-  /// FIXME row/col positon calculation is wrong on input_cpy,
-  /// it never reaches "last" character
 #ifndef INPUT_CPY
+  debug_msg("INPUT_MUT get rc, input: %s, termw: %d, promptw: %d, cpromptw: %d, pos: %d\n", sbuf_string(eb->input), eb->termw, promptw, cpromptw, eb->pos);
   const ssize_t rows_input = sbuf_get_rc_at_pos(eb->input, eb->termw, promptw, cpromptw, eb->pos, &rc);
+  debug_msg("INPUT_MUT ret rc, row: %d, col: %d, %s, %s\n", rc.row, rc.col, rc.first_on_row ? "first" : "", rc.last_on_row ? "last" : "");
 #else
+  debug_msg("INPUT_CPY get rc, input: %s, termw: %d, promptw: %d, cpromptw: %d, pos: %d\n", sbuf_string(input_cpy), eb->termw, promptw, cpromptw, eb->pos);
   const ssize_t rows_input = sbuf_get_rc_at_pos(input_cpy, eb->termw, promptw, cpromptw, eb->pos, &rc);
+  debug_msg("INPUT_CPY ret rc, row: %d, col: %d, %s, %s\n", rc.row, rc.col, rc.first_on_row ? "first" : "", rc.last_on_row ? "last" : "");
 #endif
   rowcol_t rc_extra = { 0 };
   ssize_t rows_extra = 0;
   if (extra != NULL) { 
+    debug_msg("rendering extra lines ...\n");
     rows_extra = sbuf_get_rc_at_pos(extra, eb->termw, 0, 0, 0 /*pos*/, &rc_extra);
   }
   const ssize_t rows = rows_input + rows_extra; 
@@ -882,9 +887,7 @@ static void edit_insert_char(ic_env_t* env, editor_t* eb, char c) {
 
 #include "editline_completion.c"
 
-/// FIXME can't move the last word to input
 /// character wise cursor moves to first position when reaching last
-// #define MOVE_HINT_BY_WORD
 static void edit_move_hint_to_input(ic_env_t* env, editor_t* eb)
 {
   (void)env;

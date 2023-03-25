@@ -327,8 +327,7 @@ static ssize_t str_find_ws_word_end( const char* s, ssize_t len, ssize_t pos) {
 //-------------------------------------------------------------
 
 // invoke a function for each terminal row; returns total row count.
-static ssize_t str_for_each_row( const char* s, ssize_t len, ssize_t termw, ssize_t promptw, ssize_t cpromptw,
-                                 row_fun_t* fun, const void* arg, void* res ) 
+static ssize_t str_for_each_row( const char* s, ssize_t len, ssize_t termw, ssize_t promptw, ssize_t cpromptw, row_fun_t* fun, const void* arg, void* res )
 {
   if (s == NULL) s = "";
   ssize_t i;
@@ -337,6 +336,7 @@ static ssize_t str_for_each_row( const char* s, ssize_t len, ssize_t termw, ssiz
   ssize_t rstart = 0;  
   ssize_t startw  = promptw; 
   for(i = 0; i < len; ) {
+    // debug_msg("str: foreach row: len %zd, i %zd, buf %s\n", len, i, s );
     ssize_t w;
     ssize_t next = str_next_ofs(s, len, i, &w);    
     if (next <= 0) {
