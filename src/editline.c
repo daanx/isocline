@@ -389,18 +389,10 @@ static void edit_refresh(ic_env_t* env, editor_t* eb)
   // stop buffering
   term_set_buffer_mode(env->term, bmode);
 
-  /// FIXME input is not restored correctly
-  /// this might be connected to adding one space when moving words from hint to input
-  // restore input by removing the hint
-  debug_msg("refresh input before restore: %s\n", sbuf_string(eb->input));
-  //* sbuf_delete_at(eb->input, eb->pos, sbuf_len(eb->hint));
-  // sbuf_delete_at(eb->input, eb->pos, sbuf_len(eb->hint) + 1);
-  // sbuf_append(eb->input, " ");
   sbuf_delete_at(eb->extra, 0, sbuf_len(eb->hint_help));
   attrbuf_clear(eb->attrs);
   attrbuf_clear(eb->attrs_extra);
   sbuf_free(extra);
-  debug_msg("refresh input after restore: %s\n", sbuf_string(eb->input));
   sbuf_free(input_cpy);
 
   // update previous
@@ -880,7 +872,6 @@ static void edit_insert_char(ic_env_t* env, editor_t* eb, char c) {
 
 #include "editline_completion.c"
 
-/// FIXME this should be improved ...
 static void edit_move_hint_to_input(ic_env_t* env, editor_t* eb)
 {
   (void)env;
@@ -890,24 +881,10 @@ static void edit_move_hint_to_input(ic_env_t* env, editor_t* eb)
     ssize_t start = sbuf_find_word_start(eb->hint, 0);
     end = sbuf_find_word_end(eb->hint, start);
     debug_msg("HINT SEARCH: %s, START: %d, END: %d\n", sbuf_string(eb->hint) + start, start, end);
-#if 0
-    sbuf_append(eb->input, "foo");
-    sbuf_replace(eb->hint, sbuf_string(eb->hint) + end);
-    eb->pos += 3;
-#endif
-#if 1
-    // char next_word[64] = {' '};
-    // snprintf(next_word, (size_t)end + start, "%s ", sbuf_string(eb->hint));
-    /// FIXME get rid of fixed length string buffer
-    char next_word[64] = {0};
-    snprintf(next_word, (size_t)end + 1, "%s ", sbuf_string(eb->hint));
-    sbuf_append(eb->input, next_word);
-    debug_msg("NEXT WORD: %s\n", next_word);
+    sbuf_append_n(eb->input, sbuf_string(eb->hint), end);
     sbuf_replace(eb->hint, sbuf_string(eb->hint) + end);
     debug_msg("HINT AFTER: %s\n", sbuf_string(eb->hint));
     eb->pos += end;
-#endif
-    /// NOTE edit_refresh mutates the hint, but there's hint mutation also somewhere else ...
     // edit_refresh(env,eb);
     edit_cursor_next_word(env, eb);
   }
