@@ -44,7 +44,6 @@ typedef struct editor_s {
 
 
 /// TODO reset history index when pressing escape
-/// TODO properly delete hint when pressing escape
 #define INPUT_CPY
 
 static int refresh_cnt = 0;
@@ -687,6 +686,7 @@ static void edit_delete_all(ic_env_t* env, editor_t* eb) {
   if (sbuf_len(eb->input) <= 0) return;
   editor_start_modify(eb);
   sbuf_clear(eb->input);
+  sbuf_clear(eb->hint);
   eb->pos = 0;
   edit_refresh(env,eb);
 }
