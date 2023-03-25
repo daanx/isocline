@@ -292,13 +292,6 @@ static void edit_refresh(ic_env_t* env, editor_t* eb)
   }
 
   // insert hint  
-  /// FIXME edit_refresh() changed to inserting the hint at end of input, not at cursor position
-  /// this is not a clean solution, there are some artefacts introducing wrong characters:
-  /// the last words are inserted instead of the words starting at cursor position
-  ///
-  /// Inserting the hint is done by copying the hint to the input buffer (along with its attributes)
-  /// and later, after rendering, removing it.
-
   /// make a copy of eb->input instead of modifying and restoring it later
   stringbuf_t *input_cpy = sbuf_new(env->mem);
 
@@ -627,7 +620,7 @@ static void edit_cursor_row_up(ic_env_t* env, editor_t* eb) {
   rowcol_t rc;
   edit_get_rowcol( env, eb, &rc);
   if (rc.row == 0) {
-    /// FIXME skip the latest history entry if already shown by hint
+    /// TODO skip the latest history entry if already shown by hint
     edit_history_prev(env,eb);
   }
   else {
