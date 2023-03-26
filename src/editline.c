@@ -45,6 +45,7 @@ typedef struct editor_s {
 
 /// TODO implement full history api for both backends
 /// TODO clear hint with ESC and cursor on position 0 (while browsing history)
+/// TODO clear hint with BACKSPACE when prefix didn't match
 /// TODO check resizing
 /// TODO replace (void) by ic_unused
 /// TODO cleanup
@@ -1219,8 +1220,10 @@ static char* edit_line( ic_env_t* env, const char* prompt_text )
 #ifdef IC_HIST_IMPL_SQLITE
             env->mem->free((char *)entry);
 #endif
-            edit_refresh(env, &eb);
+          } else {
+            sbuf_replace(eb.hint, "");
           }
+          edit_refresh(env, &eb);
         }
         break;
       }
