@@ -44,7 +44,6 @@ typedef struct editor_s {
 
 
 /// TODO implement full history api for both backends
-/// TODO clear hint with ESC and cursor on position 0 (while browsing history)
 /// TODO clear/update hint when going back in input (backspace, home, previous word) and prefix didn't match
 /// TODO check resizing
 /// TODO cleanup
@@ -686,9 +685,10 @@ static void edit_delete_char(ic_env_t* env, editor_t* eb) {
 }
 
 static void edit_delete_all(ic_env_t* env, editor_t* eb) {
-  if (sbuf_len(eb->input) <= 0) return;
-  editor_start_modify(eb);
-  sbuf_clear(eb->input);
+  if (sbuf_len(eb->input) > 0) {
+    editor_start_modify(eb);
+    sbuf_clear(eb->input);
+  }
   sbuf_clear(eb->hint);
   eb->pos = 0;
   eb->history_idx = 0;
@@ -1220,7 +1220,7 @@ static char* edit_line( ic_env_t* env, const char* prompt_text )
             env->mem->free((char *)entry);
 #endif
           } else {
-            sbuf_replace(eb.hint, "");
+            sbuf_clear(eb.hint);
           }
           edit_refresh(env, &eb);
         }
