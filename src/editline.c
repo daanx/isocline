@@ -47,8 +47,6 @@ typedef struct editor_s {
 /// TODO check resizing
 /// TODO cleanup
 /// FIXME KEY_DEL doesn't work
-/// FIXME not all history entries found in all situations with given prefix string
-///       - e.g.: command UP/DOWN
 
 #define INPUT_CPY
 
@@ -576,6 +574,10 @@ static void edit_refresh_history_hint(ic_env_t* env, editor_t* eb) {
     sbuf_clear(eb->hint);
     eb->history_idx = 0;
   }
+  if (eb->modified) {
+    eb->history_idx = 0;
+    // eb->modified = false;
+  }
   edit_refresh(env, eb);
 }
 
@@ -913,6 +915,7 @@ static void edit_move_hint_to_input(ic_env_t* env, editor_t* eb)
     sbuf_delete_char_at(eb->hint, 0);
     // debug_msg("HINT AFTER: %s\n", sbuf_string(eb->hint));
     eb->pos++;
+    eb->modified = true;
     edit_refresh(env,eb);
   }
 }
@@ -930,6 +933,7 @@ static void edit_move_word_hint_to_input(ic_env_t* env, editor_t* eb)
     sbuf_replace(eb->hint, sbuf_string(eb->hint) + end);
     // debug_msg("HINT AFTER: %s\n", sbuf_string(eb->hint));
     eb->pos += end;
+    eb->modified = true;
     edit_refresh(env,eb);
   }
 }
@@ -941,6 +945,7 @@ static void edit_move_line_hint_to_input(ic_env_t* env, editor_t* eb)
   sbuf_append(eb->input, sbuf_string(eb->hint));
   sbuf_clear(eb->hint);
   eb->pos = sbuf_len(eb->input);
+  eb->modified = true;
   edit_refresh(env,eb);
 }
 
