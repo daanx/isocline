@@ -55,6 +55,7 @@ enum db_stmt {
   DB_GET_CMD_ID,
   DB_DEL_CMD_ID,
   DB_DEL_ALL,
+  DB_UPD_TS,
   DB_STMT_CNT,
 };
 
@@ -65,8 +66,9 @@ static const struct db_query_t db_queries[] = {
   { DB_GET_PREF_CNT,      "select count(cid) from cmd where cmd like ?" },
   { DB_GET_PREF_CMD,      "select cmd from cmd where cmd like ? order by ts desc, cid desc limit 1 offset ?" },
   { DB_GET_CMD_ID,        "select cid from cmd where cmd = ? limit 1" },
-  { DB_DEL_CMD_ID,        "delete from cmd where cid  = ?" },
+  { DB_DEL_CMD_ID,        "delete from cmd where cid = ?" },
   { DB_DEL_ALL,           "delete from cmd" },
+  { DB_UPD_TS,            "update cmd set ts = ? where cid = ?" },
   { DB_STMT_CNT,          "" },
 };
 
@@ -212,8 +214,13 @@ ic_private ssize_t history_count_with_prefix(const history_t* h, const char *pre
 // push/clear
 //-------------------------------------------------------------
 
-/// TODO add current timestamp to each pushed entry
-/// TODO check if entry is already in cmd table, then update timestamp
+static time_t get_current_ts(void)
+{
+  struct timespec curtime;
+  clock_gettime(CLOCK_REALTIME, &curtime);
+  return curtime.tv_sec;
+}
+
 ic_private bool history_push( history_t* h, const char* entry ) {
   if (entry==NULL || ic_strlen(entry) == 0) return false;
 
@@ -226,7 +233,10 @@ ic_private bool history_push( history_t* h, const char* entry ) {
     db_reset(&h->db, DB_GET_CMD_ID);
     if (cid != -1) {
       debug_msg("duplicate entry: %s\n", entry);
-      /// TODO update timestamp
+      db_in_int(&h->db, DB_UPD_TS, 1, get_current_ts());
+      db_in_int(&h->db, DB_UPD_TS, 2, cid);
+      db_exec(&h->db, DB_UPD_TS);
+      db_reset(&h->db, DB_UPD_TS);
       return false;
     }
   }
@@ -235,12 +245,8 @@ ic_private bool history_push( history_t* h, const char* entry ) {
   int new_cid = db_out_int(&h->db, DB_MAX_ID_CMD, 1) + 1;
   db_reset(&h->db, DB_MAX_ID_CMD);
 
-  struct timespec curtime;
-  clock_gettime(CLOCK_REALTIME, &curtime);
-  time_t s  = curtime.tv_sec;
-  debug_msg("history_push: %s, cid: %d, ts: %d\n", entry, new_cid, s);
   db_in_int(&h->db, DB_INS_CMD, 1, new_cid);
-  db_in_int(&h->db, DB_INS_CMD, 2, s);
+  db_in_int(&h->db, DB_INS_CMD, 2, get_current_ts());
   db_in_txt(&h->db, DB_INS_CMD, 3, entry);
   db_exec(&h->db, DB_INS_CMD);
   db_reset(&h->db, DB_INS_CMD);
