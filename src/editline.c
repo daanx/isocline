@@ -934,6 +934,22 @@ static void edit_move_line_hint_to_input(ic_env_t* env, editor_t* eb)
   edit_refresh(env,eb);
 }
 
+static void edit_update_history_hint(ic_env_t* env, editor_t* eb)
+{
+  const char* entry = history_get_with_prefix(env->history, 1, sbuf_string(eb->input));
+  if (entry) {
+    debug_msg( "input found in history: %s, edit_buf: %s\n", entry, sbuf_string(eb->input));
+    sbuf_replace(eb->hint, entry + sbuf_len(eb->input));
+    eb->history_idx++;
+#ifdef IC_HIST_IMPL_SQLITE
+    env->mem->free((char *)entry);
+#endif
+  } else {
+    sbuf_clear(eb->hint);
+  }
+  edit_refresh(env, eb);
+}
+
 //-------------------------------------------------------------
 // Edit line: main edit loop
 //-------------------------------------------------------------
@@ -1211,18 +1227,7 @@ static char* edit_line( ic_env_t* env, const char* prompt_text )
           debug_msg( "edit: ignore code: 0x%04x\n", c);
         }
         if (!env->no_hist_hint_while_typing) {
-          const char* entry = history_get_with_prefix(env->history, 1, sbuf_string(eb.input));
-          if (entry) {
-            debug_msg( "input found in history: %s, edit_buf: %s\n", entry, sbuf_string(eb.input));
-            sbuf_replace(eb.hint, entry + sbuf_len(eb.input));
-            eb.history_idx++;
-#ifdef IC_HIST_IMPL_SQLITE
-            env->mem->free((char *)entry);
-#endif
-          } else {
-            sbuf_clear(eb.hint);
-          }
-          edit_refresh(env, &eb);
+          edit_update_history_hint(env, &eb);
         }
         break;
       }
