@@ -24,6 +24,9 @@ struct history_s {
   bool allow_duplicates;       // allow duplicate entries?
 };
 
+ic_private void     history_load(history_t* h);
+ic_private const char* history_get(const history_t* h, ssize_t n);
+
 ic_private history_t* history_new(alloc_t* mem) {
   history_t* h = mem_zalloc_tp(mem,history_t);
   h->mem = mem;
