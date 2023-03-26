@@ -45,7 +45,7 @@ typedef struct editor_s {
 
 /// TODO implement full history api for both backends
 /// TODO clear hint with ESC and cursor on position 0 (while browsing history)
-/// TODO clear hint with BACKSPACE when prefix didn't match
+/// TODO clear hint when going back in input (backspace, home, previous word) and prefix didn't match
 /// TODO check resizing
 /// TODO replace (void) by ic_unused
 /// TODO cleanup
