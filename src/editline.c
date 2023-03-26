@@ -43,6 +43,11 @@ typedef struct editor_s {
 } editor_t;
 
 
+/// TODO implement full history api for both backends
+/// TODO option to disable "show latest history hint while typing"
+/// TODO replace (void) by ic_unused
+/// TODO cleanup
+
 #define INPUT_CPY
 
 static int refresh_cnt = 0;
