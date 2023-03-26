@@ -1279,9 +1279,8 @@ static char* edit_line( ic_env_t* env, const char* prompt_text )
   /// NOTE history_update() and history_push() are the same with sqlite backend
   // history_update(env->history, sbuf_string(eb.input));
   history_push(env->history, sbuf_string(eb.input));
-  if (res == NULL || sbuf_len(eb.input) <= 1) { ic_history_remove_last(); } // no empty or single-char entries
-  /// NOTE not needed with sqlite backend
-  // history_save(env->history);
+  // if (res == NULL || sbuf_len(eb.input) <= 1) { ic_history_remove_last(); } // no empty or single-char entries
+  history_save(env->history);
 
   // free resources 
   editstate_done(env->mem, &eb.undo);

@@ -8,6 +8,7 @@
 #include <stdlib.h>
 #include <string.h>  
 #include <sys/stat.h>
+#include <time.h>
 #include <sqlite3.h>
 
 #include "../include/isocline.h"
@@ -34,7 +35,7 @@ struct history_s {
 };
 
 static const char *db_tables[] = {
-  "create table if not exists cmd      (cid integer, ts integer, cmd text)",
+  "create table if not exists cmd (cid integer, ts integer, cmd text)",
   "create index if not exists cmdididx on cmd(cid, ts)",
   NULL
 };
@@ -62,7 +63,7 @@ static const struct db_query_t db_queries[] = {
   { DB_MAX_ID_CMD,        "select max(cid) from cmd" },
   { DB_COUNT_CMD,         "select count(cid) from cmd" },
   { DB_GET_PREF_CNT,      "select count(cid) from cmd where cmd like ?" },
-  { DB_GET_PREF_CMD,      "select cmd from cmd where cmd like ? order by cid desc limit 1 offset ?" },
+  { DB_GET_PREF_CMD,      "select cmd from cmd where cmd like ? order by ts desc, cid desc limit 1 offset ?" },
   { DB_GET_CMD_ID,        "select cid from cmd where cmd = ? limit 1" },
   { DB_DEL_CMD_ID,        "delete from cmd where cid  = ?" },
   { DB_DEL_ALL,           "delete from cmd" },
@@ -225,6 +226,7 @@ ic_private bool history_push( history_t* h, const char* entry ) {
     db_reset(&h->db, DB_GET_CMD_ID);
     if (cid != -1) {
       debug_msg("duplicate entry: %s\n", entry);
+      /// TODO update timestamp
       return false;
     }
   }
@@ -233,8 +235,12 @@ ic_private bool history_push( history_t* h, const char* entry ) {
   int new_cid = db_out_int(&h->db, DB_MAX_ID_CMD, 1) + 1;
   db_reset(&h->db, DB_MAX_ID_CMD);
 
+  struct timespec curtime;
+  clock_gettime(CLOCK_REALTIME, &curtime);
+  time_t s  = curtime.tv_sec;
+  debug_msg("history_push: %s, cid: %d, ts: %d\n", entry, new_cid, s);
   db_in_int(&h->db, DB_INS_CMD, 1, new_cid);
-  db_in_int(&h->db, DB_INS_CMD, 2, 0);
+  db_in_int(&h->db, DB_INS_CMD, 2, s);
   db_in_txt(&h->db, DB_INS_CMD, 3, entry);
   db_exec(&h->db, DB_INS_CMD);
   db_reset(&h->db, DB_INS_CMD);
