@@ -52,6 +52,8 @@ enum db_stmt {
   DB_GET_PREF_CNT,
   DB_GET_PREF_CMD,
   DB_GET_CMD_ID,
+  DB_DEL_CMD_ID,
+  DB_DEL_ALL,
   DB_STMT_CNT,
 };
 
@@ -62,6 +64,8 @@ static const struct db_query_t db_queries[] = {
   { DB_GET_PREF_CNT,      "select count(cid) from cmd where cmd like ?" },
   { DB_GET_PREF_CMD,      "select cmd from cmd where cmd like ? order by cid desc limit 1 offset ?" },
   { DB_GET_CMD_ID,        "select cid from cmd where cmd = ? limit 1" },
+  { DB_DEL_CMD_ID,        "delete from cmd where cid  = ?" },
+  { DB_DEL_ALL,           "delete from cmd" },
   { DB_STMT_CNT,          "" },
 };
 
@@ -237,21 +241,19 @@ ic_private bool history_push( history_t* h, const char* entry ) {
   return true;
 }
 
-/// NOTE history_remove_last_n() is not needed but could be implemented
-static void history_remove_last_n( history_t* h, ssize_t n ) {
-  ic_unused(h);
-  if (n <= 0) return;
-}
-
-/// NOTE see history_remove_last_n()
 ic_private void history_remove_last(history_t* h) {
-  ic_unused(h);
-  history_remove_last_n(h,1);
+  db_exec(&h->db, DB_MAX_ID_CMD);
+  int last_cid = db_out_int(&h->db, DB_MAX_ID_CMD, 1);
+  db_reset(&h->db, DB_MAX_ID_CMD);
+
+  db_in_int(&h->db, DB_DEL_CMD_ID, 1, last_cid);
+  db_exec(&h->db, DB_DEL_CMD_ID);
+  db_reset(&h->db, DB_DEL_CMD_ID);
 }
 
-/// NOTE see history_remove_last_n()
 ic_private void history_clear(history_t* h) {
-  ic_unused(h);
+  db_exec(&h->db, DB_DEL_ALL);
+  db_reset(&h->db, DB_DEL_ALL);
 }
 
 /// Parameter n is the history command index from latest to oldest, starting with 1
