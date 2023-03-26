@@ -53,6 +53,12 @@ ic_private ssize_t  history_count(const history_t* h) {
   return h->count;
 }
 
+/// TODO implement history_count_with_prefix() for file backend
+ic_private ssize_t history_count_with_prefix(const history_t* h, const char *prefix) {
+  ic_unused(h); ic_unused(prefix);
+  return 0;
+}
+
 //-------------------------------------------------------------
 // push/clear
 //-------------------------------------------------------------
@@ -117,6 +123,12 @@ ic_private void history_clear(history_t* h) {
 ic_private const char* history_get( const history_t* h, ssize_t n ) {
   if (n < 0 || n >= h->count) return NULL;
   return h->elems[h->count - n - 1];
+}
+
+/// TODO implement history_get_with_prefix() for file backend
+ic_private const char* history_get_with_prefix( const history_t* h, ssize_t n, const char* prefix ) {
+  ic_unused(h); ic_unused(n); ic_unused(prefix);
+  return NULL;
 }
 
 ic_private bool history_search( const history_t* h, ssize_t from /*including*/, const char* search, bool backward, ssize_t* hidx, ssize_t* hpos ) {

@@ -46,6 +46,7 @@ typedef struct editor_s {
 /// TODO implement full history api for both backends
 /// TODO check resizing
 /// TODO cleanup
+/// TODO write some regression tests ...
 /// FIXME KEY_DEL doesn't work
 
 #define INPUT_CPY
@@ -1108,14 +1109,6 @@ static char* edit_line( ic_env_t* env, const char* prompt_text )
       case WITH_ALT('?'):
         edit_generate_completions(env,&eb,false);
         break;
-#if 0
-      /// NOTE removed explicit history search commands and integrated them into
-      /// history browsing with KEY_UP and KEY_DOWN
-      case KEY_CTRL_R:
-      case KEY_CTRL_S:
-        edit_history_search_with_current_word(env,&eb);
-        break;
-#endif
       case KEY_CTRL_P:
         edit_history_prev(env, &eb);
         break;

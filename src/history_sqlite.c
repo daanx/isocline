@@ -192,13 +192,6 @@ ic_private bool history_enable_duplicates(history_t* h, bool enable) {
   return prev;
 }
 
-ic_private ssize_t history_count(const history_t* h) {
-  db_exec(&h->db, DB_COUNT_CMD);
-  int count = db_out_int(&h->db, DB_COUNT_CMD, 1);
-  db_reset(&h->db, DB_COUNT_CMD);
-  return count;
-}
-
 ic_private ssize_t history_count_with_prefix(const history_t* h, const char *prefix) {
   char *prefix_param = mem_malloc(h->mem, ic_strlen(prefix) + 3);
   sprintf(prefix_param, "%s%%", prefix);
@@ -213,15 +206,6 @@ ic_private ssize_t history_count_with_prefix(const history_t* h, const char *pre
 //-------------------------------------------------------------
 // push/clear
 //-------------------------------------------------------------
-
-/// NOTE history_update() is not needed and could be removed
-ic_private bool history_update( history_t* h, const char* entry ) {
-  if (entry==NULL) return false;
-  history_push(h,entry);
-  //debug_msg("history: update: with %s; now at %s\n", entry, history_get(h,0));
-  return true;
-}
-
 
 /// TODO add current timestamp to each pushed entry
 /// TODO check if entry is already in cmd table, then update timestamp
@@ -271,7 +255,7 @@ ic_private void history_clear(history_t* h) {
 }
 
 /// Parameter n is the history command index from latest to oldest, starting with 1
-/// NOTE need to free the returned string at the callsite
+/// NOTE need to free the returned string at the callsite with this backend
 ic_private const char* history_get_with_prefix( const history_t* h, ssize_t n, const char* prefix ) {
   if (n <= 0) return NULL;
   char *prefix_param = mem_malloc(h->mem, ic_strlen(prefix) + 3);
@@ -291,33 +275,24 @@ ic_private const char* history_get_with_prefix( const history_t* h, ssize_t n, c
   return entry;
 }
 
-/// NOTE history_search() is not needed and could be removed
-ic_private bool history_search( const history_t* h, ssize_t from /*including*/, const char* search, bool backward, ssize_t* hidx, ssize_t* hpos ) {
-  ic_unused(h); ic_unused(from); ic_unused(search); ic_unused(backward); ic_unused(hidx); ic_unused(hpos);
-  return true;
-}
-
 //-------------------------------------------------------------
-// 
+// save/load history to file
 //-------------------------------------------------------------
 
 ic_private void history_load_from(history_t* h, const char* fname, long max_entries ) {
   ic_unused(max_entries);
   h->fname = mem_strdup(h->mem,fname);
-  history_load(h);
-}
-
-//-------------------------------------------------------------
-// save/load history to file
-//-------------------------------------------------------------
-
-ic_private void history_load( history_t* h ) {
   if (db_open(&h->db, h->fname) != DB_OK) return;
   if (!create_tables(&h->db)) return;
   db_prepare_stmts(&h->db, db_queries, DB_STMT_CNT);
 }
 
-/// NOTE history_save() is not needed and could be removed
+/// function history_load() is not needed ...
+ic_private void history_load(history_t* h) {
+  ic_unused(h);
+}
+
+/// function history_save() is not needed with this backend
 ic_private void history_save( const history_t* h ) {
   ic_unused(h);
 }
