@@ -255,6 +255,13 @@ ic_public bool ic_enable_hint(bool enable) {
 #endif
 }
 
+ic_public bool ic_enable_hist_hint_while_typing(bool enable) {
+  ic_env_t* env = ic_get_env(); if (env==NULL) return false;
+  bool prev = env->no_hist_hint_while_typing;
+  env->no_hist_hint_while_typing = !enable;
+  return !prev;
+}
+
 ic_public long ic_set_hint_delay(long delay_ms) {
   ic_env_t* env = ic_get_env(); if (env==NULL) return false;
   long prev = env->hint_delay;

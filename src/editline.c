@@ -44,7 +44,8 @@ typedef struct editor_s {
 
 
 /// TODO implement full history api for both backends
-/// TODO option to disable "show latest history hint while typing"
+/// TODO clear hint with ESC and cursor on position 0 (while browsing history)
+/// TODO check resizing
 /// TODO replace (void) by ic_unused
 /// TODO cleanup
 
@@ -1209,15 +1210,17 @@ static char* edit_line( ic_env_t* env, const char* prompt_text )
         else {
           debug_msg( "edit: ignore code: 0x%04x\n", c);
         }
-        const char* entry = history_get_with_prefix(env->history, 1, sbuf_string(eb.input));
-        if (entry) {
-          debug_msg( "input found in history: %s, edit_buf: %s\n", entry, sbuf_string(eb.input));
-          sbuf_replace(eb.hint, entry + sbuf_len(eb.input));
-          eb.history_idx++;
+        if (!env->no_hist_hint_while_typing) {
+          const char* entry = history_get_with_prefix(env->history, 1, sbuf_string(eb.input));
+          if (entry) {
+            debug_msg( "input found in history: %s, edit_buf: %s\n", entry, sbuf_string(eb.input));
+            sbuf_replace(eb.hint, entry + sbuf_len(eb.input));
+            eb.history_idx++;
 #ifdef IC_HIST_IMPL_SQLITE
-          env->mem->free((char *)entry);
+            env->mem->free((char *)entry);
 #endif
-          edit_refresh(env, &eb);
+            edit_refresh(env, &eb);
+          }
         }
         break;
       }
