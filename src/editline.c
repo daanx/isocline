@@ -47,7 +47,6 @@ typedef struct editor_s {
 /// TODO check resizing
 /// TODO cleanup
 /// FIXME KEY_DEL doesn't work
-/// FIXME after deleting and input is empty, history hint is at the first entry (check history_idx update)
 
 #define INPUT_CPY
 
@@ -937,6 +936,15 @@ static void edit_move_line_hint_to_input(ic_env_t* env, editor_t* eb)
 
 static void edit_update_history_hint(ic_env_t* env, editor_t* eb)
 {
+  /// Though it shouldn't when only moving he cursor in a modified buffer, eb->pos == 0 also works ...
+  // if (eb->modified && eb->pos == 0) {
+  if (eb->modified && sbuf_len(eb->input) == 0) {
+    sbuf_clear(eb->hint);
+    eb->history_idx = 0;
+    edit_refresh(env, eb);
+    return;
+  }
+  /// FIXME not sure if looking for the first history entry matches all situations
   const char* entry = history_get_with_prefix(env->history, 1, sbuf_string(eb->input));
   if (entry) {
     debug_msg( "input found in history: %s, edit_buf: %s\n", entry, sbuf_string(eb->input));
