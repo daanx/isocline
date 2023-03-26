@@ -43,7 +43,7 @@ typedef struct editor_s {
 } editor_t;
 
 
-/// TODO implement full history api for both backends
+/// TODO implement full history api for sqlite backend
 /// TODO check resizing
 /// TODO cleanup
 /// TODO write some regression tests ...
