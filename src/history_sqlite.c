@@ -35,8 +35,8 @@ struct history_s {
 };
 
 static const char *db_tables[] = {
-  "create table if not exists cmd (cid integer, ts integer, cmd text)",
-  "create index if not exists cmdididx on cmd(cid, ts)",
+  "create table if not exists cmds (cid integer, ts integer, cmd text)",
+  "create index if not exists cmdididx on cmds(cid, ts)",
   NULL
 };
 
@@ -60,15 +60,15 @@ enum db_stmt {
 };
 
 static const struct db_query_t db_queries[] = {
-  { DB_INS_CMD,           "insert into cmd values (?,?,?)" },
-  { DB_MAX_ID_CMD,        "select max(cid) from cmd" },
-  { DB_COUNT_CMD,         "select count(cid) from cmd" },
-  { DB_GET_PREF_CNT,      "select count(cid) from cmd where cmd like ?" },
-  { DB_GET_PREF_CMD,      "select cmd from cmd where cmd like ? order by ts desc, cid desc limit 1 offset ?" },
-  { DB_GET_CMD_ID,        "select cid from cmd where cmd = ? limit 1" },
-  { DB_DEL_CMD_ID,        "delete from cmd where cid = ?" },
-  { DB_DEL_ALL,           "delete from cmd" },
-  { DB_UPD_TS,            "update cmd set ts = ? where cid = ?" },
+  { DB_INS_CMD,           "insert into cmds values (?,?,?)" },
+  { DB_MAX_ID_CMD,        "select max(cid) from cmds" },
+  { DB_COUNT_CMD,         "select count(cid) from cmds" },
+  { DB_GET_PREF_CNT,      "select count(cid) from cmds where cmd like ?" },
+  { DB_GET_PREF_CMD,      "select cmd from cmds where cmd like ? order by ts desc, cid desc limit 1 offset ?" },
+  { DB_GET_CMD_ID,        "select cid from cmds where cmd = ? limit 1" },
+  { DB_DEL_CMD_ID,        "delete from cmds where cid = ?" },
+  { DB_DEL_ALL,           "delete from cmds" },
+  { DB_UPD_TS,            "update cmds set ts = ? where cid = ?" },
   { DB_STMT_CNT,          "" },
 };
 
