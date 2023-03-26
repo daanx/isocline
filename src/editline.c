@@ -552,11 +552,15 @@ static void edit_refresh_hint(ic_env_t* env, editor_t* eb) {
 }
 
 static void edit_refresh_history_hint(ic_env_t* env, editor_t* eb) {
+  if (eb->modified) {
+    eb->history_idx = 0;
+    // eb->modified = false;
+  }
   /// Though it shouldn't when only moving he cursor in a modified buffer, eb->pos == 0 also works ...
   // if (eb->modified && eb->pos == 0) {
   if (eb->modified && sbuf_len(eb->input) == 0) {
     sbuf_clear(eb->hint);
-    eb->history_idx = 0;
+    // eb->history_idx = 0;
     edit_refresh(env, eb);
     return;
   }
@@ -566,7 +570,8 @@ static void edit_refresh_history_hint(ic_env_t* env, editor_t* eb) {
     debug_msg( "input found in history: %s, edit_buf: %s\n", entry, sbuf_string(eb->input));
     sbuf_replace(eb->hint, entry + sbuf_len(eb->input));
     /// FIXME not sure if this matches all situations and not only UP/DOWN browsing
-    eb->history_idx++;
+    if (eb->history_idx == 0) eb->history_idx++;
+    // eb->history_idx++;
 #ifdef IC_HIST_IMPL_SQLITE
     env->mem->free((char *)entry);
 #endif
@@ -574,10 +579,10 @@ static void edit_refresh_history_hint(ic_env_t* env, editor_t* eb) {
     sbuf_clear(eb->hint);
     eb->history_idx = 0;
   }
-  if (eb->modified) {
-    eb->history_idx = 0;
-    // eb->modified = false;
-  }
+  // if (eb->modified) {
+    // eb->history_idx = 0;
+    // // eb->modified = false;
+  // }
   edit_refresh(env, eb);
 }
 
