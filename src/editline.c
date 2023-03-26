@@ -47,7 +47,6 @@ typedef struct editor_s {
 /// TODO check resizing
 /// TODO cleanup
 /// TODO write some regression tests ...
-/// FIXME KEY_DEL doesn't work
 
 #define INPUT_CPY
 
