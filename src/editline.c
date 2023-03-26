@@ -47,6 +47,8 @@ typedef struct editor_s {
 /// TODO check resizing
 /// TODO cleanup
 /// FIXME KEY_DEL doesn't work
+/// FIXME not all history entries found in all situations with given prefix string
+///       - e.g.: command UP/DOWN
 
 #define INPUT_CPY
 
@@ -551,6 +553,32 @@ static void edit_refresh_hint(ic_env_t* env, editor_t* eb) {
   debug_msg("edit_refresh_hint(), hint after: %s\n", sbuf_string(eb->hint));
 }
 
+static void edit_refresh_history_hint(ic_env_t* env, editor_t* eb) {
+  /// Though it shouldn't when only moving he cursor in a modified buffer, eb->pos == 0 also works ...
+  // if (eb->modified && eb->pos == 0) {
+  if (eb->modified && sbuf_len(eb->input) == 0) {
+    sbuf_clear(eb->hint);
+    eb->history_idx = 0;
+    edit_refresh(env, eb);
+    return;
+  }
+  /// FIXME not sure if looking for the first history entry matches all situations
+  const char* entry = history_get_with_prefix(env->history, 1, sbuf_string(eb->input));
+  if (entry) {
+    debug_msg( "input found in history: %s, edit_buf: %s\n", entry, sbuf_string(eb->input));
+    sbuf_replace(eb->hint, entry + sbuf_len(eb->input));
+    /// FIXME not sure if this matches all situations and not only UP/DOWN browsing
+    eb->history_idx++;
+#ifdef IC_HIST_IMPL_SQLITE
+    env->mem->free((char *)entry);
+#endif
+  } else {
+    sbuf_clear(eb->hint);
+    eb->history_idx = 0;
+  }
+  edit_refresh(env, eb);
+}
+
 //-------------------------------------------------------------
 // Edit operations
 //-------------------------------------------------------------
@@ -874,24 +902,6 @@ static void edit_insert_char(ic_env_t* env, editor_t* eb, char c) {
   edit_refresh_hint(env,eb);
 }
 
-//-------------------------------------------------------------
-// Help
-//-------------------------------------------------------------
-
-#include "editline_help.c"
-
-//-------------------------------------------------------------
-// History
-//-------------------------------------------------------------
-
-#include "editline_history.c"
-
-//-------------------------------------------------------------
-// Completion
-//-------------------------------------------------------------
-
-#include "editline_completion.c"
-
 /// character wise cursor moves to first position when reaching last
 static void edit_move_hint_to_input(ic_env_t* env, editor_t* eb)
 {
@@ -934,32 +944,23 @@ static void edit_move_line_hint_to_input(ic_env_t* env, editor_t* eb)
   edit_refresh(env,eb);
 }
 
-static void edit_update_history_hint(ic_env_t* env, editor_t* eb)
-{
-  /// Though it shouldn't when only moving he cursor in a modified buffer, eb->pos == 0 also works ...
-  // if (eb->modified && eb->pos == 0) {
-  if (eb->modified && sbuf_len(eb->input) == 0) {
-    sbuf_clear(eb->hint);
-    eb->history_idx = 0;
-    edit_refresh(env, eb);
-    return;
-  }
-  /// FIXME not sure if looking for the first history entry matches all situations
-  const char* entry = history_get_with_prefix(env->history, 1, sbuf_string(eb->input));
-  if (entry) {
-    debug_msg( "input found in history: %s, edit_buf: %s\n", entry, sbuf_string(eb->input));
-    sbuf_replace(eb->hint, entry + sbuf_len(eb->input));
-    /// FIXME not sure if this matches all situations and not only UP/DOWN browsing
-    eb->history_idx++;
-#ifdef IC_HIST_IMPL_SQLITE
-    env->mem->free((char *)entry);
-#endif
-  } else {
-    sbuf_clear(eb->hint);
-    eb->history_idx = 0;
-  }
-  edit_refresh(env, eb);
-}
+//-------------------------------------------------------------
+// Help
+//-------------------------------------------------------------
+
+#include "editline_help.c"
+
+//-------------------------------------------------------------
+// History
+//-------------------------------------------------------------
+
+#include "editline_history.c"
+
+//-------------------------------------------------------------
+// Completion
+//-------------------------------------------------------------
+
+#include "editline_completion.c"
 
 //-------------------------------------------------------------
 // Edit line: main edit loop
@@ -1194,36 +1195,36 @@ static char* edit_line( ic_env_t* env, const char* prompt_text )
       // deletion
       case KEY_BACKSP:
         edit_backspace(env,&eb);
-        edit_update_history_hint(env, &eb);
+        edit_refresh_history_hint(env, &eb);
         break;
       case KEY_DEL:
         edit_delete_char(env,&eb);
-        edit_update_history_hint(env, &eb);
+        edit_refresh_history_hint(env, &eb);
         break;
       case WITH_ALT('d'):
         edit_delete_to_end_of_word(env,&eb);
-        edit_update_history_hint(env, &eb);
+        edit_refresh_history_hint(env, &eb);
         break;
       case KEY_CTRL_W:
         edit_delete_to_start_of_ws_word(env, &eb);
-        edit_update_history_hint(env, &eb);
+        edit_refresh_history_hint(env, &eb);
         break;
       case WITH_ALT(KEY_DEL):
       case WITH_ALT(KEY_BACKSP):
         edit_delete_to_start_of_word(env,&eb);
-        edit_update_history_hint(env, &eb);
+        edit_refresh_history_hint(env, &eb);
         break;      
       case KEY_CTRL_U:
         edit_delete_to_start_of_line(env,&eb);
-        edit_update_history_hint(env, &eb);
+        edit_refresh_history_hint(env, &eb);
         break;
       case KEY_CTRL_K:
         edit_delete_to_end_of_line(env,&eb);
-        edit_update_history_hint(env, &eb);
+        edit_refresh_history_hint(env, &eb);
         break;
       case KEY_CTRL_T:
         edit_swap_char(env,&eb);
-        edit_update_history_hint(env, &eb);
+        edit_refresh_history_hint(env, &eb);
         break;
 
       // Editing
@@ -1245,7 +1246,7 @@ static char* edit_line( ic_env_t* env, const char* prompt_text )
         else {
           debug_msg( "edit: ignore code: 0x%04x\n", c);
         }
-        edit_update_history_hint(env, &eb);
+        edit_refresh_history_hint(env, &eb);
         break;
       }
     }
