@@ -43,6 +43,7 @@ typedef struct editor_s {
 } editor_t;
 
 
+/// TODO resolve conflicts with completion
 /// TODO check resizing
 /// TODO cleanup
 /// TODO write some regression tests ...
