@@ -255,19 +255,19 @@ ic_private bool history_push( history_t* h, const char* entry ) {
 
 /// NOTE history_remove_last_n() is not needed but could be implemented
 static void history_remove_last_n( history_t* h, ssize_t n ) {
-  (void)h;
+  ic_unused(h);
   if (n <= 0) return;
 }
 
 /// NOTE see history_remove_last_n()
 ic_private void history_remove_last(history_t* h) {
-  (void)h;
+  ic_unused(h);
   history_remove_last_n(h,1);
 }
 
 /// NOTE see history_remove_last_n()
 ic_private void history_clear(history_t* h) {
-  (void)h;
+  ic_unused(h);
 }
 
 /// Parameter n is the history command index from latest to oldest, starting with 1
@@ -293,7 +293,7 @@ ic_private const char* history_get_with_prefix( const history_t* h, ssize_t n, c
 
 /// NOTE history_search() is not needed and could be removed
 ic_private bool history_search( const history_t* h, ssize_t from /*including*/, const char* search, bool backward, ssize_t* hidx, ssize_t* hpos ) {
-  (void)h; (void)from; (void)search; (void)backward; (void)hidx; (void) hpos;
+  ic_unused(h); ic_unused(from); ic_unused(search); ic_unused(backward); ic_unused(hidx); ic_unused(hpos);
   return true;
 }
 
@@ -302,7 +302,7 @@ ic_private bool history_search( const history_t* h, ssize_t from /*including*/, 
 //-------------------------------------------------------------
 
 ic_private void history_load_from(history_t* h, const char* fname, long max_entries ) {
-  (void)max_entries;
+  ic_unused(max_entries);
   h->fname = mem_strdup(h->mem,fname);
   history_load(h);
 }
@@ -319,5 +319,5 @@ ic_private void history_load( history_t* h ) {
 
 /// NOTE history_save() is not needed and could be removed
 ic_private void history_save( const history_t* h ) {
-  (void)h;
+  ic_unused(h);
 }

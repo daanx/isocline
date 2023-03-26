@@ -45,9 +45,8 @@ typedef struct editor_s {
 
 /// TODO implement full history api for both backends
 /// TODO clear hint with ESC and cursor on position 0 (while browsing history)
-/// TODO clear hint when going back in input (backspace, home, previous word) and prefix didn't match
+/// TODO clear/update hint when going back in input (backspace, home, previous word) and prefix didn't match
 /// TODO check resizing
-/// TODO replace (void) by ic_unused
 /// TODO cleanup
 
 #define INPUT_CPY
@@ -896,7 +895,7 @@ static void edit_insert_char(ic_env_t* env, editor_t* eb, char c) {
 /// character wise cursor moves to first position when reaching last
 static void edit_move_hint_to_input(ic_env_t* env, editor_t* eb)
 {
-  (void)env;
+  ic_unused(env);
   if (sbuf_len(eb->hint) == 0) return;
   // debug_msg("HINT BEFORE: %s\n", sbuf_string(eb->hint));
   if (eb->pos < sbuf_len(eb->input) + sbuf_len(eb->hint)) {
@@ -910,7 +909,7 @@ static void edit_move_hint_to_input(ic_env_t* env, editor_t* eb)
 
 static void edit_move_word_hint_to_input(ic_env_t* env, editor_t* eb)
 {
-  (void)env;
+  ic_unused(env);
   if (sbuf_len(eb->hint) == 0) return;
   // debug_msg("HINT BEFORE: %s\n", sbuf_string(eb->hint));
   ssize_t start = sbuf_find_word_start(eb->hint, 0);
@@ -927,7 +926,7 @@ static void edit_move_word_hint_to_input(ic_env_t* env, editor_t* eb)
 
 static void edit_move_line_hint_to_input(ic_env_t* env, editor_t* eb)
 {
-  (void)env;
+  ic_unused(env);
   if (sbuf_len(eb->hint) == 0) return;
   sbuf_append(eb->input, sbuf_string(eb->hint));
   sbuf_clear(eb->hint);
