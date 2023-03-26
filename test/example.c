@@ -55,9 +55,6 @@ int main()
   // inline hinting is enabled by default
   // ic_enable_hint(false);
 
-  // showing latest history entry while typing is enabled by default
-  ic_enable_hist_hint_while_typing(false);
-
   // run until empty input
   char* input;
   while((input = ic_readline("isoclinε")) != NULL)    // ctrl-d returns NULL (as well as errors)

@@ -1186,68 +1186,36 @@ static char* edit_line( ic_env_t* env, const char* prompt_text )
       // deletion
       case KEY_BACKSP:
         edit_backspace(env,&eb);
-        if (!env->no_hist_hint_while_typing) {
-          edit_update_history_hint(env, &eb);
-        } else {
-          sbuf_clear(eb.hint);
-        }
+        edit_update_history_hint(env, &eb);
         break;
       case KEY_DEL:
         edit_delete_char(env,&eb);
-        if (!env->no_hist_hint_while_typing) {
-          edit_update_history_hint(env, &eb);
-        } else {
-          sbuf_clear(eb.hint);
-        }
+        edit_update_history_hint(env, &eb);
         break;
       case WITH_ALT('d'):
         edit_delete_to_end_of_word(env,&eb);
-        if (!env->no_hist_hint_while_typing) {
-          edit_update_history_hint(env, &eb);
-        } else {
-          sbuf_clear(eb.hint);
-        }
+        edit_update_history_hint(env, &eb);
         break;
       case KEY_CTRL_W:
         edit_delete_to_start_of_ws_word(env, &eb);
-        if (!env->no_hist_hint_while_typing) {
-          edit_update_history_hint(env, &eb);
-        } else {
-          sbuf_clear(eb.hint);
-        }
+        edit_update_history_hint(env, &eb);
         break;
       case WITH_ALT(KEY_DEL):
       case WITH_ALT(KEY_BACKSP):
         edit_delete_to_start_of_word(env,&eb);
-        if (!env->no_hist_hint_while_typing) {
-          edit_update_history_hint(env, &eb);
-        } else {
-          sbuf_clear(eb.hint);
-        }
+        edit_update_history_hint(env, &eb);
         break;      
       case KEY_CTRL_U:
         edit_delete_to_start_of_line(env,&eb);
-        if (!env->no_hist_hint_while_typing) {
-          edit_update_history_hint(env, &eb);
-        } else {
-          sbuf_clear(eb.hint);
-        }
+        edit_update_history_hint(env, &eb);
         break;
       case KEY_CTRL_K:
         edit_delete_to_end_of_line(env,&eb);
-        if (!env->no_hist_hint_while_typing) {
-          edit_update_history_hint(env, &eb);
-        } else {
-          sbuf_clear(eb.hint);
-        }
+        edit_update_history_hint(env, &eb);
         break;
       case KEY_CTRL_T:
         edit_swap_char(env,&eb);
-        if (!env->no_hist_hint_while_typing) {
-          edit_update_history_hint(env, &eb);
-        } else {
-          sbuf_clear(eb.hint);
-        }
+        edit_update_history_hint(env, &eb);
         break;
 
       // Editing
@@ -1269,9 +1237,7 @@ static char* edit_line( ic_env_t* env, const char* prompt_text )
         else {
           debug_msg( "edit: ignore code: 0x%04x\n", c);
         }
-        if (!env->no_hist_hint_while_typing) {
-          edit_update_history_hint(env, &eb);
-        }
+        edit_update_history_hint(env, &eb);
         break;
       }
     }

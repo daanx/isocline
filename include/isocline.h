@@ -347,10 +347,6 @@ bool ic_enable_color( bool enable );
 /// Returns the previous setting.
 bool ic_enable_history_duplicates( bool enable );
 
-/// Disable or enable showing latest matching history entry while typing (enabled by default).
-/// Returns the previous setting.
-bool ic_enable_hist_hint_while_typing(bool enable);
-
 /// Disable or enable automatic tab completion after a completion 
 /// to expand as far as possible if the completions are unique. (disabled by default).
 /// Returns the previous setting.

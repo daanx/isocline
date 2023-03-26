@@ -44,7 +44,6 @@ struct ic_env_s {
   bool            no_multiline_indent;       // indent continuation lines to line up under the initial prompt 
   bool            no_help;                   // show short help line for history search etc.
   bool            no_hint;                   // allow hinting?
-  bool            no_hist_hint_while_typing; // show latest history entry matching the current input
   bool            no_highlight;              // enable highlighting?
   bool            no_bracematch;             // enable brace matching?
   bool            no_autobrace;              // enable automatic brace insertion?
