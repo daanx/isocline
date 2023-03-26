@@ -44,9 +44,10 @@ typedef struct editor_s {
 
 
 /// TODO implement full history api for both backends
-/// TODO clear/update hint when going back in input (backspace, home, previous word) and prefix didn't match
 /// TODO check resizing
 /// TODO cleanup
+/// FIXME KEY_DEL doesn't work
+/// FIXME after deleting and input is empty, history hint is at the first entry (check history_idx update)
 
 #define INPUT_CPY
 
@@ -940,12 +941,14 @@ static void edit_update_history_hint(ic_env_t* env, editor_t* eb)
   if (entry) {
     debug_msg( "input found in history: %s, edit_buf: %s\n", entry, sbuf_string(eb->input));
     sbuf_replace(eb->hint, entry + sbuf_len(eb->input));
+    /// FIXME not sure if this matches all situations and not only UP/DOWN browsing
     eb->history_idx++;
 #ifdef IC_HIST_IMPL_SQLITE
     env->mem->free((char *)entry);
 #endif
   } else {
     sbuf_clear(eb->hint);
+    eb->history_idx = 0;
   }
   edit_refresh(env, eb);
 }
@@ -1183,15 +1186,19 @@ static char* edit_line( ic_env_t* env, const char* prompt_text )
       // deletion
       case KEY_BACKSP:
         edit_backspace(env,&eb);
+        edit_update_history_hint(env, &eb);
         break;
       case KEY_DEL:
         edit_delete_char(env,&eb);
+        edit_update_history_hint(env, &eb);
         break;
       case WITH_ALT('d'):
         edit_delete_to_end_of_word(env,&eb);
+        edit_update_history_hint(env, &eb);
         break;
       case KEY_CTRL_W:
         edit_delete_to_start_of_ws_word(env, &eb);
+        edit_update_history_hint(env, &eb);
         break;
       case WITH_ALT(KEY_DEL):
       case WITH_ALT(KEY_BACKSP):
@@ -1199,12 +1206,15 @@ static char* edit_line( ic_env_t* env, const char* prompt_text )
         break;      
       case KEY_CTRL_U:
         edit_delete_to_start_of_line(env,&eb);
+        edit_update_history_hint(env, &eb);
         break;
       case KEY_CTRL_K:
         edit_delete_to_end_of_line(env,&eb);
+        edit_update_history_hint(env, &eb);
         break;
       case KEY_CTRL_T:
         edit_swap_char(env,&eb);
+        edit_update_history_hint(env, &eb);
         break;
 
       // Editing
