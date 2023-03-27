@@ -43,8 +43,6 @@ typedef struct editor_s {
 } editor_t;
 
 
-/// TODO resolve conflicts with completion
-/// TODO check resizing
 /// TODO cleanup
 /// TODO write some regression tests ...
 
@@ -564,14 +562,11 @@ static void edit_refresh_history_hint(ic_env_t* env, editor_t* eb) {
     edit_refresh(env, eb);
     return;
   }
-  /// FIXME not sure if looking for the first history entry matches all situations
   const char* entry = history_get_with_prefix(env->history, 1, sbuf_string(eb->input));
   if (entry) {
     debug_msg( "input found in history: %s, edit_buf: %s\n", entry, sbuf_string(eb->input));
     sbuf_replace(eb->hint, entry + sbuf_len(eb->input));
-    /// FIXME not sure if this matches all situations and not only UP/DOWN browsing
     if (eb->history_idx == 0) eb->history_idx++;
-    // eb->history_idx++;
 #ifdef IC_HIST_IMPL_SQLITE
     env->mem->free((char *)entry);
 #endif
