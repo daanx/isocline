@@ -50,7 +50,7 @@ int main()
   ic_set_default_highlighter(highlighter, NULL);
 
   // try to auto complete after a completion as long as the completion is unique
-  ic_enable_auto_tab(true );
+  // ic_enable_auto_tab(true );
 
   // inline hinting is enabled by default
   // ic_enable_hint(false);

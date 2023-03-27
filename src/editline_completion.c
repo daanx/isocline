@@ -180,6 +180,7 @@ again:
       //term_beep(env->term);
       selected = 0;
     }
+    sbuf_clear(eb->hint);
     goto again;
   }
   else if (c == KEY_UP || c == KEY_SHIFT_TAB) {
