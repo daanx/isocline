@@ -156,6 +156,11 @@ target_compile_options(example PRIVATE ${ic_cflags})
 target_include_directories(example PRIVATE include)
 target_link_libraries(example PRIVATE isocline)
 
+add_executable(example_rc test/example_rc.c)
+target_compile_options(example_rc PRIVATE ${ic_cflags})
+target_include_directories(example_rc PRIVATE include)
+target_link_libraries(example_rc PRIVATE isocline)
+
 add_executable(test_colors test/test_colors.c)
 target_compile_options(test_colors PRIVATE ${ic_cflags})
 target_include_directories(test_colors PRIVATE include)
