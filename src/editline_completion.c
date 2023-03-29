@@ -263,6 +263,8 @@ static void edit_generate_completions(ic_env_t* env, editor_t* eb, bool autotab)
   }
   else if (count == 1) {
     // complete if only one match    
+    sbuf_clear(eb->hint);
+    edit_refresh(env, eb);
     if (edit_complete(env,eb,0 /*idx*/) && env->complete_autotab) {
       tty_code_pushback(env->tty,KEY_EVENT_AUTOTAB);
     }    
