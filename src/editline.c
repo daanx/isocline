@@ -389,6 +389,7 @@ static void edit_clear(ic_env_t* env, editor_t* eb ) {
 static void edit_clear_screen(ic_env_t* env, editor_t* eb ) {
   ssize_t cur_rows = eb->cur_rows;
   eb->cur_rows = term_get_height(env->term) - 1;
+  if (env->marker_on_next_line) eb->cur_rows--;
   edit_clear(env,eb);
   eb->cur_rows = cur_rows;
   edit_refresh(env,eb);
