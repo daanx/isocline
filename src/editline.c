@@ -43,9 +43,6 @@ typedef struct editor_s {
 } editor_t;
 
 
-/// TODO cleanup
-/// TODO write some regression tests ...
-
 #define INPUT_CPY
 
 static int refresh_cnt = 0;
