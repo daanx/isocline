@@ -223,7 +223,7 @@ again:
     rowcol_t rc;
     edit_get_rowcol(env,eb,&rc);
     edit_clear(env,eb);
-    edit_write_prompt(env,eb,0,false);
+    edit_write_prompt(env,eb,0,false, true);
     term_writeln(env->term, "");
     for(ssize_t i = 0; i < count; i++) {
       const char* display = completions_get_display(env->completions, i, NULL);

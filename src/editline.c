@@ -163,10 +163,11 @@ static bool edit_pos_is_at_row_end( ic_env_t* env, editor_t* eb ) {
   return rc.last_on_row;
 }
 
-static void edit_write_prompt( ic_env_t* env, editor_t* eb, ssize_t row, bool in_extra ) {
+static void edit_write_prompt( ic_env_t* env, editor_t* eb, ssize_t row, bool in_extra, bool in_line) {
+  debug_msg("edit: write prompt, row: %d, in extra: %s\n", row, in_extra ? "yes" : "no");
   if (in_extra) return;
   bbcode_style_open(env->bbcode, "ic-prompt");
-  if (row==0) {
+  if (row==0 && !in_line) {
     // regular prompt text    
     bbcode_print( env->bbcode, eb->prompt_text );
   }
@@ -212,7 +213,7 @@ static bool edit_refresh_rows_iter(
   if (row > info->last_row)  return true; // should not occur
   
   // term_clear_line(term);
-  edit_write_prompt(info->env, info->eb, row, info->in_extra);
+  edit_write_prompt(info->env, info->eb, row, info->in_extra, true);
 
   //' write output
   if (info->attrs == NULL || (info->env->no_highlight && info->env->no_bracematch)) {
@@ -873,7 +874,7 @@ static char* edit_line( ic_env_t* env, const char* prompt_text )
   }
   
   // show prompt
-  edit_write_prompt(env, &eb, 0, false);   
+  edit_write_prompt(env, &eb, 0, false, false);
 
   // always a history entry for the current input
   history_push(env->history, "");
