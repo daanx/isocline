@@ -330,6 +330,10 @@ const char* ic_get_prompt_marker(void);
 /// Get the current continuation prompt marker.
 const char* ic_get_continuation_prompt_marker(void);
 
+/// Disable or enable printing marker on a separate line (disabled by default).
+/// Returns the previous setting.
+bool ic_enable_marker_on_next_line(bool enable);
+
 /// Disable or enable multi-line input (enabled by default).
 /// Returns the previous setting.
 bool ic_enable_multiline( bool enable );
