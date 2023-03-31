@@ -73,15 +73,18 @@ static void edit_history_prev_word(ic_env_t* env, editor_t* eb) {
   }
   stringbuf_t *entry_s = sbuf_new(eb->mem);
   sbuf_append(entry_s, entry);
+  ssize_t word_start = eb->history_wordpos;
   ssize_t word_end = eb->history_wordpos;
-  if (eb->history_wordpos == 0) {
+  if (word_start == 0) {
     word_end = sbuf_len(entry_s);
   }
-  eb->history_wordpos = sbuf_find_word_start(entry_s, word_end);
-  debug_msg( "edit history: prev word: %d, entry: %s, start: %d, end: %d\n",
-    eb->history_idx, entry, eb->history_wordpos, word_end);
+  word_start = sbuf_find_word_start(entry_s, word_end);
+  ssize_t word_start_ws = sbuf_find_ws_word_start(entry_s, word_end);
+  debug_msg( "edit history: prev word: %d, entry: %s, start: %d, start_ws: %d, end: %d\n",
+    eb->history_idx, entry, word_start, word_start_ws, word_end);
   sbuf_clear(eb->hint);
-  sbuf_append_n(eb->hint, entry + eb->history_wordpos, word_end - eb->history_wordpos);
+  sbuf_append_n(eb->hint, entry + word_start_ws, word_end - word_start_ws);
+  eb->history_wordpos = word_start;
   edit_refresh(env, eb);
   sbuf_free(entry_s);
 #ifdef IC_HIST_IMPL_SQLITE
