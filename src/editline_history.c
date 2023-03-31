@@ -63,3 +63,28 @@ static void edit_history_prev(ic_env_t* env, editor_t* eb) {
 static void edit_history_next(ic_env_t* env, editor_t* eb) {
   edit_history_at(env, eb, -1);
 }
+
+static void edit_history_prev_word(ic_env_t* env, editor_t* eb) {
+  if (eb->history_wordpos == 0) eb->history_idx++;
+  const char* entry = history_get_with_prefix(env->history, eb->history_idx, "");
+  if (entry == NULL) {
+    term_beep(env->term);
+    return;
+  }
+  stringbuf_t *entry_s = sbuf_new(eb->mem);
+  sbuf_append(entry_s, entry);
+  ssize_t word_end = eb->history_wordpos;
+  if (eb->history_wordpos == 0) {
+    word_end = sbuf_len(entry_s);
+  }
+  eb->history_wordpos = sbuf_find_word_start(entry_s, word_end);
+  debug_msg( "edit history: prev word: %d, entry: %s, start: %d, end: %d\n",
+    eb->history_idx, entry, eb->history_wordpos, word_end);
+  sbuf_clear(eb->hint);
+  sbuf_append_n(eb->hint, entry + eb->history_wordpos, word_end - eb->history_wordpos);
+  edit_refresh(env, eb);
+  sbuf_free(entry_s);
+#ifdef IC_HIST_IMPL_SQLITE
+  env->mem->free((char *)entry);
+#endif
+}
