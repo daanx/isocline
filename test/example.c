@@ -52,7 +52,7 @@ int main()
   // ic_enable_hint(false);
 
   // enable printing prompt and marker on separate lines
-  ic_enable_marker_on_next_line(true);
+  ic_enable_twoline_prompt(true);
 
   // run until empty input
   char* input;

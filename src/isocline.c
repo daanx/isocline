@@ -180,10 +180,10 @@ ic_public void ic_set_prompt_marker( const char* prompt_marker, const char* cpro
   set_prompt_marker(env, prompt_marker, cprompt_marker);
 }
 
-ic_public bool ic_enable_marker_on_next_line( bool enable ) {
+ic_public bool ic_enable_twoline_prompt( bool enable ) {
   ic_env_t* env = ic_get_env(); if (env==NULL) return false;
-  bool prev = env->marker_on_next_line;
-  env->marker_on_next_line = enable;
+  bool prev = env->twoline_prompt;
+  env->twoline_prompt = enable;
   return !prev;
 }
 

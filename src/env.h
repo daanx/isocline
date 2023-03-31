@@ -38,7 +38,7 @@ struct ic_env_s {
   char            multiline_eol;       // character used for multiline input ("\") (set to 0 to disable)
   bool            initialized;         // are we initialized?
   bool            noedit;              // is rich editing possible (tty != NULL)
-  bool            marker_on_next_line; // print marker on a separate line
+  bool            twoline_prompt;      // print marker on a separate line
   bool            singleline_only;     // allow only single line editing?
   bool            complete_nopreview;  // do not show completion preview for each selection in the completion menu?
   bool            complete_autotab;    // try to keep completing after a completion?
