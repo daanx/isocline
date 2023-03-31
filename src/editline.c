@@ -33,7 +33,8 @@ typedef struct editor_s {
   bool          modified;         // has a modification happened? (used for history navigation for example)  
   bool          disable_undo;     // temporarily disable auto undo (for history search)
   ssize_t       history_idx;      // current index in the history 
-  ssize_t       history_wordpos;  // current position of word in the history 
+  ssize_t       history_widx;     // current history index when browsing history by word
+  ssize_t       history_wpos;     // current position of word in the history 
   editstate_t*  undo;             // undo buffer  
   editstate_t*  redo;             // redo buffer
   const char*   prompt_text;      // text of the prompt before the prompt marker    
@@ -51,15 +52,16 @@ static int refresh_cnt = 0;
 static void dump_editor(editor_t *eb) {
   refresh_cnt++;
   debug_msg("--------------------------------------------------------------------------------\n");
-  debug_msg("input    : %s\n"
-            "hint     : %s\n"
-            "rowcnt   : %d\n"
-            "rowidx   : %d\n"
-            "pos      : %d\n"
-            "modified : %s\n"
-            "hist_idx : %d\n"
-            "hist_wp  : %d\n"
-            "rfsh_cnt : %d\n"
+  debug_msg("input     : %s\n"
+            "hint      : %s\n"
+            "rowcnt    : %d\n"
+            "rowidx    : %d\n"
+            "pos       : %d\n"
+            "modified  : %s\n"
+            "hist_idx  : %d\n"
+            "hist_widx : %d\n"
+            "hist_wpos : %d\n"
+            "rfsh_cnt  : %d\n"
             ,
             sbuf_string(eb->input),
             sbuf_string(eb->hint),
@@ -68,7 +70,8 @@ static void dump_editor(editor_t *eb) {
             (size_t)eb->pos,
             eb->modified ? "true" : "false",
             eb->history_idx,
-            eb->history_wordpos,
+            eb->history_widx,
+            eb->history_wpos,
             refresh_cnt
             );
   debug_msg("................................................................................\n");
@@ -552,7 +555,8 @@ static void edit_refresh_hint(ic_env_t* env, editor_t* eb) {
 static void edit_refresh_history_hint(ic_env_t* env, editor_t* eb) {
   if (eb->modified) {
     eb->history_idx = 0;
-    eb->history_wordpos = 0;
+    eb->history_widx = 0;
+    eb->history_wpos = 0;
     // eb->modified = false;
   }
   /// Though it shouldn't when only moving he cursor in a modified buffer, eb->pos == 0 also works ...
@@ -574,7 +578,8 @@ static void edit_refresh_history_hint(ic_env_t* env, editor_t* eb) {
   } else {
     sbuf_clear(eb->hint);
     eb->history_idx = 0;
-    eb->history_wordpos = 0;
+    eb->history_widx = 0;
+    eb->history_wpos = 0;
   }
   // if (eb->modified) {
     // eb->history_idx = 0;
@@ -724,7 +729,8 @@ static void edit_delete_all(ic_env_t* env, editor_t* eb) {
   sbuf_clear(eb->hint);
   eb->pos = 0;
   eb->history_idx = 0;
-  eb->history_wordpos = 0;
+  eb->history_widx = 0;
+  eb->history_wpos = 0;
   edit_refresh(env,eb);
 }
 
@@ -990,8 +996,9 @@ static char* edit_line( ic_env_t* env, const char* prompt_text )
   eb.cur_row  = 0; 
   eb.modified = false;  
   eb.prompt_text     = (prompt_text != NULL ? prompt_text : "");
-  eb.history_idx     = 0;  
-  eb.history_wordpos = 0;  
+  eb.history_idx     = 0;
+  eb.history_widx    = 0;
+  eb.history_wpos    = 0;
   editstate_init(&eb.undo);
   editstate_init(&eb.redo);
   if (eb.input==NULL || eb.extra==NULL || eb.hint==NULL || eb.hint_help==NULL) {

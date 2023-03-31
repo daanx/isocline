@@ -65,26 +65,26 @@ static void edit_history_next(ic_env_t* env, editor_t* eb) {
 }
 
 static void edit_history_prev_word(ic_env_t* env, editor_t* eb) {
-  if (eb->history_wordpos == 0) eb->history_idx++;
-  const char* entry = history_get_with_prefix(env->history, eb->history_idx, "");
+  if (eb->history_wpos == 0) eb->history_widx++;
+  const char* entry = history_get_with_prefix(env->history, eb->history_widx, "");
   if (entry == NULL) {
     term_beep(env->term);
     return;
   }
   stringbuf_t *entry_s = sbuf_new(eb->mem);
   sbuf_append(entry_s, entry);
-  ssize_t word_start = eb->history_wordpos;
-  ssize_t word_end = eb->history_wordpos;
+  ssize_t word_start = eb->history_wpos;
+  ssize_t word_end = eb->history_wpos;
   if (word_start == 0) {
     word_end = sbuf_len(entry_s);
   }
   word_start = sbuf_find_word_start(entry_s, word_end);
   ssize_t word_start_ws = sbuf_find_ws_word_start(entry_s, word_end);
   debug_msg( "edit history: prev word: %d, entry: %s, start: %d, start_ws: %d, end: %d\n",
-    eb->history_idx, entry, word_start, word_start_ws, word_end);
+    eb->history_widx, entry, word_start, word_start_ws, word_end);
   sbuf_clear(eb->hint);
   sbuf_append_n(eb->hint, entry + word_start_ws, word_end - word_start_ws);
-  eb->history_wordpos = word_start;
+  eb->history_wpos = word_start;
   edit_refresh(env, eb);
   sbuf_free(entry_s);
 #ifdef IC_HIST_IMPL_SQLITE
