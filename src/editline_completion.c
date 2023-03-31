@@ -19,7 +19,7 @@ static bool edit_complete(ic_env_t* env, editor_t* eb, ssize_t idx) {
   }
   eb->pos = newpos;
   sbuf_clear(eb->hint);
-  edit_refresh(env,eb);  
+  edit_refresh(env,eb);
   return true;
 }
 
@@ -31,6 +31,7 @@ static bool edit_complete_longest_prefix(ic_env_t* env, editor_t* eb ) {
     return false;
   }
   eb->pos = newpos;
+  sbuf_clear(eb->hint);
   edit_refresh(env,eb);
   return true;
 }
