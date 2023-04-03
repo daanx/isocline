@@ -14,3 +14,7 @@ doc/html/
 *.lock
 history.txt
 isocline.debug.txt
+.gdb_history
+history*
+src/cscope.out
+test/example_rc.c

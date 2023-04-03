@@ -51,6 +51,9 @@ int main()
   // inline hinting is enabled by default
   // ic_enable_hint(false);
 
+  // enable printing prompt and marker on separate lines
+  ic_enable_twoline_prompt(true);
+
   // run until empty input
   char* input;
   while((input = ic_readline("isoclinε")) != NULL)    // ctrl-d returns NULL (as well as errors)
