@@ -231,7 +231,6 @@ static ssize_t str_limit_to_length( const char* s, ssize_t n ) {
 // String searching prev/next word, line, ws_word
 //-------------------------------------------------------------
 
-
 static ssize_t str_find_backward( const char* s, ssize_t len, ssize_t pos, ic_is_char_class_fun_t* match, bool skip_immediate_matches ) {
   if (pos > len) pos = len;
   if (pos < 0) pos = 0;
@@ -328,8 +327,7 @@ static ssize_t str_find_ws_word_end( const char* s, ssize_t len, ssize_t pos) {
 //-------------------------------------------------------------
 
 // invoke a function for each terminal row; returns total row count.
-static ssize_t str_for_each_row( const char* s, ssize_t len, ssize_t termw, ssize_t promptw, ssize_t cpromptw,
-                                 row_fun_t* fun, const void* arg, void* res ) 
+static ssize_t str_for_each_row( const char* s, ssize_t len, ssize_t termw, ssize_t promptw, ssize_t cpromptw, row_fun_t* fun, const void* arg, void* res )
 {
   if (s == NULL) s = "";
   ssize_t i;
@@ -338,6 +336,7 @@ static ssize_t str_for_each_row( const char* s, ssize_t len, ssize_t termw, ssiz
   ssize_t rstart = 0;  
   ssize_t startw  = promptw; 
   for(i = 0; i < len; ) {
+    // debug_msg("str: foreach row: len %zd, i %zd, buf %s\n", len, i, s );
     ssize_t w;
     ssize_t next = str_next_ofs(s, len, i, &w);    
     if (next <= 0) {
@@ -375,10 +374,10 @@ static ssize_t str_for_each_row( const char* s, ssize_t len, ssize_t termw, ssiz
   return rcount+1;
 }
 
+
 //-------------------------------------------------------------
 // String: get row/column position
 //-------------------------------------------------------------
-
 
 static bool str_get_current_pos_iter(
     const char* s,
@@ -405,7 +404,7 @@ static bool str_get_current_pos_iter(
       // normal last position is right after the last character
       rc->last_on_row = (pos >= row_start + row_len); 
     }
-    // debug_msg("edit; pos iter: pos: %zd (%c), row_start: %zd, rowlen: %zd\n", pos, s[pos], row_start, row_len);    
+    debug_msg("edit: pos iter: pos: %zd (%c), row_start: %zd, rowlen: %zd\n", pos, s[pos], row_start, row_len);
   }  
   return false; // always continue to count all rows
 }
@@ -413,10 +412,9 @@ static bool str_get_current_pos_iter(
 static ssize_t str_get_rc_at_pos(const char* s, ssize_t len, ssize_t termw, ssize_t promptw, ssize_t cpromptw, ssize_t pos, rowcol_t* rc) {
   memset(rc, 0, sizeof(*rc));
   ssize_t rows = str_for_each_row(s, len, termw, promptw, cpromptw, &str_get_current_pos_iter, &pos, rc);
-  // debug_msg("edit: current pos: (%d, %d) %s %s\n", rc->row, rc->col, rc->first_on_row ? "first" : "", rc->last_on_row ? "last" : "");
+  debug_msg("edit: current pos: %d -> (%d, %d) %s %s\n", pos, rc->row, rc->col, rc->first_on_row ? "first" : "", rc->last_on_row ? "last" : "");
   return rows;
 }
-
 
 
 //-------------------------------------------------------------
@@ -704,8 +702,6 @@ ic_private ssize_t sbuf_insert_unicode_at(stringbuf_t* sbuf, unicode_t u, ssize_
   unicode_to_qutf8(u, s);
   return sbuf_insert_at(sbuf, (const char*)s, pos);
 }
-
-
 
 ic_private void sbuf_delete_at( stringbuf_t* sbuf, ssize_t pos, ssize_t count ) {
   if (pos < 0 || pos >= sbuf->count) return;

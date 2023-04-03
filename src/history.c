@@ -18,11 +18,14 @@
 struct history_s {
   ssize_t  count;              // current number of entries in use
   ssize_t  len;                // size of elems 
-  const char** elems;         // history items (up to count)
-  const char*  fname;         // history file
+  const char** elems;          // history items (up to count)
+  const char*  fname;          // history file
   alloc_t* mem;
-  bool     allow_duplicates;   // allow duplicate entries?
+  bool allow_duplicates;       // allow duplicate entries?
 };
+
+ic_private void     history_load(history_t* h);
+ic_private const char* history_get(const history_t* h, ssize_t n);
 
 ic_private history_t* history_new(alloc_t* mem) {
   history_t* h = mem_zalloc_tp(mem,history_t);
@@ -51,6 +54,18 @@ ic_private bool history_enable_duplicates( history_t* h, bool enable ) {
 
 ic_private ssize_t  history_count(const history_t* h) {
   return h->count;
+}
+
+ic_private ssize_t history_count_with_prefix(const history_t* h, const char *prefix) {
+  // ic_unused(h); ic_unused(prefix);
+  // return 0;
+  const char* p = NULL;
+  ssize_t i, count = 0;
+  for(i = 0; i < h->count; i++) {
+    p = history_get(h,i);
+    if (strncmp(p, prefix, strlen(prefix)) == 0) count++;
+  }
+  return count;
 }
 
 //-------------------------------------------------------------
@@ -119,7 +134,18 @@ ic_private const char* history_get( const history_t* h, ssize_t n ) {
   return h->elems[h->count - n - 1];
 }
 
+ic_private const char* history_get_with_prefix(const history_t* h, ssize_t from, const char* prefix) {
+  const char* p = NULL;
+  ssize_t i;
+  for(i = from; i < h->count; i++) {
+    p = history_get(h,i);
+    if (strncmp(p, prefix, strlen(prefix)) == 0) break;
+  }
+  return p;
+}
+
 ic_private bool history_search( const history_t* h, ssize_t from /*including*/, const char* search, bool backward, ssize_t* hidx, ssize_t* hpos ) {
+  debug_msg("searching history %s for '%s' from %d\n", backward ? "back" : "forward", search, from);
   const char* p = NULL;
   ssize_t i;
   if (backward) {
@@ -135,6 +161,7 @@ ic_private bool history_search( const history_t* h, ssize_t from /*including*/, 
     }
   }
   if (p == NULL) return false;
+  debug_msg("found '%s' at index: %d\n", search, i);
   if (hidx != NULL) *hidx = i;
   if (hpos != NULL) *hpos = (p - history_get(h,i));
   return true;

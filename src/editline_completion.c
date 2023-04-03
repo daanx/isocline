@@ -18,7 +18,8 @@ static bool edit_complete(ic_env_t* env, editor_t* eb, ssize_t idx) {
     return false;
   }
   eb->pos = newpos;
-  edit_refresh(env,eb);  
+  sbuf_clear(eb->hint);
+  edit_refresh(env,eb);
   return true;
 }
 
@@ -30,6 +31,7 @@ static bool edit_complete_longest_prefix(ic_env_t* env, editor_t* eb ) {
     return false;
   }
   eb->pos = newpos;
+  sbuf_clear(eb->hint);
   edit_refresh(env,eb);
   return true;
 }
@@ -180,6 +182,7 @@ again:
       //term_beep(env->term);
       selected = 0;
     }
+    sbuf_clear(eb->hint);
     goto again;
   }
   else if (c == KEY_UP || c == KEY_SHIFT_TAB) {
