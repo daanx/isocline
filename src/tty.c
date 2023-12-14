@@ -42,13 +42,13 @@ struct tty_s {
   bool      has_term_resize_event;  // are resize events generated?
   bool      term_resize_event;      // did a term resize happen?
   alloc_t*  mem;                    // memory allocator
-  code_t    pushbuf[TTY_PUSH_MAX];  // push back buffer for full key codes  
-  ssize_t   push_count;               
+  code_t    pushbuf[TTY_PUSH_MAX];  // push back buffer for full key codes
+  ssize_t   push_count;
   uint8_t   cpushbuf[TTY_PUSH_MAX]; // low level push back buffer for bytes
   ssize_t   cpush_count;
   long      esc_initial_timeout;    // initial ms wait to see if ESC starts an escape sequence
   long      esc_timeout;            // follow up delay for characters in an escape sequence
-  #if defined(_WIN32)               
+  #if defined(_WIN32)
   HANDLE    hcon;                   // console input handle
   DWORD     hcon_orig_mode;         // original console mode
   #else
@@ -122,7 +122,7 @@ static code_t tty_read_utf8( tty_t* tty, uint8_t c0 ) {
       }
     }
   }
-  
+
   buf[count] = 0;
   debug_msg("tty: read utf8: count: %zd: %02x,%02x,%02x,%02x", count, buf[0], buf[1], buf[2], buf[3]);
 
@@ -144,8 +144,8 @@ static code_t tty_read_utf8( tty_t* tty, uint8_t c0 ) {
 static bool tty_code_pop(tty_t* tty, code_t* code);
 
 
-// read a single char/key 
-ic_private bool tty_read_timeout(tty_t* tty, long timeout_ms, code_t* code) 
+// read a single char/key
+ic_private bool tty_read_timeout(tty_t* tty, long timeout_ms, code_t* code)
 {
   // is there a push_count back code?
   if (tty_code_pop(tty,code)) {
@@ -155,7 +155,7 @@ ic_private bool tty_read_timeout(tty_t* tty, long timeout_ms, code_t* code)
   // read a single char/byte from a character stream
   uint8_t c;
   if (!tty_readc_noblock(tty, &c, timeout_ms)) return false;
-  
+
   if (c == KEY_ESC) {
     // escape sequence?
     *code = tty_read_esc(tty, tty->esc_initial_timeout, tty->esc_timeout);
@@ -181,7 +181,7 @@ ic_private bool tty_read_timeout(tty_t* tty, long timeout_ms, code_t* code)
 static code_t modify_code( code_t code ) {
   code_t key  = KEY_NO_MODS(code);
   code_t mods = KEY_MODS(code);
-  debug_msg( "tty: readc %s%s%s 0x%03x ('%c')\n", 
+  debug_msg( "tty: readc %s%s%s 0x%03x ('%c')\n",
               mods&KEY_MOD_SHIFT ? "shift+" : "",  mods&KEY_MOD_CTRL  ? "ctrl+" : "", mods&KEY_MOD_ALT   ? "alt+" : "",
               key, (key >= ' ' && key <= '~' ? key : ' '));
 
@@ -189,7 +189,7 @@ static code_t modify_code( code_t code ) {
   if (key == KEY_RUBOUT) {
     code = KEY_BACKSP | mods;
   }
-  // ctrl+'_' is translated to '\x1F' on Linux, translate it back 
+  // ctrl+'_' is translated to '\x1F' on Linux, translate it back
   else if (key == key_char('\x1F') && (mods & KEY_MOD_ALT) == 0) {
     key = '_';
     code = WITH_CTRL(key_char('_'));
@@ -209,17 +209,17 @@ static code_t modify_code( code_t code ) {
   else if (code == WITH_ALT(KEY_UP) || code == WITH_ALT('<') || code == WITH_CTRL(KEY_HOME)) {
     code = KEY_PAGEUP;
   }
-  
+
   // treat C0 codes without KEY_MOD_CTRL
   if (key < ' ' && (mods&KEY_MOD_CTRL) != 0) {
-    code &= ~KEY_MOD_CTRL; 
+    code &= ~KEY_MOD_CTRL;
   }
-  
+
   return code;
 }
 
 
-// read a single char/key 
+// read a single char/key
 ic_private code_t tty_read(tty_t* tty)
 {
   code_t code;
@@ -231,7 +231,7 @@ ic_private code_t tty_read(tty_t* tty)
 // Read back an ANSI query response
 //-------------------------------------------------------------
 
-ic_private bool tty_read_esc_response(tty_t* tty, char esc_start, bool final_st, char* buf, ssize_t buflen ) 
+ic_private bool tty_read_esc_response(tty_t* tty, char esc_start, bool final_st, char* buf, ssize_t buflen )
 {
   buf[0] = 0;
   ssize_t len = 0;
@@ -264,7 +264,7 @@ ic_private bool tty_read_esc_response(tty_t* tty, char esc_start, bool final_st,
         break;
       }
     }
-    buf[len++] = (char)c; 
+    buf[len++] = (char)c;
   }
   buf[len] = 0;
   debug_msg("tty: escape query response: %s\n", buf);
@@ -282,7 +282,7 @@ static bool tty_code_pop( tty_t* tty, code_t* code ) {
   return true;
 }
 
-ic_private void tty_code_pushback( tty_t* tty, code_t c ) {   
+ic_private void tty_code_pushback( tty_t* tty, code_t c ) {
   // note: must be signal safe
   if (tty->push_count >= TTY_PUSH_MAX) return;
   tty->pushbuf[tty->push_count] = c;
@@ -294,7 +294,7 @@ ic_private void tty_code_pushback( tty_t* tty, code_t c ) {
 // low-level character pushback (for escape sequences and windows)
 //-------------------------------------------------------------
 
-ic_private bool tty_cpop(tty_t* tty, uint8_t* c) {  
+ic_private bool tty_cpop(tty_t* tty, uint8_t* c) {
   if (tty->cpush_count <= 0) {  // do not modify c on failure (see `tty_decode_unicode`)
     return false;
   }
@@ -331,7 +331,7 @@ static void tty_cpushf(tty_t* tty, const char* fmt, ...) {
   return;
 }
 
-ic_private void tty_cpush_char(tty_t* tty, uint8_t c) {  
+ic_private void tty_cpush_char(tty_t* tty, uint8_t c) {
   uint8_t buf[2];
   buf[0] = c;
   buf[1] = 0;
@@ -363,8 +363,8 @@ static void tty_cpush_csi_xterm( tty_t* tty, code_t mods, char xcode ) {
 
 // push ESC [ <unicode> ; <mods> u
 static void tty_cpush_csi_unicode( tty_t* tty, code_t mods, uint32_t unicode ) {
-  if ((unicode < 0x80 && mods == 0) || 
-      (mods == KEY_MOD_CTRL && unicode < ' ' && unicode != KEY_TAB && unicode != KEY_ENTER 
+  if ((unicode < 0x80 && mods == 0) ||
+      (mods == KEY_MOD_CTRL && unicode < ' ' && unicode != KEY_TAB && unicode != KEY_ENTER
                         && unicode != KEY_LINEFEED && unicode != KEY_BACKSP) ||
       (mods == KEY_MOD_SHIFT && unicode >= ' ' && unicode <= KEY_RUBOUT)) {
     tty_cpush_char(tty,(uint8_t)unicode);
@@ -392,7 +392,7 @@ static bool tty_init_utf8(tty_t* tty) {
   return true;
 }
 
-ic_private tty_t* tty_new(alloc_t* mem, int fd_in) 
+ic_private tty_t* tty_new(alloc_t* mem, int fd_in)
 {
   tty_t* tty = mem_zalloc_tp(mem, tty_t);
   tty->mem = mem;
@@ -400,7 +400,7 @@ ic_private tty_t* tty_new(alloc_t* mem, int fd_in)
   #if defined(__APPLE__)
   tty->esc_initial_timeout = 200;  // apple use ESC+<key> for alt-<key>
   #else
-  tty->esc_initial_timeout = 100; 
+  tty->esc_initial_timeout = 100;
   #endif
   tty->esc_timeout = 10;
   if (!(isatty(tty->fd_in) && tty_init_raw(tty) && tty_init_utf8(tty))) {
@@ -426,7 +426,7 @@ ic_private bool tty_term_resize_event(tty_t* tty) {
   if (tty == NULL) return true;
   if (tty->has_term_resize_event) {
     if (!tty->term_resize_event) return false;
-    tty->term_resize_event = false;  // reset.   
+    tty->term_resize_event = false;  // reset.
   }
   return true;  // always return true on systems without a resize event (more expensive but still ok)
 }
@@ -453,7 +453,7 @@ static bool tty_readc_blocking(tty_t* tty, uint8_t* c) {
 
 
 // non blocking read -- with a small timeout used for reading escape sequences.
-ic_private bool tty_readc_noblock(tty_t* tty, uint8_t* c, long timeout_ms) 
+ic_private bool tty_readc_noblock(tty_t* tty, uint8_t* c, long timeout_ms)
 {
   // in our pushback buffer?
   if (tty_cpop(tty, c)) return true;
@@ -478,18 +478,18 @@ ic_private bool tty_readc_noblock(tty_t* tty, uint8_t* c, long timeout_ms)
   #endif
 
   // otherwise block for at most timeout milliseconds
-  #if defined(FD_SET)   
+  #if defined(FD_SET)
     // we can use select to detect when input becomes available
     fd_set readset;
     struct timeval time;
     FD_ZERO(&readset);
     FD_SET(tty->fd_in, &readset);
     time.tv_sec  = (timeout_ms > 0 ? timeout_ms / 1000 : 0);
-    time.tv_usec = (timeout_ms > 0 ? 1000*(timeout_ms % 1000) : 0);      
+    time.tv_usec = (timeout_ms > 0 ? 1000*(timeout_ms % 1000) : 0);
     if (select(tty->fd_in + 1, &readset, NULL, NULL, &time) == 1) {
       // input available
       return tty_readc_blocking(tty, c);
-    }    
+    }
   #else
     // no select, we cannot timeout; use usleeps :-(
     // todo: this seems very rare nowadays; should be even support this?
@@ -522,14 +522,14 @@ ic_private bool tty_readc_noblock(tty_t* tty, uint8_t* c, long timeout_ms)
         usleep(50*1000L); // sleep at most 0.05s at a time
         timeout_ms -= 100;
         if (timeout_ms < 0) { timeout_ms = 0; }
-      }      
-    } 
+      }
+    }
     while (timeout_ms > 0);
-  #endif  
+  #endif
   return false;
 }
 
-#if defined(TIOCSTI) 
+#if defined(TIOCSTI)
 ic_private bool tty_async_stop(const tty_t* tty) {
   // insert ^C in the input stream
   char c = KEY_CTRL_C;
@@ -543,7 +543,7 @@ ic_private bool tty_async_stop(const tty_t* tty) {
 
 // We install various signal handlers to restore the terminal settings
 // in case of a terminating signal. This is also used to catch terminal window resizes.
-// This is not strictly needed so this can be disabled on 
+// This is not strictly needed so this can be disabled on
 // (older) platforms that do not support signal handling well.
 #if defined(SIGWINCH) && defined(SA_RESTART)  // ensure basic signal functionality is defined
 
@@ -561,15 +561,15 @@ typedef struct signal_handler_s {
 
 static signal_handler_t sighandlers[] = {
   { SIGWINCH, {0} },
-  { SIGTERM , {0} }, 
-  { SIGINT  , {0} }, 
-  { SIGQUIT , {0} }, 
+  { SIGTERM , {0} },
+  { SIGINT  , {0} },
+  { SIGQUIT , {0} },
   { SIGHUP  , {0} },
-  { SIGSEGV , {0} }, 
-  { SIGTRAP , {0} }, 
-  { SIGBUS  , {0} }, 
+  { SIGSEGV , {0} },
+  { SIGTRAP , {0} },
+  { SIGBUS  , {0} },
   { SIGTSTP , {0} },
-  { SIGTTIN , {0} }, 
+  { SIGTTIN , {0} },
   { SIGTTOU , {0} },
   { 0       , {0} }
 };
@@ -608,7 +608,7 @@ static void signals_install(tty_t* tty) {
   struct sigaction handler;
   memset(&handler,0,sizeof(handler));
   sigemptyset(&handler.sa_mask);
-  handler.sa_sigaction = &sig_handler; 
+  handler.sa_sigaction = &sig_handler;
   handler.sa_flags = SA_RESTART;
   // install for all signals
   for( signal_handler_t* sh = sighandlers; sh->signum != 0; sh++ ) {
@@ -621,7 +621,7 @@ static void signals_install(tty_t* tty) {
           sig_tty->has_term_resize_event = true;
         };
       }
-    }    
+    }
   }
 }
 
@@ -649,7 +649,7 @@ static void signals_restore(void) {
 ic_private bool tty_start_raw(tty_t* tty) {
   if (tty == NULL) return false;
   if (tty->raw_enabled) return true;
-  if (tcsetattr(tty->fd_in,TCSAFLUSH,&tty->raw_ios) < 0) return false;  
+  if (tcsetattr(tty->fd_in,TCSAFLUSH,&tty->raw_ios) < 0) return false;
   tty->raw_enabled = true;
   return true;
 }
@@ -662,15 +662,15 @@ ic_private void tty_end_raw(tty_t* tty) {
   tty->raw_enabled = false;
 }
 
-static bool tty_init_raw(tty_t* tty) 
-{  
+static bool tty_init_raw(tty_t* tty)
+{
   // Set input to raw mode. See <https://man7.org/linux/man-pages/man3/termios.3.html>.
   if (tcgetattr(tty->fd_in,&tty->orig_ios) == -1) return false;
-  tty->raw_ios = tty->orig_ios; 
+  tty->raw_ios = tty->orig_ios;
   // input: no break signal, no \r to \n, no parity check, no 8-bit to 7-bit, no flow control
   tty->raw_ios.c_iflag &= ~(unsigned long)(BRKINT | ICRNL | INPCK | ISTRIP | IXON);
   // control: allow 8-bit
-  tty->raw_ios.c_cflag |= CS8;  
+  tty->raw_ios.c_cflag |= CS8;
   // local: no echo, no line-by-line (canonical), no extended input processing, no signals for ^z,^c
   tty->raw_ios.c_lflag &= ~(unsigned long)(ECHO | ICANON | IEXTEN | ISIG);
   // 1 byte at a time, no delay
@@ -679,7 +679,7 @@ static bool tty_init_raw(tty_t* tty)
 
   // store in global so our signal handlers can restore the terminal mode
   signals_install(tty);
-  
+
   return true;
 }
 
@@ -708,7 +708,7 @@ ic_private bool tty_readc_noblock(tty_t* tty, uint8_t* c, long timeout_ms) {  //
 }
 
 // Read from the console input events and push escape codes into the tty cbuffer.
-static void tty_waitc_console(tty_t* tty, long timeout_ms) 
+static void tty_waitc_console(tty_t* tty, long timeout_ms)
 {
   //  wait for a key down event
   INPUT_RECORD inp;
@@ -718,7 +718,7 @@ static void tty_waitc_console(tty_t* tty, long timeout_ms)
     // check if there are events if in non-blocking timeout mode
     if (timeout_ms >= 0) {
       // first peek ahead
-      if (!GetNumberOfConsoleInputEvents(tty->hcon, &count)) return;  
+      if (!GetNumberOfConsoleInputEvents(tty->hcon, &count)) return;
       if (count == 0) {
         if (timeout_ms == 0) {
           // out of time
@@ -741,7 +741,7 @@ static void tty_waitc_console(tty_t* tty, long timeout_ms)
             case WAIT_TIMEOUT:
             case WAIT_ABANDONED:
             case WAIT_FAILED:
-            default: 
+            default:
               return;
           }
         }
@@ -758,12 +758,12 @@ static void tty_waitc_console(tty_t* tty, long timeout_ms)
       continue;
     }
 
-    // wait for key down events 
+    // wait for key down events
     if (inp.EventType != KEY_EVENT) continue;
 
     // the modifier state
     DWORD modstate = inp.Event.KeyEvent.dwControlKeyState;
-    
+
     // we need to handle shift up events separately
     if (!inp.Event.KeyEvent.bKeyDown && inp.Event.KeyEvent.wVirtualKeyCode == VK_SHIFT) {
       modstate &= (DWORD)~SHIFT_PRESSED;
@@ -773,7 +773,7 @@ static void tty_waitc_console(tty_t* tty, long timeout_ms)
     DWORD altgr = LEFT_CTRL_PRESSED | RIGHT_ALT_PRESSED;
     if ((modstate & altgr) == altgr) { modstate &= ~altgr; }
 
-    
+
     // get modifiers
     code_t mods = 0;
     if ((modstate & ( RIGHT_CTRL_PRESSED | LEFT_CTRL_PRESSED )) != 0) mods |= KEY_MOD_CTRL;
@@ -789,19 +789,19 @@ static void tty_waitc_console(tty_t* tty, long timeout_ms)
     if (!inp.Event.KeyEvent.bKeyDown && virt != VK_MENU) {
 			continue;
 		}
-    
-    if (chr == 0) { 
+
+    if (chr == 0) {
       switch (virt) {
         case VK_UP:     tty_cpush_csi_xterm(tty, mods, 'A'); return;
         case VK_DOWN:   tty_cpush_csi_xterm(tty, mods, 'B'); return;
         case VK_RIGHT:  tty_cpush_csi_xterm(tty, mods, 'C'); return;
         case VK_LEFT:   tty_cpush_csi_xterm(tty, mods, 'D'); return;
-        case VK_END:    tty_cpush_csi_xterm(tty, mods, 'F'); return; 
+        case VK_END:    tty_cpush_csi_xterm(tty, mods, 'F'); return;
         case VK_HOME:   tty_cpush_csi_xterm(tty, mods, 'H'); return;
         case VK_DELETE: tty_cpush_csi_vt(tty,mods,3); return;
         case VK_PRIOR:  tty_cpush_csi_vt(tty,mods,5); return;   //page up
         case VK_NEXT:   tty_cpush_csi_vt(tty,mods,6); return;   //page down
-        case VK_TAB:    tty_cpush_csi_unicode(tty,mods,9);  return; 
+        case VK_TAB:    tty_cpush_csi_unicode(tty,mods,9);  return;
         case VK_RETURN: tty_cpush_csi_unicode(tty,mods,13); return;
         default: {
           uint32_t vtcode = 0;
@@ -819,12 +819,12 @@ static void tty_waitc_console(tty_t* tty, long timeout_ms)
             return;
           }
         }
-      }    
+      }
       // ignore other control keys (shift etc).
     }
     // high surrogate pair
     else if (chr >= 0xD800 && chr <= 0xDBFF) {
-			surrogate_hi = (chr - 0xD800);			
+			surrogate_hi = (chr - 0xD800);
     }
     // low surrogate pair
     else if (chr >= 0xDC00 && chr <= 0xDFFF) {
@@ -839,7 +839,7 @@ static void tty_waitc_console(tty_t* tty, long timeout_ms)
 			return;
     }
   }
-}  
+}
 
 ic_private bool tty_async_stop(const tty_t* tty) {
   // send ^c
@@ -858,14 +858,14 @@ ic_private bool tty_async_stop(const tty_t* tty) {
 ic_private bool tty_start_raw(tty_t* tty) {
   if (tty->raw_enabled) return true;
   GetConsoleMode(tty->hcon,&tty->hcon_orig_mode);
-  DWORD mode = ENABLE_QUICK_EDIT_MODE   // cut&paste allowed 
-             | ENABLE_WINDOW_INPUT      // to catch resize events 
-             // | ENABLE_VIRTUAL_TERMINAL_INPUT 
+  DWORD mode = ENABLE_QUICK_EDIT_MODE   // cut&paste allowed
+             | ENABLE_WINDOW_INPUT      // to catch resize events
+             // | ENABLE_VIRTUAL_TERMINAL_INPUT
              // | ENABLE_PROCESSED_INPUT
              ;
   SetConsoleMode(tty->hcon, mode );
-  tty->raw_enabled = true; 
-  return true; 
+  tty->raw_enabled = true;
+  return true;
 }
 
 ic_private void tty_end_raw(tty_t* tty) {
@@ -875,7 +875,7 @@ ic_private void tty_end_raw(tty_t* tty) {
 }
 
 static bool tty_init_raw(tty_t* tty) {
-  tty->hcon = GetStdHandle( STD_INPUT_HANDLE );  
+  tty->hcon = GetStdHandle( STD_INPUT_HANDLE );
   tty->has_term_resize_event = true;
   return true;
 }
@@ -885,5 +885,3 @@ static void tty_done_raw(tty_t* tty) {
 }
 
 #endif
-
-

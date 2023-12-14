@@ -18,8 +18,8 @@
 
 struct ic_highlight_env_s {
   attrbuf_t*    attrs;
-  const char*   input;   
-  ssize_t       input_len;     
+  const char*   input;
+  ssize_t       input_len;
   bbcode_t*     bbcode;
   alloc_t*      mem;
   ssize_t       cached_upos;  // cached unicode position
@@ -34,13 +34,13 @@ ic_private void highlight( alloc_t* mem, bbcode_t* bb, const char* s, attrbuf_t*
   if (highlighter != NULL) {
     ic_highlight_env_t henv;
     henv.attrs = attrs;
-    henv.input = s;     
+    henv.input = s;
     henv.input_len = len;
     henv.bbcode = bb;
     henv.mem = mem;
     henv.cached_cpos = 0;
     henv.cached_upos = 0;
-    (*highlighter)( &henv, s, arg );    
+    (*highlighter)( &henv, s, arg );
   }
 }
 
@@ -80,7 +80,7 @@ static void pos_adjust( ic_highlight_env_t* henv, ssize_t* ppos, ssize_t* plen )
     // negative `len` is used as a unicode character length
     len = -len;
     ssize_t ucount = 0;
-    ssize_t clen   = 0;    
+    ssize_t clen   = 0;
     while (ucount < len) {
       ssize_t next = str_next_ofs(henv->input, henv->input_len, pos + clen, NULL);
       if (next <= 0) return;
@@ -93,7 +93,7 @@ static void pos_adjust( ic_highlight_env_t* henv, ssize_t* ppos, ssize_t* plen )
       henv->cached_upos += ucount;
       henv->cached_cpos += clen;
     }
-  } 
+  }
 }
 
 static void highlight_attr(ic_highlight_env_t* henv, ssize_t pos, ssize_t count, attr_t attr ) {
@@ -104,7 +104,7 @@ static void highlight_attr(ic_highlight_env_t* henv, ssize_t pos, ssize_t count,
 }
 
 ic_public void ic_highlight(ic_highlight_env_t* henv, long pos, long count, const char* style ) {
-  if (henv == NULL || style==NULL || style[0]==0 || pos < 0) return;  
+  if (henv == NULL || style==NULL || style[0]==0 || pos < 0) return;
   highlight_attr(henv,pos,count,bbcode_style( henv->bbcode, style ));
 }
 
@@ -137,7 +137,7 @@ typedef struct brace_s {
   ssize_t pos;
 } brace_t;
 
-ic_private void highlight_match_braces(const char* s, attrbuf_t* attrs, ssize_t cursor_pos, const char* braces, attr_t match_attr, attr_t error_attr) 
+ic_private void highlight_match_braces(const char* s, attrbuf_t* attrs, ssize_t cursor_pos, const char* braces, attr_t match_attr, attr_t error_attr)
 {
   brace_t open[MAX_NESTING+1];
   ssize_t nesting = 0;
@@ -185,7 +185,7 @@ ic_private void highlight_match_braces(const char* s, attrbuf_t* attrs, ssize_t 
             if (i == cursor_pos - 1 || (open[nesting].at_cursor && open[nesting].pos != i - 1)) {
               // highlight matching brace
               attrbuf_update_at(attrs, open[nesting].pos, 1, match_attr);
-              attrbuf_update_at(attrs, i, 1, match_attr);              
+              attrbuf_update_at(attrs, i, 1, match_attr);
             }
           }
         }
@@ -197,7 +197,7 @@ ic_private void highlight_match_braces(const char* s, attrbuf_t* attrs, ssize_t 
 }
 
 
-ic_private ssize_t find_matching_brace(const char* s, ssize_t cursor_pos, const char* braces, bool* is_balanced) 
+ic_private ssize_t find_matching_brace(const char* s, ssize_t cursor_pos, const char* braces, bool* is_balanced)
 {
   if (is_balanced != NULL) { *is_balanced = false; }
   bool balanced = true;
@@ -223,13 +223,13 @@ ic_private ssize_t find_matching_brace(const char* s, ssize_t cursor_pos, const 
     }
     if (found_open) continue;
 
-    // pop to closing brace 
+    // pop to closing brace
     for (ssize_t b = 1; b < brace_len; b += 2) {
       if (c == braces[b]) {
         // close brace
         if (nesting <= 0) {
           // unmatched close brace
-          balanced = false;          
+          balanced = false;
         }
         else {
           if (open[nesting-1].close != c) {
@@ -249,7 +249,7 @@ ic_private ssize_t find_matching_brace(const char* s, ssize_t cursor_pos, const 
             }
           }
         }
-        break; 
+        break;
       }
     }
   }

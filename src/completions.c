@@ -49,7 +49,7 @@ ic_private completions_t* completions_new(alloc_t* mem) {
 
 ic_private void completions_free(completions_t* cms) {
   if (cms == NULL) return;
-  completions_clear(cms);  
+  completions_clear(cms);
   if (cms->elems != NULL) {
     mem_free(cms->mem, cms->elems);
     cms->elems = NULL;
@@ -60,18 +60,18 @@ ic_private void completions_free(completions_t* cms) {
 }
 
 
-ic_private void completions_clear(completions_t* cms) {  
+ic_private void completions_clear(completions_t* cms) {
   while (cms->count > 0) {
     completion_t* cm = cms->elems + cms->count - 1;
     mem_free( cms->mem, cm->display);
     mem_free( cms->mem, cm->replacement);
     mem_free( cms->mem, cm->help);
     memset(cm,0,sizeof(*cm));
-    cms->count--;    
+    cms->count--;
   }
 }
 
-static void completions_push(completions_t* cms, const char* replacement, const char* display, const char* help, ssize_t delete_before, ssize_t delete_after) 
+static void completions_push(completions_t* cms, const char* replacement, const char* display, const char* help, ssize_t delete_before, ssize_t delete_after)
 {
   if (cms->count >= cms->len) {
     ssize_t newlen = (cms->len <= 0 ? 32 : cms->len*2);
@@ -100,7 +100,7 @@ static bool completions_contains(completions_t* cms, const char* replacement) {
     if (strcmp(replacement,c->replacement) == 0) { return true; }
   }
   return false;
-} 
+}
 
 ic_private bool completions_add(completions_t* cms, const char* replacement, const char* display, const char* help, ssize_t delete_before, ssize_t delete_after) {
   if (cms->completer_max <= 0) return false;
@@ -168,7 +168,7 @@ ic_public bool ic_stop_completing( const ic_completion_env_t* cenv) {
 
 
 static ssize_t completion_apply( completion_t* cm, stringbuf_t* sbuf, ssize_t pos ) {
-  if (cm == NULL) return -1;  
+  if (cm == NULL) return -1;
   debug_msg( "completion: apply: %s at %zd\n", cm->replacement, pos);
   ssize_t start = pos - cm->delete_before;
   if (start < 0) start = 0;
@@ -179,7 +179,7 @@ static ssize_t completion_apply( completion_t* cm, stringbuf_t* sbuf, ssize_t po
   }
   else {
     sbuf_delete_from_to( sbuf, start, pos + cm->delete_after );
-    return sbuf_insert_at(sbuf, cm->replacement, start); 
+    return sbuf_insert_at(sbuf, cm->replacement, start);
   }
 }
 
@@ -192,7 +192,7 @@ ic_private ssize_t completions_apply( completions_t* cms, ssize_t index, stringb
 static int completion_compare(const void* p1, const void* p2) {
   if (p1 == NULL || p2 == NULL) return 0;
   const completion_t* cm1 = (const completion_t*)p1;
-  const completion_t* cm2 = (const completion_t*)p2;  
+  const completion_t* cm2 = (const completion_t*)p2;
   return ic_stricmp(cm1->replacement, cm2->replacement);
 }
 
@@ -217,7 +217,7 @@ ic_private ssize_t completions_apply_longest_prefix(completions_t* cms, stringbu
   ssize_t delete_before = cm->delete_before;
   ic_strncpy( prefix, IC_MAX_PREFIX+1, cm->replacement, IC_MAX_PREFIX );
   prefix[IC_MAX_PREFIX] = 0;
-  
+
   // and visit all others to find the longest common prefix
   for(ssize_t i = 1; i < cms->count; i++) {
     cm = completions_get(cms,i);
@@ -226,7 +226,7 @@ ic_private ssize_t completions_apply_longest_prefix(completions_t* cms, stringbu
       break;
     }
     // check if it is still a prefix
-    const char* r = cm->replacement;    
+    const char* r = cm->replacement;
     ssize_t j;
     for(j = 0; prefix[j] != 0 && r[j] != 0; j++) {
       if (prefix[j] != r[j]) break;
@@ -245,7 +245,7 @@ ic_private ssize_t completions_apply_longest_prefix(completions_t* cms, stringbu
   cprefix.delete_before = delete_before;
   cprefix.replacement   = prefix;
   ssize_t newpos = completion_apply( &cprefix, sbuf, pos);
-  if (newpos < 0) return newpos;  
+  if (newpos < 0) return newpos;
 
   // adjust all delete_before for the new replacement
   for( ssize_t i = 0; i < cms->count; i++) {
@@ -306,7 +306,7 @@ ic_private ssize_t completions_generate(struct ic_env_s* env, completions_t* cms
   cenv.closure  = NULL;
   const char* prefix = mem_strndup(cms->mem, input, pos);
   cms->completer_max = max;
-  
+
   // and complete
   cms->completer(&cenv,prefix);
 

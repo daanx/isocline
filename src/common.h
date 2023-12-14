@@ -28,11 +28,11 @@
 # endif
 
 #if defined(IC_SEPARATE_OBJS)
-#  define ic_public     ic_extern_c 
-# if defined(__GNUC__) // includes clang and icc      
+#  define ic_public     ic_extern_c
+# if defined(__GNUC__) // includes clang and icc
 #  define ic_private    __attribute__((visibility("hidden")))
 # else
-#  define ic_private  
+#  define ic_private
 # endif
 #else
 # define ic_private     static
@@ -75,7 +75,7 @@ ic_private int     ic_strnicmp(const char* s1, const char* s2, ssize_t n);
 //---------------------------------------------------------------------
 // Unicode
 //
-// We use "qutf-8" (quite like utf-8) encoding and decoding. 
+// We use "qutf-8" (quite like utf-8) encoding and decoding.
 // Internally we always use valid utf-8. If we encounter invalid
 // utf-8 bytes (or bytes >= 0x80 from any other encoding) we encode
 // these as special code points in the "raw plane" (0xEE000 - 0xEE0FF).
@@ -146,7 +146,7 @@ ic_private ic_color_t ic_rgbx(ssize_t r, ssize_t g, ssize_t b);
 // Debug
 //-------------------------------------------------------------
 
-#if defined(IC_NO_DEBUG_MSG) 
+#if defined(IC_NO_DEBUG_MSG)
 #define debug_msg(fmt,...)   (void)(0)
 #else
 ic_private void debug_msg( const char* fmt, ... );

@@ -11,13 +11,13 @@
 // Standard ANSI palette for 256 colors
 //-------------------------------------------------------------
 
-static uint32_t ansi256[256] = {   
+static uint32_t ansi256[256] = {
   // not const as on some platforms (e.g. Windows, xterm) we update the first 16 entries with the actual used colors.
   // 0, standard ANSI
-  0x000000, 0x800000, 0x008000, 0x808000, 0x000080, 0x800080, 
+  0x000000, 0x800000, 0x008000, 0x808000, 0x000080, 0x800080,
   0x008080, 0xc0c0c0,
   // 8, bright ANSI
-  0x808080, 0xff0000, 0x00ff00, 0xffff00, 0x0000ff, 0xff00ff, 
+  0x808080, 0xff0000, 0x00ff00, 0xffff00, 0x0000ff, 0xff00ff,
   0x00ffff, 0xffffff,
   // 6x6x6 RGB colors
   // 16
@@ -63,10 +63,10 @@ static uint32_t ansi256[256] = {
   0xffd700, 0xffd75f, 0xffd787, 0xffd7af, 0xffd7d7, 0xffd7ff,
   0xffff00, 0xffff5f, 0xffff87, 0xffffaf, 0xffffd7, 0xffffff,
   // 232, gray scale
-  0x080808, 0x121212, 0x1c1c1c, 0x262626, 0x303030, 0x3a3a3a, 
-  0x444444, 0x4e4e4e, 0x585858, 0x626262, 0x6c6c6c, 0x767676, 
-  0x808080, 0x8a8a8a, 0x949494, 0x9e9e9e, 0xa8a8a8, 0xb2b2b2, 
-  0xbcbcbc, 0xc6c6c6, 0xd0d0d0, 0xdadada, 0xe4e4e4, 0xeeeeee   
+  0x080808, 0x121212, 0x1c1c1c, 0x262626, 0x303030, 0x3a3a3a,
+  0x444444, 0x4e4e4e, 0x585858, 0x626262, 0x6c6c6c, 0x767676,
+  0x808080, 0x8a8a8a, 0x949494, 0x9e9e9e, 0xa8a8a8, 0xb2b2b2,
+  0xbcbcbc, 0xc6c6c6, 0xd0d0d0, 0xdadada, 0xe4e4e4, 0xeeeeee
 };
 
 
@@ -137,13 +137,13 @@ static int_least32_t sqr(int_least32_t x) {
   return x*x;
 }
 
-// Approximation to delta-E CIE color distance using much 
+// Approximation to delta-E CIE color distance using much
 // simpler calculations. See <https://www.compuphase.com/cmetric.htm>.
 // This is essentialy weighted euclidean distance but the weight distribution
 // depends on how big the "red" component of the color is.
-// We do not take the square root as we only need to find 
+// We do not take the square root as we only need to find
 // the minimal distance (and multiply by 256 to increase precision).
-// Needs at least 28-bit signed integers to avoid overflow. 
+// Needs at least 28-bit signed integers to avoid overflow.
 static int_least32_t rgb_distance_rmean( uint32_t color, int r2, int g2, int b2 ) {
   int r1, g1, b1;
   color_to_rgb(IC_RGB(color),&r1,&g1,&b1);
@@ -151,7 +151,7 @@ static int_least32_t rgb_distance_rmean( uint32_t color, int r2, int g2, int b2 
   int_least32_t dr2 = sqr(r1 - r2);
   int_least32_t dg2 = sqr(g1 - g2);
   int_least32_t db2 = sqr(b1 - b2);
-  int_least32_t dist = ((512+rmean)*dr2) + 1024*dg2 + ((767-rmean)*db2);    
+  int_least32_t dist = ((512+rmean)*dr2) + 1024*dg2 + ((767-rmean)*db2);
   return dist;
 }
 
@@ -165,13 +165,13 @@ static int_least32_t rgb_distance_rbmean( uint32_t color, int r2, int g2, int b2
   int_least32_t dr2 = sqr(r1 - r2);
   int_least32_t dg2 = sqr(g1 - g2);
   int_least32_t db2 = sqr(b1 - b2);
-  int_least32_t dist = 2*dr2 + 4*dg2 + 3*db2 + ((rmean*(dr2 - db2))/256);  
+  int_least32_t dist = 2*dr2 + 4*dg2 + 3*db2 + ((rmean*(dr2 - db2))/256);
   return dist;
 }
 
 
 // Maintain a small cache of recently used colors. Should be short enough to be effectively constant time.
-// If we ever use a more expensive color distance method, we may increase the size a bit (64?) 
+// If we ever use a more expensive color distance method, we may increase the size a bit (64?)
 // (Initial zero initialized cache is valid.)
 #define RGB_CACHE_LEN (16)
 typedef struct rgb_cache_s {
@@ -215,15 +215,15 @@ static int rgb_match( uint32_t* palette, int start, int len, rgb_cache_t* cache,
   for(int i = start; i < len; i++) {
     //int_least32_t dist = rgb_distance_rbmean(palette[i],r,g,b);
     int_least32_t dist = rgb_distance_rmean(palette[i],r,g,b);
-    if (is_grayish_color(palette[i]) != is_grayish(r, g, b)) { 
+    if (is_grayish_color(palette[i]) != is_grayish(r, g, b)) {
       // with few colors, make it less eager to substitute a gray for a non-gray (or the other way around)
       if (len <= 16) {
         dist *= 4;
-      } 
+      }
       else {
         dist = (dist/4)*5;
       }
-    } 
+    }
     if (dist < mindist) {
       min = i;
       mindist = dist;
@@ -237,7 +237,7 @@ static int rgb_match( uint32_t* palette, int start, int len, rgb_cache_t* cache,
 // Match RGB to an index in the ANSI 256 color table
 static int rgb_to_ansi256(ic_color_t color) {
   static rgb_cache_t ansi256_cache;
-  int c = rgb_match(ansi256, 16, 256, &ansi256_cache, color); // not the first 16 ANSI colors as those may be different 
+  int c = rgb_match(ansi256, 16, 256, &ansi256_cache, color); // not the first 16 ANSI colors as those may be different
   //debug_msg("term: rgb %x -> ansi 256: %d\n", color, c );
   return c;
 }
@@ -251,7 +251,7 @@ static int color_to_ansi16(ic_color_t color) {
     static rgb_cache_t ansi16_cache;
     int c = rgb_match(ansi256, 0, 16, &ansi16_cache, color);
     //debug_msg("term: rgb %x -> ansi 16: %d\n", color, c );
-    return (c < 8 ? 30 + c : 90 + c - 8); 
+    return (c < 8 ? 30 + c : 90 + c - 8);
   }
 }
 
@@ -282,15 +282,15 @@ static int color_to_ansi8(ic_color_t color) {
 static void fmt_color_ansi8( char* buf, ssize_t len, ic_color_t color, bool bg ) {
   int c = color_to_ansi8(color) + (bg ? 10 : 0);
   if (c >= 90) {
-    snprintf(buf, to_size_t(len), IC_CSI "1;%dm", c - 60);    
+    snprintf(buf, to_size_t(len), IC_CSI "1;%dm", c - 60);
   }
   else {
-    snprintf(buf, to_size_t(len), IC_CSI "22;%dm", c );  
+    snprintf(buf, to_size_t(len), IC_CSI "22;%dm", c );
   }
 }
 
 static void fmt_color_ansi16( char* buf, ssize_t len, ic_color_t color, bool bg ) {
-  snprintf( buf, to_size_t(len), IC_CSI "%dm", color_to_ansi16(color) + (bg ? 10 : 0) );  
+  snprintf( buf, to_size_t(len), IC_CSI "%dm", color_to_ansi16(color) + (bg ? 10 : 0) );
 }
 
 static void fmt_color_ansi256( char* buf, ssize_t len,  ic_color_t color, bool bg ) {
@@ -298,7 +298,7 @@ static void fmt_color_ansi256( char* buf, ssize_t len,  ic_color_t color, bool b
     fmt_color_ansi16(buf,len,color,bg);
   }
   else {
-    snprintf( buf, to_size_t(len), IC_CSI "%d;5;%dm", (bg ? 48 : 38), rgb_to_ansi256(color) );  
+    snprintf( buf, to_size_t(len), IC_CSI "%d;5;%dm", (bg ? 48 : 38), rgb_to_ansi256(color) );
   }
 }
 
@@ -309,7 +309,7 @@ static void fmt_color_rgb( char* buf, ssize_t len, ic_color_t color, bool bg ) {
   else {
     int r,g,b;
     color_to_rgb(color, &r,&g,&b);
-    snprintf( buf, to_size_t(len), IC_CSI "%d;2;%d;%d;%dm", (bg ? 48 : 38), r, g, b );  
+    snprintf( buf, to_size_t(len), IC_CSI "%d;2;%d;%d;%dm", (bg ? 48 : 38), r, g, b );
   }
 }
 

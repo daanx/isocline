@@ -23,7 +23,7 @@ Isocline C API reference.
 
 Isocline is a pure C library that can be used as an alternative to the GNU readline library.
 
-See the [Github repository](https://github.com/daanx/isocline#readme) 
+See the [Github repository](https://github.com/daanx/isocline#readme)
 for general information and building the library.
 
 Contents:
@@ -45,23 +45,23 @@ Contents:
 /// \{
 
 /// Isocline version: 102 = 1.0.2.
-#define IC_VERSION   (104)  
+#define IC_VERSION   (104)
 
 
 /// Read input from the user using rich editing abilities.
-/// @param prompt_text   The prompt text, can be NULL for the default (""). 
-///   The displayed prompt becomes `prompt_text` followed by the `prompt_marker` ("> "). 
-/// @returns the heap allocated input on succes, which should be `free`d by the caller.  
+/// @param prompt_text   The prompt text, can be NULL for the default ("").
+///   The displayed prompt becomes `prompt_text` followed by the `prompt_marker` ("> ").
+/// @returns the heap allocated input on succes, which should be `free`d by the caller.
 ///   Returns NULL on error, or if the user typed ctrl+d or ctrl+c.
 ///
-/// If the standard input (`stdin`) has no editing capability 
+/// If the standard input (`stdin`) has no editing capability
 /// (like a dumb terminal (e.g. `TERM`=`dumb`), running in a debuggen, a pipe or redirected file, etc.)
-/// the input is read directly from the input stream up to the 
+/// the input is read directly from the input stream up to the
 /// next line without editing capability.
 /// See also \a ic_set_prompt_marker(), \a ic_style_def()
 ///
 /// @see ic_set_prompt_marker(), ic_style_def()
-char* ic_readline(const char* prompt_text);   
+char* ic_readline(const char* prompt_text);
 
 /// \}
 
@@ -71,7 +71,7 @@ char* ic_readline(const char* prompt_text);
 /// Formatted text using [bbcode markup](https://github.com/daanx/isocline#bbcode-format).
 /// \{
 
-/// Print to the terminal while respection bbcode markup. 
+/// Print to the terminal while respection bbcode markup.
 /// Any unclosed tags are closed automatically at the end of the print.
 /// For example:
 /// ```
@@ -83,11 +83,11 @@ char* ic_readline(const char* prompt_text);
 /// Properties that can be assigned are:
 /// * `color=` _clr_, `bgcolor=` _clr_: where _clr_ is either a hex value `#`RRGGBB or `#`RGB, a
 ///    standard HTML color name, or an ANSI palette name, like `ansi-maroon`, `ansi-default`, etc.
-/// * `bold`,`italic`,`reverse`,`underline`: can be `on` or `off`. 
+/// * `bold`,`italic`,`reverse`,`underline`: can be `on` or `off`.
 /// * everything else is a style; all HTML and ANSI color names are also a style (so we can just use `red`
 ///   instead of `color=red`, or `on red` instead of `bgcolor=red`), and there are
 ///   the `b`, `i`, `u`, and `r` styles for bold, italic, underline, and reverse.
-/// 
+///
 /// See [here](https://github.com/daanx/isocline#bbcode-format) for a description of the full bbcode format.
 void ic_print( const char* s );
 
@@ -104,7 +104,7 @@ void ic_printf(const char* fmt, ...);
 void ic_vprintf(const char* fmt, va_list args);
 
 /// Define or redefine a style.
-/// @param style_name The name of the style. 
+/// @param style_name The name of the style.
 /// @param fmt        The `fmt` string is the content of a tag and can contain
 ///   other styles. This is very useful to theme the output of a program
 ///   by assigning standard styles like `em` or `warning` etc.
@@ -126,11 +126,11 @@ void ic_style_close(void);
 /// Readline input history.
 /// \{
 
-/// Enable history. 
+/// Enable history.
 /// Use a \a NULL filename to not persist the history. Use -1 for max_entries to get the default (200).
 void ic_set_history(const char* fname, long max_entries );
 
-/// Remove the last entry in the history. 
+/// Remove the last entry in the history.
 /// The last returned input from ic_readline() is automatically added to the history; this function removes it.
 void ic_history_remove_last(void);
 
@@ -157,7 +157,7 @@ struct ic_completion_env_s;
 typedef struct ic_completion_env_s ic_completion_env_t;
 
 /// A completion callback that is called by isocline when tab is pressed.
-/// It is passed a completion environment (containing the current input and the current cursor position), 
+/// It is passed a completion environment (containing the current input and the current cursor position),
 /// the current input up-to the cursor (`prefix`)
 /// and the user given argument when the callback was set.
 /// When using completion transformers, like `ic_complete_quoted_word` the `prefix` contains the
@@ -197,9 +197,9 @@ bool ic_add_completion_ex( ic_completion_env_t* cenv, const char* completion, co
 bool ic_add_completions(ic_completion_env_t* cenv, const char* prefix, const char** completions);
 
 /// Complete a filename.
-/// Complete a filename given a semi-colon separated list of root directories `roots` and 
-/// semi-colon separated list of possible extensions (excluding directories). 
-/// If `roots` is NULL, the current directory is the root ("."). 
+/// Complete a filename given a semi-colon separated list of root directories `roots` and
+/// semi-colon separated list of possible extensions (excluding directories).
+/// If `roots` is NULL, the current directory is the root (".").
 /// If `extensions` is NULL, any extension will match.
 /// Each root directory should _not_ end with a directory separator.
 /// If a directory is completed, the `dir_separator` is added at the end if it is not `0`.
@@ -219,11 +219,11 @@ void ic_complete_filename( ic_completion_env_t* cenv, const char* prefix, char d
 typedef bool (ic_is_char_class_fun_t)(const char* s, long len);
 
 
-/// Complete a _word_ (i.e. _token_). 
+/// Complete a _word_ (i.e. _token_).
 /// Calls the user provided function `fun` to complete on the
-/// current _word_. Almost all user provided completers should use this function. 
-/// If `is_word_char` is NULL, the default `&ic_char_is_nonseparator` is used. 
-/// The `prefix` passed to `fun` is modified to only contain the current word, and 
+/// current _word_. Almost all user provided completers should use this function.
+/// If `is_word_char` is NULL, the default `&ic_char_is_nonseparator` is used.
+/// The `prefix` passed to `fun` is modified to only contain the current word, and
 /// any results from `ic_add_completion` are automatically adjusted to replace that part.
 /// For example, on the input "hello w", a the user `fun` only gets `w` and can just complete
 /// with "world" resulting in "hello world" without needing to consider `delete_before` etc.
@@ -231,35 +231,35 @@ typedef bool (ic_is_char_class_fun_t)(const char* s, long len);
 void ic_complete_word(ic_completion_env_t* cenv, const char* prefix, ic_completer_fun_t* fun, ic_is_char_class_fun_t* is_word_char);
 
 
-/// Complete a quoted _word_. 
+/// Complete a quoted _word_.
 /// Calls the user provided function `fun` to complete while taking
 /// care of quotes and escape characters. Almost all user provided completers should use
-/// this function. The `prefix` passed to `fun` is modified to be unquoted and unescaped, and 
+/// this function. The `prefix` passed to `fun` is modified to be unquoted and unescaped, and
 /// any results from `ic_add_completion` are automatically quoted and escaped again.
-/// For example, completing `hello world`, the `fun` always just completes `hel` or `hello w` to `hello world`, 
+/// For example, completing `hello world`, the `fun` always just completes `hel` or `hello w` to `hello world`,
 /// but depending on user input, it will complete as:
 /// ```
 /// hel        -->  hello\ world
 /// hello\ w   -->  hello\ world
 /// hello w    -->                   # no completion, the word is just 'w'>
-/// "hel       -->  "hello world" 
+/// "hel       -->  "hello world"
 /// "hello w   -->  "hello world"
 /// ```
 /// with proper quotes and escapes.
-/// If `is_word_char` is NULL, the default `&ic_char_is_nonseparator` is used. 
+/// If `is_word_char` is NULL, the default `&ic_char_is_nonseparator` is used.
 /// @see ic_complete_quoted_word() to customize the word boundary, quotes etc.
 void ic_complete_qword( ic_completion_env_t* cenv, const char* prefix, ic_completer_fun_t* fun, ic_is_char_class_fun_t* is_word_char );
 
 
 
-/// Complete a _word_. 
+/// Complete a _word_.
 /// Calls the user provided function `fun` to complete while taking
-/// care of quotes and escape characters. Almost all user provided completers should use this function. 
+/// care of quotes and escape characters. Almost all user provided completers should use this function.
 /// The `is_word_char` is a set of characters that are part of a "word". Use NULL for the default (`&ic_char_is_nonseparator`).
 /// The `escape_char` is the escaping character, usually `\` but use 0 to not have escape characters.
 /// The `quote_chars` define the quotes, use NULL for the default `"\'\""` quotes.
 /// @see ic_complete_word() which uses the default values for `non_word_chars`, `quote_chars` and `\` for escape characters.
-void ic_complete_qword_ex( ic_completion_env_t* cenv, const char* prefix, ic_completer_fun_t fun, 
+void ic_complete_qword_ex( ic_completion_env_t* cenv, const char* prefix, ic_completer_fun_t fun,
                                 ic_is_char_class_fun_t* is_word_char, char escape_char, const char* quote_chars );
 
 /// \}
@@ -288,8 +288,8 @@ void ic_highlight(ic_highlight_env_t* henv, long pos, long count, const char* st
 typedef char* (ic_highlight_format_fun_t)(const char* s, void* arg);
 
 /// Experimental: Convenience function for highlighting with bbcodes.
-/// Can be called in a `ic_highlight_fun_t` callback to colorize the `input` using the 
-/// the provided `formatted` input that is the styled `input` with bbcodes. The 
+/// Can be called in a `ic_highlight_fun_t` callback to colorize the `input` using the
+/// the provided `formatted` input that is the styled `input` with bbcodes. The
 /// content of `formatted` without bbcode tags should match `input` exactly.
 void ic_highlight_formatted(ic_highlight_env_t* henv, const char* input, const char* formatted);
 
@@ -302,7 +302,7 @@ void ic_highlight_formatted(ic_highlight_env_t* henv, const char* input, const c
 /// \defgroup readline
 /// \{
 
-/// Read input from the user using rich editing abilities, 
+/// Read input from the user using rich editing abilities,
 /// using a particular completion function and highlighter for this call only.
 /// both can be NULL in which case the defaults are used.
 /// @see ic_readline(), ic_set_prompt_marker(), ic_set_default_completer(), ic_set_default_highlighter().
@@ -319,7 +319,7 @@ char* ic_readline_ex(const char* prompt_text, ic_completer_fun_t* completer, voi
 /// \defgroup options Options
 /// \{
 
-/// Set a prompt marker and a potential marker for extra lines with multiline input. 
+/// Set a prompt marker and a potential marker for extra lines with multiline input.
 /// Pass \a NULL for the `prompt_marker` for the default marker (`"> "`).
 /// Pass \a NULL for continuation prompt marker to make it equal to the `prompt_marker`.
 void ic_set_prompt_marker( const char* prompt_marker, const char* continuation_prompt_marker );
@@ -347,7 +347,7 @@ bool ic_enable_color( bool enable );
 /// Returns the previous setting.
 bool ic_enable_history_duplicates( bool enable );
 
-/// Disable or enable automatic tab completion after a completion 
+/// Disable or enable automatic tab completion after a completion
 /// to expand as far as possible if the completions are unique. (disabled by default).
 /// Returns the previous setting.
 bool ic_enable_auto_tab( bool enable );
@@ -381,7 +381,7 @@ bool ic_enable_highlight(bool enable);
 
 
 /// Set millisecond delay for reading escape sequences in order to distinguish
-/// a lone ESC from the start of a escape sequence. The defaults are 100ms and 10ms, 
+/// a lone ESC from the start of a escape sequence. The defaults are 100ms and 10ms,
 /// but it may be increased if working with very slow terminals.
 void ic_set_tty_esc_delay(long initial_delay_ms, long followup_delay_ms);
 
@@ -433,8 +433,8 @@ bool ic_stop_completing( const ic_completion_env_t* cenv);
 ///
 /// Returns `true` if the callback should continue trying to find more possible completions.
 /// If `false` is returned, the callback should try to return and not add more completions (for improved latency).
-bool ic_add_completion_prim( ic_completion_env_t* cenv, const char* completion, 
-                              const char* display, const char* help, 
+bool ic_add_completion_prim( ic_completion_env_t* cenv, const char* completion,
+                              const char* display, const char* help,
                                long delete_before, long delete_after);
 
 /// \}
@@ -492,14 +492,14 @@ bool ic_char_is_filename_letter(const char* s, long len);
 /// Convenience: If this is a token start, return the length. Otherwise return 0.
 long ic_is_token(const char* s, long pos, ic_is_char_class_fun_t* is_token_char);
 
-/// Convenience: Does this match the specified token? 
+/// Convenience: Does this match the specified token?
 /// Ensures not to match prefixes or suffixes, and returns the length of the match (in bytes).
 /// E.g. `ic_match_token("function",0,&ic_char_is_letter,"fun")` returns 0.
 /// while `ic_match_token("fun x",0,&ic_char_is_letter,"fun"})` returns 3.
 long ic_match_token(const char* s, long pos, ic_is_char_class_fun_t* is_token_char, const char* token);
 
 
-/// Convenience: Do any of the specified tokens match? 
+/// Convenience: Do any of the specified tokens match?
 /// Ensures not to match prefixes or suffixes, and returns the length of the match (in bytes).
 /// E.g. `ic_match_any_token("function",0,&ic_char_is_letter,{"fun","func",NULL})` returns 0.
 /// while `ic_match_any_token("func x",0,&ic_char_is_letter,{"fun","func",NULL})` returns 4.
@@ -511,27 +511,27 @@ long ic_match_any_token(const char* s, long pos, ic_is_char_class_fun_t* is_toke
 /// \defgroup term Terminal
 ///
 /// Experimental: Low level terminal output.
-/// Ensures basic ANSI SGR escape sequences are processed 
+/// Ensures basic ANSI SGR escape sequences are processed
 /// in a portable way (e.g. on Windows)
 /// \{
 
 /// Initialize for terminal output.
 /// Call this before using the terminal write functions (`ic_term_write`)
-/// Does nothing on most platforms but on Windows it sets the console to UTF8 output and possible 
+/// Does nothing on most platforms but on Windows it sets the console to UTF8 output and possible
 /// enables virtual terminal processing.
 void ic_term_init(void);
 
 /// Call this when done with the terminal functions.
 void ic_term_done(void);
 
-/// Flush the terminal output. 
+/// Flush the terminal output.
 /// (happens automatically on newline characters ('\n') as well).
 void ic_term_flush(void);
 
 /// Write a string to the console (and process CSI escape sequences).
 void ic_term_write(const char* s);
 
-/// Write a string to the console and end with a newline 
+/// Write a string to the console and end with a newline
 /// (and process CSI escape sequences).
 void ic_term_writeln(const char* s);
 
@@ -569,7 +569,7 @@ void ic_term_color_rgb(bool foreground, uint32_t color );
 void ic_term_reset( void );
 
 /// Get the palette used by the terminal:
-/// This is usually initialized from the COLORTERM environment variable. The 
+/// This is usually initialized from the COLORTERM environment variable. The
 /// possible values of COLORTERM for each palette are given in parenthesis.
 ///
 /// - 1: monochrome (`monochrome`)

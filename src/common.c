@@ -68,7 +68,7 @@ ic_private bool ic_strncpy( char* dest, ssize_t dest_size /* including 0 */, con
   }
   else {
     strncpy(dest,src,to_size_t(n));
-    dest[n] = 0;  
+    dest[n] = 0;
   }
   return true;
 }
@@ -221,35 +221,35 @@ ic_private unicode_t unicode_from_qutf8(const uint8_t* s, ssize_t len, ssize_t* 
   c0 = s[0];
   if (c0 <= 0x7F && len >= 1) {
     if (count != NULL) *count = 1;
-    return c0; 
+    return c0;
   }
   else if (c0 <= 0xC1) { // invalid continuation byte or invalid 0xC0, 0xC1
     goto fail;
   }
   // 2 bytes
-  else if (c0 <= 0xDF && len >= 2 && utf8_is_cont(s[1])) { 
+  else if (c0 <= 0xDF && len >= 2 && utf8_is_cont(s[1])) {
     if (count != NULL) *count = 2;
     return (((c0 & 0x1F) << 6) | (s[1] & 0x3F));
   }
   // 3 bytes: reject overlong and surrogate halves
-  else if (len >= 3 && 
+  else if (len >= 3 &&
            ((c0 == 0xE0 && s[1] >= 0xA0 && s[1] <= 0xBF && utf8_is_cont(s[2])) ||
-            (c0 >= 0xE1 && c0 <= 0xEC && utf8_is_cont(s[1]) && utf8_is_cont(s[2])) 
+            (c0 >= 0xE1 && c0 <= 0xEC && utf8_is_cont(s[1]) && utf8_is_cont(s[2]))
           ))
   {
     if (count != NULL) *count = 3;
     return (((c0 & 0x0F) << 12) | ((unicode_t)(s[1] & 0x3F) << 6) | (s[2] & 0x3F));
   }
   // 4 bytes: reject overlong
-  else if (len >= 4 && 
+  else if (len >= 4 &&
            (((c0 == 0xF0 && s[1] >= 0x90 && s[1] <= 0xBF && utf8_is_cont(s[2]) && utf8_is_cont(s[3])) ||
             (c0 >= 0xF1 && c0 <= 0xF3 && utf8_is_cont(s[1]) && utf8_is_cont(s[2]) && utf8_is_cont(s[3])) ||
-            (c0 == 0xF4 && s[1] >= 0x80 && s[1] <= 0x8F && utf8_is_cont(s[2]) && utf8_is_cont(s[3]))) 
-          )) 
+            (c0 == 0xF4 && s[1] >= 0x80 && s[1] <= 0x8F && utf8_is_cont(s[2]) && utf8_is_cont(s[3])))
+          ))
   {
     if (count != NULL) *count = 4;
     return (((c0 & 0x07) << 18) | ((unicode_t)(s[1] & 0x3F) << 12) | ((unicode_t)(s[2] & 0x3F) << 6) | (s[3] & 0x3F));
-  }  
+  }
 fail:
   if (count != NULL) *count = 1;
   return unicode_from_raw(s[0]);
@@ -260,7 +260,7 @@ fail:
 // Debug
 //-------------------------------------------------------------
 
-#if defined(IC_NO_DEBUG_MSG) 
+#if defined(IC_NO_DEBUG_MSG)
 // nothing
 #elif !defined(IC_DEBUG_TO_FILE)
 ic_private void debug_msg(const char* fmt, ...) {
@@ -344,4 +344,3 @@ ic_private char* mem_strndup(alloc_t* mem, const char* s, ssize_t n) {
   p[i] = 0;
   return p;
 }
-

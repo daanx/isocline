@@ -11,14 +11,14 @@ License     : MIT
 Maintainer  : daan@effp.org
 Stability   : Experimental
 
-![logo](https://raw.githubusercontent.com/daanx/isocline/main/doc/isocline-inline.svg) 
-A Haskell wrapper around the [Isocline C library](https://github.com/daanx/isocline#readme) 
+![logo](https://raw.githubusercontent.com/daanx/isocline/main/doc/isocline-inline.svg)
+A Haskell wrapper around the [Isocline C library](https://github.com/daanx/isocline#readme)
 which can provide an alternative to GNU Readline.
 (The Isocline library is included whole and there are no runtime dependencies).
 
 Isocline works across Unix, Windows, and macOS, and relies on a minimal subset of ANSI escape sequences.
 It has a good multi-line editing mode (use shift/ctrl-enter) which is nice for inputting small functions etc.
-Other features include support for colors, history, completion, unicode, undo/redo, 
+Other features include support for colors, history, completion, unicode, undo/redo,
 incremental history search, inline hints, brace matching, syntax highlighting, rich text using bbcode
 formatting, etc.
 
@@ -41,41 +41,41 @@ import System.Console.Isocline
 import Data.Char( toLower )
 
 main :: IO ()
-main 
+main
   = do `styleDef' "ic-prompt" "ansi-maroon"
        `setHistory` "history.txt" 200
        `enableAutoTab` `True`
        interaction
 
 interaction :: IO ()
-interaction 
-  = do s <- `readlineEx` \"hαskell\" (Just completer) Nothing 
+interaction
+  = do s <- `readlineEx` \"hαskell\" (Just completer) Nothing
        putStrLn (\"You wrote:\\n\" ++ s)
        if (s == \"\" || s == \"exit\") then return () else interaction
-                     
-completer :: `CompletionEnv` -> String -> IO () 
+
+completer :: `CompletionEnv` -> String -> IO ()
 completer cenv input
   = do `completeFileName` cenv input Nothing [\".\",\"\/usr\/local\"] [\".hs\"]  -- use [] for any extension
        `completeWord` cenv input Nothing wcompleter
 
 wcompleter :: String -> [`Completion`]
 wcompleter input
-  = `completionsFor` (map toLower input) 
-      [\"print\",\"println\",\"prints\",\"printsln\",\"prompt\"]      
+  = `completionsFor` (map toLower input)
+      [\"print\",\"println\",\"prints\",\"printsln\",\"prompt\"]
 @
 
-See a larger [example](https://github.com/daanx/isocline/blob/main/test/Example.hs) 
-with syntax highlighting and more extenstive custom completion 
+See a larger [example](https://github.com/daanx/isocline/blob/main/test/Example.hs)
+with syntax highlighting and more extenstive custom completion
 in the [Github repository](https://github.com/daanx/isocline).
 
 Enjoy,
 -- Daan
 -}
-module System.Console.Isocline( 
+module System.Console.Isocline(
       -- * Readline
-      readline, 
-      readlineEx,      
-      
+      readline,
+      readlineEx,
+
       -- * History
       setHistory,
       historyClear,
@@ -83,7 +83,7 @@ module System.Console.Isocline(
       historyAdd,
 
       -- * Completion
-      CompletionEnv,      
+      CompletionEnv,
       completeFileName,
       completeWord,
       completeQuotedWord,
@@ -95,15 +95,15 @@ module System.Console.Isocline(
       completionsFor,
       wordCompleter,
 
-      -- * Syntax Highlighting 
+      -- * Syntax Highlighting
       highlightFmt,
 
       -- * Rich text
-      Style, Fmt,      
+      Style, Fmt,
       style,
       plain,
       pre,
-      
+
       putFmt,
       putFmtLn,
 
@@ -128,10 +128,10 @@ module System.Console.Isocline(
       enableBraceMatching,
       enableBraceInsertion,
       setMatchingBraces,
-      setInsertionBraces,    
-            
+      setInsertionBraces,
+
       -- * Advanced
-      setDefaultCompleter,      
+      setDefaultCompleter,
       addCompletion,
       addCompletionPrim,
       addCompletions,
@@ -152,12 +152,12 @@ module System.Console.Isocline(
       asyncStop,
 
       -- * Low-level highlighting
-      HighlightEnv,      
-      setDefaultHighlighter,      
+      HighlightEnv,
+      setDefaultHighlighter,
       setDefaultFmtHighlighter,
-      
+
       -- * Low-level Terminal
-      termInit, 
+      termInit,
       termDone,
       withTerm,
       termFlush,
@@ -169,7 +169,7 @@ module System.Console.Isocline(
       termBgColorAnsi,
       termUnderline,
       termReverse,
-      termReset      
+      termReset
 
     ) where
 
@@ -192,7 +192,7 @@ import Data.Text.Encoding.Error  ( lenientDecode )
 -- C Types
 ----------------------------------------------------------------------------
 
-data IcCompletionEnv  
+data IcCompletionEnv
 
 -- | Abstract list of current completions.
 newtype CompletionEnv = CompletionEnv (Ptr IcCompletionEnv)
@@ -204,7 +204,7 @@ type CompleterFun  = CompletionEnv -> String -> IO ()
 data IcHighlightEnv
 
 -- | Abstract highlight environment
-newtype HighlightEnv = HighlightEnv (Ptr IcHighlightEnv)    
+newtype HighlightEnv = HighlightEnv (Ptr IcHighlightEnv)
 
 type CHighlightFun = Ptr IcHighlightEnv -> CString -> Ptr () -> IO ()
 type HighlightFun  = HighlightEnv -> String -> IO ()
@@ -215,7 +215,7 @@ type HighlightFun  = HighlightEnv -> String -> IO ()
 -- Basic readline
 ----------------------------------------------------------------------------
 
-foreign import ccall ic_free        :: (Ptr a) -> IO () 
+foreign import ccall ic_free        :: (Ptr a) -> IO ()
 foreign import ccall ic_malloc      :: CSize -> IO (Ptr a)
 foreign import ccall ic_strdup      :: CString -> IO CString
 foreign import ccall ic_readline    :: CString -> IO CString
@@ -229,11 +229,11 @@ unmaybe action
          Nothing -> return ""
          Just s  -> return s
 
--- | @readline prompt@: Read (multi-line) input from the user with rich editing abilities. 
+-- | @readline prompt@: Read (multi-line) input from the user with rich editing abilities.
 -- Takes the prompt text as an argument. The full prompt is the combination
 -- of the given prompt and the prompt marker (@\"> \"@ by default) .
 -- See also 'readlineEx', 'readlineMaybe', 'enableMultiline', and 'setPromptMarker'.
-readline :: String -> IO String  
+readline :: String -> IO String
 readline prompt
   = unmaybe $ readlineMaybe prompt
 
@@ -247,7 +247,7 @@ readlineMaybe prompt
        return res
 
 -- | @readlineEx prompt mbCompleter mbHighlighter@: as 'readline' but
--- uses the given @mbCompleter@ function to complete words on @tab@ (instead of the default completer). 
+-- uses the given @mbCompleter@ function to complete words on @tab@ (instead of the default completer).
 -- and the given @mbHighlighter@ function to highlight the input (instead of the default highlighter).
 -- See also 'readline' and 'readlineExMaybe'.
 readlineEx :: String -> Maybe (CompletionEnv -> String -> IO ()) -> Maybe (String -> Fmt) -> IO String
@@ -256,14 +256,14 @@ readlineEx prompt completer highlighter
 
 -- | As 'readlineEx' but returns 'Nothing' on end-of-file or other errors (ctrl-C/ctrl-D).
 -- See also 'readlineMaybe'.
-readlineExMaybe :: String -> Maybe (CompletionEnv -> String -> IO ()) -> Maybe (String -> Fmt) -> IO (Maybe String) 
+readlineExMaybe :: String -> Maybe (CompletionEnv -> String -> IO ()) -> Maybe (String -> Fmt) -> IO (Maybe String)
 readlineExMaybe prompt completer mbhighlighter
   = readlinePrimMaybe prompt completer (case mbhighlighter of
                                           Nothing -> Nothing
                                           Just hl -> Just (highlightFmt hl))
 
 -- | @readlinePrim prompt mbCompleter mbHighlighter@: as 'readline' but
--- uses the given @mbCompleter@ function to complete words on @tab@ (instead of the default completer). 
+-- uses the given @mbCompleter@ function to complete words on @tab@ (instead of the default completer).
 -- and the given @mbHighlighter@ function to highlight the input (instead of the default highlighter).
 -- See also 'readlineEx' and 'readlinePrimMaybe'.
 readlinePrim :: String -> Maybe (CompletionEnv -> String -> IO ()) -> Maybe (HighlightEnv -> String -> IO ()) -> IO String
@@ -272,7 +272,7 @@ readlinePrim prompt completer highlighter
 
 -- | As 'readlinePrim' but returns 'Nothing' on end-of-file or other errors (ctrl-C/ctrl-D).
 -- See also 'readlineMaybe'.
-readlinePrimMaybe :: String -> Maybe (CompletionEnv -> String -> IO ()) -> Maybe (HighlightEnv -> String -> IO ()) -> IO (Maybe String) 
+readlinePrimMaybe :: String -> Maybe (CompletionEnv -> String -> IO ()) -> Maybe (HighlightEnv -> String -> IO ()) -> IO (Maybe String)
 readlinePrimMaybe prompt completer highlighter
   = withUTF8String prompt $ \cprompt ->
     do ccompleter   <- makeCCompleter completer
@@ -284,9 +284,9 @@ readlinePrimMaybe prompt completer highlighter
        when (chighlighter /= nullFunPtr) $ freeHaskellFunPtr chighlighter
        return res
 
--- | Thread safe call to asynchronously send a stop event to a 'readline' 
+-- | Thread safe call to asynchronously send a stop event to a 'readline'
 -- which behaves as if the user pressed @ctrl-C@,
--- which will return with 'Nothing' (or @\"\"@). 
+-- which will return with 'Nothing' (or @\"\"@).
 -- Returns 'True' if the event was successfully delivered.
 asyncStop :: IO Bool
 asyncStop
@@ -301,7 +301,7 @@ foreign import ccall ic_history_remove_last   :: IO ()
 foreign import ccall ic_history_clear         :: IO ()
 foreign import ccall ic_history_add           :: CString -> IO ()
 
--- | @setHistory filename maxEntries@: 
+-- | @setHistory filename maxEntries@:
 -- Enable history that is persisted to the given file path with a given maximum number of entries.
 -- Use -1 for the default entries (200).
 -- See also 'enableHistoryDuplicates'.
@@ -313,7 +313,7 @@ setHistory fname maxEntries
 -- | Isocline automatically adds input of more than 1 character to the history.
 -- This command removes the last entry.
 historyRemoveLast :: IO ()
-historyRemoveLast 
+historyRemoveLast
   = ic_history_remove_last
 
 -- | Clear the history.
@@ -325,7 +325,7 @@ historyClear
 historyAdd :: String -> IO ()
 historyAdd entry
   = withUTF8String0 entry $ \centry ->
-    do ic_history_add centry 
+    do ic_history_add centry
 
 
 ----------------------------------------------------------------------------
@@ -352,10 +352,10 @@ foreign import ccall ic_has_completions       :: Ptr IcCompletionEnv -> IO CCBoo
 foreign import ccall ic_stop_completing       :: Ptr IcCompletionEnv -> IO CCBool
 
 -- | A completion entry
-data Completion = Completion { 
+data Completion = Completion {
   replacement :: String,  -- ^ actual replacement
   display :: String,      -- ^ display of the completion in the completion menu
-  help :: String          -- ^ help message 
+  help :: String          -- ^ help message
 } deriving (Eq, Show)
 
 -- | Create a completion with just a replacement
@@ -366,7 +366,7 @@ completion replacement
 -- | @completionFull replacement display help@: Create a completion with a separate display and help string.
 completionFull :: String -> String -> String -> Completion
 completionFull replacement display help
-  = Completion  replacement display help 
+  = Completion  replacement display help
 
 
 -- | Is the given input a prefix of the completion replacement?
@@ -374,28 +374,28 @@ isPrefix :: String -> Completion -> Bool
 isPrefix input compl
   = isPrefixOf input (replacement compl)
 
--- | @completionsFor input replacements@: Filter those @replacements@ that 
+-- | @completionsFor input replacements@: Filter those @replacements@ that
 -- start with the given @input@, and return them as completions.
 completionsFor :: String -> [String] -> [Completion]
 completionsFor input rs
   = map completion (filter (isPrefixOf input) rs)
 
 -- | Convenience: creates a completer function directly from a list
--- of candidate completion strings. Uses `completionsFor` to filter the 
+-- of candidate completion strings. Uses `completionsFor` to filter the
 -- input and `completeWord` to find the word boundary.
 -- For example: @'readlineEx' \"myprompt\" (Just ('wordCompleter' completer)) Nothing@.
-wordCompleter :: [String] -> (CompletionEnv -> String -> IO ()) 
+wordCompleter :: [String] -> (CompletionEnv -> String -> IO ())
 wordCompleter completions
   = (\cenv input -> completeWord cenv input Nothing (\input -> completionsFor input completions))
 
--- | @setDefaultCompleter completer@: Set a new tab-completion function @completer@ 
--- that is called by Isocline automatically. 
+-- | @setDefaultCompleter completer@: Set a new tab-completion function @completer@
+-- that is called by Isocline automatically.
 -- The callback is called with a 'CompletionEnv' context and the current user
 -- input up to the cursor.
 -- By default the 'completeFileName' completer is used.
 -- This overwrites any previously set completer.
 setDefaultCompleter :: (CompletionEnv -> String -> IO ()) -> IO ()
-setDefaultCompleter completer 
+setDefaultCompleter completer
   = do ccompleter <- makeCCompleter (Just completer)
        ic_set_default_completer ccompleter
 
@@ -422,11 +422,11 @@ addCompletion :: CompletionEnv -> Completion -> IO Bool
 addCompletion (CompletionEnv rpc) (Completion replacement display help)
   = withUTF8String replacement $ \crepl ->
     withUTF8String0 display $ \cdisplay ->
-    withUTF8String0 help $ \chelp ->    
+    withUTF8String0 help $ \chelp ->
     do cbool <- ic_add_completion_ex rpc crepl cdisplay chelp
        return (fromEnum cbool /= 0)
 
--- | @addCompletionPrim compl completion deleteBefore deleteAfter@: 
+-- | @addCompletionPrim compl completion deleteBefore deleteAfter@:
 -- Primitive add completion, use with care and call only directly inside a completer callback.
 -- If 'addCompletion' returns 'True' keep adding completions,
 -- but if it returns 'False' an effort should be made to return from the completer
@@ -439,7 +439,7 @@ addCompletionPrim (CompletionEnv rpc) (Completion replacement display help) dele
     do cbool <- ic_add_completion_prim rpc crepl cdisplay chelp (toEnum deleteBefore) (toEnum deleteAfter)
        return (fromEnum cbool /= 0)
 
-    
+
 -- | @addCompletions compl completions@: add multiple completions at once.
 -- If 'addCompletions' returns 'True' keep adding completions,
 -- but if it returns 'False' an effort should be made to return from the completer
@@ -448,12 +448,12 @@ addCompletions :: CompletionEnv -> [Completion] -> IO Bool
 addCompletions compl [] = return True
 addCompletions compl (c:cs)
   = do continue <- addCompletion compl c
-       if (continue) 
+       if (continue)
          then addCompletions compl cs
          else return False
 
--- | @completeFileName compls input dirSep roots extensions@: 
--- Complete filenames with the given @input@, a possible directory separator @dirSep@, 
+-- | @completeFileName compls input dirSep roots extensions@:
+-- Complete filenames with the given @input@, a possible directory separator @dirSep@,
 -- a list of root folders @roots@  to search from
 -- (by default @["."]@), and a list of extensions to match (use @[]@ to match any extension).
 -- The directory separator is used when completing directory names.
@@ -472,26 +472,26 @@ completeFileName (CompletionEnv rpc) prefx dirSep roots extensions
                        Just c  -> castCharToCChar c
        ic_complete_filename rpc cprefx cdirSep croots cextensions
 
--- | @completeWord compl input isWordChar completer@: 
+-- | @completeWord compl input isWordChar completer@:
 -- Complete a /word/ (or /token/) and calls the user @completer@ function with just the current word
 -- (instead of the whole input)
 -- Takes the 'CompletionEnv' environment @compl@, the current @input@, an possible
--- @isWordChar@ function, and a user defined 
--- @completer@ function that is called with adjusted input which 
+-- @isWordChar@ function, and a user defined
+-- @completer@ function that is called with adjusted input which
 -- is limited to the /word/ just before the cursor.
 -- Pass 'Nothing' to @isWordChar@ for the default @not . separator@
 -- where @separator = \c -> c `elem` \" \\t\\r\\n,.;:/\\\\(){}[]\"@.
-completeWord :: CompletionEnv -> String -> Maybe (Char -> Bool) -> (String -> [Completion]) -> IO () 
-completeWord cenv input isWordChar completer 
+completeWord :: CompletionEnv -> String -> Maybe (Char -> Bool) -> (String -> [Completion]) -> IO ()
+completeWord cenv input isWordChar completer
   = completeWordPrim cenv input isWordChar cenvCompleter
   where
     cenvCompleter cenv input
       = do addCompletions cenv (completer input)
            return ()
 
--- | @completeQuotedWord compl input isWordChar completer@: 
+-- | @completeQuotedWord compl input isWordChar completer@:
 -- Complete a /word/ taking care of automatically quoting and escaping characters.
--- Takes the 'CompletionEnv' environment @compl@, the current @input@, and a user defined 
+-- Takes the 'CompletionEnv' environment @compl@, the current @input@, and a user defined
 -- @completer@ function that is called with adjusted input which is unquoted, unescaped,
 -- and limited to the /word/ just before the cursor.
 -- For example, with a @hello world@ completion, we get:
@@ -499,58 +499,58 @@ completeWord cenv input isWordChar completer
 -- > hel        -->  hello\ world
 -- > hello\ w   -->  hello\ world
 -- > hello w    -->                   # no completion, the word is just 'w'>
--- > "hel       -->  "hello world" 
+-- > "hel       -->  "hello world"
 -- > "hello w   -->  "hello world"
 --
--- The call @('completeWord' compl prefx isWordChar fun)@ is a short hand for 
+-- The call @('completeWord' compl prefx isWordChar fun)@ is a short hand for
 -- @('completeQuotedWord' compl prefx isWordChar \'\\\\\' \"\'\\\"\" fun)@.
 -- Pass 'Nothing' to @isWordChar@ for the default @not . separator@
 -- where @separator = \c -> c `elem` \" \\t\\r\\n,.;:/\\\\(){}[]\"@.
-completeQuotedWord :: CompletionEnv -> String -> Maybe (Char -> Bool) -> (String -> [Completion]) -> IO () 
-completeQuotedWord cenv input isWordChar completer 
+completeQuotedWord :: CompletionEnv -> String -> Maybe (Char -> Bool) -> (String -> [Completion]) -> IO ()
+completeQuotedWord cenv input isWordChar completer
   = completeWordPrim cenv input isWordChar cenvCompleter
   where
     cenvCompleter cenv input
       = do addCompletions cenv (completer input)
            return ()
-  
--- | @completeQuotedWordEx compl input isWordChar escapeChar quoteChars completer@: 
+
+-- | @completeQuotedWordEx compl input isWordChar escapeChar quoteChars completer@:
 -- Complete a /word/ taking care of automatically quoting and escaping characters.
--- Takes the 'CompletionEnv' environment @compl@, the current @input@, and a user defined 
+-- Takes the 'CompletionEnv' environment @compl@, the current @input@, and a user defined
 -- @completer@ function that is called with adjusted input which is unquoted, unescaped,
 -- and limited to the /word/ just before the cursor.
--- Unlike 'completeQuotedWord', this function can specify 
+-- Unlike 'completeQuotedWord', this function can specify
 -- the /escape/ character and the /quote/ characters.
 -- See also 'completeWord'.
-completeQuotedWordEx :: CompletionEnv -> String -> Maybe (Char -> Bool) -> Maybe Char -> String -> (String -> [Completion]) -> IO () 
-completeQuotedWordEx cenv input isWordChar escapeChar quoteChars completer 
-  = completeQuotedWordPrimEx cenv input isWordChar escapeChar quoteChars cenvCompleter 
+completeQuotedWordEx :: CompletionEnv -> String -> Maybe (Char -> Bool) -> Maybe Char -> String -> (String -> [Completion]) -> IO ()
+completeQuotedWordEx cenv input isWordChar escapeChar quoteChars completer
+  = completeQuotedWordPrimEx cenv input isWordChar escapeChar quoteChars cenvCompleter
   where
-    cenvCompleter cenv input 
+    cenvCompleter cenv input
       = do addCompletions cenv (completer input)
            return ()
 
 
--- | @completeWord compl input isWordChar completer@: 
+-- | @completeWord compl input isWordChar completer@:
 -- Complete a /word/,/token/ and calls the user @completer@ function with just the current word
 -- (instead of the whole input)
 -- Takes the 'CompletionEnv' environment @compl@, the current @input@, an possible
--- @isWordChar@ function, and a user defined 
--- @completer@ function that is called with adjusted input which 
+-- @isWordChar@ function, and a user defined
+-- @completer@ function that is called with adjusted input which
 -- is limited to the /word/ just before the cursor.
 -- Pass 'Nothing' to @isWordChar@ for the default @not . separator@
 -- where @separator = \c -> c `elem` \" \\t\\r\\n,.;:/\\\\(){}[]\"@.
-completeWordPrim :: CompletionEnv -> String -> Maybe (Char -> Bool) -> (CompletionEnv -> String -> IO ()) -> IO () 
-completeWordPrim (CompletionEnv rpc) prefx isWordChar completer 
+completeWordPrim :: CompletionEnv -> String -> Maybe (Char -> Bool) -> (CompletionEnv -> String -> IO ()) -> IO ()
+completeWordPrim (CompletionEnv rpc) prefx isWordChar completer
   = withUTF8String prefx $ \cprefx ->
     withCharClassFun isWordChar $ \cisWordChar ->
     withCCompleter (Just completer) $ \ccompleter ->
     do ic_complete_word rpc cprefx ccompleter cisWordChar
 
 
--- | @completeWordPrim compl input isWordChar completer@: 
+-- | @completeWordPrim compl input isWordChar completer@:
 -- Complete a /word/ taking care of automatically quoting and escaping characters.
--- Takes the 'CompletionEnv' environment @compl@, the current @input@, and a user defined 
+-- Takes the 'CompletionEnv' environment @compl@, the current @input@, and a user defined
 -- @completer@ function that is called with adjusted input which is unquoted, unescaped,
 -- and limited to the /word/ just before the cursor.
 -- For example, with a @hello world@ completion, we get:
@@ -558,30 +558,30 @@ completeWordPrim (CompletionEnv rpc) prefx isWordChar completer
 -- > hel        -->  hello\ world
 -- > hello\ w   -->  hello\ world
 -- > hello w    -->                   # no completion, the word is just 'w'>
--- > "hel       -->  "hello world" 
+-- > "hel       -->  "hello world"
 -- > "hello w   -->  "hello world"
 --
--- The call @('completeWordPrim' compl prefx isWordChar fun)@ is a short hand for 
+-- The call @('completeWordPrim' compl prefx isWordChar fun)@ is a short hand for
 -- @('completeQuotedWordPrim' compl prefx isWordChar \'\\\\\' \"\'\\\"\" fun)@.
 -- Pass 'Nothing' to @isWordChar@ for the default @not . separator@
 -- where @separator = \c -> c `elem` \" \\t\\r\\n,.;:/\\\\(){}[]\"@.
-completeQuotedWordPrim :: CompletionEnv -> String -> Maybe (Char -> Bool) -> (CompletionEnv -> String -> IO ()) -> IO () 
+completeQuotedWordPrim :: CompletionEnv -> String -> Maybe (Char -> Bool) -> (CompletionEnv -> String -> IO ()) -> IO ()
 completeQuotedWordPrim (CompletionEnv rpc) prefx isWordChar completer
   = withUTF8String prefx $ \cprefx ->
     withCharClassFun isWordChar $ \cisWordChar ->
     withCCompleter (Just completer) $ \ccompleter ->
     do ic_complete_qword rpc cprefx ccompleter cisWordChar
-  
 
--- | @completeQuotedWordPrim compl input isWordChar escapeChar quoteChars completer@: 
+
+-- | @completeQuotedWordPrim compl input isWordChar escapeChar quoteChars completer@:
 -- Complete a /word/ taking care of automatically quoting and escaping characters.
--- Takes the 'CompletionEnv' environment @compl@, the current @input@, and a user defined 
+-- Takes the 'CompletionEnv' environment @compl@, the current @input@, and a user defined
 -- @completer@ function that is called with adjusted input which is unquoted, unescaped,
 -- and limited to the /word/ just before the cursor.
 -- Unlike 'completeWord', this function takes an explicit function to determine /word/ characters,
 -- the /escape/ character, and a string of /quote/ characters.
 -- See also 'completeWord'.
-completeQuotedWordPrimEx :: CompletionEnv -> String -> Maybe (Char -> Bool) -> Maybe Char -> String -> (CompletionEnv -> String -> IO ()) ->  IO () 
+completeQuotedWordPrimEx :: CompletionEnv -> String -> Maybe (Char -> Bool) -> Maybe Char -> String -> (CompletionEnv -> String -> IO ()) ->  IO ()
 completeQuotedWordPrimEx (CompletionEnv rpc) prefx isWordChar escapeChar quoteChars completer
   = withUTF8String prefx $ \cprefx ->
     withUTF8String0 quoteChars $ \cquoteChars ->
@@ -589,25 +589,25 @@ completeQuotedWordPrimEx (CompletionEnv rpc) prefx isWordChar escapeChar quoteCh
     withCCompleter (Just completer) $ \ccompleter ->
     do let cescapeChar = case escapeChar of
                           Nothing -> toEnum 0
-                          Just c  -> castCharToCChar c                      
+                          Just c  -> castCharToCChar c
        ic_complete_qword_ex rpc cprefx ccompleter cisWordChar cescapeChar cquoteChars
-       
+
 
 withCharClassFun :: Maybe (Char -> Bool) -> (FunPtr CCharClassFun -> IO a) -> IO a
 withCharClassFun isInClass action
-  = bracket (makeCharClassFun isInClass) (\cfun -> when (nullFunPtr /= cfun) (freeHaskellFunPtr cfun))  action 
+  = bracket (makeCharClassFun isInClass) (\cfun -> when (nullFunPtr /= cfun) (freeHaskellFunPtr cfun))  action
 
 makeCharClassFun :: Maybe (Char -> Bool) -> IO (FunPtr CCharClassFun)
 makeCharClassFun Nothing = return nullFunPtr
 makeCharClassFun (Just isInClass)
   = let charClassFun :: CString -> CLong -> IO CCBool
-        charClassFun cstr clen 
+        charClassFun cstr clen
           = let len = (fromIntegral clen :: Int)
             in if (len <= 0) then return (cbool False)
                 else do s <- peekCStringLen (cstr,len)
                         return (if null s then (cbool False) else cbool (isInClass (head s)))
     in do ic_make_charclassfun charClassFun
-          
+
 
 -- | If this returns 'True' an effort should be made to stop completing and return from the callback.
 stopCompleting :: CompletionEnv -> IO Bool
@@ -639,10 +639,10 @@ setDefaultHighlighter highlighter
        ic_set_default_highlighter chighlighter nullPtr
 
 makeCHighlighter :: Maybe (HighlightEnv -> String -> IO ()) -> IO (FunPtr CHighlightFun)
-makeCHighlighter Nothing = return nullFunPtr 
+makeCHighlighter Nothing = return nullFunPtr
 makeCHighlighter (Just highlighter)
   = ic_make_highlight_fun wrapper
-  where 
+  where
     wrapper :: Ptr IcHighlightEnv -> CString -> Ptr () -> IO ()
     wrapper henv cinput carg
       = do input <- peekUTF8String0 cinput
@@ -650,7 +650,7 @@ makeCHighlighter (Just highlighter)
 
 
 -- | @highlight henv pos len style@: Set the style of @len@ characters
--- starting at position @pos@ in the input 
+-- starting at position @pos@ in the input
 highlight :: HighlightEnv -> Int -> Int -> String -> IO ()
 highlight (HighlightEnv henv) pos len style
   = withUTF8String0 style $ \cstyle ->
@@ -658,7 +658,7 @@ highlight (HighlightEnv henv) pos len style
 
 
 -- | A style for formatted strings ('Fmt').
--- For example, a style can be @"red"@ or @"b #7B3050"@. 
+-- For example, a style can be @"red"@ or @"b #7B3050"@.
 -- See the full list of valid [properties](https://github.com/daanx/isocline#bbcode-format)
 type Style = String
 
@@ -668,7 +668,7 @@ type Fmt   = String
 
 -- | Use an rich text formatted highlighter from inside a highlighter callback.
 highlightFmt :: (String -> Fmt) -> (HighlightEnv -> String -> IO ())
-highlightFmt highlight (HighlightEnv henv) input 
+highlightFmt highlight (HighlightEnv henv) input
   = withUTF8String0 input $ \cinput ->
     withUTF8String0 (highlight input) $ \cfmt ->
     do ic_highlight_formatted henv cinput cfmt
@@ -678,7 +678,7 @@ highlightFmt highlight (HighlightEnv henv) input
 -- See the repo for a full description of all [styles](https://github.com/daanx/isocline#bbcode-format).
 style :: Style -> Fmt -> Fmt
 style st s
-  = if null st then s else ("[" ++ st ++ "]" ++ s ++ "[/]") 
+  = if null st then s else ("[" ++ st ++ "]" ++ s ++ "[/]")
 
 -- | Escape a string so no tags are interpreted as formatting.
 plain :: String -> Fmt
@@ -694,7 +694,7 @@ pre st s
 -- formatted string (using 'style', 'plain' etc). See 'highlightFmt' for more information.
 -- There can only be one highlight function, setting it again disables the previous one.
 setDefaultFmtHighlighter :: (String -> Fmt) -> IO ()
-setDefaultFmtHighlighter highlight 
+setDefaultFmtHighlighter highlight
   = setDefaultHighlighter (highlightFmt highlight)
 
 
@@ -716,19 +716,19 @@ foreign import ccall ic_style_close     :: IO ()
 -- All unclosed tags are automatically closed (but see also 'styleOpen').
 -- See the repo for more information about [formatted output](https://github.com/daanx/isocline#formatted-output).
 putFmt :: Fmt -> IO ()
-putFmt s 
-  = withUTF8String0 s $ \cs -> 
+putFmt s
+  = withUTF8String0 s $ \cs ->
     do ic_print cs
 
 -- | Output rich formatted text containing bbcode's ending with a newline.
 putFmtLn :: Fmt -> IO ()
-putFmtLn s 
-  = withUTF8String0 s $ \cs -> 
+putFmtLn s
+  = withUTF8String0 s $ \cs ->
     do ic_println cs
 
 -- | Define (or redefine) a style.
 -- For example @styleDef "warning" "crimon underline"@,
--- and then use it as @'putFmtLn' "[warning]this is a warning[/]"@. 
+-- and then use it as @'putFmtLn' "[warning]this is a warning[/]"@.
 -- This can be very useful for theming your application with semantic styles.
 -- See also [formatted output](https://github.com/daanx/isocline#formatted-output)
 styleDef :: String -> Style -> IO ()
@@ -741,17 +741,17 @@ styleDef name style
 styleOpen :: Style -> IO ()
 styleOpen style
   = withUTF8String0 style $ \cstyle ->
-    do ic_style_open cstyle        
+    do ic_style_open cstyle
 
 -- | Close a previously opened style.
 styleClose :: IO ()
-styleClose 
+styleClose
   = ic_style_close
 
 -- | Use a style over an action.
 withStyle :: Style -> IO a -> IO a
 withStyle style action
-  = bracket (styleOpen style) (\() -> styleClose) (\() -> action) 
+  = bracket (styleOpen style) (\() -> styleClose) (\() -> action)
 
 
 ----------------------------------------------------------------------------
@@ -775,24 +775,24 @@ foreign import ccall ic_term_reset      :: IO ()
 -- and potentially enables virtual terminal processing.
 -- See also 'withTerm'.
 termInit :: IO ()
-termInit 
+termInit
   = ic_term_init
 
 -- | Done using @term@ functions.
 -- See also 'withTerm'.
 termDone :: IO ()
-termDone 
+termDone
   = ic_term_done
 
 -- | Use the @term@ functions (brackets 'termInit' and 'termDone').
 withTerm :: IO a -> IO a
 withTerm action
-  = bracket termInit (\() -> termDone) (\() -> action) 
+  = bracket termInit (\() -> termDone) (\() -> action)
 
 -- | Flush terminal output. Happens automatically on newline (@'\\n'@) characters as well.
 termFlush :: IO ()
 termFlush
-  = ic_term_flush  
+  = ic_term_flush
 
 -- | Write output to the terminal where ANSI CSI sequences are
 -- handled portably across platforms (including Windows).
@@ -800,13 +800,13 @@ termWrite :: String -> IO ()
 termWrite s
   = withUTF8String0 s $ \cs -> ic_term_write cs
 
--- | Write output with a ending newline to the terminal where 
+-- | Write output with a ending newline to the terminal where
 -- ANSI CSI sequences are handled portably across platforms (including Windows).
 termWriteLn :: String -> IO ()
 termWriteLn s
-  = withUTF8String0 s $ \cs -> ic_term_writeln cs  
+  = withUTF8String0 s $ \cs -> ic_term_writeln cs
 
--- | Set the terminal text color as a hexadecimal number @0x@rrggbb. 
+-- | Set the terminal text color as a hexadecimal number @0x@rrggbb.
 -- The color is auto adjusted for terminals with less colors.
 termColor :: Int -> IO ()
 termColor color
@@ -838,16 +838,16 @@ termStyle style
 -- | Set the terminal text underline mode.
 termUnderline :: Bool -> IO ()
 termUnderline enable
-  = ic_term_underline (cbool enable)  
+  = ic_term_underline (cbool enable)
 
 -- | Set the terminal text reverse video mode.
 termReverse :: Bool -> IO ()
 termReverse enable
-  = ic_term_reverse (cbool enable)  
+  = ic_term_reverse (cbool enable)
 
 -- | Reset the terminal text mode to defaults
 termReset :: IO ()
-termReset 
+termReset
   = ic_term_reset
 
 
@@ -886,11 +886,11 @@ clong :: Int -> CLong
 clong l = toEnum l
 
 
--- | @setPromptMarker marker multiline_marker@: Set the prompt @marker@ (by default @\"> \"@). 
--- and a possible different continuation prompt marker @multiline_marker@ for multiline 
+-- | @setPromptMarker marker multiline_marker@: Set the prompt @marker@ (by default @\"> \"@).
+-- and a possible different continuation prompt marker @multiline_marker@ for multiline
 -- input (defaults to @marker@).
 setPromptMarker :: String -> String -> IO ()
-setPromptMarker marker multiline_marker  
+setPromptMarker marker multiline_marker
   = withUTF8String0 marker $ \cmarker ->
     withUTF8String0 multiline_marker $ \cmultiline_marker ->
     do ic_set_prompt_marker cmarker cmultiline_marker
@@ -898,18 +898,18 @@ setPromptMarker marker multiline_marker
 
 -- | Get the current prompt marker.
 getPromptMarker :: IO String
-getPromptMarker 
+getPromptMarker
   = do cstr  <- ic_get_prompt_marker
-       if (nullPtr == cstr) 
+       if (nullPtr == cstr)
          then return ""
          else do cstr2 <- ic_strdup cstr
                  peekUTF8String0 cstr2
 
 -- | Get the current prompt continuation marker for multi-line input.
 getContinuationPromptMarker :: IO String
-getContinuationPromptMarker 
+getContinuationPromptMarker
   = do cstr <- ic_get_continuation_prompt_marker
-       if (nullPtr == cstr) 
+       if (nullPtr == cstr)
          then return ""
          else do cstr2 <- ic_strdup cstr
                  peekUTF8String0 cstr2
@@ -941,7 +941,7 @@ enableHistoryDuplicates enable
   = do uncbool $ ic_enable_history_duplicates (cbool enable)
 
 
--- | Disable or enable automatic tab completion after a completion 
+-- | Disable or enable automatic tab completion after a completion
 -- to expand as far as possible if the completions are unique. (disabled by default).
 -- Returns the previous value.
 enableAutoTab :: Bool -> IO Bool
@@ -950,7 +950,7 @@ enableAutoTab enable
 
 
 -- | Disable or enable short inline help message (for history search etc.) (enabled by default).
--- Pressing F1 always shows full help regardless of this setting. 
+-- Pressing F1 always shows full help regardless of this setting.
 -- Returns the previous value.
 enableInlineHelp :: Bool -> IO Bool
 enableInlineHelp enable
@@ -1030,7 +1030,7 @@ peekUTF8String0 cstr
 
 peekUTF8StringMaybe :: CString -> IO (Maybe String)
 peekUTF8StringMaybe cstr
-  = if (nullPtr == cstr) then return Nothing 
+  = if (nullPtr == cstr) then return Nothing
      else do s <- peekUTF8String cstr
              return (Just s)
 
@@ -1043,4 +1043,3 @@ withUTF8String :: String -> (CString -> IO a) -> IO a
 withUTF8String str action
   = do let bstr = TE.encodeUtf8 (T.pack str)
        B.useAsCString bstr action
-       

@@ -5,7 +5,7 @@
   found in the "LICENSE" file at the root of this distribution.
 -----------------------------------------------------------------------------*/
 #include <stdio.h>
-#include <string.h>  
+#include <string.h>
 #include <sys/stat.h>
 
 #include "../include/isocline.h"
@@ -17,7 +17,7 @@
 
 struct history_s {
   ssize_t  count;              // current number of entries in use
-  ssize_t  len;                // size of elems 
+  ssize_t  len;                // size of elems
   const char** elems;         // history items (up to count)
   const char*  fname;         // history file
   alloc_t* mem;
@@ -87,7 +87,7 @@ ic_private bool history_push( history_t* h, const char* entry ) {
   // insert at front
   if (h->count == h->len) {
     // delete oldest entry
-    history_delete_at(h,0);    
+    history_delete_at(h,0);
   }
   assert(h->count < h->len);
   h->elems[h->count] = mem_strdup(h->mem,entry);
@@ -103,7 +103,7 @@ static void history_remove_last_n( history_t* h, ssize_t n ) {
     mem_free( h->mem, h->elems[i] );
   }
   h->count -= n;
-  assert(h->count >= 0);    
+  assert(h->count >= 0);
 }
 
 ic_private void history_remove_last(history_t* h) {
@@ -141,7 +141,7 @@ ic_private bool history_search( const history_t* h, ssize_t from /*including*/, 
 }
 
 //-------------------------------------------------------------
-// 
+//
 //-------------------------------------------------------------
 
 ic_private void history_load_from(history_t* h, const char* fname, long max_entries ) {
@@ -194,7 +194,7 @@ static bool history_read_entry( history_t* h, FILE* f, stringbuf_t* sbuf ) {
       else if (c == 't')  { sbuf_append(sbuf,"\t"); }
       else if (c == '\\') { sbuf_append(sbuf,"\\"); }
       else if (c == 'x') {
-        int c1 = fgetc(f);         
+        int c1 = fgetc(f);
         int c2 = fgetc(f);
         if (ic_isxdigit(c1) && ic_isxdigit(c2)) {
           char chr = from_xdigit(c1)*16 + from_xdigit(c2);
@@ -222,14 +222,14 @@ static bool history_write_entry( const char* entry, FILE* f, stringbuf_t* sbuf )
     else if (c < ' ' || c > '~' || c == '#') {
       char c1 = to_xdigit( (uint8_t)c / 16 );
       char c2 = to_xdigit( (uint8_t)c % 16 );
-      sbuf_append(sbuf,"\\x"); 
-      sbuf_append_char(sbuf,c1); 
-      sbuf_append_char(sbuf,c2);            
+      sbuf_append(sbuf,"\\x");
+      sbuf_append_char(sbuf,c1);
+      sbuf_append_char(sbuf,c2);
     }
     else sbuf_append_char(sbuf,c);
   }
   //debug_msg("history: write buf: %s\n", sbuf_string(sbuf));
-  
+
   if (sbuf_len(sbuf) > 0) {
     sbuf_append(sbuf,"\n");
     fputs(sbuf_string(sbuf),f);
@@ -265,5 +265,5 @@ ic_private void history_save( const history_t* h ) {
     }
     sbuf_free(sbuf);
   }
-  fclose(f);  
+  fclose(f);
 }

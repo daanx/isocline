@@ -26,9 +26,9 @@ ic_private attr_t attr_default(void) {
   attr.x.color = IC_ANSI_DEFAULT;
   attr.x.bgcolor = IC_ANSI_DEFAULT;
   attr.x.bold = IC_OFF;
-  attr.x.underline = IC_OFF; 
+  attr.x.underline = IC_OFF;
   attr.x.reverse = IC_OFF;
-  attr.x.italic = IC_OFF; 
+  attr.x.italic = IC_OFF;
   return attr;
 }
 
@@ -69,16 +69,16 @@ static bool sgr_is_sep( char c ) {
 static bool sgr_next_par(const char* s, ssize_t* pi, ssize_t* par) {
   const ssize_t i = *pi;
   ssize_t n = 0;
-  while( sgr_is_digit(s[i+n])) { 
-    n++; 
+  while( sgr_is_digit(s[i+n])) {
+    n++;
   }
-  if (n==0) { 
+  if (n==0) {
     *par = 0;
     return true;
   }
   else {
     *pi = i+n;
-    return ic_atoz(s+i, par);    
+    return ic_atoz(s+i, par);
   }
 }
 
@@ -129,7 +129,7 @@ ic_private attr_t attr_from_sgr( const char* s, ssize_t len) {
           attr.x.bgcolor = IC_ANSI_DARKGRAY + (unsigned)(cmd - 100);
         }
         else if ((cmd == 38 || cmd == 48) && sgr_is_sep(s[i])) {
-          // non-associative SGR :-(          
+          // non-associative SGR :-(
           ssize_t par = 0;
           i++;
           if (sgr_next_par(s, &i, &par)) {
@@ -223,10 +223,10 @@ ic_private ssize_t attrbuf_len( attrbuf_t* ab ) {
 ic_private const attr_t* attrbuf_attrs( attrbuf_t* ab, ssize_t expected_len ) {
   assert(expected_len <= ab->count );
   // expand if needed
-  if (ab->count < expected_len) {    
+  if (ab->count < expected_len) {
     if (!attrbuf_ensure_capacity(ab,expected_len)) return NULL;
     for(ssize_t i = ab->count; i < expected_len; i++) {
-      ab->attrs[i] = attr_none();  
+      ab->attrs[i] = attr_none();
     }
     ab->count = expected_len;
   }
@@ -242,14 +242,14 @@ static void attrbuf_update_set_at( attrbuf_t* ab, ssize_t pos, ssize_t count, at
   // initialize if end is beyond the count (todo: avoid duplicate init and set if update==false?)
   if (ab->count < end) {
     for(i = ab->count; i < end; i++) {
-      ab->attrs[i] = attr_none();  
+      ab->attrs[i] = attr_none();
     }
     ab->count = end;
   }
-  // fill pos to end with attr 
+  // fill pos to end with attr
   for(i = pos; i < end; i++) {
-    ab->attrs[i] = (update ? attr_update_with(ab->attrs[i],attr) : attr);    
-  }  
+    ab->attrs[i] = (update ? attr_update_with(ab->attrs[i],attr) : attr);
+  }
 }
 
 ic_private void attrbuf_set_at( attrbuf_t* ab, ssize_t pos, ssize_t count, attr_t attr ) {
@@ -257,12 +257,12 @@ ic_private void attrbuf_set_at( attrbuf_t* ab, ssize_t pos, ssize_t count, attr_
 }
 
 ic_private void attrbuf_update_at( attrbuf_t* ab, ssize_t pos, ssize_t count, attr_t attr ) {
-  attrbuf_update_set_at(ab, pos, count, attr, true);  
+  attrbuf_update_set_at(ab, pos, count, attr, true);
 }
 
 ic_private void attrbuf_insert_at( attrbuf_t* ab, ssize_t pos, ssize_t count, attr_t attr ) {
   if (pos < 0 || pos > ab->count || count <= 0) return;
-  if (!attrbuf_ensure_extra(ab,count)) return;  
+  if (!attrbuf_ensure_extra(ab,count)) return;
   ic_memmove( ab->attrs + pos + count, ab->attrs + pos, (ab->count - pos)*ssizeof(attr_t) );
   ab->count += count;
   attrbuf_set_at( ab, pos, count, attr );
