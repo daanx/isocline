@@ -104,10 +104,10 @@ static ssize_t edit_completions_max_width( ic_env_t* env, ssize_t count ) {
 
 static void edit_completion_menu(ic_env_t* env, editor_t* eb, bool more_available) {
   ssize_t count = completions_count(env->completions);
-  ssize_t count_displayed = count;
+  ssize_t count_displayed;
   assert(count > 1);
   ssize_t selected = (env->complete_nopreview ? 0 : -1); // select first or none
-  ssize_t percolumn = count;
+  ssize_t percolumn;
 
 again:
   // show first 9 (or 8) completions
@@ -135,7 +135,6 @@ again:
   else {
     // display as a list
     count_displayed = (count > 9 ? 9 : count);
-    percolumn = count_displayed;
     for (ssize_t i = 0; i < count_displayed; i++) {
       if (i > 0) sbuf_append(eb->extra, "\n");
       editor_append_completion(env, eb, i, -1, true /* numbered */, selected == i);

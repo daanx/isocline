@@ -15,6 +15,7 @@
 #if defined(_WIN32)
 #include <windows.h>
 #include <io.h>
+#undef isatty
 #define isatty(fd)     _isatty(fd)
 #define read(fd,s,n)   _read(fd,s,n)
 #define STDIN_FILENO   0
@@ -395,6 +396,7 @@ static bool tty_init_utf8(tty_t* tty) {
 ic_private tty_t* tty_new(alloc_t* mem, int fd_in)
 {
   tty_t* tty = mem_zalloc_tp(mem, tty_t);
+  if (tty == NULL) { return NULL; }
   tty->mem = mem;
   tty->fd_in = (fd_in < 0 ? STDIN_FILENO : fd_in);
   #if defined(__APPLE__)

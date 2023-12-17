@@ -17,6 +17,8 @@
 
 #if defined(_WIN32)
 #include <windows.h>
+#undef isatty
+#define isatty(fd)    _isatty(fd)
 #define STDOUT_FILENO 1
 #else
 #include <unistd.h>
@@ -246,8 +248,9 @@ ic_private void term_write_formatted_n( term_t* term, const char* s, const attr_
     }
     if (n > 0) {
       term_write_n( term, s+i, n );
+#if !defined NDEBUG
       i += n;
-      n = 0;
+#endif /* NDEBUG */
     }
     assert(s[i] != 0 || i == len);
     term_set_attr(term, default_attr);

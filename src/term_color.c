@@ -331,6 +331,7 @@ static void fmt_color_ex(char* buf, ssize_t len, palette_t palette, ic_color_t c
 
 static void term_color_ex(term_t* term, ic_color_t color, bool bg) {
   char buf[128+1];
+  buf[0] = 0;
   fmt_color_ex(buf,128,term->palette,color,bg);
   term_write(term,buf);
 }

@@ -26,7 +26,7 @@ struct history_s {
 
 ic_private history_t* history_new(alloc_t* mem) {
   history_t* h = mem_zalloc_tp(mem,history_t);
-  h->mem = mem;
+  if (h) { h->mem = mem; }
   return h;
 }
 

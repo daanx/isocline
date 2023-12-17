@@ -483,6 +483,7 @@ static bool os_findnext(dir_cursor d, dir_entry* entry) {
 
 static bool os_findfirst(alloc_t* mem, const char* cpath, dir_cursor* d, dir_entry* entry) {
   ic_unused(mem);
+  if (cpath == NULL) return false;
   *d = opendir(cpath);
   if (*d == NULL) {
     return false;

@@ -270,6 +270,7 @@ static void attr_update_width( width_t* pwidth, char default_fill, const char* v
   width_t width;
   memset(&width, 0, sizeof(width));
   width.fill = default_fill;   // use 0 for no-fill (as for max-width)
+  if (value == NULL) value = "";
   if (ic_atoz(value, &width.w)) {
     ssize_t i = 0;
     while( value[i] != ';' && value[i] != 0 ) { i++; }
@@ -296,7 +297,6 @@ static void attr_update_width( width_t* pwidth, char default_fill, const char* v
           i++; len = 0;
           while( value[i+len] != ';' && value[i+len] != 0 ) { len++; }
           if ((len == 2 && ic_istarts_with(value+i,"on")) || (len == 1 && value[i] == '1')) { width.dots = true; }
-          i += len;
         }
       }
     }
@@ -575,6 +575,7 @@ ic_private const char* parse_tag_value( tag_t* tag, char* idbuf, const char* s, 
   }
   // limit name and attr to 128 bytes
   char valbuf[128];
+  valbuf[0] = 0;
   ic_strncpy( idbuf, 128, id, idend - id);
   ic_strncpy( valbuf, 128, val, valend - val);
   ic_str_tolower(idbuf);

@@ -52,14 +52,14 @@ static void write_palette( int order) {
     for (int y = 0; y <= 256; y += 32) {
       for (int z = 0; z <= 256; z += 32) {
         int r, g, b;
-        if (order == RGB) {
-          r = x; g = y; b = z;
-        }
-        if (order == BGR) {
-          r = z; g = y; b = x;
-        }
-        else if (order == GRB) {
-          r = y; g = x; b = z;
+        switch (order) {
+        default:
+        case RGB:
+          r = x; g = y; b = z; break;
+        case BGR:
+          r = z; g = y; b = x; break;
+        case GRB:
+          r = y; g = x; b = z; break;
         }
         if (r == 256) r = 255;
         if (g == 256) g = 255;

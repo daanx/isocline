@@ -87,7 +87,7 @@ static void pos_adjust( ic_highlight_env_t* henv, ssize_t* ppos, ssize_t* plen )
       ucount++;
       clen += next;
     }
-    *plen = len = clen;
+    *plen = clen;
     // and update cache if possible
     if (henv->cached_cpos == pos) {
       henv->cached_upos += ucount;
