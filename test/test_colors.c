@@ -12,7 +12,7 @@
 #include <string.h>
 #include <isocline.h>
 
-static const char* patch = "■";
+static const char* patch = "\xE2\x96\xA0"; // ■
 
 typedef enum color_order_e {
   RGB,
