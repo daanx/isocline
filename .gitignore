@@ -1,4 +1,5 @@
 out/
+.cache/
 build/
 dist/
 doc/html/

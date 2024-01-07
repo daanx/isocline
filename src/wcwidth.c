@@ -289,4 +289,3 @@ static int mk_wcwidth(int32_t ucs) {
 	/* if we arrive here, ucs is not a combining or C0/C1 control character */
   return ( mk_is_wide_char( ucs ) ? 2 : 1 );
 }
-

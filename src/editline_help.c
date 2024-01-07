@@ -93,7 +93,7 @@ static const char* help[] = {
   NULL, NULL
 };
 
-static const char* help_initial = 
+static const char* help_initial =
   "[ic-info]"
   "Isocline v1.0, copyright (c) 2021 Daan Leijen.\n"
   "This is free software; you can redistribute it and/or\n"
@@ -126,7 +126,7 @@ static void edit_show_help(ic_env_t* env, editor_t* eb) {
   edit_clear(env, eb);
   bbcode_println(env->bbcode, help_initial);
   for (ssize_t i = 0; help[i] != NULL && help[i+1] != NULL; i += 2) {
-    if (help[i][0] == 0) {  
+    if (help[i][0] == 0) {
       bbcode_printf(env->bbcode, "[ic-info]%s[/]\n", help[i+1]);
     }
     else {

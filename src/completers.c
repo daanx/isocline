@@ -16,7 +16,7 @@
 
 
 //-------------------------------------------------------------
-// Word completion 
+// Word completion
 //-------------------------------------------------------------
 
 // free variables for word completion
@@ -36,26 +36,26 @@ static bool token_add_completion_ex(ic_env_t* env, void* closure, const char* re
 
 
 ic_public void ic_complete_word(ic_completion_env_t* cenv, const char* prefix, ic_completer_fun_t* fun,
-                                    ic_is_char_class_fun_t* is_word_char) 
+                                    ic_is_char_class_fun_t* is_word_char)
 {
-  if (is_word_char == NULL) is_word_char = &ic_char_is_nonseparator;
-  
+  if (is_word_char == NULL) { is_word_char = &ic_char_is_nonseparator; }
+
   ssize_t len = ic_strlen(prefix);
   ssize_t pos = len; // will be start of the 'word' (excluding a potential start quote)
   while (pos > 0) {
     // go back one code point
     ssize_t ofs = str_prev_ofs(prefix, pos, NULL);
-    if (ofs <= 0) break;
-    if (!(*is_word_char)(prefix + (pos - ofs), (long)ofs)) { 
+    if (ofs <= 0) { break; }
+    if (!(*is_word_char)(prefix + (pos - ofs), (long)ofs)) {
       break;
     }
     pos -= ofs;
   }
   if (pos < 0) { pos = 0; }
-  
+
   // stop if empty word
-  // if (len == pos) return;
-  
+  // if (len == pos) { return; }
+
   // set up the closure
   word_closure_t wenv;
   wenv.delete_before_adjust = (long)(len - pos);
@@ -90,10 +90,10 @@ typedef struct qword_closure_s {
 
 
 // word completion callback
-static bool qword_add_completion_ex(ic_env_t* env, void* closure, const char* replacement, const char* display, const char* help, 
+static bool qword_add_completion_ex(ic_env_t* env, void* closure, const char* replacement, const char* display, const char* help,
                                        long delete_before, long delete_after) {
   qword_closure_t* wenv = (qword_closure_t*)(closure);
-  sbuf_replace( wenv->sbuf, replacement );   
+  sbuf_replace( wenv->sbuf, replacement );
   if (wenv->quote != 0) {
     // add end quote
     sbuf_append_char( wenv->sbuf, wenv->quote);
@@ -102,7 +102,7 @@ static bool qword_add_completion_ex(ic_env_t* env, void* closure, const char* re
     // escape non-word characters if it was not quoted
     ssize_t pos = 0;
     ssize_t next;
-    while ( (next = sbuf_next_ofs(wenv->sbuf, pos, NULL)) > 0 ) 
+    while ( (next = sbuf_next_ofs(wenv->sbuf, pos, NULL)) > 0 )
     {
       if (!(*wenv->is_word_char)(sbuf_string(wenv->sbuf) + pos, (long)next)) { // strchr(wenv->non_word_char, sbuf_char_at( wenv->sbuf, pos )) != NULL) {
         sbuf_insert_char_at( wenv->sbuf, wenv->escape_char, pos);
@@ -112,7 +112,7 @@ static bool qword_add_completion_ex(ic_env_t* env, void* closure, const char* re
     }
   }
   // and call the previous completion function
-  return (*wenv->prev_complete)( env, wenv->prev_env, sbuf_string(wenv->sbuf), display, help, wenv->delete_before_adjust + delete_before, delete_after );  
+  return (*wenv->prev_complete)( env, wenv->prev_env, sbuf_string(wenv->sbuf), display, help, wenv->delete_before_adjust + delete_before, delete_after );
 }
 
 
@@ -121,31 +121,31 @@ ic_public void ic_complete_qword( ic_completion_env_t* cenv, const char* prefix,
 }
 
 
-ic_public void ic_complete_qword_ex( ic_completion_env_t* cenv, const char* prefix, ic_completer_fun_t* fun, 
+ic_public void ic_complete_qword_ex( ic_completion_env_t* cenv, const char* prefix, ic_completer_fun_t* fun,
                                         ic_is_char_class_fun_t* is_word_char, char escape_char, const char* quote_chars ) {
-  if (is_word_char == NULL) is_word_char = &ic_char_is_nonseparator ;  
-  if (quote_chars == NULL) quote_chars = "'\"";
+  if (is_word_char == NULL) { is_word_char = &ic_char_is_nonseparator ; }
+  if (quote_chars == NULL) { quote_chars = "'\""; }
 
   ssize_t len = ic_strlen(prefix);
   ssize_t pos; // will be start of the 'word' (excluding a potential start quote)
   char quote = 0;
   ssize_t quote_len = 0;
-  
+
   // 1. look for a starting quote
   if (quote_chars[0] != 0) {
     // we go forward and count all quotes; if it is uneven, we need to complete quoted.
     ssize_t qpos_open = -1;
     ssize_t qpos_close = -1;
     ssize_t qcount = 0;
-    pos = 0; 
+    pos = 0;
     while(pos < len) {
-      if (prefix[pos] == escape_char && prefix[pos+1] != 0 && 
+      if (prefix[pos] == escape_char && prefix[pos+1] != 0 &&
            !(*is_word_char)(prefix + pos + 1, 1)) // strchr(non_word_char, prefix[pos+1]) != NULL
-      {       
+      {
         pos++; // skip escape and next char
       }
       else if (qcount % 2 == 0 && strchr(quote_chars, prefix[pos]) != NULL) {
-        // open quote 
+        // open quote
         qpos_open = pos;
         quote = prefix[pos];
         qcount++;
@@ -159,9 +159,9 @@ ic_public void ic_complete_qword_ex( ic_completion_env_t* cenv, const char* pref
         qpos_close = -1;
       }
       ssize_t ofs = str_next_ofs( prefix, len, pos, NULL );
-      if (ofs <= 0) break;
+      if (ofs <= 0) { break; }
       pos += ofs;
-    }    
+    }
     if ((qcount % 2 == 0 && qpos_close >= 0) || // if the last quote is only followed by word chars, we still complete it
         (qcount % 2 == 1))                     // opening quote found
     {
@@ -179,10 +179,10 @@ ic_public void ic_complete_qword_ex( ic_completion_env_t* cenv, const char* pref
     while(pos > 0) {
       // go back one code point
       ssize_t ofs = str_prev_ofs(prefix, pos, NULL );
-      if (ofs <= 0) break;
+      if (ofs <= 0) { break; }
       if (!(*is_word_char)(prefix + (pos - ofs), (long)ofs)) { // strchr(non_word_char, prefix[pos - ofs]) != NULL) {
         // non word char, break if it is not escaped
-        if (pos <= ofs || prefix[pos - ofs - 1] != escape_char) break; 
+        if (pos <= ofs || prefix[pos - ofs - 1] != escape_char) { break; }
         // otherwise go on
         pos--; // skip escaped char
       }
@@ -191,11 +191,11 @@ ic_public void ic_complete_qword_ex( ic_completion_env_t* cenv, const char* pref
   }
 
   // stop if empty word
-  // if (len == pos) return;
+  // if (len == pos) { return; }
 
   // allocate new unescaped word prefix
-  char* word = mem_strndup( cenv->env->mem, prefix + pos, (quote==0 ? len - pos : quote_len));
-  if (word == NULL) return;
+  char* word = mem_strndup( cenv->env->mem, prefix + pos, (quote == 0 ? len - pos : quote_len));
+  if (word == NULL) { return; }
 
   if (quote == 0) {
     // unescape prefix
@@ -203,7 +203,7 @@ ic_public void ic_complete_qword_ex( ic_completion_env_t* cenv, const char* pref
     ssize_t wpos = 0;
     while (wpos < wlen) {
       ssize_t ofs = str_next_ofs(word, wlen, wpos, NULL);
-      if (ofs <= 0) break;
+      if (ofs <= 0) { break; }
       if (word[wpos] == escape_char && word[wpos+1] != 0 &&
            !(*is_word_char)(word + wpos + 1, (long)ofs)) // strchr(non_word_char, word[wpos+1]) != NULL) {
       {
@@ -219,7 +219,7 @@ ic_public void ic_complete_qword_ex( ic_completion_env_t* cenv, const char* pref
     ssize_t wpos = 0;
     while (wpos < wlen) {
       ssize_t ofs = str_next_ofs(word, wlen, wpos, NULL);
-      if (ofs <= 0) break;
+      if (ofs <= 0) { break; }
       if (word[wpos] == escape_char && word[wpos+1] == quote) {
         word[wpos+1] = escape_char;
         ic_memmove(word + wpos, word + wpos + 1, wlen - wpos /* including 0 */);
@@ -250,7 +250,7 @@ ic_public void ic_complete_qword_ex( ic_completion_env_t* cenv, const char* pref
   cenv->closure = wenv.prev_env;
 
   sbuf_free(wenv.sbuf);
-  mem_free(cenv->env->mem, word);  
+  mem_free(cenv->env->mem, word);
 }
 
 
@@ -286,10 +286,10 @@ static const char* ls_colors;
 static const char* ls_colors_names[] = { "no=","di=","ln=","so=","pi=","bd=","cd=","su=","sg=","tw=","ow=","st=","ex=", NULL };
 
 static bool ls_colors_init(void) {
-  if (cli_color != 0) return (cli_color >= 1);
+  if (cli_color != 0) { return (cli_color >= 1); }
   // colors enabled?
   const char* s = getenv("CLICOLOR");
-  if (s==NULL || (strcmp(s, "1")!=0 && strcmp(s, "") != 0)) {
+  if (s == NULL || (strcmp(s, "1") != 0 && strcmp(s, "") != 0)) {
     cli_color = -1;
     return false;
   }
@@ -297,12 +297,12 @@ static bool ls_colors_init(void) {
   s = getenv("LS_COLORS");
   if (s != NULL) { ls_colors = s;  }
   s = getenv("LSCOLORS");
-  if (s != NULL) { lscolors = s; }  
+  if (s != NULL) { lscolors = s; }
   return true;
 }
 
 static bool ls_valid_esc(ssize_t c) {
-  return ((c==0 || c==1 || c==4 || c==7 || c==22 || c==24  || c==27) ||
+  return ((c == 0 || c == 1 || c == 4 || c == 7 || c == 22 || c == 24  || c == 27) ||
     (c >= 30 && c <= 37) || (c >= 40 && c <= 47) ||
     (c >= 90 && c <= 97) || (c >= 100 && c <= 107));
 }
@@ -310,19 +310,19 @@ static bool ls_valid_esc(ssize_t c) {
 static bool ls_colors_from_key(stringbuf_t* sb, const char* key) {
   // find key
   ssize_t keylen = ic_strlen(key);
-  if (keylen <= 0) return false;
+  if (keylen <= 0) { return false; }
   const char* p = strstr(ls_colors, key);
-  if (p == NULL) return false;
+  if (p == NULL) { return false; }
   p += keylen;
   if (key[keylen-1] != '=') {
-    if (*p != '=') return false;
+    if (*p != '=') { return false; }
     p++;
   }
   ssize_t len = 0;
   while (p[len] != 0 && p[len] != ':') {
     len++;
   }
-  if (len <= 0) return false;
+  if (len <= 0) { return false; }
   sbuf_append(sb, "[ansi-sgr=\"" );
   sbuf_append_n(sb, p, len );
   sbuf_append(sb, "\"]");
@@ -337,18 +337,18 @@ static int ls_colors_from_char(char c) {
 }
 
 static bool ls_colors_append(stringbuf_t* sb, file_type_t ft, const char* ext) {
-  if (!ls_colors_init()) return false;
+  if (!ls_colors_init()) { return false; }
   if (ls_colors != NULL) {
     // GNU style
     if (ft == FT_DEFAULT && ext != NULL) {
       // first try extension match
-      if (ls_colors_from_key(sb, ext)) return true;
+      if (ls_colors_from_key(sb, ext)) { return true; }
     }
     if (ft >= FT_DEFAULT && ft < FT_LAST) {
       // then a filetype match
       const char* key = ls_colors_names[ft];
-      if (ls_colors_from_key(sb, key)) return true;
-    }    
+      if (ls_colors_from_key(sb, key)) { return true; }
+    }
   }
   else if (lscolors != NULL) {
     // BSD style
@@ -368,7 +368,7 @@ static void ls_colorize(bool no_lscolor, stringbuf_t* sb, file_type_t ft, const 
   bool close = (no_lscolor ? false : ls_colors_append( sb, ft, ext));
   sbuf_append(sb, "[!pre]" );
   sbuf_append(sb, name);
-  if (dirsep != 0) sbuf_append_char(sb, dirsep);
+  if (dirsep != 0) { sbuf_append_char(sb, dirsep); }
   sbuf_append(sb,"[/pre]" );
   if (close) { sbuf_append(sb, "[/]"); }
 }
@@ -386,10 +386,10 @@ static bool os_is_dir(const char* cpath) {
 static file_type_t os_get_filetype(const char* cpath) {
   struct _stat64 st = { 0 };
   _stat64(cpath, &st);
-  if (((st.st_mode) & _S_IFDIR) != 0) return FT_DIR;
-  if (((st.st_mode) & _S_IFCHR) != 0) return FT_CHAR;
-  if (((st.st_mode) & _S_IFIFO) != 0) return FT_PIPE;
-  if (((st.st_mode) & _S_IEXEC) != 0) return FT_EXE;
+  if (((st.st_mode) & _S_IFDIR) != 0) { return FT_DIR; }
+  if (((st.st_mode) & _S_IFCHR) != 0) { return FT_CHAR; }
+  if (((st.st_mode) & _S_IFIFO) != 0) { return FT_PIPE; }
+  if (((st.st_mode) & _S_IEXEC) != 0) { return FT_EXE; }
   return FT_DEFAULT;
 }
 
@@ -399,7 +399,7 @@ static file_type_t os_get_filetype(const char* cpath) {
 
 static bool os_findfirst(alloc_t* mem, const char* path, dir_cursor* d, dir_entry* entry) {
   stringbuf_t* spath = sbuf_new(mem);
-  if (spath == NULL) return false;
+  if (spath == NULL) { return false; }
   sbuf_append(spath, path);
   sbuf_append(spath, "\\*");
   *d = _findfirsti64(sbuf_string(spath), entry);
@@ -408,7 +408,7 @@ static bool os_findfirst(alloc_t* mem, const char* path, dir_cursor* d, dir_entr
 }
 
 static bool os_findnext(dir_cursor d, dir_entry* entry) {
-  return (_findnexti64(d, entry) == 0);  
+  return (_findnexti64(d, entry) == 0);
 }
 
 static void os_findclose(dir_cursor d) {
@@ -416,7 +416,7 @@ static void os_findclose(dir_cursor d) {
 }
 
 static const char* os_direntry_name(dir_entry* entry) {
-  return entry->name;  
+  return entry->name;
 }
 
 static bool os_path_is_absolute( const char* path ) {
@@ -457,19 +457,19 @@ static file_type_t os_get_filetype(const char* cpath) {
     case S_IFCHR:  return FT_CHAR;
     case S_IFBLK:  return FT_BLOCK;
     case S_IFDIR: {
-      if ((st.st_mode & S_ISUID) != 0) return FT_SETUID;
-      if ((st.st_mode & S_ISGID) != 0) return FT_SETGID;
-      if ((st.st_mode & S_IWGRP) != 0 && (st.st_mode & S_ISVTX) != 0) return FT_DIR_OW_STICKY;
-      if ((st.st_mode & S_IWGRP)) return FT_DIR_OW;
-      if ((st.st_mode & S_ISVTX)) return FT_DIR_STICKY;
+      if ((st.st_mode & S_ISUID) != 0) { return FT_SETUID; }
+      if ((st.st_mode & S_ISGID) != 0) { return FT_SETGID; }
+      if ((st.st_mode & S_IWGRP) != 0 && (st.st_mode & S_ISVTX) != 0) { return FT_DIR_OW_STICKY; }
+      if ((st.st_mode & S_IWGRP)) { return FT_DIR_OW; }
+      if ((st.st_mode & S_ISVTX)) { return FT_DIR_STICKY; }
       return FT_DIR;
     }
     case S_IFREG:
     default: {
-      if ((st.st_mode & S_IXUSR) != 0) return FT_EXE;
+      if ((st.st_mode & S_IXUSR) != 0) { return FT_EXE; }
       return FT_DEFAULT;
     }
-  }  
+  }
 }
 
 
@@ -483,6 +483,7 @@ static bool os_findnext(dir_cursor d, dir_entry* entry) {
 
 static bool os_findfirst(alloc_t* mem, const char* cpath, dir_cursor* d, dir_entry* entry) {
   ic_unused(mem);
+  if (cpath == NULL) { return false; }
   *d = opendir(cpath);
   if (*d == NULL) {
     return false;
@@ -497,7 +498,7 @@ static void os_findclose(dir_cursor d) {
 }
 
 static const char* os_direntry_name(dir_entry* entry) {
-  return (*entry)->d_name;  
+  return (*entry)->d_name;
 }
 
 static bool os_path_is_absolute( const char* path ) {
@@ -512,30 +513,30 @@ ic_private char ic_dirsep(void) {
 
 
 //-------------------------------------------------------------
-// File completion 
+// File completion
 //-------------------------------------------------------------
 
 static bool ends_with_n(const char* name, ssize_t name_len, const char* ending, ssize_t len) {
-  if (name_len < len) return false;
-  if (ending == NULL || len <= 0) return true;
+  if (name_len < len) { return false; }
+  if (ending == NULL || len <= 0) { return true; }
   for (ssize_t i = 1; i <= len; i++) {
     char c1 = name[name_len - i];
     char c2 = ending[len - i];
     #ifdef _WIN32
-    if (ic_tolower(c1) != ic_tolower(c2)) return false;
+    if (ic_tolower(c1) != ic_tolower(c2)) { return false; }
     #else
-    if (c1 != c2) return false;
+    if (c1 != c2) { return false; }
     #endif
   }
   return true;
 }
 
 static bool match_extension(const char* name, const char* extensions) {
-  if (extensions == NULL || extensions[0] == 0) return true;
-  if (name == NULL) return false;
+  if (extensions == NULL || extensions[0] == 0) { return true; }
+  if (name == NULL) { return false; }
   ssize_t name_len = ic_strlen(name);
   ssize_t len = ic_strlen(extensions);
-  ssize_t cur = 0;  
+  ssize_t cur = 0;
   //debug_msg("match extensions: %s ~ %s", name, extensions);
   for (ssize_t end = 0; end <= len; end++) {
     if (extensions[end] == ';' || extensions[end] == 0) {
@@ -548,10 +549,10 @@ static bool match_extension(const char* name, const char* extensions) {
   return false;
 }
 
-static bool filename_complete_indir( ic_completion_env_t* cenv, stringbuf_t* dir, 
+static bool filename_complete_indir( ic_completion_env_t* cenv, stringbuf_t* dir,
                                       stringbuf_t* dir_prefix, stringbuf_t* display,
-                                       const char* base_prefix, 
-                                        char dir_sep, const char* extensions ) 
+                                       const char* base_prefix,
+                                        char dir_sep, const char* extensions )
 {
   dir_cursor d = 0;
   dir_entry entry;
@@ -559,7 +560,7 @@ static bool filename_complete_indir( ic_completion_env_t* cenv, stringbuf_t* dir
   if (os_findfirst(cenv->env->mem, sbuf_string(dir), &d, &entry)) {
     do {
       const char* name = os_direntry_name(&entry);
-      if (name != NULL && strcmp(name, ".") != 0 && strcmp(name, "..") != 0 && 
+      if (name != NULL && strcmp(name, ".") != 0 && strcmp(name, "..") != 0 &&
           ic_istarts_with(name, base_prefix))
       {
         // possible match, first check if it is a directory
@@ -574,7 +575,7 @@ static bool filename_complete_indir( ic_completion_env_t* cenv, stringbuf_t* dir
           ft = os_get_filetype(sbuf_string(dir));
           isdir = os_is_dir(sbuf_string(dir));
           if (isdir && dir_sep != 0) {
-            sbuf_append_char(dir_prefix,dir_sep); 
+            sbuf_append_char(dir_prefix,dir_sep);
           }
           sbuf_delete_from(dir,dlen);  // restore dir
         }
@@ -599,21 +600,21 @@ typedef struct filename_closure_s {
 } filename_closure_t;
 
 static void filename_completer( ic_completion_env_t* cenv, const char* prefix ) {
-  if (prefix == NULL) return;
-  filename_closure_t* fclosure = (filename_closure_t*)cenv->arg;  
+  if (prefix == NULL) { return; }
+  filename_closure_t* fclosure = (filename_closure_t*)cenv->arg;
   stringbuf_t* root_dir   = sbuf_new(cenv->env->mem);
   stringbuf_t* dir_prefix = sbuf_new(cenv->env->mem);
-  stringbuf_t* display    = sbuf_new(cenv->env->mem);  
-  if (root_dir!=NULL && dir_prefix != NULL && display != NULL) 
+  stringbuf_t* display    = sbuf_new(cenv->env->mem);
+  if (root_dir != NULL && dir_prefix != NULL && display != NULL)
   {
     // split prefix in dir_prefix / base.
     const char* base = strrchr(prefix,'/');
     #ifdef _WIN32
     const char* base2 = strrchr(prefix,'\\');
-    if (base == NULL || base2 > base) base = base2;
+    if (base == NULL || base2 > base) { base = base2; }
     #endif
     if (base != NULL) {
-      base++; 
+      base++;
       sbuf_append_n(dir_prefix, prefix, base - prefix ); // includes dir separator
     }
 
@@ -623,9 +624,9 @@ static void filename_completer( ic_completion_env_t* cenv, const char* prefix ) 
       if (base != NULL) {
         sbuf_append_n( root_dir, prefix, (base - prefix));  // include dir separator
       }
-      filename_complete_indir( cenv, root_dir, dir_prefix, display,  
-                                (base != NULL ? base : prefix), 
-                                 fclosure->dir_sep, fclosure->extensions );   
+      filename_complete_indir( cenv, root_dir, dir_prefix, display,
+                                (base != NULL ? base : prefix),
+                                 fclosure->dir_sep, fclosure->extensions );
     }
     else {
       // relative path, complete with respect to every root.
@@ -642,17 +643,17 @@ static void filename_completer( ic_completion_env_t* cenv, const char* prefix ) 
         else {
           sbuf_append_n( root_dir, root, next - root );
           root = next + 1;
-        }      
+        }
         sbuf_append_char( root_dir, ic_dirsep());
-          
+
         // add the dir_prefix to the root
         if (base != NULL) {
           sbuf_append_n( root_dir, prefix, (base - prefix) - 1);
         }
 
-        // and complete in this directory    
+        // and complete in this directory
         filename_complete_indir( cenv, root_dir, dir_prefix, display,
-                                  (base != NULL ? base : prefix), 
+                                  (base != NULL ? base : prefix),
                                    fclosure->dir_sep, fclosure->extensions);
       }
     }
@@ -663,13 +664,13 @@ static void filename_completer( ic_completion_env_t* cenv, const char* prefix ) 
 }
 
 ic_public void ic_complete_filename( ic_completion_env_t* cenv, const char* prefix, char dir_sep, const char* roots, const char* extensions ) {
-  if (roots == NULL) roots = ".";
-  if (extensions == NULL) extensions = "";
-  if (dir_sep == 0) dir_sep = ic_dirsep();
+  if (roots == NULL) { roots = "."; }
+  if (extensions == NULL) { extensions = ""; }
+  if (dir_sep == 0) { dir_sep = ic_dirsep(); }
   filename_closure_t fclosure;
   fclosure.dir_sep = dir_sep;
-  fclosure.roots = roots; 
+  fclosure.roots = roots;
   fclosure.extensions = extensions;
   cenv->arg = &fclosure;
-  ic_complete_qword_ex( cenv, prefix, &filename_completer, &ic_char_is_filename_letter, '\\', "'\"");  
+  ic_complete_qword_ex( cenv, prefix, &filename_completer, &ic_char_is_filename_letter, '\\', "'\"");
 }

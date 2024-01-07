@@ -191,4 +191,4 @@ static style_color_t html_colors[IC_HTML_COLOR_COUNT+1] = {
   { "yellow", IC_RGB(0xffff00) },
   { "yellowgreen", IC_RGB(0x9acd32) },
   {NULL, 0}
-}; 
+};

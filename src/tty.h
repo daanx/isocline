@@ -11,7 +11,7 @@
 #include "common.h"
 
 //-------------------------------------------------------------
-// TTY/Keyboard input 
+// TTY/Keyboard input
 //-------------------------------------------------------------
 
 // Key code
@@ -47,13 +47,13 @@ ic_private bool   tty_readc_noblock(tty_t* tty, uint8_t* c, long timeout_ms);
 ic_private code_t tty_read_esc(tty_t* tty, long esc_initial_timeout, long esc_timeout); // in tty_esc.c
 
 // used by term.c to read back ANSI escape responses
-ic_private bool   tty_read_esc_response(tty_t* tty, char esc_start, bool final_st, char* buf, ssize_t buflen ); 
+ic_private bool   tty_read_esc_response(tty_t* tty, char esc_start, bool final_st, char* buf, ssize_t buflen );
 
 
 //-------------------------------------------------------------
 // Key codes: a code_t is 32 bits.
 // we use the bottom 24 (nah, 21) bits for unicode (up to x0010FFFF)
-// The codes after x01000000 are for virtual keys 
+// The codes after x01000000 are for virtual keys
 // and events use  x02000000.
 // The top 4 bits are used for modifiers.
 //-------------------------------------------------------------
@@ -112,7 +112,7 @@ static inline code_t key_unicode( unicode_t u ) {
 #define KEY_UNICODE_MAX   (0x0010FFFFU)
 
 
-#define KEY_VIRT          (0x01000000U)  
+#define KEY_VIRT          (0x01000000U)
 #define KEY_UP            (KEY_VIRT+0)
 #define KEY_DOWN          (KEY_VIRT+1)
 #define KEY_LEFT          (KEY_VIRT+2)

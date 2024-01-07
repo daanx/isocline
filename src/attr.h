@@ -19,7 +19,7 @@
 #define IC_OFF  (-1)
 #define IC_NONE (0)
 
-// try to fit in 64 bits 
+// try to fit in 64 bits
 // note: order is important for some compilers
 // note: each color can actually be 25 bits
 typedef union attr_s {
@@ -64,7 +64,7 @@ ic_private void           attrbuf_set_at( attrbuf_t* ab, ssize_t pos, ssize_t co
 ic_private void           attrbuf_update_at( attrbuf_t* ab, ssize_t pos, ssize_t count, attr_t attr );
 ic_private void           attrbuf_insert_at( attrbuf_t* ab, ssize_t pos, ssize_t count, attr_t attr );
 
-ic_private attr_t         attrbuf_attr_at( attrbuf_t* ab, ssize_t pos );   
+ic_private attr_t         attrbuf_attr_at( attrbuf_t* ab, ssize_t pos );
 ic_private void           attrbuf_delete_at( attrbuf_t* ab, ssize_t pos, ssize_t count );
 
 #endif // IC_ATTR_H
