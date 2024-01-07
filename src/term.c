@@ -81,22 +81,22 @@ static void term_append_buf(term_t* term, const char* s, ssize_t n);
 
 ic_private void term_left(term_t* term, ssize_t n) {
   if (n <= 0) return;
-  term_writef( term, IC_CSI "%zdD", n );
+  term_writef( term, IC_CSI "%" PRIz "dD", n );
 }
 
 ic_private void term_right(term_t* term, ssize_t n) {
   if (n <= 0) return;
-  term_writef( term, IC_CSI "%zdC", n );
+  term_writef( term, IC_CSI "%" PRIz "dC", n );
 }
 
 ic_private void term_up(term_t* term, ssize_t n) {
   if (n <= 0) return;
-  term_writef( term, IC_CSI "%zdA", n );
+  term_writef( term, IC_CSI "%" PRIz "dA", n );
 }
 
 ic_private void term_down(term_t* term, ssize_t n) {
   if (n <= 0) return;
-  term_writef( term, IC_CSI "%zdB", n );
+  term_writef( term, IC_CSI "%" PRIz "dB", n );
 }
 
 ic_private void term_clear_line(term_t* term) {
@@ -898,7 +898,7 @@ static bool term_get_cursor_pos( term_t* term, ssize_t* row, ssize_t* col)
 }
 
 static void term_set_cursor_pos( term_t* term, ssize_t row, ssize_t col ) {
-  term_writef( term, IC_CSI "%zd;%zdH", row, col );
+  term_writef( term, IC_CSI "%" PRIz "d;%" PRIz "dH", row, col );
 }
 
 ic_private bool term_update_dim(term_t* term) {
@@ -933,7 +933,7 @@ ic_private bool term_update_dim(term_t* term) {
 
   // update width and return whether it changed.
   bool changed = (term->width != cols || term->height != rows);
-  debug_msg("terminal dim: %zd,%zd: %s\n", rows, cols, changed ? "changed" : "unchanged");
+  debug_msg("terminal dim: %" PRIz "d,%" PRIz "d: %s\n", rows, cols, changed ? "changed" : "unchanged");
   if (cols > 0) {
     term->width = cols;
     term->height = rows;
@@ -957,7 +957,7 @@ ic_private bool term_update_dim(term_t* term) {
   bool changed = (term->width != cols || term->height != rows);
   term->width = cols;
   term->height = rows;
-  debug_msg("term: update dim: %zd, %zd\n", term->height, term->width );
+  debug_msg("term: update dim: %" PRIz "d, %" PRIz "d\n", term->height, term->width );
   return changed;
 }
 

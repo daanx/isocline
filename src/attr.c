@@ -155,7 +155,7 @@ ic_private attr_t attr_from_sgr( const char* s, ssize_t len) {
           }
         }
         else {
-          debug_msg("attr: unknow ANSI SGR code: %zd\n", cmd );
+          debug_msg("attr: unknow ANSI SGR code: %" PRIz "d\n", cmd );
         }
       }
     }

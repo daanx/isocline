@@ -207,7 +207,7 @@ static bool edit_refresh_rows_iter(
   const refresh_info_t* info = (const refresh_info_t*)(arg);
   term_t* term = info->env->term;
 
-  // debug_msg("edit: line refresh: row %zd, len: %zd\n", row, row_len);
+  // debug_msg("edit: line refresh: row %" PRIz "d, len: %" PRIz "d\n", row, row_len);
   if (row < info->first_row) return false;
   if (row > info->last_row)  return true; // should not occur
 
@@ -302,7 +302,7 @@ static void edit_refresh(ic_env_t* env, editor_t* eb)
     rows_extra = sbuf_get_rc_at_pos( extra, eb->termw, 0, 0, 0 /*pos*/, &rc_extra );
   }
   const ssize_t rows = rows_input + rows_extra;
-  debug_msg("edit: refresh: rows %zd, cursor: %zd,%zd (previous rows %zd, cursor row %zd)\n", rows, rc.row, rc.col, eb->cur_rows, eb->cur_row);
+  debug_msg("edit: refresh: rows %" PRIz "d, cursor: %" PRIz "d,%" PRIz "d (previous rows %" PRIz "d, cursor row %" PRIz "d)\n", rows, rc.row, rc.col, eb->cur_rows, eb->cur_row);
 
   // only render at most terminal height rows
   const ssize_t termh = term_get_height(env->term);
@@ -424,7 +424,7 @@ static bool edit_resize(ic_env_t* env, editor_t* eb ) {
     rows_extra = sbuf_get_wrapped_rc_at_pos(extra, eb->termw, newtermw, 0, 0, 0 /*pos*/, &rc_extra);
   }
   ssize_t rows = rows_input + rows_extra;
-  debug_msg("edit: resize: new rows: %zd, cursor row: %zd (previous: rows: %zd, cursor row %zd)\n", rows, rc.row, eb->cur_rows, eb->cur_row);
+  debug_msg("edit: resize: new rows: %" PRIz "d, cursor row: %" PRIz "d (previous: rows: %" PRIz "d, cursor row %" PRIz "d)\n", rows, rc.row, eb->cur_rows, eb->cur_row);
 
   // update the newly calculated row and rows
   eb->cur_row = rc.row;

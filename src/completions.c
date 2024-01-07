@@ -169,7 +169,7 @@ ic_public bool ic_stop_completing( const ic_completion_env_t* cenv) {
 
 static ssize_t completion_apply( completion_t* cm, stringbuf_t* sbuf, ssize_t pos ) {
   if (cm == NULL) return -1;
-  debug_msg( "completion: apply: %s at %zd\n", cm->replacement, pos);
+  debug_msg( "completion: apply: %s at %" PRIz "d\n", cm->replacement, pos);
   ssize_t start = pos - cm->delete_before;
   if (start < 0) start = 0;
   ssize_t n = cm->delete_before + cm->delete_after;

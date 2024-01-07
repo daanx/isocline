@@ -341,7 +341,7 @@ static ssize_t str_for_each_row( const char* s, ssize_t len, ssize_t termw, ssiz
     ssize_t w;
     ssize_t next = str_next_ofs(s, len, i, &w);
     if (next <= 0) {
-      debug_msg("str: foreach row: next<=0: len %zd, i %zd, w %zd, buf %s\n", len, i, w, s );
+      debug_msg("str: foreach row: next<=0: len %" PRIz "d, i %" PRIz "d, w %" PRIz "d, buf %s\n", len, i, w, s );
       assert(false);
       break;
     }
@@ -405,7 +405,7 @@ static bool str_get_current_pos_iter(
       // normal last position is right after the last character
       rc->last_on_row = (pos >= row_start + row_len);
     }
-    // debug_msg("edit; pos iter: pos: %zd (%c), row_start: %zd, rowlen: %zd\n", pos, s[pos], row_start, row_len);
+    // debug_msg("edit; pos iter: pos: %" PRIz "d (%c), row_start: %" PRIz "d, rowlen: %" PRIz "d\n", pos, s[pos], row_start, row_len);
   }
   return false; // always continue to count all rows
 }
@@ -465,7 +465,7 @@ static bool str_get_current_wrapped_pos_iter(
         // hardwrap
         hwidth = 0;
         wrc->hrows++;
-        debug_msg("str: found hardwrap: row: %zd, hrows: %zd\n", row, wrc->hrows);
+        debug_msg("str: found hardwrap: row: %" PRIz "d, hrows: %" PRIz "d\n", row, wrc->hrows);
       }
     }
     else {
@@ -474,7 +474,7 @@ static bool str_get_current_wrapped_pos_iter(
 
     // did we find our position?
     if (is_cursor) {
-      debug_msg("str: found position: row: %zd, hrows: %zd\n", row, wrc->hrows);
+      debug_msg("str: found position: row: %" PRIz "d, hrows: %" PRIz "d\n", row, wrc->hrows);
       wrc->rc.row_start = row_start;
       wrc->rc.row_len   = row_len;
       wrc->rc.row       = wrc->hrows + row;
@@ -498,7 +498,7 @@ static ssize_t str_get_wrapped_rc_at_pos(const char* s, ssize_t len, ssize_t ter
   wrowcol_t wrc;
   memset(&wrc,0,sizeof(wrc));
   ssize_t rows = str_for_each_row(s, len, termw, promptw, cpromptw, &str_get_current_wrapped_pos_iter, &warg, &wrc);
-  debug_msg("edit: wrapped pos: (%zd,%zd) rows %zd %s %s, hrows: %zd\n", wrc.rc.row, wrc.rc.col, rows, wrc.rc.first_on_row ? "first" : "", wrc.rc.last_on_row ? "last" : "", wrc.hrows);
+  debug_msg("edit: wrapped pos: (%" PRIz "d,%" PRIz "d) rows %" PRIz "d %s %s, hrows: %" PRIz "d\n", wrc.rc.row, wrc.rc.col, rows, wrc.rc.first_on_row ? "first" : "", wrc.rc.last_on_row ? "last" : "", wrc.hrows);
   *rc = wrc.rc;
   return (rows + wrc.hrows);
 }
@@ -552,7 +552,7 @@ static bool sbuf_ensure_extra(stringbuf_t* s, ssize_t extra)
   ssize_t newlen = (s->buflen <= 0 ? 120 : (s->buflen > 1000 ? s->buflen + 1000 : 2*s->buflen));
   if (newlen < s->count + extra) newlen = s->count + extra;
   if (s->buflen > 0) {
-    debug_msg("stringbuf: reallocate: old %zd, new %zd\n", s->buflen, newlen);
+    debug_msg("stringbuf: reallocate: old %" PRIz "d, new %" PRIz "d\n", s->buflen, newlen);
   }
   char* newbuf = mem_realloc_tp(s->mem, char, s->buf, newlen+1); // one more for terminating zero
   if (newbuf == NULL) {
@@ -912,12 +912,12 @@ ic_public long ic_next_char( const char* s, long pos ) {
 
 // parse a decimal (leave pi unchanged on error)
 ic_private bool ic_atoz(const char* s, ssize_t* pi) {
-  return (sscanf(s, "%zd", pi) == 1);
+  return (sscanf(s, "%" PRIz "d", pi) == 1);
 }
 
 // parse two decimals separated by a semicolon
 ic_private bool ic_atoz2(const char* s, ssize_t* pi, ssize_t* pj) {
-  return (sscanf(s, "%zd;%zd", pi, pj) == 2);
+  return (sscanf(s, "%" PRIz "d;%" PRIz "d", pi, pj) == 2);
 }
 
 // parse unsigned 32-bit (leave pu unchanged on error)

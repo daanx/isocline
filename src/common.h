@@ -41,6 +41,13 @@
 
 #define ic_unused(x)    (void)(x)
 
+#if defined(_MSC_VER) && (_MSC_VER < 1900)
+#define snprintf sprintf_s
+#define inline __inline
+#define PRIz "I"
+#else
+#define PRIz "z"
+#endif
 
 //-------------------------------------------------------------
 // ssize_t

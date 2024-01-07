@@ -45,12 +45,12 @@ static void editor_append_completion(ic_env_t* env, editor_t* eb, ssize_t idx, s
   const char* display = completions_get_display(env->completions, idx, &help);
   if (display == NULL) return;
   if (numbered) {
-    sbuf_appendf(eb->extra, "[ic-info]%s%zd [/]", (selected ? (tty_is_utf8(env->tty) ? "\xE2\x86\x92" : "*") : " "), 1 + idx);
+    sbuf_appendf(eb->extra, "[ic-info]%s%" PRIz "d [/]", (selected ? (tty_is_utf8(env->tty) ? "\xE2\x86\x92" : "*") : " "), 1 + idx);
     width -= 3;
   }
 
   if (width > 0) {
-    sbuf_appendf(eb->extra, "[width=\"%zd;left; ;on\"]", width );
+    sbuf_appendf(eb->extra, "[width=\"%" PRIz "d;left; ;on\"]", width );
   }
   if (selected) {
     sbuf_append(eb->extra, "[ic-emphasis]");
@@ -145,7 +145,7 @@ again:
       sbuf_append(eb->extra, "\n[ic-info](press page-down (or ctrl-j) to see all further completions)[/]");
     }
     else {
-      sbuf_appendf(eb->extra, "\n[ic-info](press page-down (or ctrl-j) to see all %zd completions)[/]", count );
+      sbuf_appendf(eb->extra, "\n[ic-info](press page-down (or ctrl-j) to see all %" PRIz "d completions)[/]", count );
     }
   }
   if (!env->complete_nopreview && selected >= 0 && selected <= count_displayed) {
@@ -234,7 +234,7 @@ again:
       bbcode_println(env->bbcode, "[ic-info]... and more.[/]");
     }
     else {
-      bbcode_printf(env->bbcode, "[ic-info](%zd possible completions)[/]\n", count );
+      bbcode_printf(env->bbcode, "[ic-info](%" PRIz "d possible completions)[/]\n", count );
     }
     for(ssize_t i = 0; i < rc.row+1; i++) {
       term_write(env->term, " \n");
@@ -251,7 +251,7 @@ again:
 }
 
 static void edit_generate_completions(ic_env_t* env, editor_t* eb, bool autotab) {
-  debug_msg( "edit: complete: %zd: %s\n", eb->pos, sbuf_string(eb->input) );
+  debug_msg( "edit: complete: %" PRIz "d: %s\n", eb->pos, sbuf_string(eb->input) );
   if (eb->pos < 0) return;
   ssize_t count = completions_generate(env, env->completions, sbuf_string(eb->input), eb->pos, IC_MAX_COMPLETIONS_TO_TRY);
   bool more_available = (count >= IC_MAX_COMPLETIONS_TO_TRY);

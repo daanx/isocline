@@ -13,6 +13,10 @@
 #include <locale.h>
 #include "isocline.h"
 
+#if defined(_MSC_VER) && (_MSC_VER < 1900)
+#define snprintf sprintf_s
+#endif
+
 // completion function defined below
 static void completer(ic_completion_env_t* cenv, const char* prefix );
 

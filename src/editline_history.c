@@ -141,7 +141,7 @@ static void edit_history_search(ic_env_t* env, editor_t* eb, char* initial ) {
 again:
   hentry = history_get(env->history,hidx);
   if (hentry != NULL) {
-    sbuf_appendf(eb->extra, "[ic-info]%zd. [/][ic-diminish][!pre]", hidx);
+    sbuf_appendf(eb->extra, "[ic-info]%" PRIz "d. [/][ic-diminish][!pre]", hidx);
     sbuf_append_n( eb->extra, hentry, match_pos );
     sbuf_append(eb->extra, "[/pre][u ic-emphasis][!pre]" );
     sbuf_append_n( eb->extra, hentry + match_pos, match_len );

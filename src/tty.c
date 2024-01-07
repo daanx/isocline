@@ -125,7 +125,7 @@ static code_t tty_read_utf8( tty_t* tty, uint8_t c0 ) {
   }
 
   buf[count] = 0;
-  debug_msg("tty: read utf8: count: %zd: %02x,%02x,%02x,%02x", count, buf[0], buf[1], buf[2], buf[3]);
+  debug_msg("tty: read utf8: count: %" PRIz "d: %02x,%02x,%02x,%02x", count, buf[0], buf[1], buf[2], buf[3]);
 
   // decode the utf8 to unicode
   ssize_t read = 0;
