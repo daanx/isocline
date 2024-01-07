@@ -54,7 +54,7 @@ typedef struct hsearch_s {
 
 static void hsearch_push( alloc_t* mem, hsearch_t** hs, ssize_t hidx, ssize_t mpos, ssize_t mlen, bool cinsert ) {
   hsearch_t* h = mem_zalloc_tp( mem, hsearch_t );
-  if (h == NULL) return;
+  if (h == NULL) { return; }
   h->hidx = hidx;
   h->match_pos = mpos;
   h->match_len = mlen;
@@ -65,12 +65,12 @@ static void hsearch_push( alloc_t* mem, hsearch_t** hs, ssize_t hidx, ssize_t mp
 
 static bool hsearch_pop( alloc_t* mem, hsearch_t** hs, ssize_t* hidx, ssize_t* match_pos, ssize_t* match_len, bool* cinsert ) {
   hsearch_t* h = *hs;
-  if (h == NULL) return false;
+  if (h == NULL) { return false; }
   *hs = h->next;
-  if (hidx != NULL)      *hidx = h->hidx;
-  if (match_pos != NULL) *match_pos = h->match_pos;
-  if (match_len != NULL) *match_len = h->match_len;
-  if (cinsert != NULL)   *cinsert = h->cinsert;
+  if (hidx != NULL)      { *hidx = h->hidx; }
+  if (match_pos != NULL) { *match_pos = h->match_pos; }
+  if (match_len != NULL) { *match_len = h->match_len; }
+  if (cinsert != NULL)   { *cinsert = h->cinsert; }
   mem_free(mem, h);
   return true;
 }
@@ -116,7 +116,7 @@ static void edit_history_search(ic_env_t* env, editor_t* eb, char* initial ) {
     ssize_t ipos = 0;
     while( ipos < initial_len ) {
       ssize_t next = str_next_ofs( initial, initial_len, ipos, NULL );
-      if (next < 0) break;
+      if (next < 0) { break; }
       hsearch_push( eb->mem, &hs, hidx, match_pos, match_len, true);
       char c = initial[ipos + next];  // terminate temporarily
       initial[ipos + next] = 0;
@@ -180,7 +180,7 @@ again:
     // undo last search action
     bool cinsert;
     if (hsearch_pop(env->mem,&hs, &hidx, &match_pos, &match_len, &cinsert)) {
-      if (cinsert) edit_backspace(env,eb);
+      if (cinsert) { edit_backspace(env,eb); }
     }
     goto again;
   }
@@ -239,7 +239,7 @@ again:
   eb->prompt_text = prompt_text;
   ic_enable_hint(old_hint);
   edit_refresh(env,eb);
-  if (c != 0) tty_code_pushback(env->tty, c);
+  if (c != 0) { tty_code_pushback(env->tty, c); }
 }
 
 // Start an incremental search with the current word

@@ -43,7 +43,7 @@ ic_private void sbuf_append_tagged( stringbuf_t* sb, const char* tag, const char
 static void editor_append_completion(ic_env_t* env, editor_t* eb, ssize_t idx, ssize_t width, bool numbered, bool selected ) {
   const char* help = NULL;
   const char* display = completions_get_display(env->completions, idx, &help);
-  if (display == NULL) return;
+  if (display == NULL) { return; }
   if (numbered) {
     sbuf_appendf(eb->extra, "[ic-info]%s%" PRIz "d [/]", (selected ? (tty_is_utf8(env->tty) ? "\xE2\x86\x92" : "*") : " "), 1 + idx);
     width -= 3;
@@ -119,7 +119,7 @@ again:
     count_displayed = (count > 9 ? 9 : count);
     percolumn = 3;
     for (ssize_t rw = 0; rw < percolumn; rw++) {
-      if (rw > 0) sbuf_append(eb->extra, "\n");
+      if (rw > 0) { sbuf_append(eb->extra, "\n"); }
       editor_append_completion3(env, eb, colwidth, rw, percolumn+rw, (2*percolumn)+rw, selected);
     }
   }
@@ -128,7 +128,7 @@ again:
     count_displayed = (count > 8 ? 8 : count);
     percolumn = (count_displayed <= 6 ? 3 : 4);
     for (ssize_t rw = 0; rw < percolumn; rw++) {
-      if (rw > 0) sbuf_append(eb->extra, "\n");
+      if (rw > 0) { sbuf_append(eb->extra, "\n"); }
       editor_append_completion2(env, eb, colwidth, rw, percolumn+rw, selected);
     }
   }
@@ -136,7 +136,7 @@ again:
     // display as a list
     count_displayed = (count > 9 ? 9 : count);
     for (ssize_t i = 0; i < count_displayed; i++) {
-      if (i > 0) sbuf_append(eb->extra, "\n");
+      if (i > 0) { sbuf_append(eb->extra, "\n"); }
       editor_append_completion(env, eb, i, -1, true /* numbered */, selected == i);
     }
   }
@@ -247,12 +247,12 @@ again:
   }
   // done
   completions_clear(env->completions);
-  if (c != 0) tty_code_pushback(env->tty,c);
+  if (c != 0) { tty_code_pushback(env->tty,c); }
 }
 
 static void edit_generate_completions(ic_env_t* env, editor_t* eb, bool autotab) {
   debug_msg( "edit: complete: %" PRIz "d: %s\n", eb->pos, sbuf_string(eb->input) );
-  if (eb->pos < 0) return;
+  if (eb->pos < 0) { return; }
   ssize_t count = completions_generate(env, env->completions, sbuf_string(eb->input), eb->pos, IC_MAX_COMPLETIONS_TO_TRY);
   bool more_available = (count >= IC_MAX_COMPLETIONS_TO_TRY);
   if (count <= 0) {

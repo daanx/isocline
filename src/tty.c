@@ -71,22 +71,22 @@ ic_private bool tty_readc_noblock(tty_t* tty, uint8_t* c, long timeout_ms);  // 
 
 ic_private bool code_is_ascii_char(code_t c, char* chr ) {
   if (c >= ' ' && c <= 0x7F) {
-    if (chr != NULL) *chr = (char)c;
+    if (chr != NULL) { *chr = (char)c; }
     return true;
   }
   else {
-    if (chr != NULL) *chr = 0;
+    if (chr != NULL) { *chr = 0; }
     return false;
   }
 }
 
 ic_private bool code_is_unicode(code_t c, unicode_t* uchr) {
   if (c <= KEY_UNICODE_MAX) {
-    if (uchr != NULL) *uchr = c;
+    if (uchr != NULL) { *uchr = c; }
     return true;
   }
   else {
-    if (uchr != NULL) *uchr = 0;
+    if (uchr != NULL) { *uchr = 0; }
     return false;
   }
 }
@@ -150,12 +150,12 @@ ic_private bool tty_read_timeout(tty_t* tty, long timeout_ms, code_t* code)
 {
   // is there a push_count back code?
   if (tty_code_pop(tty,code)) {
-    return code;
+    return (bool)code;
   }
 
   // read a single char/byte from a character stream
   uint8_t c;
-  if (!tty_readc_noblock(tty, &c, timeout_ms)) return false;
+  if (!tty_readc_noblock(tty, &c, timeout_ms)) { return false; }
 
   if (c == KEY_ESC) {
     // escape sequence?
@@ -224,7 +224,7 @@ static code_t modify_code( code_t code ) {
 ic_private code_t tty_read(tty_t* tty)
 {
   code_t code;
-  if (!tty_read_timeout(tty, -1, &code)) return KEY_NONE;
+  if (!tty_read_timeout(tty, -1, &code)) { return KEY_NONE; }
   return code;
 }
 
@@ -241,18 +241,18 @@ ic_private bool tty_read_esc_response(tty_t* tty, char esc_start, bool final_st,
     debug_msg("initial esc response failed: 0x%02x\n", c);
     return false;
   }
-  if (!tty_readc_noblock(tty, &c, tty->esc_timeout) || (c != esc_start)) return false;
+  if (!tty_readc_noblock(tty, &c, tty->esc_timeout) || (c != esc_start)) { return false; }
   while( len < buflen ) {
-    if (!tty_readc_noblock(tty, &c, tty->esc_timeout)) return false;
+    if (!tty_readc_noblock(tty, &c, tty->esc_timeout)) { return false; }
     if (final_st) {
       // OSC is terminated by BELL, or ESC \ (ST)  (and STX)
-      if (c=='\x07' || c=='\x02') {
+      if (c == '\x07' || c == '\x02') {
         break;
       }
-      else if (c=='\x1B') {
+      else if (c == '\x1B') {
         uint8_t c1;
-        if (!tty_readc_noblock(tty, &c1, tty->esc_timeout)) return false;
-        if (c1=='\\') break;
+        if (!tty_readc_noblock(tty, &c1, tty->esc_timeout)) { return false; }
+        if (c1 == '\\') { break; }
         tty_cpush_char(tty,c1);
       }
     }
@@ -277,7 +277,7 @@ ic_private bool tty_read_esc_response(tty_t* tty, char esc_start, bool final_st,
 //-------------------------------------------------------------
 
 static bool tty_code_pop( tty_t* tty, code_t* code ) {
-  if (tty->push_count <= 0) return false;
+  if (tty->push_count <= 0) { return false; }
   tty->push_count--;
   *code = tty->pushbuf[tty->push_count];
   return true;
@@ -285,7 +285,7 @@ static bool tty_code_pop( tty_t* tty, code_t* code ) {
 
 ic_private void tty_code_pushback( tty_t* tty, code_t c ) {
   // note: must be signal safe
-  if (tty->push_count >= TTY_PUSH_MAX) return;
+  if (tty->push_count >= TTY_PUSH_MAX) { return; }
   tty->pushbuf[tty->push_count] = c;
   tty->push_count++;
 }
@@ -346,9 +346,9 @@ ic_private void tty_cpush_char(tty_t* tty, uint8_t c) {
 
 static unsigned csi_mods(code_t mods) {
   unsigned m = 1;
-  if (mods&KEY_MOD_SHIFT) m += 1;
-  if (mods&KEY_MOD_ALT)   m += 2;
-  if (mods&KEY_MOD_CTRL)  m += 4;
+  if (mods&KEY_MOD_SHIFT) { m += 1; }
+  if (mods&KEY_MOD_ALT)   { m += 2; }
+  if (mods&KEY_MOD_CTRL)  { m += 4; }
   return m;
 }
 
@@ -413,21 +413,21 @@ ic_private tty_t* tty_new(alloc_t* mem, int fd_in)
 }
 
 ic_private void tty_free(tty_t* tty) {
-  if (tty==NULL) return;
+  if (tty == NULL) { return; }
   tty_end_raw(tty);
   tty_done_raw(tty);
   mem_free(tty->mem,tty);
 }
 
 ic_private bool tty_is_utf8(const tty_t* tty) {
-  if (tty == NULL) return true;
+  if (tty == NULL) { return true; }
   return (tty->is_utf8);
 }
 
 ic_private bool tty_term_resize_event(tty_t* tty) {
-  if (tty == NULL) return true;
+  if (tty == NULL) { return true; }
   if (tty->has_term_resize_event) {
-    if (!tty->term_resize_event) return false;
+    if (!tty->term_resize_event) { return false; }
     tty->term_resize_event = false;  // reset.
   }
   return true;  // always return true on systems without a resize event (more expensive but still ok)
@@ -444,7 +444,7 @@ ic_private void tty_set_esc_delay(tty_t* tty, long initial_delay_ms, long follow
 #if !defined(_WIN32)
 
 static bool tty_readc_blocking(tty_t* tty, uint8_t* c) {
-  if (tty_cpop(tty,c)) return true;
+  if (tty_cpop(tty,c)) { return true; }
   *c = 0;
   ssize_t nread = read(tty->fd_in, (char*)c, 1);
   if (nread < 0 && errno == EINTR) {
@@ -458,7 +458,7 @@ static bool tty_readc_blocking(tty_t* tty, uint8_t* c) {
 ic_private bool tty_readc_noblock(tty_t* tty, uint8_t* c, long timeout_ms)
 {
   // in our pushback buffer?
-  if (tty_cpop(tty, c)) return true;
+  if (tty_cpop(tty, c)) { return true; }
 
   // blocking read?
   if (timeout_ms < 0) {
@@ -649,25 +649,25 @@ static void signals_restore(void) {
 #endif
 
 ic_private bool tty_start_raw(tty_t* tty) {
-  if (tty == NULL) return false;
-  if (tty->raw_enabled) return true;
-  if (tcsetattr(tty->fd_in,TCSAFLUSH,&tty->raw_ios) < 0) return false;
+  if (tty == NULL) { return false; }
+  if (tty->raw_enabled) { return true; }
+  if (tcsetattr(tty->fd_in,TCSAFLUSH,&tty->raw_ios) < 0) { return false; }
   tty->raw_enabled = true;
   return true;
 }
 
 ic_private void tty_end_raw(tty_t* tty) {
-  if (tty == NULL) return;
-  if (!tty->raw_enabled) return;
+  if (tty == NULL) { return; }
+  if (!tty->raw_enabled) { return; }
   tty->cpush_count = 0;
-  if (tcsetattr(tty->fd_in,TCSAFLUSH,&tty->orig_ios) < 0) return;
+  if (tcsetattr(tty->fd_in,TCSAFLUSH,&tty->orig_ios) < 0) { return; }
   tty->raw_enabled = false;
 }
 
 static bool tty_init_raw(tty_t* tty)
 {
   // Set input to raw mode. See <https://man7.org/linux/man-pages/man3/termios.3.html>.
-  if (tcgetattr(tty->fd_in,&tty->orig_ios) == -1) return false;
+  if (tcgetattr(tty->fd_in,&tty->orig_ios) == -1) { return false; }
   tty->raw_ios = tty->orig_ios;
   // input: no break signal, no \r to \n, no parity check, no 8-bit to 7-bit, no flow control
   tty->raw_ios.c_iflag &= ~(unsigned long)(BRKINT | ICRNL | INPCK | ISTRIP | IXON);
@@ -703,7 +703,7 @@ static void tty_waitc_console(tty_t* tty, long timeout_ms);
 
 ic_private bool tty_readc_noblock(tty_t* tty, uint8_t* c, long timeout_ms) {  // don't modify `c` if there is no input
   // in our pushback buffer?
-  if (tty_cpop(tty, c)) return true;
+  if (tty_cpop(tty, c)) { return true; }
   // any events in the input queue?
   tty_waitc_console(tty, timeout_ms);
   return tty_cpop(tty, c);
@@ -720,7 +720,7 @@ static void tty_waitc_console(tty_t* tty, long timeout_ms)
     // check if there are events if in non-blocking timeout mode
     if (timeout_ms >= 0) {
       // first peek ahead
-      if (!GetNumberOfConsoleInputEvents(tty->hcon, &count)) return;
+      if (!GetNumberOfConsoleInputEvents(tty->hcon, &count)) { return; }
       if (count == 0) {
         if (timeout_ms == 0) {
           // out of time
@@ -751,8 +751,8 @@ static void tty_waitc_console(tty_t* tty, long timeout_ms)
     }
 
     // (blocking) Read from the input
-    if (!ReadConsoleInputW(tty->hcon, &inp, 1, &count)) return;
-    if (count != 1) return;
+    if (!ReadConsoleInputW(tty->hcon, &inp, 1, &count)) { return; }
+    if (count != 1) { return; }
 
     // resize event?
     if (inp.EventType == WINDOW_BUFFER_SIZE_EVENT) {
@@ -761,7 +761,7 @@ static void tty_waitc_console(tty_t* tty, long timeout_ms)
     }
 
     // wait for key down events
-    if (inp.EventType != KEY_EVENT) continue;
+    if (inp.EventType != KEY_EVENT) { continue; }
 
     // the modifier state
     DWORD modstate = inp.Event.KeyEvent.dwControlKeyState;
@@ -778,9 +778,9 @@ static void tty_waitc_console(tty_t* tty, long timeout_ms)
 
     // get modifiers
     code_t mods = 0;
-    if ((modstate & ( RIGHT_CTRL_PRESSED | LEFT_CTRL_PRESSED )) != 0) mods |= KEY_MOD_CTRL;
-    if ((modstate & ( RIGHT_ALT_PRESSED | LEFT_ALT_PRESSED )) != 0)   mods |= KEY_MOD_ALT;
-    if ((modstate & SHIFT_PRESSED) != 0)                              mods |= KEY_MOD_SHIFT;
+    if ((modstate & ( RIGHT_CTRL_PRESSED | LEFT_CTRL_PRESSED )) != 0) { mods |= KEY_MOD_CTRL; }
+    if ((modstate & ( RIGHT_ALT_PRESSED | LEFT_ALT_PRESSED )) != 0)   { mods |= KEY_MOD_ALT; }
+    if ((modstate & SHIFT_PRESSED) != 0)                              { mods |= KEY_MOD_SHIFT; }
 
     // virtual keys
     uint32_t chr = (uint32_t)inp.Event.KeyEvent.uChar.UnicodeChar;
@@ -858,7 +858,7 @@ ic_private bool tty_async_stop(const tty_t* tty) {
 }
 
 ic_private bool tty_start_raw(tty_t* tty) {
-  if (tty->raw_enabled) return true;
+  if (tty->raw_enabled) { return true; }
   GetConsoleMode(tty->hcon,&tty->hcon_orig_mode);
   DWORD mode = ENABLE_QUICK_EDIT_MODE   // cut&paste allowed
              | ENABLE_WINDOW_INPUT      // to catch resize events
@@ -871,7 +871,7 @@ ic_private bool tty_start_raw(tty_t* tty) {
 }
 
 ic_private void tty_end_raw(tty_t* tty) {
-  if (!tty->raw_enabled) return;
+  if (!tty->raw_enabled) { return; }
   SetConsoleMode(tty->hcon, tty->hcon_orig_mode );
   tty->raw_enabled = false;
 }

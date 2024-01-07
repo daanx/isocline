@@ -41,14 +41,14 @@ static void default_filename_completer( ic_completion_env_t* cenv, const char* p
 
 ic_private completions_t* completions_new(alloc_t* mem) {
   completions_t* cms = mem_zalloc_tp(mem, completions_t);
-  if (cms == NULL) return NULL;
+  if (cms == NULL) { return NULL; }
   cms->mem = mem;
   cms->completer = &default_filename_completer;
   return cms;
 }
 
 ic_private void completions_free(completions_t* cms) {
-  if (cms == NULL) return;
+  if (cms == NULL) { return; }
   completions_clear(cms);
   if (cms->elems != NULL) {
     mem_free(cms->mem, cms->elems);
@@ -76,7 +76,7 @@ static void completions_push(completions_t* cms, const char* replacement, const 
   if (cms->count >= cms->len) {
     ssize_t newlen = (cms->len <= 0 ? 32 : cms->len*2);
     completion_t* newelems = mem_realloc_tp(cms->mem, completion_t, cms->elems, newlen );
-    if (newelems == NULL) return;
+    if (newelems == NULL) { return; }
     cms->elems = newelems;
     cms->len   = newlen;
   }
@@ -103,7 +103,7 @@ static bool completions_contains(completions_t* cms, const char* replacement) {
 }
 
 ic_private bool completions_add(completions_t* cms, const char* replacement, const char* display, const char* help, ssize_t delete_before, ssize_t delete_after) {
-  if (cms->completer_max <= 0) return false;
+  if (cms->completer_max <= 0) { return false; }
   cms->completer_max--;
   //debug_msg("completion: add: %d,%d, %s\n", delete_before, delete_after, replacement);
   if (!completions_contains(cms,replacement)) {
@@ -113,32 +113,32 @@ ic_private bool completions_add(completions_t* cms, const char* replacement, con
 }
 
 static completion_t* completions_get(completions_t* cms, ssize_t index) {
-  if (index < 0 || cms->count <= 0 || index >= cms->count) return NULL;
+  if (index < 0 || cms->count <= 0 || index >= cms->count) { return NULL; }
   return &cms->elems[index];
 }
 
 ic_private const char* completions_get_display( completions_t* cms, ssize_t index, const char** help ) {
   if (help != NULL) { *help = NULL;  }
   completion_t* cm = completions_get(cms, index);
-  if (cm == NULL) return NULL;
+  if (cm == NULL) { return NULL; }
   if (help != NULL) { *help = cm->help; }
   return (cm->display != NULL ? cm->display : cm->replacement);
 }
 
 ic_private const char* completions_get_help( completions_t* cms, ssize_t index ) {
   completion_t* cm = completions_get(cms, index);
-  if (cm == NULL) return NULL;
+  if (cm == NULL) { return NULL; }
   return cm->help;
 }
 
 ic_private const char* completions_get_hint(completions_t* cms, ssize_t index, const char** help) {
   if (help != NULL) { *help = NULL; }
   completion_t* cm = completions_get(cms, index);
-  if (cm == NULL) return NULL;
+  if (cm == NULL) { return NULL; }
   ssize_t len = ic_strlen(cm->replacement);
-  if (len < cm->delete_before) return NULL;
+  if (len < cm->delete_before) { return NULL; }
   const char* hint = (cm->replacement + cm->delete_before);
-  if (*hint == 0 || utf8_is_cont((uint8_t)(*hint))) return NULL;  // utf8 boundary?
+  if (*hint == 0 || utf8_is_cont((uint8_t)(*hint))) { return NULL; }  // utf8 boundary?
   if (help != NULL) { *help = cm->help; }
   return hint;
 }
@@ -168,10 +168,10 @@ ic_public bool ic_stop_completing( const ic_completion_env_t* cenv) {
 
 
 static ssize_t completion_apply( completion_t* cm, stringbuf_t* sbuf, ssize_t pos ) {
-  if (cm == NULL) return -1;
+  if (cm == NULL) { return -1; }
   debug_msg( "completion: apply: %s at %" PRIz "d\n", cm->replacement, pos);
   ssize_t start = pos - cm->delete_before;
-  if (start < 0) start = 0;
+  if (start < 0) { start = 0; }
   ssize_t n = cm->delete_before + cm->delete_after;
   if (ic_strlen(cm->replacement) == n && strncmp(sbuf_string_at(sbuf,start), cm->replacement, to_size_t(n)) == 0) {
     // no changes
@@ -190,14 +190,14 @@ ic_private ssize_t completions_apply( completions_t* cms, ssize_t index, stringb
 
 
 static int completion_compare(const void* p1, const void* p2) {
-  if (p1 == NULL || p2 == NULL) return 0;
+  if (p1 == NULL || p2 == NULL) { return 0; }
   const completion_t* cm1 = (const completion_t*)p1;
   const completion_t* cm2 = (const completion_t*)p2;
   return ic_stricmp(cm1->replacement, cm2->replacement);
 }
 
 ic_private void completions_sort(completions_t* cms) {
-  if (cms->count <= 0) return;
+  if (cms->count <= 0) { return; }
   qsort(cms->elems, to_size_t(cms->count), sizeof(cms->elems[0]), &completion_compare);
 }
 
@@ -211,7 +211,7 @@ ic_private ssize_t completions_apply_longest_prefix(completions_t* cms, stringbu
 
   // set initial prefix to the first entry
   completion_t* cm = completions_get(cms, 0);
-  if (cm == NULL) return -1;
+  if (cm == NULL) { return -1; }
 
   char prefix[IC_MAX_PREFIX+1];
   ssize_t delete_before = cm->delete_before;
@@ -229,15 +229,15 @@ ic_private ssize_t completions_apply_longest_prefix(completions_t* cms, stringbu
     const char* r = cm->replacement;
     ssize_t j;
     for(j = 0; prefix[j] != 0 && r[j] != 0; j++) {
-      if (prefix[j] != r[j]) break;
+      if (prefix[j] != r[j]) { break; }
     }
     prefix[j] = 0;
-    if (j <= 0) break;
+    if (j <= 0) { break; }
   }
 
   // check the length
   ssize_t len = ic_strlen(prefix);
-  if (len <= 0 || len < delete_before) return -1;
+  if (len <= 0 || len < delete_before) { return -1; }
 
   // we found a prefix :-)
   completion_t cprefix;
@@ -245,7 +245,7 @@ ic_private ssize_t completions_apply_longest_prefix(completions_t* cms, stringbu
   cprefix.delete_before = delete_before;
   cprefix.replacement   = prefix;
   ssize_t newpos = completion_apply( &cprefix, sbuf, pos);
-  if (newpos < 0) return newpos;
+  if (newpos < 0) { return newpos; }
 
   // adjust all delete_before for the new replacement
   for( ssize_t i = 0; i < cms->count; i++) {
@@ -264,7 +264,7 @@ ic_private ssize_t completions_apply_longest_prefix(completions_t* cms, stringbu
 ic_public bool ic_add_completions(ic_completion_env_t* cenv, const char* prefix, const char** completions) {
   for (const char** pc = completions; *pc != NULL; pc++) {
     if (ic_istarts_with(*pc, prefix)) {
-      if (!ic_add_completion_ex(cenv, *pc, NULL, NULL)) return false;
+      if (!ic_add_completion_ex(cenv, *pc, NULL, NULL)) { return false; }
     }
   }
   return true;
@@ -288,13 +288,13 @@ static bool prim_add_completion(ic_env_t* env, void* funenv, const char* replace
 }
 
 ic_public void ic_set_default_completer(ic_completer_fun_t* completer, void* arg) {
-  ic_env_t* env = ic_get_env(); if (env == NULL) return;
+  ic_env_t* env = ic_get_env(); if (env == NULL) { return; }
   completions_set_completer(env->completions, completer, arg);
 }
 
 ic_private ssize_t completions_generate(struct ic_env_s* env, completions_t* cms, const char* input, ssize_t pos, ssize_t max) {
   completions_clear(cms);
-  if (cms->completer == NULL || input == NULL || ic_strlen(input) < pos) return 0;
+  if (cms->completer == NULL || input == NULL || ic_strlen(input) < pos) { return 0; }
 
   // set up env
   ic_completion_env_t cenv;

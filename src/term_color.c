@@ -182,7 +182,7 @@ typedef struct rgb_cache_s {
 
 // remember a color in the LRU cache
 void rgb_remember( rgb_cache_t* cache, ic_color_t color, int idx ) {
-  if (cache == NULL) return;
+  if (cache == NULL) { return; }
   cache->colors[cache->last] = color;
   cache->indices[cache->last] = idx;
   cache->last++;
@@ -193,7 +193,7 @@ void rgb_remember( rgb_cache_t* cache, ic_color_t color, int idx ) {
 int rgb_lookup( const rgb_cache_t* cache, ic_color_t color ) {
   if (cache != NULL) {
     for(int i = 0; i < RGB_CACHE_LEN; i++) {
-      if (cache->colors[i] == color) return cache->indices[i];
+      if (cache->colors[i] == color) { return cache->indices[i]; }
     }
   }
   return -1;
@@ -268,7 +268,7 @@ static int color_to_ansi8(ic_color_t color) {
     // and then adjust for brightness
     int r, g, b;
     color_to_rgb(color,&r,&g,&b);
-    if (r>=196 || g>=196 || b>=196) c += 60;
+    if (r>=196 || g>=196 || b>=196) { c += 60; }
     //debug_msg("term: rgb %x -> ansi 8: %d\n", color, c );
     return c;
   }
@@ -314,7 +314,7 @@ static void fmt_color_rgb( char* buf, ssize_t len, ic_color_t color, bool bg ) {
 }
 
 static void fmt_color_ex(char* buf, ssize_t len, palette_t palette, ic_color_t color, bool bg) {
-  if (color == IC_COLOR_NONE || palette == MONOCHROME) return;
+  if (color == IC_COLOR_NONE || palette == MONOCHROME) { return; }
   if (palette == ANSI8) {
     fmt_color_ansi8(buf,len,color,bg);
   }

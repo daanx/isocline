@@ -29,7 +29,7 @@ struct ic_highlight_env_s {
 
 ic_private void highlight( alloc_t* mem, bbcode_t* bb, const char* s, attrbuf_t* attrs, ic_highlight_fun_t* highlighter, void* arg ) {
   const ssize_t len = ic_strlen(s);
-  if (len <= 0) return;
+  if (len <= 0) { return; }
   attrbuf_set_at(attrs,0,len,attr_none()); // fill to length of s
   if (highlighter != NULL) {
     ic_highlight_env_t henv;
@@ -52,9 +52,9 @@ ic_private void highlight( alloc_t* mem, bbcode_t* bb, const char* s, attrbuf_t*
 static void pos_adjust( ic_highlight_env_t* henv, ssize_t* ppos, ssize_t* plen ) {
   ssize_t pos = *ppos;
   ssize_t len = *plen;
-  if (pos >= henv->input_len) return;
-  if (pos >= 0 && len >= 0) return;   // already character positions
-  if (henv->input == NULL) return;
+  if (pos >= henv->input_len) { return; }
+  if (pos >= 0 && len >= 0) { return; }   // already character positions
+  if (henv->input == NULL) { return; }
 
   if (pos < 0) {
     // negative `pos` is used as the unicode character position (for easy interfacing with Haskell)
@@ -67,7 +67,7 @@ static void pos_adjust( ic_highlight_env_t* henv, ssize_t* ppos, ssize_t* plen )
     }
     while ( ucount < upos ) {
       ssize_t next = str_next_ofs(henv->input, henv->input_len, cpos, NULL);
-      if (next <= 0) return;
+      if (next <= 0) { return; }
       ucount++;
       cpos += next;
     }
@@ -83,7 +83,7 @@ static void pos_adjust( ic_highlight_env_t* henv, ssize_t* ppos, ssize_t* plen )
     ssize_t clen   = 0;
     while (ucount < len) {
       ssize_t next = str_next_ofs(henv->input, henv->input_len, pos + clen, NULL);
-      if (next <= 0) return;
+      if (next <= 0) { return; }
       ucount++;
       clen += next;
     }
@@ -97,22 +97,22 @@ static void pos_adjust( ic_highlight_env_t* henv, ssize_t* ppos, ssize_t* plen )
 }
 
 static void highlight_attr(ic_highlight_env_t* henv, ssize_t pos, ssize_t count, attr_t attr ) {
-  if (henv==NULL) return;
+  if (henv == NULL) { return; }
   pos_adjust(henv,&pos,&count);
-  if (pos < 0 || count <= 0) return;
+  if (pos < 0 || count <= 0) { return; }
   attrbuf_update_at(henv->attrs, pos, count, attr);
 }
 
 ic_public void ic_highlight(ic_highlight_env_t* henv, long pos, long count, const char* style ) {
-  if (henv == NULL || style==NULL || style[0]==0 || pos < 0) return;
+  if (henv == NULL || style == NULL || style[0] == 0 || pos < 0) { return; }
   highlight_attr(henv,pos,count,bbcode_style( henv->bbcode, style ));
 }
 
 ic_public void ic_highlight_formatted(ic_highlight_env_t* henv, const char* s, const char* fmt) {
-  if (s==NULL || s[0] == 0 || fmt==NULL) return;
+  if (s == NULL || s[0] == 0 || fmt == NULL) { return; }
   attrbuf_t* attrs = attrbuf_new(henv->mem);
   stringbuf_t* out = sbuf_new(henv->mem);  // todo: avoid allocating out?
-  if (attrs!=NULL && out != NULL) {
+  if (attrs != NULL && out != NULL) {
     bbcode_append( henv->bbcode, fmt, out, attrs);
     const ssize_t len = ic_strlen(s);
     if (sbuf_len(out) != len) {
@@ -149,7 +149,7 @@ ic_private void highlight_match_braces(const char* s, attrbuf_t* attrs, ssize_t 
     for (ssize_t b = 0; b < brace_len; b += 2) {
       if (c == braces[b]) {
         // open brace
-        if (nesting >= MAX_NESTING) return; // give up
+        if (nesting >= MAX_NESTING) { return; } // give up
         open[nesting].close = braces[b+1];
         open[nesting].pos = i;
         open[nesting].at_cursor = (i == cursor_pos - 1);
@@ -158,7 +158,7 @@ ic_private void highlight_match_braces(const char* s, attrbuf_t* attrs, ssize_t 
         break;
       }
     }
-    if (found_open) continue;
+    if (found_open) { continue; }
 
     // pop to closing brace and potentially highlight
     for (ssize_t b = 1; b < brace_len; b += 2) {
@@ -212,7 +212,7 @@ ic_private ssize_t find_matching_brace(const char* s, ssize_t cursor_pos, const 
     for (ssize_t b = 0; b < brace_len; b += 2) {
       if (c == braces[b]) {
         // open brace
-        if (nesting >= MAX_NESTING) return -1; // give up
+        if (nesting >= MAX_NESTING) { return -1; } // give up
         open[nesting].close = braces[b+1];
         open[nesting].pos = i;
         open[nesting].at_cursor = (i == cursor_pos - 1);
@@ -221,7 +221,7 @@ ic_private ssize_t find_matching_brace(const char* s, ssize_t cursor_pos, const 
         break;
       }
     }
-    if (found_open) continue;
+    if (found_open) { continue; }
 
     // pop to closing brace
     for (ssize_t b = 1; b < brace_len; b += 2) {
