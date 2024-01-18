@@ -232,10 +232,21 @@ ic_private unicode_t unicode_from_qutf8(const uint8_t* s, ssize_t len, ssize_t* 
     return (((c0 & 0x1F) << 6) | (s[1] & 0x3F));
   }
   // 3 bytes: reject overlong and surrogate halves
+  /*
+  Fix: unicode_from_qutf8 ingores 0xED and 0xEF cases;
+  
+  see https://github.com/koka-lang/koka/blob/master/kklib/src/string.c
+  line 252 (kk_utf8_read_validate)
+
+  // 3 byte encoding; reject overlong and utf-16 surrogate halves (0xD800 - 0xDFFF)
+  if ((b == 0xE0 && s[1] >= 0xA0 && s[1] <= 0xBF && kk_utf8_is_cont(s[2]))
+    || ((b >= 0xE1 && b <= 0xEF && b != 0xED) && kk_utf8_is_cont(s[1]) && kk_utf8_is_cont(s[2]))
+    || (b == 0xED && s[1] >= 0x80 && s[1] <= 0x9F && kk_utf8_is_cont(s[2])))
+  */
   else if (len >= 3 && 
            ((c0 == 0xE0 && s[1] >= 0xA0 && s[1] <= 0xBF && utf8_is_cont(s[2])) ||
-            (c0 >= 0xE1 && c0 <= 0xEC && utf8_is_cont(s[1]) && utf8_is_cont(s[2])) 
-          ))
+            (c0 >= 0xE1 && c0 <= 0xEF && c0 != 0xED && utf8_is_cont(s[1]) && utf8_is_cont(s[2])) ||
+            (c0 == 0xED && s[1] > 0x80 && s[1] <= 0x9F && utf8_is_cont(s[2]))))
   {
     if (count != NULL) *count = 3;
     return (((c0 & 0x0F) << 12) | ((unicode_t)(s[1] & 0x3F) << 6) | (s[2] & 0x3F));
