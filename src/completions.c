@@ -154,6 +154,12 @@ ic_private void completions_get_completer(completions_t* cms, ic_completer_fun_t
 }
 
 
+ic_public const char* ic_completion_input( ic_completion_env_t* cenv, long* cursor ) {
+  if (cenv == NULL) return NULL;
+  if (cursor != NULL) { *cursor = cenv->cursor; }
+  return cenv->input;
+}
+
 ic_public void* ic_completion_arg( const ic_completion_env_t* cenv ) {
   return (cenv == NULL ? NULL : cenv->env->completions->completer_arg);
 }
