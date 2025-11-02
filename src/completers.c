@@ -548,18 +548,33 @@ static bool match_extension(const char* name, const char* extensions) {
   return false;
 }
 
-static bool filename_complete_indir( ic_completion_env_t* cenv, stringbuf_t* dir, 
-                                      stringbuf_t* dir_prefix, stringbuf_t* display,
-                                       const char* base_prefix, 
-                                        char dir_sep, const char* extensions ) 
+static bool filename_complete_indir( ic_completion_env_t* cenv, stringbuf_t* dir,
+                                     stringbuf_t* dir_prefix, stringbuf_t* display,
+                                       const char* base_prefix,
+                                        char dir_sep, const char* extensions )
 {
   dir_cursor d = 0;
   dir_entry entry;
   bool cont = true;
-  if (os_findfirst(cenv->env->mem, sbuf_string(dir), &d, &entry)) {
+
+  // --- BEGIN PATCH ---
+  // Fix memory leak found by Valgrind when completing in a deleted directory.
+  //
+  // The Bug:
+  // - os_findfirst() calls opendir() (succeeds, d != 0) and then readdir() (fails, opened=false).
+  // - The original code only called os_findclose(d) if 'opened' was true.
+  // - This leaked the 'd' (DIR*) handle allocated by opendir().
+  //
+  // The Fix:
+  // - Separate the 'opened' check (first readdir) from the 'd' check (opendir).
+  // - Always call os_findclose(d) if 'd' is not 0, regardless of 'opened' status.
+
+  bool opened = os_findfirst(cenv->env->mem, sbuf_string(dir), &d, &entry);
+
+  if (opened) {
     do {
       const char* name = os_direntry_name(&entry);
-      if (name != NULL && strcmp(name, ".") != 0 && strcmp(name, "..") != 0 && 
+      if (name != NULL && strcmp(name, ".") != 0 && strcmp(name, "..") != 0 &&
           ic_istarts_with(name, base_prefix))
       {
         // possible match, first check if it is a directory
@@ -574,7 +589,7 @@ static bool filename_complete_indir( ic_completion_env_t* cenv, stringbuf_t* dir
           ft = os_get_filetype(sbuf_string(dir));
           isdir = os_is_dir(sbuf_string(dir));
           if (isdir && dir_sep != 0) {
-            sbuf_append_char(dir_prefix,dir_sep); 
+            sbuf_append_char(dir_prefix,dir_sep);
           }
           sbuf_delete_from(dir,dlen);  // restore dir
         }
@@ -587,8 +602,13 @@ static bool filename_complete_indir( ic_completion_env_t* cenv, stringbuf_t* dir
         sbuf_delete_from( dir_prefix, plen ); // restore dir_prefix
       }
     } while (cont && os_findnext(d, &entry));
+    // os_findclose(d); // <-- BUG: Original location
+  }
+  // Correct location: always close if opendir() succeeded (d != 0)
+  if (d != 0) {
     os_findclose(d);
   }
+  // --- END PATCH ---
   return cont;
 }
 
