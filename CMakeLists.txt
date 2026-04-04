@@ -160,3 +160,40 @@ add_executable(test_colors test/test_colors.c)
 target_compile_options(test_colors PRIVATE ${ic_cflags})
 target_include_directories(test_colors PRIVATE include)
 target_link_libraries(test_colors PRIVATE isocline)
+
+
+# -----------------------------------------------------------------------------
+# Shared library (libisocline.so)
+# -----------------------------------------------------------------------------
+
+add_library(isocline_shared SHARED ${ic_sources})
+set_target_properties(isocline_shared PROPERTIES
+    OUTPUT_NAME isocline
+    VERSION 1.0.9
+    SOVERSION 1
+)
+target_compile_options(isocline_shared PRIVATE ${ic_cflags})
+target_compile_definitions(isocline_shared PRIVATE ${ic_cdefs})
+target_include_directories(isocline_shared PUBLIC
+    $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
+    $<INSTALL_INTERFACE:include>
+)
+
+
+# -----------------------------------------------------------------------------
+# Install rules
+# -----------------------------------------------------------------------------
+
+include(GNUInstallDirs)
+
+install(TARGETS isocline isocline_shared
+    ARCHIVE DESTINATION ${CMAKE_INSTALL_LIBDIR}
+    LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR}
+)
+
+install(FILES include/isocline.h DESTINATION ${CMAKE_INSTALL_INCLUDEDIR})
+
+configure_file(isocline.pc.in isocline.pc @ONLY)
+install(FILES ${CMAKE_CURRENT_BINARY_DIR}/isocline.pc
+    DESTINATION ${CMAKE_INSTALL_LIBDIR}/pkgconfig
+)
