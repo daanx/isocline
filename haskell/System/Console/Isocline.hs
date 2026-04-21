@@ -605,7 +605,9 @@ makeCharClassFun (Just isInClass)
           = let len = (fromIntegral clen :: Int)
             in if (len <= 0) then return (cbool False)
                 else do s <- peekCStringLen (cstr,len)
-                        return (if null s then (cbool False) else cbool (isInClass (head s)))
+                        return (cbool (case s of 
+                                        ""    -> False
+                                        (c:_) -> isInClass c))
     in do ic_make_charclassfun charClassFun
           
 
