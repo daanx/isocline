@@ -152,7 +152,7 @@ static inline code_t key_unicode( unicode_t u ) {
 #define KEY_CTRL_END      (WITH_CTRL(KEY_END))
 #define KEY_CTRL_DEL      (WITH_CTRL(KEY_DEL))
 #define KEY_CTRL_PAGEUP   (WITH_CTRL(KEY_PAGEUP))
-#define KEY_CTRL_PAGEDOWN (WITH_CTRL(KEY_PAGEDOWN)))
+#define KEY_CTRL_PAGEDOWN (WITH_CTRL(KEY_PAGEDOWN))
 #define KEY_CTRL_INS      (WITH_CTRL(KEY_INS))
 
 #define KEY_SHIFT_TAB     (WITH_SHIFT(KEY_TAB))
