@@ -1031,7 +1031,7 @@ static void term_update_ansi16(term_t* term) {
   #if __APPLE__
   // otherwise use OSC 4 escape sequence query
   if (tty_start_raw(term->tty)) {
-    for(ssize_t i = 0; i < 16; i++) {
+    for(int i = 0; i < 16; i++) {
       uint32_t color;
       if (!term_esc_query_color_raw(term, i, &color)) break;
       debug_msg("term ansi color %d: 0x%06x\n", i, color);
