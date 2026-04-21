@@ -42,7 +42,7 @@ Include the isocline header in your C or C++ source:
 and call `ic_readline` to get user input with rich editing abilities:
 ```C
 char* input;
-while( (input = ic_readline("prompt")) != NULL ) { // ctrl+d/c or errors return NULL
+while( (input = ic_readline("prompt")) != NULL ) { // ctrl+d or errors return NULL
   printf("you typed:\n%s\n", input); // use the input
   free(input);  
 }
