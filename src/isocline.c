@@ -244,10 +244,15 @@ ic_public bool ic_enable_multiline_indent(bool enable) {
 }
 
 ic_public bool ic_enable_hint(bool enable) {
+#ifndef IC_HIST_IMPL_SQLITE
   ic_env_t* env = ic_get_env(); if (env==NULL) return false;
   bool prev = env->no_hint;
   env->no_hint = !enable;
   return !prev;
+#else
+  ic_unused(enable);
+  return false;
+#endif
 }
 
 ic_public long ic_set_hint_delay(long delay_ms) {
@@ -531,7 +536,9 @@ static ic_env_t* ic_env_create( ic_malloc_fun_t* _malloc, ic_realloc_fun_t* _rea
   env->history     = history_new(env->mem);
   env->completions = completions_new(env->mem);
   env->bbcode      = bbcode_new(env->mem, env->term);
-  env->hint_delay  = 400;   
+#ifndef IC_HIST_IMPL_SQLITE
+  env->hint_delay  = 400;
+#endif
   
   if (env->tty == NULL || env->term==NULL ||
       env->completions == NULL || env->history == NULL || env->bbcode == NULL ||
