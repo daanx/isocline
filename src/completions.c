@@ -175,7 +175,7 @@ static ssize_t completion_apply( completion_t* cm, stringbuf_t* sbuf, ssize_t po
   ssize_t n = cm->delete_before + cm->delete_after;
   if (ic_strlen(cm->replacement) == n && strncmp(sbuf_string_at(sbuf,start), cm->replacement, to_size_t(n)) == 0) {
     // no changes
-    return -1;
+    return start + n;
   }
   else {
     sbuf_delete_from_to( sbuf, start, pos + cm->delete_after );

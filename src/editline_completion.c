@@ -261,8 +261,9 @@ static void edit_generate_completions(ic_env_t* env, editor_t* eb, bool autotab)
     if (!autotab) { term_beep(env->term); }
   }
   else if (count == 1) {
+    ssize_t old_pos = eb->pos;
     // complete if only one match    
-    if (edit_complete(env,eb,0 /*idx*/) && env->complete_autotab) {
+    if (edit_complete(env,eb,0 /*idx*/) && env->complete_autotab && eb->pos > old_pos) {
       tty_code_pushback(env->tty,KEY_EVENT_AUTOTAB);
     }    
   }
