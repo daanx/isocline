@@ -44,8 +44,8 @@ Contents:
 /// The basic readline interface.
 /// \{
 
-/// Isocline version: 102 = 1.0.2.
-#define IC_VERSION   (104)  
+/// Isocline version: 110 = 1.1.0.
+#define IC_VERSION   (110)  
 
 
 /// Read input from the user using rich editing abilities.

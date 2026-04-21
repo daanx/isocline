@@ -95,7 +95,7 @@ static const char* help[] = {
 
 static const char* help_initial = 
   "[ic-info]"
-  "Isocline v1.0, copyright (c) 2021 Daan Leijen.\n"
+  "Isocline v1.1, copyright (c) 2021-2026 Daan Leijen.\n"
   "This is free software; you can redistribute it and/or\n"
   "modify it under the terms of the MIT License.\n"
   "See <[url]https://github.com/daanx/isocline[/url]> for further information.\n"
