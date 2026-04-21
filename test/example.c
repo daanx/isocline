@@ -20,8 +20,10 @@ static void completer(ic_completion_env_t* cenv, const char* prefix );
 static void highlighter(ic_highlight_env_t* henv, const char* input, void* arg);
 
 // main example
-int main() 
+int main(int argc, char** argv) 
 {
+  (void)(argc); (void)(argv);
+
   setlocale(LC_ALL,"C.UTF-8");  // we use utf-8 in this example
 
   // use `ic_print` functions to use bbcode's for markup
