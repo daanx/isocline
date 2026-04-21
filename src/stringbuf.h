@@ -69,6 +69,8 @@ ic_private ssize_t sbuf_find_word_end( stringbuf_t* sbuf, ssize_t pos );
 ic_private ssize_t sbuf_find_ws_word_start( stringbuf_t* sbuf, ssize_t pos );
 ic_private ssize_t sbuf_find_ws_word_end( stringbuf_t* sbuf, ssize_t pos );
 
+ic_private ssize_t ic_count_end_overlap(const char* s, const char* postfix);
+
 // parse a decimal 
 ic_private bool ic_atoz(const char* s, ssize_t* i);
 // parse two decimals separated by a semicolon

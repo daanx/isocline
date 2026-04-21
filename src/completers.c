@@ -23,6 +23,7 @@
 typedef struct word_closure_s {
   long                  delete_before_adjust;
   void*                 prev_env;
+  const char*           postfix;          // content after the cursor
   ic_completion_fun_t*  prev_complete;
 } word_closure_t;
 
@@ -31,7 +32,8 @@ typedef struct word_closure_s {
 static bool token_add_completion_ex(ic_env_t* env, void* closure, const char* replacement, const char* display, const char* help, long delete_before, long delete_after) {
   word_closure_t* wenv = (word_closure_t*)(closure);
   // call the previous completer with an adjusted delete-before
-  return (*wenv->prev_complete)(env, wenv->prev_env, replacement, display, help, wenv->delete_before_adjust + delete_before, delete_after);
+  const long delete_after_adjust = (long)ic_count_end_overlap(replacement, wenv->postfix);
+  return (*wenv->prev_complete)(env, wenv->prev_env, replacement, display, help, wenv->delete_before_adjust + delete_before, delete_after_adjust + delete_after);
 }
 
 
@@ -61,6 +63,7 @@ ic_public void ic_complete_word(ic_completion_env_t* cenv, const char* prefix, i
   wenv.delete_before_adjust = (long)(len - pos);
   wenv.prev_complete = cenv->complete;
   wenv.prev_env = cenv->env;
+  wenv.postfix = cenv->input + cenv->cursor;
   cenv->complete = &token_add_completion_ex;
   cenv->closure = &wenv;
 
@@ -77,6 +80,8 @@ ic_public void ic_complete_word(ic_completion_env_t* cenv, const char* prefix, i
 // Quoted word completion (with escape characters)
 //-------------------------------------------------------------
 
+
+
 // free variables for word completion
 typedef struct qword_closure_s {
   char         escape_char;
@@ -84,6 +89,7 @@ typedef struct qword_closure_s {
   long         delete_before_adjust;
   stringbuf_t* sbuf;
   void*        prev_env;
+  const char*  postfix;      // follows the current input position
   ic_is_char_class_fun_t* is_word_char;
   ic_completion_fun_t*    prev_complete;
 } qword_closure_t;
@@ -112,7 +118,8 @@ static bool qword_add_completion_ex(ic_env_t* env, void* closure, const char* re
     }
   }
   // and call the previous completion function
-  return (*wenv->prev_complete)( env, wenv->prev_env, sbuf_string(wenv->sbuf), display, help, wenv->delete_before_adjust + delete_before, delete_after );  
+  const long delete_after_adjust = (long)ic_count_end_overlap(sbuf_string(wenv->sbuf), wenv->postfix);
+  return (*wenv->prev_complete)( env, wenv->prev_env, sbuf_string(wenv->sbuf), display, help, wenv->delete_before_adjust + delete_before, delete_after_adjust + delete_after );  
 }
 
 
@@ -236,7 +243,8 @@ ic_public void ic_complete_qword_ex( ic_completion_env_t* cenv, const char* pref
   wenv.escape_char    = escape_char;
   wenv.delete_before_adjust = (long)(len - pos);
   wenv.prev_complete  = cenv->complete;
-  wenv.prev_env       =  cenv->env;
+  wenv.prev_env       = cenv->env;
+  wenv.postfix        = cenv->input + cenv->cursor;
   wenv.sbuf = sbuf_new(cenv->env->mem);
   if (wenv.sbuf == NULL) { mem_free(cenv->env->mem, word); return; }
   cenv->complete = &qword_add_completion_ex;

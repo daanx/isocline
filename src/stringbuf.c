@@ -890,6 +890,27 @@ ic_private char* sbuf_strdup_from_utf8(stringbuf_t* sbuf) {
   return s;
 }
 
+
+
+static int ic_strncmp(const char* s1, const char* s2, ssize_t n) {
+  return strncmp(s1, s2, to_size_t(n));
+}
+
+ic_private ssize_t ic_count_end_overlap(const char* s, const char* postfix) {
+  if (s==NULL || postfix==NULL) return 0;
+  const ssize_t slen = ic_strlen(s);
+  for (ssize_t count = ic_strlen(postfix); count > 0; count--) {
+    if (count <= slen) {
+      if (ic_strncmp(&s[slen - count], postfix, count) == 0) {
+        return count;
+      }
+    }
+  }
+  return 0;
+}
+
+
+
 //-------------------------------------------------------------
 // String helpers
 //-------------------------------------------------------------
@@ -1001,11 +1022,6 @@ ic_public long ic_is_token(const char* s, long pos, ic_is_char_class_fun_t* is_t
     i += next;
   }
   return (long)(i - pos);
-}
-
-
-static int ic_strncmp(const char* s1, const char* s2, ssize_t n) {
-  return strncmp(s1, s2, to_size_t(n));
 }
 
 // Convenience: Does this match the specified token? 

@@ -244,6 +244,7 @@ ic_private ssize_t completions_apply_longest_prefix(completions_t* cms, stringbu
   memset(&cprefix,0,sizeof(cprefix));
   cprefix.delete_before = delete_before;
   cprefix.replacement   = prefix;
+  cprefix.delete_after  = ic_count_end_overlap(prefix, sbuf_string_at(sbuf, pos));
   ssize_t newpos = completion_apply( &cprefix, sbuf, pos);
   if (newpos < 0) return newpos;  
 
