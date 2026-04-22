@@ -1,6 +1,6 @@
 cabal-version: 1.12
 
--- This file has been generated from package.yaml by hpack version 0.37.0.
+-- This file has been generated from package.yaml by hpack version 0.39.1.
 --
 -- see: https://github.com/sol/hpack
 
@@ -67,8 +67,8 @@ library
       src/isocline.c
   build-depends:
       base >=3.0 && <5
-    , bytestring
-    , text
+    , bytestring >=0.9 && <2
+    , text >=0.1 && <3
   default-language: Haskell2010
 
 executable example
@@ -79,9 +79,9 @@ executable example
       test
   build-depends:
       base >=3.0 && <5
-    , bytestring
+    , bytestring >=0.9 && <2
     , isocline
-    , text
+    , text >=0.1 && <3
   default-language: Haskell2010
 
 test-suite test-example
@@ -93,7 +93,7 @@ test-suite test-example
       test
   build-depends:
       base >=3.0 && <5
-    , bytestring
+    , bytestring >=0.9 && <2
     , isocline
-    , text
+    , text >=0.1 && <3
   default-language: Haskell2010
