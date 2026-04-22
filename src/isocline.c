@@ -6,11 +6,11 @@
 -----------------------------------------------------------------------------*/
 
 //-------------------------------------------------------------
-// Usually we include all sources one file so no internal 
+// Usually we include all sources one file so no internal
 // symbols are public in the libray.
-// 
-// You can compile the entire library just as: 
-// $ gcc -c src/isocline.c 
+//
+// You can compile the entire library just as:
+// $ gcc -c src/isocline.c
 //-------------------------------------------------------------
 #if !defined(IC_SEPARATE_OBJS)
 # ifndef _CRT_NONSTDC_NO_WARNINGS
@@ -55,14 +55,14 @@
 
 static char*  ic_getline( alloc_t* mem );
 
-ic_public char* ic_readline(const char* prompt_text) 
+ic_public char* ic_readline(const char* prompt_text)
 {
   ic_env_t* env = ic_get_env();
   if (env == NULL) return NULL;
   if (!env->noedit) {
     // terminal editing enabled
     return ic_editline(env, prompt_text);   // in editline.c
-  } 
+  }
   else {
     // no editing capability (pipe, dumb terminal, etc)
     if (env->tty != NULL && env->term != NULL) {
@@ -71,7 +71,7 @@ ic_public char* ic_readline(const char* prompt_text)
       if (prompt_text != NULL) {
         term_write(env->term, prompt_text);
       }
-      term_write(env->term, env->prompt_marker);    
+      term_write(env->term, env->prompt_marker);
       term_end_raw(env->term, false);
     }
     // read directly from stdin
@@ -81,12 +81,12 @@ ic_public char* ic_readline(const char* prompt_text)
 
 
 //-------------------------------------------------------------
-// Read a line from the stdin stream if there is no editing 
+// Read a line from the stdin stream if there is no editing
 // support (like from a pipe, file, or dumb terminal).
 //-------------------------------------------------------------
 
 static char* ic_getline(alloc_t* mem)
-{  
+{
   // read until eof or newline
   stringbuf_t* sb = sbuf_new(mem);
   int c;
@@ -310,7 +310,7 @@ ic_public void ic_set_insertion_braces(const char* brace_pairs) {
   env->auto_braces = NULL;
   if (brace_pairs != NULL) {
     ssize_t len = ic_strlen(brace_pairs);
-    if (len > 0 && (len % 2) == 0) { 
+    if (len > 0 && (len % 2) == 0) {
       env->auto_braces = mem_strdup(env->mem, brace_pairs);
     }
   }
@@ -412,8 +412,8 @@ ic_public void ic_term_style( const char* style ) {
 }
 
 ic_public int ic_term_get_color_bits(void) {
-  ic_env_t* env = ic_get_env(); 
-  if (env==NULL || env->term==NULL) return 4;  
+  ic_env_t* env = ic_get_env();
+  if (env==NULL || env->term==NULL) return 4;
   return term_get_color_bits(env->term);
 }
 
@@ -497,9 +497,9 @@ static void ic_env_free(ic_env_t* env) {
   mem_free(env->mem, env->match_braces);
   mem_free(env->mem, env->auto_braces);
   env->prompt_marker = NULL;
-  
+
   // and deallocate ourselves
-  alloc_t* mem = env->mem;  
+  alloc_t* mem = env->mem;
   mem_free(mem, env);
 
   // and finally the custom memory allocation structure
@@ -507,7 +507,7 @@ static void ic_env_free(ic_env_t* env) {
 }
 
 
-static ic_env_t* ic_env_create( ic_malloc_fun_t* _malloc, ic_realloc_fun_t* _realloc, ic_free_fun_t* _free )  
+static ic_env_t* ic_env_create( ic_malloc_fun_t* _malloc, ic_realloc_fun_t* _realloc, ic_free_fun_t* _free, int fd_in, int fd_out )
 {
   if (_malloc == NULL)  _malloc = &malloc;
   if (_realloc == NULL) _realloc = &realloc;
@@ -526,21 +526,21 @@ static ic_env_t* ic_env_create( ic_malloc_fun_t* _malloc, ic_realloc_fun_t* _rea
   env->mem = mem;
 
   // Initialize
-  env->tty         = tty_new(env->mem, -1);  // can return NULL
-  env->term        = term_new(env->mem, env->tty, false, false, -1 );  
+  env->tty         = tty_new(env->mem, fd_in);  // can return NULL
+  env->term        = term_new(env->mem, env->tty, false, false, fd_out );
   env->history     = history_new(env->mem);
   env->completions = completions_new(env->mem);
   env->bbcode      = bbcode_new(env->mem, env->term);
-  env->hint_delay  = 400;   
-  
+  env->hint_delay  = 400;
+
   if (env->tty == NULL || env->term==NULL ||
       env->completions == NULL || env->history == NULL || env->bbcode == NULL ||
-      !term_is_interactive(env->term)) 
+      !term_is_interactive(env->term))
   {
     env->noedit = true;
   }
   env->multiline_eol = '\\';
-  
+
   bbcode_style_def(env->bbcode, "ic-prompt",    "ansi-green" );
   bbcode_style_def(env->bbcode, "ic-info",      "ansi-darkgray" );
   bbcode_style_def(env->bbcode, "ic-diminish",  "ansi-lightgray" );
@@ -570,25 +570,36 @@ static void ic_atexit(void) {
   }
 }
 
-ic_private ic_env_t* ic_get_env(void) {  
+ic_private ic_env_t* ic_get_env(void) {
   if (rpenv==NULL) {
-    rpenv = ic_env_create( NULL, NULL, NULL );
+    rpenv = ic_env_create( NULL, NULL, NULL, -1, -1 );
     if (rpenv != NULL) { atexit( &ic_atexit ); }
   }
   return rpenv;
 }
 
-ic_public void ic_init_custom_malloc( ic_malloc_fun_t* _malloc, ic_realloc_fun_t* _realloc, ic_free_fun_t* _free ) {
+ic_public void ic_init_custom_malloc_ex( ic_malloc_fun_t* _malloc, ic_realloc_fun_t* _realloc, ic_free_fun_t* _free, bool use_std_err ) {
   assert(rpenv == NULL);
+  const int fd_out = (use_std_err ? STDERR_FILENO : -1 /* default = stdout */ );
   if (rpenv != NULL) {
-    ic_env_free(rpenv);    
-    rpenv = ic_env_create( _malloc, _realloc, _free ); 
+    ic_env_free(rpenv);
+    rpenv = ic_env_create( _malloc, _realloc, _free, -1, fd_out );
   }
   else {
-    rpenv = ic_env_create( _malloc, _realloc, _free ); 
+    rpenv = ic_env_create( _malloc, _realloc, _free, -1, fd_out );
     if (rpenv != NULL) {
       atexit( &ic_atexit );
     }
   }
+}
+
+ic_public void ic_init_custom_malloc( ic_malloc_fun_t* _malloc, ic_realloc_fun_t* _realloc, ic_free_fun_t* _free ) {
+  assert(rpenv == NULL);
+  ic_init_custom_malloc_ex(_malloc,_realloc,_free,false);
+}
+
+ic_public void ic_init( bool use_std_err ) {
+  assert(rpenv == NULL);
+  ic_init_custom_malloc_ex(NULL,NULL,NULL,use_std_err);
 }
 
