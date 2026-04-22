@@ -333,7 +333,7 @@ ic_private term_t* term_new(alloc_t* mem, tty_t* tty, bool nocolor, bool silent,
   if (term == NULL) return NULL;
 
   term->fd_out  = (fd_out < 0 ? STDOUT_FILENO : fd_out);
-  term->nocolor = nocolor || (isatty(term->fd_out) == 0);
+  term->nocolor = nocolor || !tty_is_atty(term->fd_out);
   term->silent  = silent;
   term->mem     = mem;
   term->tty     = tty;     // can be NULL

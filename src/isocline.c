@@ -578,6 +578,10 @@ ic_private ic_env_t* ic_get_env(void) {
   return rpenv;
 }
 
+#ifndef STDERR_FILENO
+#define STDERR_FILENO  2
+#endif
+
 ic_public void ic_init_custom_malloc_ex( ic_malloc_fun_t* _malloc, ic_realloc_fun_t* _realloc, ic_free_fun_t* _free, bool use_std_err ) {
   assert(rpenv == NULL);
   const int fd_out = (use_std_err ? STDERR_FILENO : -1 /* default = stdout */ );
