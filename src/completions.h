@@ -23,7 +23,7 @@
 //-------------------------------------------------------------
 // completion couldn't complete
 #define IC_COMP_APPLY_FAIL -1
-// completion didn't end up modifying the buffer
+// completion didn't end up modifying the buffer or cursor position
 #define IC_COMP_APPLY_NOOP -2
 
 typedef struct completions_s completions_t;

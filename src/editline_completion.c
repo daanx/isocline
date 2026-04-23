@@ -9,7 +9,7 @@
 // Completion menu: this file is included in editline.c
 //-------------------------------------------------------------
 
-// return true if the buffer was actually changed, false otherwise;
+// return true iff the buffer or cursor position was actually changed;
 // clean up any dirtiness in the undo stack. update eb->pos if appropriate
 static bool edit_completion_commit(editor_t* eb, ssize_t newpos) {
   if (newpos == IC_COMP_APPLY_FAIL) {
@@ -29,17 +29,17 @@ static bool edit_completion_commit(editor_t* eb, ssize_t newpos) {
 static bool edit_complete(ic_env_t* env, editor_t* eb, ssize_t idx) {
   editor_start_modify(eb);
   ssize_t newpos = completions_apply(env->completions, idx, eb->input, eb->pos);
-  bool buffer_changed = edit_completion_commit(eb, newpos);
+  bool buf_or_pos_changed = edit_completion_commit(eb, newpos);
 
-  // trigger a refresh if the buffer changed
-  if (buffer_changed)
+  // trigger a refresh if the buffer or cursor position changed
+  if (buf_or_pos_changed)
     edit_refresh(env, eb);
   // or when choosing between menu items, even if the current item is the same
   // as the buffer, because we need to highlight that item
   else if (newpos == IC_COMP_APPLY_NOOP && completions_count(env->completions) > 1)
     edit_refresh(env, eb);
 
-  return buffer_changed;
+  return buf_or_pos_changed;
 }
 
 static void edit_complete_longest_prefix(ic_env_t* env, editor_t* eb ) {
