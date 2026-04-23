@@ -9,29 +9,43 @@
 // Completion menu: this file is included in editline.c
 //-------------------------------------------------------------
 
+// return true iff the buffer or cursor position was actually changed;
+// clean up any dirtiness in the undo stack. update eb->pos if appropriate
+static bool edit_completion_commit(editor_t* eb, ssize_t newpos) {
+  if (newpos == IC_COMP_APPLY_FAIL) {
+    editor_undo_restore(eb, false);
+    return false;
+  }
+  if (newpos == IC_COMP_APPLY_NOOP) {
+    editor_undo_forget(eb);
+    return false;
+  }
+
+  eb->pos = newpos;
+  return true;
+}
+
 // return true if anything changed
 static bool edit_complete(ic_env_t* env, editor_t* eb, ssize_t idx) {
   editor_start_modify(eb);
   ssize_t newpos = completions_apply(env->completions, idx, eb->input, eb->pos);
-  if (newpos < 0) {
-    editor_undo_restore(eb,false);
-    return false;
-  }
-  eb->pos = newpos;
-  edit_refresh(env,eb);  
-  return true;
+  bool buf_or_pos_changed = edit_completion_commit(eb, newpos);
+
+  // trigger a refresh if the buffer or cursor position changed
+  if (buf_or_pos_changed)
+    edit_refresh(env, eb);
+  // or when choosing between menu items, even if the current item is the same
+  // as the buffer, because we need to highlight that item
+  else if (newpos == IC_COMP_APPLY_NOOP && completions_count(env->completions) > 1)
+    edit_refresh(env, eb);
+
+  return buf_or_pos_changed;
 }
 
-static bool edit_complete_longest_prefix(ic_env_t* env, editor_t* eb ) {
+static void edit_complete_longest_prefix(ic_env_t* env, editor_t* eb ) {
   editor_start_modify(eb);
   ssize_t newpos = completions_apply_longest_prefix( env->completions, eb->input, eb->pos );
-  if (newpos < 0) {
-    editor_undo_restore(eb,false);
-    return false;
-  }
-  eb->pos = newpos;
-  edit_refresh(env,eb);
-  return true;
+  edit_completion_commit(eb, newpos);
 }
 
 ic_private void sbuf_append_tagged( stringbuf_t* sb, const char* tag, const char* content ) {
@@ -150,8 +164,8 @@ again:
     }
   }
   if (!env->complete_nopreview && selected >= 0 && selected <= count_displayed) {
-    edit_complete(env,eb,selected);
-    editor_undo_restore(eb,false);
+    if (edit_complete(env,eb,selected))
+      editor_undo_restore(eb,false);
   }
   else {
     edit_refresh(env, eb);
@@ -203,8 +217,7 @@ again:
     // select the current entry
     assert(selected < count);
     c = 0;      
-    edit_complete(env, eb, selected);    
-    if (env->complete_autotab) {
+    if (edit_complete(env, eb, selected) && env->complete_autotab) {
       tty_code_pushback(env->tty,KEY_EVENT_AUTOTAB); // immediately try to complete again        
     }
   }
@@ -261,9 +274,8 @@ static void edit_generate_completions(ic_env_t* env, editor_t* eb, bool autotab)
     if (!autotab) { term_beep(env->term); }
   }
   else if (count == 1) {
-    ssize_t old_pos = eb->pos;
     // complete if only one match    
-    if (edit_complete(env,eb,0 /*idx*/) && env->complete_autotab && eb->pos > old_pos) {
+    if (edit_complete(env,eb,0 /*idx*/) && env->complete_autotab) {
       tty_code_pushback(env->tty,KEY_EVENT_AUTOTAB);
     }    
   }

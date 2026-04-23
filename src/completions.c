@@ -168,14 +168,19 @@ ic_public bool ic_stop_completing( const ic_completion_env_t* cenv) {
 
 
 static ssize_t completion_apply( completion_t* cm, stringbuf_t* sbuf, ssize_t pos ) {
-  if (cm == NULL) return -1;  
+  if (cm == NULL) return IC_COMP_APPLY_FAIL;
   debug_msg( "completion: apply: %s at %zd\n", cm->replacement, pos);
   ssize_t start = pos - cm->delete_before;
   if (start < 0) start = 0;
   ssize_t n = cm->delete_before + cm->delete_after;
   if (ic_strlen(cm->replacement) == n && strncmp(sbuf_string_at(sbuf,start), cm->replacement, to_size_t(n)) == 0) {
-    // no changes
-    return start + n;
+    // if delete_after > 0, we performed a completion while inside of the word,
+    // so return the actual new cursor position, because eb->pos needs updating
+    if (cm->delete_after > 0)
+      return start + n;
+    // otherwise we can just say nothing happened at all
+    else
+      return IC_COMP_APPLY_NOOP;
   }
   else {
     sbuf_delete_from_to( sbuf, start, pos + cm->delete_after );
@@ -211,7 +216,7 @@ ic_private ssize_t completions_apply_longest_prefix(completions_t* cms, stringbu
 
   // set initial prefix to the first entry
   completion_t* cm = completions_get(cms, 0);
-  if (cm == NULL) return -1;
+  if (cm == NULL) return IC_COMP_APPLY_FAIL;
 
   char prefix[IC_MAX_PREFIX+1];
   ssize_t delete_before = cm->delete_before;
@@ -237,7 +242,7 @@ ic_private ssize_t completions_apply_longest_prefix(completions_t* cms, stringbu
 
   // check the length
   ssize_t len = ic_strlen(prefix);
-  if (len <= 0 || len < delete_before) return -1;
+  if (len <= 0 || len < delete_before) return IC_COMP_APPLY_NOOP;
 
   // we found a prefix :-)
   completion_t cprefix;
