@@ -156,6 +156,17 @@ struct ic_completion_env_s;
 /// A completion environment
 typedef struct ic_completion_env_s ic_completion_env_t;
 
+/// A comparator function passed to qsort in order to sort the completions menu.
+typedef int (ic_sorter_fun_t)(const void* a, const void* b);
+
+/// Set the function used for sorting the completion menu entries. Accepts NULL
+/// to avoid sorting at all, e.g. if the user needs complex sorting that would
+/// already be done on the application side.
+/// @param sorter  The sorter function
+/// The initial sorter uses case insensitive shortlex.
+void ic_set_default_sorter( ic_sorter_fun_t* sorter);
+
+
 /// A completion callback that is called by isocline when tab is pressed.
 /// It is passed a completion environment (containing the current input and the current cursor position),
 /// the current input up-to the cursor (`prefix`)

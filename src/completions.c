@@ -31,6 +31,7 @@ struct completions_s {
   ic_completer_fun_t* completer;
   void* completer_arg;
   ssize_t completer_max;
+  ic_sorter_fun_t* sorter;
   ssize_t count;
   ssize_t len;
   completion_t* elems;
@@ -38,12 +39,14 @@ struct completions_s {
 };
 
 static void default_filename_completer( ic_completion_env_t* cenv, const char* prefix );
+static int default_ishortlex_sorter(const void* p1, const void* p2);
 
 ic_private completions_t* completions_new(alloc_t* mem) {
   completions_t* cms = mem_zalloc_tp(mem, completions_t);
   if (cms == NULL) return NULL;
   cms->mem = mem;
   cms->completer = &default_filename_completer;
+  cms->sorter = &default_ishortlex_sorter;
   return cms;
 }
 
@@ -193,8 +196,12 @@ ic_private ssize_t completions_apply( completions_t* cms, ssize_t index, stringb
   return completion_apply( cm, sbuf, pos );
 }
 
+ic_public void ic_set_default_sorter(ic_sorter_fun_t* sorter) {
+  ic_env_t* env = ic_get_env(); if (env == NULL) return;
+  env->completions->sorter = sorter;
+}
 
-static int completion_compare(const void* p1, const void* p2) {
+static int default_ishortlex_sorter(const void* p1, const void* p2) {
   if (p1 == NULL || p2 == NULL) return 0;
   const completion_t* cm1 = (const completion_t*)p1;
   const completion_t* cm2 = (const completion_t*)p2;  
@@ -202,8 +209,8 @@ static int completion_compare(const void* p1, const void* p2) {
 }
 
 ic_private void completions_sort(completions_t* cms) {
-  if (cms->count <= 0) return;
-  qsort(cms->elems, to_size_t(cms->count), sizeof(cms->elems[0]), &completion_compare);
+  if (cms->count <= 0 || cms->sorter == NULL) return;
+  qsort(cms->elems, to_size_t(cms->count), sizeof(cms->elems[0]), cms->sorter);
 }
 
 #define IC_MAX_PREFIX  (256)
