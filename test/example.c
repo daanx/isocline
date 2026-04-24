@@ -47,6 +47,9 @@ int main(int argc, char** argv)
   // enable syntax highlighting with a highlight function
   ic_set_default_highlighter(highlighter, NULL);
 
+  // completion menu sorting is enabled by default (case insensitive shortlex)
+  // ic_set_default_sorter(NULL);
+
   // try to auto complete after a completion as long as the completion is unique
   ic_enable_auto_tab(true );
 
