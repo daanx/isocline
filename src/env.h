@@ -33,6 +33,8 @@ struct ic_env_s {
   const char*     cprompt_marker;   // prompt marker for continuation lines (defaults to `prompt_marker`)
   ic_highlight_fun_t* highlighter;  // highlight callback
   void*           highlighter_arg;  // user state for the highlighter.
+  ic_hint_fun_t*  hinter;           // hint callback
+  void*           hinter_arg;       // user state for the hinter.
   const char*     match_braces;     // matching braces, e.g "()[]{}"
   const char*     auto_braces;      // auto insertion braces, e.g "()[]{}\"\"''"
   char            multiline_eol;    // character used for multiline input ("\") (set to 0 to disable)

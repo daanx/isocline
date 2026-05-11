@@ -293,6 +293,14 @@ typedef char* (ic_highlight_format_fun_t)(const char* s, void* arg);
 /// content of `formatted` without bbcode tags should match `input` exactly.
 void ic_highlight_formatted(ic_highlight_env_t* henv, const char* input, const char* formatted);
 
+/// A hint callback that returns a hint to display inline at the cursor, or NULL for no hint.
+/// The returned string is copied and need not be preserved.
+typedef const char* (ic_hint_fun_t)(const char* input, void* arg);
+
+/// Set a hint callback. Overrides the default completion-derived hint when set.
+/// There can only be one hint function, setting it again disables the previous one.
+void ic_set_default_hinter(ic_hint_fun_t* hinter, void* arg);
+
 /// \}
 
 //--------------------------------------------------------------

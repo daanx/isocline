@@ -456,7 +456,19 @@ static void edit_refresh_hint(ic_env_t* env, editor_t* eb) {
     edit_refresh(env, eb);
     if (env->no_hint) return;
   }
-    
+
+  // user-defined hinter takes priority over completion-derived hint
+  if (env->hinter != NULL) {
+    const char* hint = env->hinter(sbuf_string(eb->input), env->hinter_arg);
+    if (hint != NULL && hint[0] != 0) {
+      sbuf_replace(eb->hint, hint);
+    }
+    if (env->hint_delay <= 0) {
+      edit_refresh(env, eb);
+    }
+    return;
+  }
+
   // and see if we can construct a hint (displayed after a delay)
   ssize_t count = completions_generate(env, env->completions, sbuf_string(eb->input), eb->pos, 2);
   if (count == 1) {
