@@ -31,9 +31,10 @@ static bool edit_complete(ic_env_t* env, editor_t* eb, ssize_t idx) {
   ssize_t newpos = completions_apply(env->completions, idx, eb->input, eb->pos);
   bool buf_or_pos_changed = edit_completion_commit(eb, newpos);
 
-  // trigger a refresh if the buffer or cursor position changed
+  // trigger a refresh if the buffer or cursor position changed; use the hint
+  // variant so the user-defined hinter fires on a tab-accepted completion
   if (buf_or_pos_changed)
-    edit_refresh(env, eb);
+    edit_refresh_hint(env, eb);
   // or when choosing between menu items, even if the current item is the same
   // as the buffer, because we need to highlight that item
   else if (newpos == IC_COMP_APPLY_NOOP && completions_count(env->completions) > 1)
