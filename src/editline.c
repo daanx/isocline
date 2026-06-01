@@ -58,7 +58,9 @@ static void edit_refresh(ic_env_t* env, editor_t* eb);
 ic_private char* ic_editline(ic_env_t* env, const char* prompt_text) {
   tty_start_raw(env->tty);
   term_start_raw(env->term);
+  term_write(env->term, "\x1b[?2004h");   // enable bracketed paste
   char* line = edit_line(env,prompt_text);
+  term_write(env->term, "\x1b[?2004l");   // disable bracketed paste
   term_end_raw(env->term,false);
   tty_end_raw(env->tty);
   term_writeln(env->term,"");
@@ -817,7 +819,36 @@ static void edit_insert_char(ic_env_t* env, editor_t* eb, char c) {
   if (c=='\n') {
     editor_auto_indent(eb, "{", "}");  // todo: custom auto indent tokens?
   }
-  edit_refresh_hint(env,eb);  
+  edit_refresh_hint(env,eb);
+}
+
+// insert a bracketed paste literally: newlines do not submit, and one undo unit
+// + a single refresh keep a large paste from being quadratic
+static void edit_paste(ic_env_t* env, editor_t* eb) {
+  editor_start_modify(eb);
+  bool after_cr = false;
+  while (true) {
+    code_t c = tty_read(env->tty);
+    if (c == KEY_EVENT_PASTE_END || c == KEY_NONE || c == KEY_EVENT_STOP) break;
+    if (c == KEY_ENTER || c == KEY_LINEFEED) {
+      if (c == KEY_LINEFEED && after_cr) { after_cr = false; continue; } // collapse CRLF
+      after_cr = (c == KEY_ENTER);
+      ssize_t nextpos = sbuf_insert_char_at(eb->input, '\n', eb->pos);
+      if (nextpos >= 0) eb->pos = nextpos;
+      continue;
+    }
+    after_cr = false;
+    unicode_t uchr;
+    if (c == KEY_TAB) {
+      ssize_t nextpos = sbuf_insert_char_at(eb->input, '\t', eb->pos);
+      if (nextpos >= 0) eb->pos = nextpos;
+    }
+    else if (c >= ' ' && code_is_unicode(c, &uchr)) {
+      ssize_t nextpos = sbuf_insert_unicode_at(eb->input, uchr, eb->pos);
+      if (nextpos >= 0) eb->pos = nextpos;
+    }
+  }
+  edit_refresh(env, eb);
 }
 
 //-------------------------------------------------------------
@@ -960,6 +991,11 @@ static char* edit_line( ic_env_t* env, const char* prompt_text )
       case KEY_EVENT_AUTOTAB:
         edit_generate_completions(env, &eb, true);
         break;
+      case KEY_EVENT_PASTE_START:
+        edit_paste(env, &eb);
+        break;
+      case KEY_EVENT_PASTE_END:
+        break;  // stray end marker; ignore
 
       // completion, history, help, undo
       case KEY_TAB:
