@@ -131,8 +131,10 @@ static code_t esc_decode_vt(uint32_t vt_code ) {
     case 5: return KEY_PAGEUP;
     case 6: return KEY_PAGEDOWN;
     case 7: return KEY_HOME;
-    case 8: return KEY_END;          
-    default: 
+    case 8: return KEY_END;
+    case 200: return KEY_EVENT_PASTE_START;
+    case 201: return KEY_EVENT_PASTE_END;
+    default:
       if (vt_code >= 10 && vt_code <= 15) return KEY_F(1  + (vt_code - 10));
       if (vt_code == 16) return KEY_F5; // minicom
       if (vt_code >= 17 && vt_code <= 21) return KEY_F(6  + (vt_code - 17));
