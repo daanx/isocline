@@ -300,8 +300,9 @@ static code_t tty_read_csi(tty_t* tty, uint8_t c1, uint8_t peek, code_t mods0, l
     num1 = 1;
   }
 
-  // parameter 2 determines the modifiers
-  if (num2 > 1 && num2 <= 9) {
+  // parameter 2 determines the modifiers (1 + bitmask: shift=0x1,alt=0x2,ctrl=0x4)
+  // kitty protocol adds lock bits (caps=0x40,num=0x80): mask them, don't bound num2
+  if (num2 > 1) {
     if (num2 == 9) num2 = 3; // iTerm2 in xterm mode
     num2--;
     if (num2 & 0x1) modifiers |= KEY_MOD_SHIFT;

@@ -198,6 +198,10 @@ static code_t modify_code( code_t code ) {
   else if (key == KEY_ENTER && (mods == KEY_MOD_SHIFT || mods == KEY_MOD_ALT || mods == KEY_MOD_CTRL)) {
     code = KEY_LINEFEED;
   }
+  // ctrl+<letter> as a CSI-u sequence (kitty protocol) arrives as letter+ctrl; fold to C0
+  else if ((mods & KEY_MOD_CTRL) != 0 && ((key >= 'a' && key <= 'z') || (key >= 'A' && key <= 'Z'))) {
+    code = (key & 0x1F);
+  }
   // treat ctrl+tab always as shift+tab for portability
   else if (code == WITH_CTRL(KEY_TAB)) {
     code = KEY_SHIFT_TAB;
