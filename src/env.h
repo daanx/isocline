@@ -31,6 +31,11 @@ struct ic_env_s {
   bbcode_t*       bbcode;           // print with bbcodes
   const char*     prompt_marker;    // the prompt marker (defaults to "> ")
   const char*     cprompt_marker;   // prompt marker for continuation lines (defaults to `prompt_marker`)
+  const char*     mode_prompt_marker; // alternate marker shown while a prompt mode is active (NULL disables)
+  char            mode_trigger;     // char that enters the mode on an empty buffer (0 disables)
+  bool            mode_active;      // is the prompt mode active? (persists across ic_readline calls)
+  ic_mode_fun_t*  mode_callback;    // notified when the mode is entered/exited (may be NULL)
+  void*           mode_arg;         // user state for the mode callback
   ic_highlight_fun_t* highlighter;  // highlight callback
   void*           highlighter_arg;  // user state for the highlighter.
   const char*     match_braces;     // matching braces, e.g "()[]{}"

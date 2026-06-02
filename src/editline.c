@@ -181,8 +181,11 @@ static void edit_write_prompt( ic_env_t* env, editor_t* eb, ssize_t row, bool in
     }
   }
   // the marker
-  bbcode_print(env->bbcode, (row == 0 ? env->prompt_marker : env->cprompt_marker ));   
-  bbcode_style_close(env->bbcode,NULL);    
+  const char* marker = (row == 0
+    ? ((env->mode_active && env->mode_prompt_marker != NULL) ? env->mode_prompt_marker : env->prompt_marker)
+    : env->cprompt_marker);
+  bbcode_print(env->bbcode, marker);
+  bbcode_style_close(env->bbcode,NULL);
 }
 
 //-------------------------------------------------------------
@@ -873,7 +876,7 @@ static char* edit_line( ic_env_t* env, const char* prompt_text )
   }
   
   // show prompt
-  edit_write_prompt(env, &eb, 0, false);   
+  edit_write_prompt(env, &eb, 0, false);
 
   // always a history entry for the current input
   history_push(env->history, "");
@@ -917,7 +920,19 @@ static char* edit_line( ic_env_t* env, const char* prompt_text )
     // if the user tries to move into a hint with left-cursor or end, we complete it first
     if ((c == KEY_RIGHT || c == KEY_END) && had_hint) {
       edit_generate_completions(env, &eb, true);
-      c = KEY_NONE;      
+      c = KEY_NONE;
+    }
+
+    // the trigger char on an empty buffer enters the mode rather than being inserted
+    {
+      char trig;
+      if (!env->mode_active && env->mode_trigger != 0 && code_is_ascii_char(c, &trig) &&
+            trig == env->mode_trigger && eb.pos == 0 && editor_pos_is_at_end(&eb)) {
+        env->mode_active = true;
+        if (env->mode_callback != NULL) env->mode_callback(true, env->mode_arg);
+        edit_refresh(env, &eb);
+        continue;
+      }
     }
 
     // Operations that may return
@@ -942,9 +957,15 @@ static char* edit_line( ic_env_t* env, const char* prompt_text )
       break; // STOP event quits with NULL
     }
     else if (c == KEY_ESC) {
-      if (eb.pos == 0 && editor_pos_is_at_end(&eb)) break;  // ESC on empty input returns with empty input
-      edit_delete_all(env,&eb);      // otherwise delete the current input
-      // edit_delete_line(env,&eb);  // otherwise delete the current line
+      if (env->mode_active) {
+        // in mode, Escape exits the mode instead of returning the line
+        env->mode_active = false;
+        if (env->mode_callback != NULL) env->mode_callback(false, env->mode_arg);
+        edit_delete_all(env,&eb);
+        edit_refresh(env,&eb);
+      }
+      else if (eb.pos == 0 && editor_pos_is_at_end(&eb)) break;  // ESC on empty input returns with empty input
+      else edit_delete_all(env,&eb); // otherwise delete the current input
     }
     else if (c == KEY_BELL /* ^G */ || c == KEY_CTRL_C) {
       edit_delete_all(env,&eb);

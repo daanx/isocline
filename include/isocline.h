@@ -330,6 +330,21 @@ const char* ic_get_prompt_marker(void);
 /// Get the current continuation prompt marker.
 const char* ic_get_continuation_prompt_marker(void);
 
+/// Callback invoked when a prompt mode is entered (\a active true) or exited.
+typedef void (ic_mode_fun_t)(bool active, void* arg);
+
+/// Configure a toggleable prompt mode: pressing \a trigger on an empty buffer
+/// enters the mode (the char is not inserted), swapping the prompt marker to
+/// \a mode_marker until the user presses Escape. The mode persists across
+/// `ic_readline` calls. Pass \a NULL marker or `0` trigger to disable.
+void ic_set_prompt_mode( const char* mode_marker, char trigger );
+
+/// Set the callback invoked whenever the prompt mode is entered or exited.
+void ic_set_mode_callback( ic_mode_fun_t* fun, void* arg );
+
+/// Get whether the prompt mode is currently active.
+bool ic_get_mode_active(void);
+
 /// Disable or enable multi-line input (enabled by default).
 /// Returns the previous setting.
 bool ic_enable_multiline( bool enable );
