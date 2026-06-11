@@ -136,6 +136,7 @@ These are also shown when pressing `F1` on a Isocline prompt. We use `^` as a sh
 | Completion menu   |                                                 |
 |-------------------|-------------------------------------------------|
 | `enter`,`left`    | use the currently selected completion |
+| `space`           | use the selected completion and insert a space (when enabled via `ic_enable_space_completes`) |
 | `1` - `9`         | use completion N from the menu |
 | `tab, down    `   | select the next completion |
 | `shift-tab, up`   | select the previous completion |

@@ -221,6 +221,14 @@ again:
       tty_code_pushback(env->tty,KEY_EVENT_AUTOTAB); // immediately try to complete again        
     }
   }
+  else if (env->complete_space && selected >= 0 && c == ' ') {
+    // accept the selected entry and insert the typed space after it (like the
+    // zsh menu selection or the fish pager). space is classified as a virt key
+    // (code <= 0x20) so the preview branch below would discard the selection
+    assert(selected < count);
+    edit_complete(env, eb, selected);
+    // c stays ' ' so it is pushed back below and inserted after the completion
+  }
   else if (!env->complete_nopreview && !code_is_virt_key(c)) {
     // if in preview mode, select the current entry and exit the menu
     assert(selected < count);

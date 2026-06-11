@@ -236,6 +236,13 @@ ic_public bool ic_enable_completion_preview( bool enable ) {
   return !prev;
 }
 
+ic_public bool ic_enable_space_completes( bool enable ) {
+  ic_env_t* env = ic_get_env(); if (env==NULL) return false;
+  bool prev = env->complete_space;
+  env->complete_space = enable;
+  return prev;
+}
+
 ic_public bool ic_enable_multiline_indent(bool enable) {
   ic_env_t* env = ic_get_env(); if (env==NULL) return false;
   bool prev = env->no_multiline_indent;
