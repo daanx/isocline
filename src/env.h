@@ -41,6 +41,7 @@ struct ic_env_s {
   bool            singleline_only;  // allow only single line editing?
   bool            complete_nopreview; // do not show completion preview for each selection in the completion menu?
   bool            complete_autotab; // try to keep completing after a completion?
+  bool            complete_space;   // does a space accept the selected entry in the completion menu?
   bool            no_multiline_indent; // indent continuation lines to line up under the initial prompt 
   bool            no_help;          // show short help line for history search etc.
   bool            no_hint;          // allow hinting?

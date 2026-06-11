@@ -356,6 +356,12 @@ bool ic_enable_auto_tab( bool enable );
 /// Returns the previous setting.
 bool ic_enable_completion_preview( bool enable );
 
+/// Enable or disable that a space accepts the selected completion in the
+/// completion menu and is inserted after it, like the zsh menu selection
+/// or the fish pager (disabled by default).
+/// Returns the previous setting.
+bool ic_enable_space_completes( bool enable );
+
 /// Disable or enable automatic identation of continuation lines in multiline
 /// input so it aligns with the initial prompt.
 /// Returns the previous setting.
