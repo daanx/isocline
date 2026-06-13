@@ -587,7 +587,7 @@ ic_private ic_env_t* ic_get_env(void) {
 #define STDERR_FILENO  2
 #endif
 
-ic_public void ic_init_custom_malloc_ex( ic_malloc_fun_t* _malloc, ic_realloc_fun_t* _realloc, ic_free_fun_t* _free, bool use_std_err ) {
+ic_public void ic_init_custom_alloc_ex( ic_malloc_fun_t* _malloc, ic_realloc_fun_t* _realloc, ic_free_fun_t* _free, bool use_std_err ) {
   assert(rpenv == NULL);
   const int fd_out = (use_std_err ? STDERR_FILENO : -1 /* default = stdout */ );
   if (rpenv != NULL) {
@@ -602,13 +602,13 @@ ic_public void ic_init_custom_malloc_ex( ic_malloc_fun_t* _malloc, ic_realloc_fu
   }
 }
 
-ic_public void ic_init_custom_malloc( ic_malloc_fun_t* _malloc, ic_realloc_fun_t* _realloc, ic_free_fun_t* _free ) {
+ic_public void ic_init_custom_alloc( ic_malloc_fun_t* _malloc, ic_realloc_fun_t* _realloc, ic_free_fun_t* _free ) {
   assert(rpenv == NULL);
-  ic_init_custom_malloc_ex(_malloc,_realloc,_free,false);
+  ic_init_custom_alloc_ex(_malloc,_realloc,_free,false);
 }
 
 ic_public void ic_init( bool use_std_err ) {
   assert(rpenv == NULL);
-  ic_init_custom_malloc_ex(NULL,NULL,NULL,use_std_err);
+  ic_init_custom_alloc_ex(NULL,NULL,NULL,use_std_err);
 }
 

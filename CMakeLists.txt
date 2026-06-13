@@ -4,6 +4,28 @@
 cmake_minimum_required(VERSION 3.10)
 project(libisocline C CXX ASM)
 
+# -----------------------------------------------------------------------------
+# Get the ISOCINE_VERSION from
+# - CMake variable (if set)
+# - the latest git tag (if git is installed and tags are present)
+# - or fallback to 0.0.1
+# -----------------------------------------------------------------------------
+if (NOT DEFINED ISOCLINE_VERSION)
+	execute_process(
+		COMMAND git describe --tags --abbrev=0
+		WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}
+		OUTPUT_VARIABLE ISOCLINE_TAG
+		OUTPUT_STRIP_TRAILING_WHITESPACE
+		RESULT_VARIABLE GIT_RESULT
+	)
+	
+	if(NOT GIT_RESULT EQUAL 0)
+		set(ISOCLINE_VERSION "0.0.1")
+	else()
+		string(REGEX REPLACE "^v" "" ISOCLINE_VERSION ${ISOCLINE_TAG})
+	endif()
+endif()
+
 set(CMAKE_C_STANDARD   99)
 set(CMAKE_CXX_STANDARD 11)
 
@@ -171,7 +193,7 @@ endif()
 add_library(isocline_shared SHARED ${ic_sources})
 set_target_properties(isocline_shared PROPERTIES
     OUTPUT_NAME isocline
-    VERSION 1.0.9
+    VERSION ${ISOCLINE_VERSION}
     SOVERSION 1
 )
 target_compile_options(isocline_shared PRIVATE ${ic_cflags})

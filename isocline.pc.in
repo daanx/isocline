@@ -5,6 +5,6 @@ includedir=${prefix}/@CMAKE_INSTALL_INCLUDEDIR@
 
 Name: isocline
 Description: Portable alternative to GNU Readline
-Version: 1.0.9
+Version: @ISOCLINE_VERSION@
 Libs: -L${libdir} -lisocline
 Cflags: -I${includedir}
