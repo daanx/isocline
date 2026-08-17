@@ -51,7 +51,7 @@ static void write_palette( int order) {
     ic_print("\n  ");
     for (int y = 0; y <= 256; y += 32) {
       for (int z = 0; z <= 256; z += 32) {
-        int r, g, b;
+        int r = 0, g = 0, b = 0;
         if (order == RGB) {
           r = x; g = y; b = z;
         }

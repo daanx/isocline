@@ -191,12 +191,9 @@ ic_private bool skip_esc( const char* s, ssize_t len, ssize_t* esclen ) {
     if (esclen != NULL) *esclen = 2;
     return true;
   }
-  else {
-    // assume single character escape code (like ESC 7)
-    if (esclen != NULL) *esclen = 2;
-    return true;
-  }
-  return false;
+  // assume single character escape code (like ESC 7)
+  if (esclen != NULL) *esclen = 2;
+  return true;
 }
 
 // Offset to the next codepoint, treats CSI escape sequences as a single code point.
