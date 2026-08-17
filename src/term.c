@@ -1029,7 +1029,7 @@ static void term_update_ansi16(term_t* term) {
   }
   #endif
   // this seems to be unreliable on some systems (Ubuntu+Gnome terminal) so only enable when known ok.
-  #if __APPLE__
+  #if defined(__APPLE__) || defined(__CYGWIN__)
   // otherwise use OSC 4 escape sequence query
   if (tty_start_raw(term->tty)) {
     for(int i = 0; i < 16; i++) {

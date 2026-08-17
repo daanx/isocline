@@ -541,6 +541,7 @@ ic_private bool tty_async_stop(const tty_t* tty) {
 }
 #else
 ic_private bool tty_async_stop(const tty_t* tty) {
+  ic_unused(tty);
   return false;
 }
 #endif
