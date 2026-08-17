@@ -134,7 +134,7 @@ ic_public void ic_complete_qword_ex( ic_completion_env_t* cenv, const char* pref
   if (quote_chars == NULL) quote_chars = "'\"";
 
   ssize_t len = ic_strlen(prefix);
-  ssize_t pos; // will be start of the 'word' (excluding a potential start quote)
+  ssize_t pos = 0; // will be start of the 'word' (excluding a potential start quote)
   char quote = 0;
   ssize_t quote_len = 0;
   

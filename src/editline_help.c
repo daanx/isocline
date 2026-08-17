@@ -9,7 +9,7 @@
 // Help: this is included into editline.c
 //-------------------------------------------------------------
 
-static const char* help[] = {
+static const char* help_strs[] = {
   "","Navigation:",
   "left,"
   "^b",         "go one character to the left",
@@ -125,12 +125,12 @@ static const char* help_initial =
 static void edit_show_help(ic_env_t* env, editor_t* eb) {
   edit_clear(env, eb);
   bbcode_println(env->bbcode, help_initial);
-  for (ssize_t i = 0; help[i] != NULL && help[i+1] != NULL; i += 2) {
-    if (help[i][0] == 0) {  
-      bbcode_printf(env->bbcode, "[ic-info]%s[/]\n", help[i+1]);
+  for (ssize_t i = 0; help_strs[i] != NULL && help_strs[i+1] != NULL; i += 2) {
+    if (help_strs[i][0] == 0) {
+      bbcode_printf(env->bbcode, "[ic-info]%s[/]\n", help_strs[i+1]);
     }
     else {
-      bbcode_printf(env->bbcode, "  [ic-emphasis]%-13s[/][ansi-lightgray]%s%s[/]\n", help[i], (help[i+1][0] == 0 ? "" : ": "), help[i+1]);
+      bbcode_printf(env->bbcode, "  [ic-emphasis]%-13s[/][ansi-lightgray]%s%s[/]\n", help_strs[i], (help_strs[i+1][0] == 0 ? "" : ": "), help_strs[i+1]);
     }
   }
 
