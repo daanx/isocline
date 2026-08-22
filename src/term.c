@@ -4,6 +4,10 @@
   under the terms of the MIT License. A copy of the license can be
   found in the "LICENSE" file at the root of this distribution.
 -----------------------------------------------------------------------------*/
+#if defined(__sun) && !defined(__EXTENSIONS__)
+#define __EXTENSIONS__  // for struct winsize with _XOPEN_SOURCE on illumos
+#endif
+
 #include <string.h>
 #include <stdio.h>
 #include <stdarg.h>
@@ -22,6 +26,9 @@
 #else
 #include <unistd.h>
 #include <errno.h>
+#if defined(__sun)
+#include <sys/termios.h>
+#endif
 #include <sys/ioctl.h>
 #if defined(__linux__)
 #include <linux/kd.h>

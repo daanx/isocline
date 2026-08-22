@@ -19,7 +19,13 @@
 # ifndef _CRT_SECURE_NO_WARNINGS
 #  define _CRT_SECURE_NO_WARNINGS  // for msvc
 # endif
-# define _XOPEN_SOURCE   700      // for wcwidth
+# if !defined(_XOPEN_SOURCE) || (_XOPEN_SOURCE < 700)
+#  undef _XOPEN_SOURCE
+#  define _XOPEN_SOURCE   700      // for wcwidth
+# endif
+# if defined(__sun) && !defined(__EXTENSIONS__)
+#  define __EXTENSIONS__           // for struct winsize with _XOPEN_SOURCE on illumos
+# endif
 # define _DEFAULT_SOURCE          // ensure usleep stays visible with _XOPEN_SOURCE >= 700
 # include "attr.c"
 # include "bbcode.c"
