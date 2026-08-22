@@ -2,7 +2,7 @@
 # Copyright (c) 2021, Daan Leijen
 # -----------------------------------------------------------------------------
 cmake_minimum_required(VERSION 3.10)
-project(libisocline C CXX ASM)
+project(libisocline C ASM)
 
 set(CMAKE_C_STANDARD   99)
 set(CMAKE_CXX_STANDARD 11)
@@ -44,6 +44,7 @@ if(IC_SEPARATE_OBJS)
 endif()
 
 if(IC_USE_CXX)
+  enable_language(CXX)
   set(IC_COMPILER_ID "${CMAKE_CXX_COMPILER_ID}")
   set_source_files_properties(${ic_sources}         PROPERTIES LANGUAGE CXX )
   set_source_files_properties(${ic_example_sources} PROPERTIES LANGUAGE CXX )
